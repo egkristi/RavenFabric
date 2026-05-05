@@ -28,6 +28,9 @@ lcov.info
 coverage/
 cobertura.xml
 
+# Docs build output
+docs/book/
+
 # Fuzz
 fuzz/artifacts/
 fuzz/corpus/

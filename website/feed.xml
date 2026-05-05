@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>RavenFabric Blog</title>
+    <link>https://ravenfabric.io/blog/</link>
+    <description>Engineering blog — deep dives into security, cryptography, networking, and distributed systems.</description>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 05 May 2026 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://ravenfabric.io/feed.xml" rel="self" type="application/rss+xml"/>
+
+    <item>
+      <title>Why Noise XX over TLS</title>
+      <link>https://ravenfabric.io/blog/why-noise-xx-over-tls.html</link>
+      <guid isPermaLink="true">https://ravenfabric.io/blog/why-noise-xx-over-tls.html</guid>
+      <pubDate>Mon, 05 May 2026 00:00:00 +0000</pubDate>
+      <description>Why RavenFabric chose the Noise XX handshake pattern instead of TLS. Mutual authentication, identity hiding, no certificate authorities, and relay opacity — all from a single protocol.</description>
+    </item>
+  </channel>
+</rss>

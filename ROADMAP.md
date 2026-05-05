@@ -180,8 +180,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Test Open Graph cards (LinkedIn Post Inspector, X Card Validator, Facebook Debugger, opengraph.xyz)
 - [ ] Set up Google Search Console (DNS TXT verification via Namecheap)
 - [ ] Submit sitemap: `https://ravenfabric.io/sitemap.xml`
-- [ ] Run Lighthouse audit: `npx lighthouse https://ravenfabric.io --view`
-- [ ] Run broken link check: `npx broken-link-checker https://ravenfabric.io --recursive --ordered`
+- [x] Run Lighthouse audit: `npx lighthouse https://ravenfabric.io --view`
+- [x] Run broken link check: `npx broken-link-checker https://ravenfabric.io --recursive --ordered`
 
 ### Critical Quick-Wins (this week)
 - [x] Fix broken links — create stubs for `SECURITY.md`, `LICENSING.md`, `CONTRIBUTING.md`, `CHANGELOG.md`
@@ -207,17 +207,17 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Content-Security-Policy meta tag (strict, no external font CDN)
 - [x] Twitter card meta tags (`twitter:creator`, `twitter:site`)
 - [x] ~~Mobile-responsive tables (stack layout on `<600px`)~~
-- [ ] OG image in WebP/AVIF format (reduce 117KB PNG)
+- [x] OG image in WebP/AVIF format (reduce 117KB PNG)
 
 ### When v0.1 Ships
 - [ ] Asciinema cast of `rf exec` demo (30s, embedded player)
 - [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no
-- [ ] First blog post ("Why Noise XX over TLS" or "Why air-gap support is first-class")
+- [x] First blog post ("Why Noise XX over TLS" or "Why air-gap support is first-class")
 - [x] ~~Status badge in header (build status, version, last release date)~~ — shields.io badges
 
 ### Medium-Term
-- [ ] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
-- [ ] `/blog/` section with RSS feed (`/feed.xml`)
+- [x] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
+- [x] `/blog/` section with RSS feed (`/feed.xml`)
 - [ ] Newsletter signup (Buttondown, not Mailchimp)
 - [ ] Live demo sandbox (`rf-demo.ravenfabric.io`)
 

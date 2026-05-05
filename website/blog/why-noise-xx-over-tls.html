@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Why RavenFabric chose the Noise XX handshake pattern instead of TLS — mutual authentication, identity hiding, no certificate authorities.">
+    <meta name="theme-color" content="#0a0b0d">
+    <title>Why Noise XX over TLS — RavenFabric Blog</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="alternate" type="application/rss+xml" title="RavenFabric Blog" href="/feed.xml">
+    <meta property="og:title" content="Why Noise XX over TLS">
+    <meta property="og:description" content="Why RavenFabric chose the Noise XX handshake pattern instead of TLS.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://ravenfabric.io/blog/why-noise-xx-over-tls.html">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0b0d;
+            color: #e8e6e3;
+            line-height: 1.8;
+        }
+        a { color: #c9a227; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .container { max-width: 720px; margin: 0 auto; padding: 0 1.5rem; }
+        header {
+            border-bottom: 1px solid #1f2228;
+            padding: 1rem 0;
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header .brand { font-size: 1.25rem; font-weight: 700; }
+        header nav a { margin-left: 1.5rem; color: #a8a39a; }
+        header nav a:hover { color: #e8e6e3; }
+        main { padding: 3rem 0; }
+        article h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .post-meta { color: #8a8579; margin-bottom: 2rem; font-size: 0.875rem; }
+        article h2 { font-size: 1.5rem; margin: 2rem 0 1rem; color: #c9a227; }
+        article p { margin-bottom: 1.25rem; color: #a8a39a; }
+        article strong { color: #e8e6e3; }
+        article code {
+            background: #15171b;
+            padding: 0.15em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+            color: #c9a227;
+        }
+        article pre {
+            background: #15171b;
+            padding: 1.25rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 1.25rem;
+            border: 1px solid #1f2228;
+        }
+        article pre code {
+            background: none;
+            padding: 0;
+            color: #e8e6e3;
+        }
+        article ul, article ol {
+            margin-bottom: 1.25rem;
+            padding-left: 1.5rem;
+            color: #a8a39a;
+        }
+        article li { margin-bottom: 0.5rem; }
+        .back-link { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #1f2228; }
+        footer {
+            border-top: 1px solid #1f2228;
+            padding: 2rem 0;
+            text-align: center;
+            color: #8a8579;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a href="/" class="brand">RavenFabric</a>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/docs/">Docs</a>
+                <a href="/blog/">Blog</a>
+                <a href="https://github.com/egkristi/RavenFabric">GitHub</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <article>
+                <h1>Why Noise XX over TLS</h1>
+                <div class="post-meta">May 5, 2026 &middot; 5 min read</div>
+
+                <p>Every security tool reaches the same crossroads early in development: <strong>how do we encrypt connections?</strong> The default answer in 2026 is still TLS. We chose something different.</p>
+
+                <p>RavenFabric uses the <strong>Noise XX handshake pattern</strong> with X25519, ChaCha20-Poly1305, and BLAKE2s. The same cryptographic foundation as WireGuard. Here's why.</p>
+
+                <h2>The Problem with TLS</h2>
+
+                <p>TLS is excellent for the web. It was designed for a world where browsers connect to millions of servers, and trust is delegated to certificate authorities. But RavenFabric operates in a different world:</p>
+
+                <ul>
+                    <li><strong>No browsers.</strong> Both sides are our software — we control both endpoints.</li>
+                    <li><strong>No CAs.</strong> We don't want to trust Symantec, Let's Encrypt, or anyone's CA hierarchy. Identity should be cryptographic, not bureaucratic.</li>
+                    <li><strong>Mutual authentication required.</strong> Both sides must prove their identity, not just the server. TLS client certificates exist but are awkward and rarely used.</li>
+                    <li><strong>Relay opacity.</strong> Our relay must never learn who is connecting — TLS leaks the server certificate in the handshake (SNI, server certificate).</li>
+                </ul>
+
+                <h2>What Noise XX Gives Us</h2>
+
+                <p>The Noise Framework is a specification for building cryptographic handshake protocols. The "XX" pattern provides:</p>
+
+                <pre><code>Noise_XX_25519_ChaChaPoly_BLAKE2s
+
+Initiator                          Responder
+    │── e ─────────────────────►   │  ephemeral key
+    │   ◄──────────── e, ee, s, es │  ephemeral + static
+    │── s, se ─────────────────►   │  static key (encrypted!)
+    │         [secure channel]     │</code></pre>
+
+                <p><strong>Mutual authentication</strong> — Both sides exchange static public keys. Both prove they hold the corresponding private key. No certificates. No CAs. No OCSP. No CRL. Just keys.</p>
+
+                <p><strong>Identity hiding</strong> — Static keys are encrypted during the handshake. A passive observer (including our relay) sees only ephemeral keys and random bytes. In TLS, the server certificate is visible to any eavesdropper.</p>
+
+                <p><strong>Forward secrecy</strong> — Ephemeral keys are generated per session and discarded. Compromising a long-term key doesn't decrypt past sessions.</p>
+
+                <p><strong>Simplicity</strong> — The entire Noise XX specification fits on a page. TLS 1.3 is 150+ pages. Fewer moving parts means fewer bugs, fewer CVEs, fewer attack surfaces.</p>
+
+                <h2>Relay Opacity</h2>
+
+                <p>This is the killer feature for our architecture. RavenFabric's relay is a <strong>stateless encrypted broker</strong>. It pairs agents with clients and forwards bytes. It must never know:</p>
+
+                <ul>
+                    <li>Who is connecting (identity)</li>
+                    <li>What they're saying (content)</li>
+                    <li>What commands are being executed (operations)</li>
+                </ul>
+
+                <p>With TLS, the relay would see the server's certificate (identifying the agent) and SNI (identifying the intended destination). With Noise XX, the relay sees only random-looking bytes from the first message onwards.</p>
+
+                <h2>The Code</h2>
+
+                <p>Our implementation uses the <code>snow</code> crate — a well-audited Rust implementation of the Noise Framework. The entire handshake is ~50 lines of code:</p>
+
+                <pre><code>let mut initiator = snow::Builder::new(
+    "Noise_XX_25519_ChaChaPoly_BLAKE2s".parse()?,
+)
+.local_private_key(&amp;keypair.private)
+.build_initiator()?;
+
+// Message 1: → e
+let len = initiator.write_message(&amp;[], &amp;mut buf)?;
+transport.send(&amp;buf[..len]).await?;
+
+// Message 2: ← e, ee, s, es
+let msg = transport.recv().await?;
+initiator.read_message(&amp;msg, &amp;mut buf)?;
+
+// Message 3: → s, se
+let len = initiator.write_message(&amp;[], &amp;mut buf)?;
+transport.send(&amp;buf[..len]).await?;
+
+// Done — transition to transport mode
+let channel = initiator.into_transport_mode()?;</code></pre>
+
+                <p>Compare this to setting up TLS with mutual client certificates, and the difference in complexity is stark.</p>
+
+                <h2>Trade-offs</h2>
+
+                <p>Noise XX isn't universally better than TLS. The trade-offs are deliberate:</p>
+
+                <ul>
+                    <li><strong>No browser compatibility.</strong> You can't open a Noise connection from a web browser. We don't need to — our CLI and agent are compiled Rust.</li>
+                    <li><strong>No CA delegation.</strong> Every key must be explicitly trusted. For RavenFabric, this is a feature: enrollment uses one-time tokens, and trust is established through cryptographic key exchange, not third-party signatures.</li>
+                    <li><strong>Smaller ecosystem.</strong> TLS has decades of tooling, debugging infrastructure, and institutional knowledge. Noise is younger, though WireGuard has proven it at scale.</li>
+                </ul>
+
+                <h2>Conclusion</h2>
+
+                <p>For a system where both endpoints are controlled, mutual authentication is mandatory, and the relay must be cryptographically blind — Noise XX is the right choice. It's simpler, more secure for our use case, and gives us properties that TLS fundamentally cannot provide.</p>
+
+                <p>The same crypto that protects billions of WireGuard tunnels today protects every RavenFabric connection.</p>
+
+                <div class="back-link">
+                    <a href="/blog/">&larr; Back to blog</a>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            &copy; 2025 RavenFabric &middot; <a href="https://github.com/egkristi/RavenFabric">GitHub</a>
+        </div>
+    </footer>
+</body>
+</html>
