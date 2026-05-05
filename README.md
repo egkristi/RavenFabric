@@ -15,7 +15,9 @@
 
 ## What is RavenFabric?
 
-RavenFabric is a cross-platform agent that provides **secure, policy-controlled access to any system** — regardless of network topology. It unifies mesh VPN, remote execution, configuration management, and zero-trust access into a single binary with no runtime dependencies.
+RavenFabric is a **universal agent** that provides **secure, policy-controlled access to any system** — regardless of network topology, operating system, or device class. It unifies mesh VPN, remote execution, configuration management, and zero-trust access into a single binary with no runtime dependencies.
+
+It runs on servers, desktops, laptops, Raspberry Pis, Android phones, iPhones, routers, IoT sensors, edge appliances, satellites, and anything else that can run compiled code. If it has a CPU, it can be a RavenFabric node.
 
 It is not a task runner with security added. It is a **security-first policy engine** that also executes tasks:
 
@@ -992,6 +994,36 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Authorization (future) | Capability tokens (biscuit) | Commands carry own permission. Scales better than centralized ACL in distributed systems |
 | State sync (future) | CRDT convergence | Desired-state converges without master. Automerge-inspired. Works over intermittent links |
 | Content integrity | Hash-addressed payloads | Policies/payloads identified by content hash. Natural dedup, cache, verify. Git/IPFS-inspired |
+
+---
+
+## Platform Support
+
+RavenFabric is designed to run **anywhere**. The agent targets every platform that Rust can compile to:
+
+| Tier | Platforms | Notes |
+|------|-----------|-------|
+| **Tier 1** (CI-tested) | Linux amd64/arm64 (musl static), macOS amd64/arm64, Windows amd64 | First-class, full feature set |
+| **Tier 2** (compiles) | Linux armv7 (Raspberry Pi), Linux riscv64, FreeBSD, Android (aarch64/armv7), iOS (aarch64) | Reduced features on constrained devices |
+| **Tier 3** (planned) | WASM/WASI, OpenWrt (MIPS/ARM), ESP32, bare-metal ARM | Minimal agent profile |
+
+**Design constraints:**
+- Single static binary — no runtime dependencies, no interpreters, no JVM
+- < 10 MB idle memory (runs on Raspberry Pi Zero, Android background service)
+- < 15 MB binary stripped (deployable over constrained links)
+- No hard libc dependency on Linux (musl static linking)
+- All OS-specific code behind `#[cfg()]` — portable by default
+- Feature flags: `full` (desktop/server) vs `minimal` (IoT/mobile/embedded)
+- Async runtime supports single-threaded mode for constrained environments
+
+**Mobile:**
+- **Android** — agent as foreground service, NDK cross-compile, respects Doze/battery optimization
+- **iOS** — agent as Network Extension, proper entitlements for background connectivity
+
+**Embedded/IoT:**
+- No filesystem required (can operate from memory-only config)
+- Reticulum/LoRa/BLE transports for devices without IP networking
+- Schedule-aware connectivity (wake → connect → sync → sleep)
 
 ---
 

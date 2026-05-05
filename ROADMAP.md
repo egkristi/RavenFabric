@@ -236,9 +236,12 @@ rf exec test-agent "uname -a"
 - [ ] Pull file (agent → orchestrator)
 - [ ] Atomic writes (temp + rename)
 
-### Cross-Platform
+### Cross-Platform (Tier 1)
 - [ ] Windows binary + Windows Service installer
 - [ ] macOS binary + launchd plist
+- [ ] Linux static musl binaries (amd64 + arm64) with systemd units
+- [ ] Feature flags: `full` (default, all transports) vs `minimal` (no TUN, no sysinfo, no QUIC)
+- [ ] `#[cfg()]` for all OS-specific code (no Unix-only paths without alternatives)
 
 ### Data Collection Agent
 - [ ] Metrics collector framework (plugin trait, scrape loop, push/pull modes)
@@ -359,9 +362,20 @@ rf exec test-agent "uname -a"
 
 ---
 
-## v0.6 — WASM Plugins + Multi-Tenant + Advanced Security
+## v0.6 — WASM Plugins + Multi-Tenant + Advanced Security + Mobile
 
-**Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography. Capability-based auth.
+**Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography. Capability-based auth. Mobile/embedded agents.
+
+### Platform Expansion (Tier 2 + 3)
+- [ ] Android agent (NDK cross-compile, foreground service, Doze-aware reconnect)
+- [ ] iOS agent (Network Extension, background entitlements)
+- [ ] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target
+- [ ] Linux riscv64 — cross-compile verification
+- [ ] FreeBSD agent
+- [ ] OpenWrt package (MIPS/ARM, minimal feature set)
+- [ ] WASM/WASI compilation target (browser-side client, edge workers)
+- [ ] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52)
+- [ ] Single-threaded async runtime mode (for constrained devices < 256KB RAM)
 
 ### Plugin System
 - [ ] Wasmtime-based plugin runtime
@@ -526,3 +540,5 @@ Must be resolved before v0.1 is feature-complete.
 | 2026-05-05 | Content-addressed payloads | Hash-identified commands/policies. Dedup, verify, cache naturally |
 | 2026-05-05 | Transport-aware policy | Sensitivity level determines acceptable transport channels |
 | 2026-05-05 | 13-phase connectivity value chain | Connection lifecycle is a formal pipeline (CONNECTIVITY.md). Each phase is independent and composable |
+| 2026-05-05 | Universal platform target | Agent runs anywhere: server, desktop, mobile, IoT, embedded. No platform excluded by design |
+| 2026-05-05 | Feature-flag architecture | `full` vs `minimal` feature sets allow same codebase to target 10 MB Raspberry Pi and 15 MB router |

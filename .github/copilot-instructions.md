@@ -54,10 +54,34 @@ rf-agent   (depends on rf-crypto, rf-transport, rf-rpc, rf-executor, rf-policy, 
 rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 ```
 
+## Platform Targets
+
+RavenFabric runs **everywhere**. The agent must compile and operate on any device that can run code:
+
+| Tier | Platforms | Notes |
+|------|-----------|-------|
+| **Tier 1** (CI-tested, fully supported) | Linux amd64, Linux arm64, macOS amd64, macOS arm64, Windows amd64 | Static musl binaries for Linux |
+| **Tier 2** (compiles, best-effort) | Linux armv7 (RPi), Linux riscv64, FreeBSD, Android (aarch64/armv7), iOS (aarch64) | May need reduced feature set |
+| **Tier 3** (planned/experimental) | WASM/WASI, OpenWrt (MIPS/ARM), ESPHome/ESP32 (via esp-idf), bare-metal ARM (no_std subset) | Minimal agent profile |
+
+**Design constraints for universal deployment:**
+- No libc dependency on Linux (musl static linking)
+- No hard dependency on filesystem (embedded/WASM may lack it)
+- Async runtime must support single-threaded mode (IoT, constrained devices)
+- Agent memory footprint < 10 MB idle (Raspberry Pi Zero, Android background service)
+- Binary size < 15 MB stripped (network-constrained deployment)
+- All OS-specific code behind `#[cfg()]` — no `#[cfg(unix)]` without a Windows/WASM alternative
+- Feature flags for heavy dependencies: `full` (default), `minimal` (no TUN, no sysinfo, no QUIC)
+
+**Mobile considerations:**
+- Android: agent runs as foreground service, NDK cross-compile, no JNI in core (optional thin JNI wrapper)
+- iOS: agent as Network Extension, no background restrictions if using proper entitlements
+- Both: respect OS power management, suspend/resume reconnect cycle
+
 ## Coding Standards
 
 - **Edition**: Rust 2024, MSRV 1.85
-- **Async runtime**: Tokio (full features)
+- **Async runtime**: Tokio (full features for server/desktop; `tokio` with `rt` feature only for constrained)
 - **Error handling**: `thiserror` for library errors, `anyhow` only in binaries (agent, relay, cli)
 - **Traits**: Use `async-trait` for async trait methods. All traits must be `Send + Sync`
 - **Serialization**: `rmp-serde` (msgpack) for wire protocol, `serde_yaml` for config/policy, `serde_json` for audit logs
@@ -65,6 +89,7 @@ rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 - **HTTP**: None in core. WebSocket via `tokio-tungstenite` for relay transport
 - **Logging**: `tracing` crate. Use `info!`, `warn!`, `error!` — never `println!` in libraries
 - **Tests**: Unit tests in each crate. Integration tests use `tokio::io::duplex` for simulated connections
+- **Platform portability**: Never assume Unix. Use `std::path::Path`, `#[cfg(target_os)]`, and feature gates for OS-specific code
 
 ## Key Design Principles
 
@@ -80,6 +105,8 @@ rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 10. **Single static binary**: Agent deploys as one file, no runtime dependencies
 11. **Tests for security-critical code**: Every policy check, every executor path, every crypto operation must have test coverage
 12. **Propagate errors, never swallow**: Audit writes, file I/O, lock acquisition — failures must be reported, not ignored
+13. **Run anywhere**: The agent compiles for any target that supports Rust. No platform is excluded by design. If it has a CPU, it can be a node
+14. **Reachable by any means**: Any byte-moving channel is a valid transport. Protocol diversity is a security and resilience property, not a luxury
 
 ## Wire Protocol
 
