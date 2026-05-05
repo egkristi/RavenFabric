@@ -234,108 +234,81 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Transport diversity. Task mode. File operations. Data collection agent. Windows + macOS.
 
+> **Legend:** `[x]` = fully implemented and tested, `[~]` = types/interfaces defined (not yet functional), `[ ]` = not started
+
 ### Transport Expansion
 - [x] ~~WebSocket driver implementation (tokio-tungstenite)~~
 - [x] ~~In-memory driver for testing~~
 - [x] ~~QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)~~
-- [x] WireGuard userspace (boringtun, direct peers on open network)
-- [x] Happy Eyeballs (RFC 8305) — race IPv4/IPv6, use first responder
-- [x] IPv6-first with NAT64/464XLAT awareness
+- [~] WireGuard userspace — config types defined, no `boringtun` integration yet
+- [~] Happy Eyeballs (RFC 8305) — racer types defined, no actual dual-stack racing yet
+- [~] IPv6-first with NAT64/464XLAT awareness — types only
 
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
-- [x] ~~NetworkProbe struct — unified assessment of network environment~~ — rf-transport::probe
-- [x] ~~EgressClass classification (Open, HomeRouter, EnterpriseProxy, RestrictiveDPI, Hostile, AirGap)~~
-- [x] STUN-based NAT type detection (full cone, restricted, port-restricted, symmetric)
-- [x] ~~IPv4/IPv6 availability and preference detection~~ — NetworkProbe checks both
-- [x] ~~UDP reachability (per-port), captive portal detection~~ — UDP check in probe
-- [x] Corporate proxy detection (HTTP CONNECT support)
-- [x] Per-relay latency measurement (geographic selection)
+- [~] NetworkProbe struct — type + `EgressClass` enum defined, no actual network probing
+- [~] STUN-based NAT type detection — types defined, no actual STUN UDP requests
+- [~] Corporate proxy detection — proxy config types, no actual HTTP CONNECT probing
+- [~] Per-relay latency measurement — types defined, no actual latency measurement
 
 ### Path Selection Engine (Phase 5 of Connectivity Value Chain)
-- [x] ~~Transport catalog with tier classification (direct, NAT-traversal, relay, overlay, hostile, out-of-band)~~
-- [x] ~~Path selection strategies: sequential, race, parallel, tiered-race, policy-driven~~
-- [x] ~~Driver probing (which drivers can work in current network environment)~~ — catalog.record_probe + mark_unavailable
-- [x] ~~Policy-driven path selection (sensitive commands require specific transports)~~ — select_with_policy()
+- [x] Transport catalog with tier classification — working in-memory data structure
+- [x] Path selection strategies — `PathStrategy` enum (Sequential, Race, Parallel, TieredRace, PolicyDriven)
+- [x] Policy-driven path selection — `select_with_policy()` works on catalog data
 
 ### NAT Traversal (ICE-style)
-- [x] STUN client — discover server-reflexive candidates (public IP:port)
-- [x] UDP hole punching — coordinated simultaneous send via relay coordinator
-- [x] TCP hole punching — simultaneous open (RFC 5128)
-- [x] ICE candidate gathering — host, server-reflexive, relayed candidates
-- [x] ICE candidate selection — parallel probing, select fastest path
-- [x] Birthday paradox port prediction for symmetric NAT
-- [x] NAT type detection (full cone, restricted, port-restricted, symmetric)
+- [~] STUN client — candidate types defined, no actual STUN packets sent
+- [~] UDP/TCP hole punching — types defined, no actual socket coordination
+- [~] ICE candidate gathering/selection — data structures only
+- [~] Birthday paradox port prediction — types only
+- [~] NAT type detection — enum defined, no actual detection
 
 ### Connection Upgrade (DCUtR Pattern)
-- [x] ~~Relay-first connection (immediate, always works)~~ — ConnectionManager::connect_relay_first()
-- [x] ~~Background direct-path probing while relay is active~~ — background_probe_targets()
-- [x] ~~Seamless migration to direct path when found (verify peer key)~~ — migrate_to_direct()
-- [x] ~~Automatic failback to relay if direct path fails~~ — failback_to_relay()
-- [x] ~~Connection migration on network change (WiFi ↔ cellular)~~ — network_changed() + reprobing
+- [~] ConnectionManager with relay-first, background probe, migration — method signatures + type-level state machine, not connected to real transports
 
 ### Health Monitoring & Failover (Phase 11 of Connectivity Value Chain)
-- [x] ~~Heartbeat-based liveness detection (miss 3 = failed)~~ — Ping/Pong RPC action
-- [x] ~~RTT baseline tracking (> 2x baseline = degraded)~~ — RttTracker with EWMA + anomaly detection
-- [x] ~~Automatic failover (promote secondary path or start race + relay bridge)~~ — ConnectionManager fallover logic
-- [x] ~~OS network change events (route table, default gateway) → re-probe all drivers~~ — network_changed()
-- [x] ~~Sticky/adaptive/hybrid path selection modes~~ — PathStrategy enum (Sequential, Race, Parallel, TieredRace, PolicyDriven)
+- [x] Heartbeat-based liveness detection — Ping/Pong RPC action types
+- [x] RTT baseline tracking — `RttTracker` with EWMA math (functional)
+- [~] Automatic failover — ConnectionManager types, not connected to real paths
+- [~] OS network change events — `network_changed()` method signature only
 
 ### Tamper Detection & Adaptive Transport
-- [x] ~~MAC failure detection (Noise ciphertext tampered) → immediate path abandon~~ — TamperDetected error + audit event
-- [x] ~~Frame injection detection (unexpected bytes outside protocol framing)~~ — FrameInjection error for <16 byte frames
-- [x] ~~Latency anomaly detection (sudden spikes consistent with MITM)~~ — HeartbeatStatus::LatencyAnomaly
-- [x] Protocol fingerprint verification (detect DPI/downgrade)
-- [x] Automatic session migration to alternative transport on tamper detection
-- [x] ~~Compromised path blacklisting (no retry without operator acknowledgment)~~ — catalog.blacklist/unblacklist
-- [x] Escalation to censorship-resistant transport tier when all standard paths fail
-- [x] ~~Tamper-alert audit events (signed, timestamped, priority-delivered)~~ — security audit entries on tamper/injection
+- [x] MAC failure / frame injection detection — error types + audit events defined
+- [x] Latency anomaly detection — `HeartbeatStatus::LatencyAnomaly` enum
+- [x] Compromised path blacklisting — `catalog.blacklist/unblacklist` (functional)
+- [~] Automatic session migration on tamper — types only, not connected
+- [~] Escalation to censorship-resistant tier — types only
 
 ### Connection Metrics & Monitoring (DTN-aware)
-- [x] ~~Per-path metrics collection (RTT, loss, throughput, transport type, hop count)~~ — rf-rpc::metrics module
-- [x] Metrics propagation through DTN store-carry-forward (bundled with custody transfer)
-- [x] Priority delivery for security events (tamper alerts never dropped by TTL)
-- [x] ~~Offline metric accumulation (local buffer, flush on next contact window)~~ — PathMetrics VecDeque buffer
-- [x] Mesh neighbor health gossip (partial observability without direct controller path)
-- [x] ~~Path switch event logging (transport changes recorded as audit + metric)~~ — audit entries for tamper-driven path abandonment
-- [x] Relay-reported metrics (hop count, forwarding latency, queue depth)
+- [x] Per-path metrics types — `PathMetrics` with VecDeque buffer (functional in-memory)
+- [~] DTN metrics propagation, priority delivery, mesh gossip — types only
+- [x] Path switch event logging — audit entries defined
 
 ### Graceful Teardown (Phase 12 of Connectivity Value Chain)
-- [x] ~~Drain in-flight requests before disconnect (with timeout)~~ — agent graceful shutdown
-- [x] ~~Flush audit log to durable storage before close~~ — agent graceful shutdown
-- [x] ~~Noise close-notify + yamux stream close~~ — close-notify via empty encrypted frame
-- [x] ~~Session key zeroization on disconnect~~ — SecureChannel drops keys via zeroize
-- [x] ~~Cache last-known-good endpoint for fast reconnect~~
-- [x] ~~Reconnect strategies: exponential backoff + jitter, network-aware, scheduled~~ — agent reconnect loop
+- [x] ~~Drain in-flight requests, flush audit, key zeroization~~ — working in agent shutdown
+- [x] ~~Reconnect strategies: exponential backoff + jitter~~ — working in agent
 
 ### Execution Modes
-- [x] ~~Task mode (ordered steps, conditions, onFailure, workdir)~~ — partial: background exec with job ID, query, wait
-- [x] ~~Background exec with ID tracking + signal + wait~~
-- [x] Real-time stdout/stderr streaming via mux stream (StreamExecute action + StreamChunk/StreamEnd)
+- [x] ~~Background exec with ID tracking + signal + wait~~ — fully working
+- [x] Real-time stdout/stderr streaming — fully working (`streaming.rs`)
 
 ### File Operations
-- [x] ~~Push file (orchestrator → agent)~~ — Write action with base64 data + atomic temp+rename
-- [x] ~~Pull file (agent → orchestrator)~~ — Read action returns base64-encoded content
-- [x] ~~Atomic writes (temp + rename)~~ — implemented in Write handler
+- [x] ~~Push/pull file + atomic writes~~ — fully working (Read/Write/List actions)
 
 ### Cross-Platform (Tier 1)
-- [x] ~~Windows binary + Windows Service installer~~ — release.yml + deploy/install-windows-service.ps1
-- [x] ~~macOS binary + launchd plist~~ — release.yml + deploy/io.ravenfabric.agent.plist
-- [x] ~~Linux static musl binaries (amd64 + arm64) with systemd units~~ — release.yml + deploy/*.service
-- [x] ~~Feature flags: `full` (default, all transports) vs `minimal` (no TUN, no sysinfo, no QUIC)~~
-- [x] ~~`#[cfg()]` for all OS-specific code (no Unix-only paths without alternatives)~~ — all cfg(unix) has cfg(not(unix)) counterpart
+- [x] ~~Windows/macOS/Linux binaries + service installers~~ — release.yml + deploy scripts
+- [x] ~~Feature flags: `full` vs `minimal`~~
+- [x] ~~`#[cfg()]` for all OS-specific code~~
 
 ### Data Collection Agent
-- [x] Metrics collector framework (plugin trait, scrape loop, push/pull modes)
-- [x] Built-in system metrics (CPU, memory, disk, network, load, filesystems, processes)
-- [x] Prometheus-compatible `/metrics` endpoint (pull mode)
-- [x] Application metrics scraping (scrape localhost Prometheus endpoints)
-- [x] Log tailing (glob patterns, journald, structured parsing: JSON/logfmt/regex/grok)
-- [x] OTLP exporter (metrics + logs + traces to any OTLP-compatible backend)
-- [x] Prometheus remote-write exporter
-- [x] InfluxDB line protocol exporter
-- [x] Health check probes (HTTP/TCP/UDP endpoints, process alive, cert expiry)
-- [x] Collection policy (what to collect governed by same deny-by-default policy)
-- [x] Offline telemetry buffering (queue metrics/logs while disconnected, flush on reconnect)
+- [~] Metrics collector framework — trait + types defined, `SystemMetricsCollector` returns hardcoded zeros
+- [x] Built-in system metrics via `sysinfo` — working in executor `Action::Metrics` handler
+- [~] Prometheus `/metrics` endpoint — formatter exists, no HTTP server
+- [~] Application metrics scraping — Prometheus parser exists, no actual HTTP scraping
+- [~] Log tailing — types/format definitions, no actual file watching
+- [~] OTLP/Prometheus-remote-write/InfluxDB exporters — types only
+- [~] Health check probes — `HealthTracker` state machine, no actual TCP/HTTP connections
+- [~] Collection policy — types defined
+- [~] Offline telemetry buffering — types defined
 
 ---
 
@@ -344,25 +317,25 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Interactive shell. Port forwarding. Multi-agent orchestration. Cross-protocol path upgrade.
 
 ### Interactive Shell
-- [x] PTY allocation + terminal session handler
-- [x] Session recording (asciinema v2 format)
-- [x] `rf shell <agent>` — interactive terminal through fabric
+- [~] PTY allocation — types defined (`PtyConfig`, `SessionInfo`), no actual `openpty` calls
+- [~] Session recording — event types defined, no actual recording
+- [~] `rf shell <agent>` — CLI stub sends command, not an interactive terminal session
 
 ### Port Forwarding
-- [x] Local port forward (ssh -L equivalent)
-- [x] Remote port forward (ssh -R equivalent)
-- [x] SOCKS5 dynamic forward (ssh -D equivalent)
+- [~] Local port forward — `PortForward`/`ForwardManager` types, no actual TCP listener
+- [~] Remote port forward — types only
+- [~] SOCKS5 dynamic forward — protocol parser functional, not connected to sockets
 
 ### Cross-Protocol Path Upgrade (Phase 10 of Connectivity Value Chain)
-- [x] Background transport upgrade (relay → direct, any driver → any driver)
-- [x] Session ticket resumption (re-handshake on new transport, same session ID)
-- [x] Atomic swap (make-before-break, overlap window, then close old path)
-- [x] 0-RTT resumption for known peers
+- [~] Background transport upgrade — `SessionMigration` types, not connected to real transports
+- [~] Session ticket resumption — types only
+- [~] Atomic swap (make-before-break) — types only
+- [~] 0-RTT resumption — types only
 
 ### Playbook Engine
-- [x] Multi-agent orchestration (rolling/canary/parallel strategies)
-- [x] Rollback on failure
-- [x] Grain-based targeting
+- [~] Multi-agent orchestration — `Orchestrator` + `RolloutStrategy` types, not connected to real agent connections
+- [~] Rollback on failure — types only
+- [~] Grain-based targeting — `TargetGrain` types defined
 
 ---
 
@@ -371,24 +344,24 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Full mesh VPN. MagicDNS. Secrets injection. DTN store-carry-forward.
 
 ### Mesh VPN
-- [x] TUN device creation (cross-platform)
-- [x] Mesh IP allocation (key-derived addresses)
-- [x] MagicDNS (agent-name.rf.local)
-- [x] Petname system (local names → cryptographic identifiers)
+- [~] TUN device creation — platform types defined, no actual TUN device
+- [x] Mesh IP allocation — `derive_mesh_ip()` hash function (functional)
+- [~] MagicDNS — no DNS server implementation
+- [x] Petname system — local name mapping (functional)
 
 ### Secrets
-- [x] Sealed secret store (encrypted at rest)
-- [x] `{{ secrets.KEY }}` resolution at execution time
+- [ ] Sealed secret store (encrypted at rest)
+- [ ] `{{ secrets.KEY }}` resolution at execution time
 
 ### Delay-Tolerant Networking
-- [x] SQLite-backed persistent offline queue (survives restart)
-- [x] Custody transfer protocol (each hop acknowledges responsibility)
-- [x] Schedule-aware routing (contact windows, satellite passes)
-- [x] Opportunistic sync (exchange queued messages when agents meet)
-- [x] NNCP-style physical media transport (USB, SD card, file-based delivery)
-- [x] TTL, priority, and idempotency for queued commands
-- [x] Multi-hop store-carry-forward (intermediate nodes relay when path opens)
-- [x] Content-addressed command payloads (deduplication across paths)
+- [~] Offline queue — in-memory `BinaryHeap` priority queue, no SQLite persistence
+- [~] Custody transfer protocol — types defined
+- [~] Schedule-aware routing — types defined
+- [~] Opportunistic sync — types defined
+- [~] NNCP-style physical media transport — types defined
+- [~] TTL, priority, and idempotency — data structures defined
+- [~] Multi-hop store-carry-forward — routing types defined
+- [~] Content-addressed command payloads — types defined
 
 ---
 
@@ -397,49 +370,49 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Air-gap support. Anonymity. Hostile network traversal. Peer discovery. Radio mesh.
 
 ### Censorship-Resistant Transports
-- [x] HTTP/3 MASQUE driver (CONNECT-UDP/CONNECT-IP via HTTP/3, impossible to distinguish from browsing)
-- [x] Traffic obfuscation layer (make Noise XX indistinguishable from random bytes, obfs4-inspired)
-- [x] Encrypted Client Hello (ECH) support for WebSocket TLS connections
-- [x] Domain fronting transport (TLS SNI ≠ HTTP Host, CDN-routed)
-- [x] DNS tunneling driver (encode frames in DNS queries, iodine/dnscat2-style)
-- [x] ICMP tunneling driver (data in echo payloads, restricted environments)
-- [x] Shadowsocks/Trojan-style protocol mimicry (look like standard HTTPS)
+- [~] HTTP/3 MASQUE driver — enum variant defined, no protocol implementation
+- [x] Traffic obfuscation layer — basic padding/depadding functional (~50 lines logic)
+- [~] Encrypted Client Hello (ECH) — types only
+- [~] Domain fronting transport — enum variant defined
+- [~] DNS tunneling driver — enum variant defined
+- [~] ICMP tunneling driver — enum variant defined
+- [~] Shadowsocks/Trojan-style mimicry — enum variant defined
 
 ### Air-Gap and Proximity Transports
-- [x] Reticulum Network Stack driver (multi-hop mesh, announce-based discovery, FEC)
-- [x] Tor hidden service driver (.onion endpoints, garlic routing via I2P optional)
-- [x] Serial port driver (RS-232/USB, true physical air-gap)
-- [x] Bluetooth/BLE driver (proximity mesh, no infrastructure, Briar-inspired)
-- [x] Wi-Fi Direct driver (ad-hoc local connections)
-- [x] Audio modem driver (data over sound, extreme air-gap, chirp/quietnet-style)
-- [x] QR-stream visual channel (animated QR codes for air-gap transfer)
+- [~] Reticulum Network Stack driver — enum variant, no protocol integration
+- [~] Tor hidden service driver — enum variant
+- [~] Serial port driver — enum variant
+- [~] Bluetooth/BLE driver — enum variant
+- [~] Wi-Fi Direct driver — enum variant
+- [~] Audio modem driver — enum variant
+- [~] QR-stream visual channel — enum variant
 
 ### Radio Transports
-- [x] LoRa/Meshtastic driver (sub-GHz, 250bps–11kbps, 10+ km range, mesh routing)
-- [x] AX.25 packet radio driver (amateur radio, global coverage, no commercial infra)
-- [x] HF radio / Winlink bridge (global reach via amateur radio e-mail gateways)
-- [x] Satellite link driver (Iridium/Starlink with DTN buffering for high-latency)
+- [~] LoRa/Meshtastic driver — enum variant
+- [~] AX.25 packet radio driver — enum variant
+- [~] HF radio / Winlink bridge — enum variant
+- [~] Satellite link driver — enum variant
 
 ### Overlay Networks
-- [x] Yggdrasil driver (self-configuring IPv6 mesh, key-derived addresses, spanning tree)
-- [x] I2P driver (garlic routing, anonymous internal services)
-- [x] Veilid driver (DHT-based, onion-routed by default)
-- [x] Mixnet integration (Nym/Loopix — for high-paranoia mode, traffic analysis resistant)
+- [~] Yggdrasil driver — enum variant
+- [~] I2P driver — enum variant
+- [~] Veilid driver — enum variant
+- [~] Mixnet integration — enum variant
 
 ### Peer Discovery
-- [x] mDNS/DNS-SD — zero-config LAN discovery (first attempt before external)
-- [x] DHT (Kademlia-style) — decentralized global discovery, censorship-resistant
-- [x] Gossip protocol (SWIM/HyParView) — self-healing mesh topology
-- [x] Signed DNS records (DNSSEC SRV) — verifiable rendezvous
-- [x] BLE beacon discovery — proximity without infrastructure
-- [x] Announce-flood (Reticulum-style) — path discovery without central coordination
+- [~] mDNS/DNS-SD — types defined, no actual mDNS broadcast/listen
+- [~] DHT (Kademlia-style) — types defined
+- [~] Gossip protocol (SWIM/HyParView) — `MembershipList` in-memory, no actual UDP gossip
+- [~] Signed DNS records — types defined
+- [~] BLE beacon discovery — types defined
+- [~] Announce-flood — types defined
 
 ### Advanced NAT Traversal
-- [x] STUN server (self-hosted, for deployments without public STUN)
-- [x] TURN relay mode on rf-relay (full TURN compliance)
-- [x] Multipath TCP/QUIC — single logical connection over multiple physical paths
-- [x] Traffic analysis resistance (noise floor, packet normalization, timing obfuscation)
-- [x] Connection migration across interfaces (WiFi ↔ cellular ↔ Ethernet seamless)
+- [~] STUN server — types defined
+- [~] TURN relay mode — types defined
+- [~] Multipath TCP/QUIC — types defined
+- [~] Traffic analysis resistance — types defined
+- [~] Connection migration across interfaces — types defined
 
 ---
 
@@ -448,44 +421,44 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography. Capability-based auth. Mobile/embedded agents.
 
 ### Platform Expansion (Tier 2 + 3)
-- [x] Android agent (NDK cross-compile, foreground service, Doze-aware reconnect)
-- [x] iOS agent (Network Extension, background entitlements)
-- [x] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target
-- [x] Linux riscv64 — cross-compile verification
-- [x] FreeBSD agent
-- [x] OpenWrt package (MIPS/ARM, minimal feature set)
-- [x] WASM/WASI compilation target (browser-side client, edge workers)
-- [x] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52)
-- [x] Single-threaded async runtime mode (for constrained devices < 256KB RAM)
+- [ ] Android agent (NDK cross-compile, foreground service, Doze-aware reconnect)
+- [ ] iOS agent (Network Extension, background entitlements)
+- [ ] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target
+- [ ] Linux riscv64 — cross-compile verification
+- [ ] FreeBSD agent
+- [ ] OpenWrt package (MIPS/ARM, minimal feature set)
+- [ ] WASM/WASI compilation target (browser-side client, edge workers)
+- [ ] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52)
+- [ ] Single-threaded async runtime mode (for constrained devices < 256KB RAM)
 
 ### Plugin System
-- [x] Wasmtime-based plugin runtime
-- [x] Custom resource types via WASM
-- [x] Custom transport drivers via WASM (extend without recompiling)
+- [~] Wasmtime-based plugin runtime — manifest/sandbox types defined, no `wasmtime` integration
+- [~] Custom resource types via WASM — types defined
+- [~] Custom transport drivers via WASM — types defined
 
 ### Multi-Tenant & RBAC
-- [x] Tenant isolation
-- [x] RBAC (admin, operator, viewer, auditor)
-- [x] SecurityPolicy with immutable rules
+- [ ] Tenant isolation
+- [ ] RBAC (admin, operator, viewer, auditor)
+- [ ] SecurityPolicy with immutable rules
 
 ### Capability-Based Authorization
-- [x] Biscuit token integration (commands carry their own signed permission)
-- [x] Capability delegation (agent A grants agent B limited capabilities)
-- [x] Attenuation (capabilities can be narrowed, never widened)
-- [x] Offline-verifiable (no central authority needed at execution time)
+- [ ] Biscuit token integration (commands carry their own signed permission)
+- [ ] Capability delegation (agent A grants agent B limited capabilities)
+- [ ] Attenuation (capabilities can be narrowed, never widened)
+- [ ] Offline-verifiable (no central authority needed at execution time)
 
 ### Post-Quantum Cryptography
-- [x] Post-quantum hybrid handshake (ML-KEM + X25519, Noise XX with hybrid KEM)
-- [x] Signal PQXDH-inspired key exchange for long-lived sessions
-- [x] Harvest-now-decrypt-later resistance for all stored data
+- [ ] Post-quantum hybrid handshake (ML-KEM + X25519, Noise XX with hybrid KEM)
+- [ ] Signal PQXDH-inspired key exchange for long-lived sessions
+- [ ] Harvest-now-decrypt-later resistance for all stored data
 
 ### CRDT State Propagation
-- [x] CRDT-based desired-state convergence (no master required)
-- [x] Append-only signed policy logs (Scuttlebutt-inspired)
-- [x] Opportunistic policy sync between neighboring agents
-- [x] Conflict-free policy merging across disconnected clusters
-- [x] Content-addressed policy distribution (request by hash, any node can serve)
-- [x] SPIFFE-style workload identity (identity independent of network position)
+- [ ] CRDT-based desired-state convergence (no master required)
+- [ ] Append-only signed policy logs (Scuttlebutt-inspired)
+- [ ] Opportunistic policy sync between neighboring agents
+- [ ] Conflict-free policy merging across disconnected clusters
+- [ ] Content-addressed policy distribution (request by hash, any node can serve)
+- [ ] SPIFFE-style workload identity (identity independent of network position)
 
 ---
 
@@ -493,10 +466,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Web dashboard. REST/gRPC API. Observability.
 
-- [x] Controller binary with web UI
-- [x] REST + gRPC API
-- [x] OpenTelemetry traces
-- [x] Prometheus metrics endpoint
+- [~] Controller binary — config types defined, no actual HTTP/gRPC server
+- [ ] Web UI
+- [ ] REST + gRPC API
+- [ ] OpenTelemetry traces
+- [~] Prometheus metrics endpoint — formatter exists, no HTTP server
 
 ---
 
@@ -504,10 +478,14 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Battle-tested. Fully documented. Packaged. The first system where "network" is fully abstracted from application and policy layers.
 
-- [x] ~~Fuzz testing (transport, policy, codec)~~ — libfuzzer targets in fuzz/
-- [x] ~~Performance benchmarks~~ — criterion benches for crypto + codec
-- [x] Kubernetes CRDs + operator
-- [x] ~~Homebrew formula, apt/rpm repos, AUR, Nix flake~~ — Homebrew formula in deploy/ravenfabric.rb
+- [ ] Fuzz testing (transport, policy, codec)
+- [ ] Performance benchmarks (criterion benches for crypto + codec)
+- [ ] Kubernetes CRDs + operator
+- [x] ~~Homebrew formula, apt/rpm repos, AUR, Nix flake~~ — packaging infrastructure ready
+- [x] Documentation site — mdBook at ravenfabric.io/docs/
+- [ ] Named Data Networking concepts for policy distribution
+- [ ] Subsea-cable resilience (mesh fallback)
+- [ ] Full SPIFFE workload identity compliance
 - [x] Documentation site
 - [x] Named Data Networking concepts for policy distribution (interest/data pattern)
 - [x] Subsea-cable resilience (mesh fallback when physical links fail)
