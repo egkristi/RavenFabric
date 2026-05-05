@@ -15,7 +15,8 @@ rf-transport = { path = "../rf-transport" }
 rf-rpc = { path = "../rf-rpc" }
 tokio = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-clap = { workspace = true }
-rmp-serde = { workspace = true }
-serde = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+clap = { workspace = true, features = ["env"] }
+anyhow = { workspace = true }
+hex = { workspace = true }
+uuid = { workspace = true }

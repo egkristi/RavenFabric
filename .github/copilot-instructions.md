@@ -22,18 +22,18 @@ Cargo workspace with 10 crates:
 
 | Crate | Purpose | Status |
 |---|---|---|
-| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management | **Done** (470 LOC, 5 tests) |
-| `rf-transport` | Driver trait, WebSocket/QUIC/WireGuard backends | **Trait only** (53 LOC, 0 tests) |
-| `rf-rpc` | Request/Response types, msgpack codec, yamux multiplexing | **Types only** (63 LOC, 0 tests) |
+| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management | **Done** (~500 LOC, 7 tests) |
+| `rf-transport` | Driver trait, WebSocket + Memory backends | **Done** (~250 LOC, 2 tests) |
+| `rf-rpc` | Request/Response types, msgpack codec, RPC session | **Done** (~250 LOC, 4 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (53 LOC, 0 tests) |
 | `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default | **Done** (281 LOC, 4 tests) |
-| `rf-executor` | Command execution under policy control with timeout and output limiting | **Done** (170 LOC, 0 tests) |
+| `rf-executor` | Command execution under policy control with timeout and output limiting | **Done** (~350 LOC, 9 tests) |
 | `rf-bootstrap` | OTP enrollment flow, relay pairing | **Done** (122 LOC, 4 tests) |
-| `rf-relay` | Stateless encrypted relay broker (binary) | **Stub** |
-| `rf-agent` | Agent binary (connects to relay, executes RPC) | **Stub** |
-| `rf-cli` | CLI client `rf` (exec, dev, status) | **Skeleton** (clap args only) |
+| `rf-relay` | Stateless encrypted relay broker (binary) | **Done** |
+| `rf-agent` | Agent binary (connects to relay, executes RPC) | **Done** |
+| `rf-cli` | CLI client `rf` (exec, dev, status) | **Done** (exec working) |
 
-**Total: ~1,260 LOC, 13 tests, 0 clippy warnings.**
+**Total: ~2,500 LOC, 30 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
@@ -145,19 +145,17 @@ RavenFabric runs **everywhere**. The agent must compile and operate on any devic
 
 ## Known Technical Debt
 
-The following issues are known and must be addressed before v0.1 is feature-complete:
+The following issues are known and should be addressed:
 
 | Priority | Issue | Location | Fix |
 |----------|-------|----------|-----|
-| Critical | Zero test coverage for executor | `rf-executor/src/command.rs` | Add tests for policy denial, successful exec, timeout, output limiting |
-| Important | `unwrap()` in library code (5 instances) | `rf-crypto` (noise.rs, keys.rs), `rf-bootstrap` (otp.rs) | Replace with `?` or `expect()` with justification |
-| Important | Wire magic/version defined but never exchanged | `rf-crypto/src/noise.rs` | Add magic+version send/validate in `handshake()` |
-| Important | `TransportState` API gap | `rf-crypto` → `SecureChannel` | `handshake()` returns one state; `SecureChannel::new()` needs two. Add split method |
-| Important | `RwLock::write().unwrap()` (3 instances) | `rf-bootstrap/src/otp.rs` | Handle poisoned lock or use `parking_lot` (non-poisoning) |
 | Minor | Audit write errors silently swallowed | `rf-audit/src/logger.rs` | Return `Result` from `log()` or use `tracing::error!` |
-| Minor | Unused workspace deps | `Cargo.toml` | Remove `proptest`, `base64`, `crc32fast` until needed |
-| Minor | `yamux` dep in `rf-crypto` | `crates/rf-crypto/Cargo.toml` | Move to `rf-rpc` where mux lives |
-| Minor | Missing `Debug`/`Clone` derives | `rf-transport` `Target` type | Add derives for ergonomics |
+| Minor | `Box<dyn Error>` return type | `rf-policy/src/rpc_policy.rs` | Replace with typed `PolicyError` |
+| Minor | No reconnect loop | `rf-agent/src/main.rs` | Add exponential backoff + jitter reconnect |
+| Minor | No config file support | `rf-agent` | Implement raven.toml loading |
+| Minor | No rate limiting | `rf-relay/src/main.rs` | Add per-IP rate limiting |
+| Enhancement | No yamux multiplexing | `rf-rpc` | Add yamux for concurrent RPC requests |
+| Enhancement | No `rf dev` mode | `rf-cli` | Start relay + agent in one process |
 
 ## Testing Requirements
 
@@ -247,16 +245,23 @@ meet_secret = "env:RELAY_SECRET"
 
 ## Implementation Priority (What to Build Next)
 
-The critical path to a working demo (`rf exec agent "cmd"`) requires these items in order:
+The critical path to a working demo (`rf exec --token <token> "cmd"`) is **COMPLETE**.
 
-1. **Fix `TransportState` split** in `rf-crypto` — needed for `SecureChannel` to work
-2. **Wire protocol magic/version exchange** in `handshake()` — security invariant
-3. **In-memory transport driver** in `rf-transport` — enables all testing without network
-4. **yamux multiplexer** in `rf-rpc` — connects crypto to RPC
-5. **msgpack codec** in `rf-rpc` — frame encode/decode
-6. **WebSocket driver** in `rf-transport` — first real transport
-7. **Relay implementation** in `rf-relay` — agent/client pairing
-8. **Agent RPC loop** in `rf-agent` — receive requests, dispatch to executor
-9. **CLI exec command** in `rf-cli` — connect, handshake, send, display
+All v0.1 foundation items are done:
+1. ~~Fix `TransportState` split~~ — uses `StatelessTransportState` for concurrent send/recv
+2. ~~Wire protocol magic/version exchange~~ — sent and validated in every handshake
+3. ~~In-memory transport driver~~ — enables all testing without network
+4. ~~RPC session + msgpack codec~~ — frame encode/decode with roundtrip tests
+5. ~~WebSocket driver~~ — bridge pattern with DuplexStream
+6. ~~Relay implementation~~ — meet-token pairing, bidirectional forwarding
+7. ~~Agent RPC loop~~ — receive requests, dispatch to executor
+8. ~~CLI exec command~~ — connect, handshake, send, display
+9. ~~Executor tests~~ — 9 tests covering all security-critical paths
 
-After the working demo, prioritize test coverage for executor and crypto.
+**Next priorities (v0.2):**
+1. Integration test: spawn relay + agent + cli in-process
+2. `rf dev` mode (relay + agent in one process)
+3. Reconnect loop with exponential backoff
+4. Config file support (raven.toml)
+5. QUIC transport driver
+6. yamux multiplexing for concurrent RPC

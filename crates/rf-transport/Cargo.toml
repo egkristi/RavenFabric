@@ -9,6 +9,7 @@ license.workspace = true
 rf-crypto = { path = "../rf-crypto" }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
+futures-util = "0.3"
 async-trait = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

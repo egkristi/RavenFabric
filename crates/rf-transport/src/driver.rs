@@ -4,6 +4,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use crate::error::TransportError;
 
 /// Identifies a remote endpoint for connection.
+#[derive(Debug, Clone)]
 pub struct Target {
     pub agent_id: String,
     pub relay_url: Option<String>,
@@ -32,4 +33,14 @@ pub trait Driver: Send + Sync + 'static {
         target: &Target,
         config: &DriverConfig,
     ) -> Result<Box<dyn AsyncStream>, TransportError>;
+
+    /// Listen for incoming connections (servers/agents).
+    async fn listen(&self, addr: &str) -> Result<Box<dyn Listener>, TransportError>;
+}
+
+/// A listener that accepts incoming connections.
+#[async_trait::async_trait]
+pub trait Listener: Send + Sync {
+    /// Accept the next incoming connection.
+    async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError>;
 }

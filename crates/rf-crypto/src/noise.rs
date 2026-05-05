@@ -1,4 +1,4 @@
-use snow::{Builder, HandshakeState, TransportState};
+use snow::{Builder, HandshakeState, StatelessTransportState};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::{debug, trace};
 
@@ -22,17 +22,57 @@ pub const WIRE_VERSION: u8 = 1;
 
 /// Perform Noise XX handshake over a raw transport stream.
 ///
-/// Returns the negotiated TransportState (for SecureChannel) and the peer's static public key.
+/// Sends wire magic + version before the Noise handshake begins.
+/// Returns the negotiated `StatelessTransportState` (for SecureChannel) and the peer's static public key.
 pub async fn handshake<T>(
     transport: &mut T,
     is_initiator: bool,
     static_key: &StaticKey,
-) -> Result<(TransportState, [u8; 32]), CryptoError>
+) -> Result<(StatelessTransportState, [u8; 32]), CryptoError>
 where
     T: AsyncRead + AsyncWrite + Unpin,
 {
-    let builder =
-        Builder::new(NOISE_PATTERN.parse().unwrap()).local_private_key(static_key.private_bytes());
+    // Wire protocol: send magic + version
+    transport
+        .write_all(WIRE_MAGIC)
+        .await
+        .map_err(|_| CryptoError::Disconnected)?;
+    transport
+        .write_all(&[WIRE_VERSION])
+        .await
+        .map_err(|_| CryptoError::Disconnected)?;
+
+    // Wire protocol: receive and validate magic + version
+    let mut magic = [0u8; 4];
+    transport
+        .read_exact(&mut magic)
+        .await
+        .map_err(|_| CryptoError::Disconnected)?;
+    if &magic != WIRE_MAGIC {
+        return Err(CryptoError::Handshake(format!(
+            "invalid wire magic: expected RVNF, got {:?}",
+            magic
+        )));
+    }
+
+    let mut version = [0u8; 1];
+    transport
+        .read_exact(&mut version)
+        .await
+        .map_err(|_| CryptoError::Disconnected)?;
+    if version[0] != WIRE_VERSION {
+        return Err(CryptoError::Handshake(format!(
+            "unsupported wire version: {}",
+            version[0]
+        )));
+    }
+
+    let builder = Builder::new(
+        NOISE_PATTERN
+            .parse()
+            .expect("static noise pattern is always valid"),
+    )
+    .local_private_key(static_key.private_bytes());
 
     let mut noise = if is_initiator {
         builder.build_initiator()
@@ -69,7 +109,7 @@ where
     peer_key_arr.copy_from_slice(peer_key);
 
     let transport_state = noise
-        .into_transport_mode()
+        .into_stateless_transport_mode()
         .map_err(|e| CryptoError::Handshake(e.to_string()))?;
 
     Ok((transport_state, peer_key_arr))
@@ -142,6 +182,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::SecureChannel;
     use tokio::io::duplex;
 
     #[tokio::test]
@@ -162,5 +203,63 @@ mod tests {
         // Each side sees the other's public key
         assert_eq!(peer_key_a, key_b.public);
         assert_eq!(peer_key_b, key_a.public);
+    }
+
+    #[tokio::test]
+    async fn test_handshake_rejects_bad_magic() {
+        let key_a = StaticKey::generate();
+
+        let (mut client, mut server) = duplex(65536);
+
+        // Write bad magic from "server" side
+        let bad_side = async move {
+            server.write_all(b"BAAD").await.unwrap();
+            server.write_all(&[WIRE_VERSION]).await.unwrap();
+            // Read client's magic+version
+            let mut buf = [0u8; 5];
+            server.read_exact(&mut buf).await.unwrap();
+        };
+
+        let client_side = handshake(&mut client, true, &key_a);
+
+        let (_, result) = tokio::join!(bad_side, client_side);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("invalid wire magic"));
+    }
+
+    #[tokio::test]
+    async fn test_secure_channel_roundtrip() {
+        let key_a = StaticKey::generate();
+        let key_b = StaticKey::generate();
+
+        let (mut client, mut server) = duplex(65536);
+
+        let (result_a, result_b) = tokio::join!(
+            handshake(&mut client, true, &key_a),
+            handshake(&mut server, false, &key_b),
+        );
+
+        let (state_a, peer_a) = result_a.unwrap();
+        let (state_b, peer_b) = result_b.unwrap();
+
+        // Split the duplex into read/write halves for each channel
+        let (client_read, client_write) = tokio::io::duplex(65536);
+        let (server_read, server_write) = tokio::io::duplex(65536);
+
+        // Channel A writes to server_write, reads from client_read
+        // Channel B writes to client_write, reads from server_read
+        let chan_a = SecureChannel::new(server_read, client_write, state_a, peer_a);
+        let chan_b = SecureChannel::new(client_read, server_write, state_b, peer_b);
+
+        // A sends to B
+        chan_a.send(b"hello from A").await.unwrap();
+        let received = chan_b.recv().await.unwrap();
+        assert_eq!(received, b"hello from A");
+
+        // B sends to A
+        chan_b.send(b"hello from B").await.unwrap();
+        let received = chan_a.recv().await.unwrap();
+        assert_eq!(received, b"hello from B");
     }
 }

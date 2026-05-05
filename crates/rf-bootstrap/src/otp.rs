@@ -36,7 +36,10 @@ impl OtpStore {
         let token = format!("rf-otp-{}", hex::encode(bytes));
 
         let hash = hash_token(&token);
-        let mut tokens = self.tokens.write().unwrap();
+        let mut tokens = self
+            .tokens
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         tokens.insert(
             hash,
             OtpEntry {
@@ -52,7 +55,10 @@ impl OtpStore {
     /// Validate and consume a token (single-use).
     pub fn validate_and_consume(&self, token: &str) -> Result<(), &'static str> {
         let hash = hash_token(token);
-        let mut tokens = self.tokens.write().unwrap();
+        let mut tokens = self
+            .tokens
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
 
         let entry = tokens.get_mut(&hash).ok_or("token not found")?;
 
@@ -70,7 +76,10 @@ impl OtpStore {
 
     /// Remove expired tokens.
     pub fn purge_expired(&self) {
-        let mut tokens = self.tokens.write().unwrap();
+        let mut tokens = self
+            .tokens
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         tokens.retain(|_, entry| entry.created_at.elapsed() < self.ttl);
     }
 }

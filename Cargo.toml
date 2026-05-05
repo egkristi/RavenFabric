@@ -78,10 +78,8 @@ clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 hex = "0.4"
-base64 = "0.22"
 hmac = "0.12"
 sha2 = "0.10"
-crc32fast = "1"
 
 # System info
 sysinfo = "0.32"
@@ -91,9 +89,6 @@ serde_json = "1"
 
 # Temp files (for tests)
 tempfile = "3"
-
-# Testing
-proptest = "1"
 
 [profile.release]
 lto = true

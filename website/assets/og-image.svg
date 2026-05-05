@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0b0d"/>
+      <stop offset="100%" stop-color="#15171b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="80%" cy="20%" r="60%">
+      <stop offset="0%" stop-color="#c9a961" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#c9a961" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Subtle grid -->
+  <g stroke="#1f2228" stroke-width="1" opacity="0.5">
+    <line x1="0" y1="120" x2="1200" y2="120"/>
+    <line x1="0" y1="510" x2="1200" y2="510"/>
+    <line x1="80" y1="0" x2="80" y2="630"/>
+    <line x1="1120" y1="0" x2="1120" y2="630"/>
+  </g>
+
+  <!-- Brand row -->
+  <g transform="translate(80, 90)">
+    <path d="M5 18 Q5 10 13 8 L20 6 Q26 7 27 13 Q27 16 24 17 L24 19 Q26 20 26 22 L24 22 Q23 24 20 24 L18 24 L17 26 L14 26 L14 23 Q9 22 7 20 Z M22 12 A1 1 0 1 1 22 14 A1 1 0 1 1 22 12" fill="#c9a961" transform="scale(1.6)"/>
+    <text x="60" y="35" font-family="IBM Plex Serif, Georgia, serif" font-size="26" font-weight="500" fill="#e8e6e3">Raven<tspan font-style="italic" fill="#a8a39a">Fabric</tspan></text>
+  </g>
+
+  <!-- Eyebrow -->
+  <g transform="translate(80, 200)">
+    <line x1="0" y1="10" x2="40" y2="10" stroke="#c9a961" stroke-width="1.5"/>
+    <text x="56" y="15" font-family="JetBrains Mono, monospace" font-size="14" letter-spacing="3" fill="#c9a961">SECURITY-FIRST DISTRIBUTED EXECUTION</text>
+  </g>
+
+  <!-- Headline -->
+  <text x="80" y="290" font-family="IBM Plex Serif, Georgia, serif" font-size="64" font-weight="400" fill="#e8e6e3" letter-spacing="-2">One fabric for <tspan font-style="italic" fill="#c9a961">transport,</tspan></text>
+  <text x="80" y="370" font-family="IBM Plex Serif, Georgia, serif" font-size="64" font-weight="400" fill="#e8e6e3" letter-spacing="-2"><tspan font-style="italic" fill="#c9a961">policy,</tspan> and <tspan font-style="italic" fill="#c9a961">execution.</tspan></text>
+
+  <!-- Subline -->
+  <text x="80" y="440" font-family="IBM Plex Sans, sans-serif" font-size="22" fill="#a8a39a">E2E encrypted · Network-agnostic · ZTNA-native · Built in Rust</text>
+
+  <!-- Bottom row -->
+  <g transform="translate(80, 540)">
+    <text x="0" y="0" font-family="JetBrains Mono, monospace" font-size="14" fill="#6b675f" letter-spacing="2">RAVENFABRIC.IO</text>
+    <text x="1040" y="0" font-family="IBM Plex Serif, Georgia, serif" font-size="24" font-style="italic" fill="#8b7642" letter-spacing="6">ᚱᚨᚢᛖᚾ</text>
+  </g>
+</svg>

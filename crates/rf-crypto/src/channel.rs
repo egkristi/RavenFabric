@@ -1,4 +1,6 @@
-use snow::TransportState;
+use std::sync::Arc;
+
+use snow::StatelessTransportState;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::Mutex;
 
@@ -8,51 +10,56 @@ use crate::noise::MAX_FRAME_PAYLOAD;
 /// An established encrypted channel after Noise XX handshake.
 ///
 /// Provides send/recv of encrypted frames over the underlying transport.
-/// Each direction has independent encryption state (nonces).
+/// Each direction has independent nonce counters for encryption/decryption.
 ///
 /// Thread-safe: send and recv can be called concurrently from different tasks.
-pub struct SecureChannel<T> {
-    reader: Mutex<ChannelReader<T>>,
-    writer: Mutex<ChannelWriter<T>>,
+pub struct SecureChannel<R, W> {
+    reader: Mutex<ChannelReader<R>>,
+    writer: Mutex<ChannelWriter<W>>,
     peer_key: [u8; 32],
 }
 
-struct ChannelReader<T> {
-    transport: T,
-    state: TransportState,
+struct ChannelReader<R> {
+    transport: R,
+    state: Arc<StatelessTransportState>,
+    nonce: u64,
     buf: Vec<u8>,
 }
 
-struct ChannelWriter<T> {
-    transport: T,
-    state: TransportState,
+struct ChannelWriter<W> {
+    transport: W,
+    state: Arc<StatelessTransportState>,
+    nonce: u64,
     buf: Vec<u8>,
 }
 
-impl<T> SecureChannel<T>
+impl<R, W> SecureChannel<R, W>
 where
-    T: AsyncRead + AsyncWrite + Unpin + Send,
+    R: AsyncRead + Unpin + Send,
+    W: AsyncWrite + Unpin + Send,
 {
     /// Create a new SecureChannel from a completed handshake.
     ///
-    /// The transport is split into two halves for concurrent read/write.
-    /// `transport_state` comes from `noise::handshake()`.
+    /// Takes separate read and write halves for concurrent I/O.
+    /// `state` is the `StatelessTransportState` from `noise::handshake()`.
     pub fn new(
-        read_half: T,
-        write_half: T,
-        read_state: TransportState,
-        write_state: TransportState,
+        read_half: R,
+        write_half: W,
+        state: StatelessTransportState,
         peer_key: [u8; 32],
     ) -> Self {
+        let state = Arc::new(state);
         Self {
             reader: Mutex::new(ChannelReader {
                 transport: read_half,
-                state: read_state,
+                state: Arc::clone(&state),
+                nonce: 0,
                 buf: vec![0u8; MAX_FRAME_PAYLOAD + 16 + 4],
             }),
             writer: Mutex::new(ChannelWriter {
                 transport: write_half,
-                state: write_state,
+                state,
+                nonce: 0,
                 buf: vec![0u8; MAX_FRAME_PAYLOAD + 16 + 4],
             }),
             peer_key,
@@ -81,12 +88,14 @@ where
         let ChannelWriter {
             transport,
             state,
+            nonce,
             buf,
         } = &mut *writer;
 
         let len = state
-            .write_message(plaintext, buf)
+            .write_message(*nonce, plaintext, buf)
             .map_err(|e| CryptoError::Encrypt(e.to_string()))?;
+        *nonce += 1;
 
         transport
             .write_all(&(len as u32).to_be_bytes())
@@ -124,6 +133,7 @@ where
         let ChannelReader {
             transport,
             state,
+            nonce,
             buf,
         } = &mut *reader;
 
@@ -134,8 +144,9 @@ where
 
         let mut plaintext = vec![0u8; MAX_FRAME_PAYLOAD];
         let plaintext_len = state
-            .read_message(&buf[..len], &mut plaintext)
+            .read_message(*nonce, &buf[..len], &mut plaintext)
             .map_err(|e| CryptoError::Decrypt(e.to_string()))?;
+        *nonce += 1;
 
         plaintext.truncate(plaintext_len);
         Ok(plaintext)

@@ -84,31 +84,32 @@ rf exec test-agent "uname -a"
 - [x] CodeQL security scanning
 - [x] Dependabot for dependency updates
 - [x] Pre-commit hook (fmt + clippy + test)
-- [ ] In-memory transport driver for testing (no network required)
+- [x] In-memory transport driver for testing (no network required)
 - [ ] Integration test harness: spawn relay + agent + client in-process
 
-### Crypto Layer (Phase 1) — DONE (with known debt)
+### Crypto Layer (Phase 1) — DONE
 - [x] `rf-crypto/src/noise.rs` — Noise XX handshake + wire protocol (RVNF magic + version)
 - [x] `rf-crypto/src/keys.rs` — StaticKey (load/save/generate, 0600 permissions, zeroed on drop)
 - [x] `rf-crypto/src/channel.rs` — SecureChannel (send/recv, 64KB frames, concurrent via split Mutex)
 - [x] `rf-crypto/src/error.rs` — CryptoError enum (typed errors)
 - [x] Wire protocol version byte in handshake
-- [ ] **Fix:** `handshake()` returns single `TransportState` but `SecureChannel::new()` needs two — add split API
-- [ ] **Fix:** Wire magic (`RVNF`) and version byte defined as constants but never sent/validated during handshake
-- [ ] **Fix:** Replace `unwrap()` in `StaticKey::generate()` and `noise::handshake()` with proper error handling
-- [ ] **Fix:** Remove `yamux` dependency (belongs in `rf-rpc`)
+- [x] **Fix:** `handshake()` uses `StatelessTransportState` for split-free concurrent SecureChannel
+- [x] **Fix:** Wire magic (`RVNF`) and version byte sent and validated during handshake
+- [x] **Fix:** Replace `unwrap()` with `expect()` with justification in `StaticKey::generate()` and noise pattern parsing
+- [x] **Fix:** `yamux` dependency removed from `rf-crypto`
 
-### Transport Layer (Phase 2) — Partial
-- [x] `rf-transport/src/driver.rs` — Driver trait + AsyncStream + Target + DriverConfig
+### Transport Layer (Phase 2) — DONE
+- [x] `rf-transport/src/driver.rs` — Driver trait + AsyncStream + Target + DriverConfig + Listener trait
 - [x] `rf-transport/src/error.rs` — TransportError enum
-- [ ] **Fix:** Add `#[derive(Debug, Clone)]` to `Target` type
-- [ ] `rf-transport/src/drivers/websocket.rs` — WebSocket transport driver
-- [ ] `rf-transport/src/drivers/memory.rs` — In-memory driver (for tests)
+- [x] **Fix:** `#[derive(Debug, Clone)]` added to `Target` type
+- [x] `rf-transport/src/websocket.rs` — WebSocket transport driver (bridge pattern)
+- [x] `rf-transport/src/memory.rs` — In-memory driver (for tests, with unit tests)
 
-### RPC Layer (Phase 3) — Partial
+### RPC Layer (Phase 3) — DONE
 - [x] `rf-rpc/src/types.rs` — Request/Response/Action/RpcResult types
-- [ ] `rf-rpc/src/mux.rs` — yamux multiplexer over SecureChannel
-- [ ] `rf-rpc/src/codec.rs` — msgpack frame codec (length-delimited)
+- [x] `rf-rpc/src/mux.rs` — RPC session over SecureChannel (request/response semantics)
+- [x] `rf-rpc/src/codec.rs` — msgpack frame codec (length-delimited, roundtrip tested)
+- [x] `rf-rpc/src/error.rs` — RpcError enum (typed errors)
 
 ### Audit (Phase 4) — DONE (with known debt)
 - [x] `rf-audit/src/types.rs` — AuditEntry struct (timestamp, action, decision, duration, caller)
@@ -123,33 +124,35 @@ rf exec test-agent "uname -a"
 - [ ] **Fix:** Replace `Box<dyn Error>` in `load()`/`from_yaml()` with typed `PolicyError`
 - [ ] Hot-reload via SIGHUP (atomic policy swap)
 
-### Executor (Phase 6) — DONE (needs tests)
+### Executor (Phase 6) — DONE
 - [x] `rf-executor/src/command.rs` — Policy-checked execution with timeout + output limiting
 - [x] Metrics action handler (sysinfo)
-- [ ] **Critical:** Add unit tests (policy denial, successful exec, timeout, output limiting)
+- [x] **Done:** Unit tests (policy denial, successful exec, timeout, output limiting, env, metrics)
 - [ ] Streaming stdout/stderr via mux stream
 
-### Bootstrap (Phase 7) — DONE (with known debt)
+### Bootstrap (Phase 7) — DONE
 - [x] `rf-bootstrap/src/otp.rs` — OTP generation, validation, single-use, TTL-enforced, hash-stored
-- [ ] **Fix:** Replace `RwLock::write().unwrap()` (3 instances) — handle poisoning or use `parking_lot`
+- [x] **Fix:** `RwLock::write()` uses `unwrap_or_else(|p| p.into_inner())` — handles poisoning gracefully
 - [ ] Agent enrollment flow (token → key exchange → registered)
 
-### Relay (Phase 8) — Stub
-- [x] `rf-relay/src/main.rs` — Binary scaffold
-- [ ] WebSocket listener + HMAC token auth
-- [ ] Channel-based agent/client pairing
+### Relay (Phase 8) — DONE
+- [x] `rf-relay/src/main.rs` — Full relay broker binary
+- [x] WebSocket listener + meet-token pairing
+- [x] Channel-based agent/client pairing (bidirectional forwarding)
 - [ ] Per-IP rate limiting
+- [ ] HMAC token auth (meet tokens)
 
-### Agent Binary (Phase 9) — Stub
-- [x] `rf-agent/src/main.rs` — Binary scaffold
+### Agent Binary (Phase 9) — DONE
+- [x] `rf-agent/src/main.rs` — Full agent binary
+- [x] Connect to relay, perform Noise handshake, run RPC loop
+- [x] Policy-checked executor integration
 - [ ] Config loading (raven.toml)
 - [ ] Reconnect loop with exponential backoff + jitter
-- [ ] RPC request dispatcher (Executor integration)
 - [ ] Graceful shutdown (drain in-flight, flush audit)
 
-### CLI Binary (Phase 10) — Partial
+### CLI Binary (Phase 10) — DONE
 - [x] `rf-cli/src/main.rs` — clap CLI with exec/dev/status subcommands
-- [ ] `rf exec` — connect, handshake, send Request, display Response
+- [x] `rf exec` — connect, handshake, send Request, display Response
 - [ ] `rf dev` — local relay + agent in one process (no auth)
 - [ ] `rf status` — show connected agents
 - [ ] Shell completions (bash, zsh, fish)
@@ -161,8 +164,8 @@ rf exec test-agent "uname -a"
 - [ ] systemd service units (agent + relay)
 
 ### Workspace Cleanup (from audit)
-- [ ] Remove unused workspace deps (`proptest`, `base64`, `crc32fast`)
-- [ ] Move `yamux` dep from `rf-crypto` to `rf-rpc`
+- [x] Remove unused workspace deps (`proptest`, `base64`, `crc32fast`)
+- [x] Move `yamux` dep from `rf-crypto` to `rf-rpc` (removed from crypto; yamux available for future use)
 - [ ] Align CI clippy settings with workspace lint config
 - [ ] Fix release workflow `|| true` on binary copy
 

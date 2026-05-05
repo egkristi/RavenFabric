@@ -580,25 +580,25 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~1,260 LOC | 13 tests | 0 clippy warnings | All CI green**
+**~2,500 LOC | 30 tests | 0 clippy warnings | All CI green**
 
 What works today:
-- Noise XX mutual authentication handshake (full)
-- Secure channel with encrypted frames (full)
-- Static key management with zeroing-on-drop (full)
-- OTP token generation and validation (full)
+- Noise XX mutual authentication handshake with wire magic/version validation (full)
+- Secure channel with encrypted frames using `StatelessTransportState` for concurrent send/recv (full)
+- Static key management with zeroing-on-drop, cross-platform (full)
+- OTP token generation and validation with poisoning-safe locks (full)
 - Policy engine with deny-by-default, regex allow/deny, path checks, symlink resolution (full)
-- Command execution under policy control with timeout and output limiting (full)
+- Command execution under policy control with timeout and output limiting (full, tested)
 - Structured JSON-lines audit logging (full)
-- CLI argument parsing with clap (skeleton)
+- Msgpack RPC codec with length-prefixed framing and roundtrip tests (full)
+- RPC session over encrypted SecureChannel (full, tested end-to-end)
+- In-memory transport driver for testing (full, tested)
+- WebSocket transport driver with DuplexStream bridge (full)
+- Relay broker with meet-token pairing over WebSocket (full)
+- Agent binary: connects to relay, performs handshake, runs RPC loop (full)
+- CLI `rf exec` command: connect, handshake, send, display result (full)
 
-What's next (critical path to working demo):
-1. Fix `TransportState` split for `SecureChannel` to accept connections
-2. Wire protocol magic/version exchange
-3. In-memory transport driver (enables testing without network)
-4. yamux multiplexer + msgpack codec
-5. WebSocket transport driver
-6. Relay, agent, and CLI implementation
+Working end-to-end flow: `rf exec --token <token> "command"` → relay → agent → execute → respond
 
 See [ROADMAP.md](ROADMAP.md) for the full plan.
 

@@ -9,7 +9,6 @@ license.workspace = true
 snow = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true }
-yamux = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 hex = { workspace = true }

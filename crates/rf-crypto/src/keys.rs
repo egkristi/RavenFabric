@@ -1,4 +1,5 @@
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
@@ -14,8 +15,14 @@ pub struct StaticKey {
 impl StaticKey {
     /// Generate a new random key pair.
     pub fn generate() -> Self {
-        let builder = snow::Builder::new("Noise_XX_25519_ChaChaPoly_BLAKE2s".parse().unwrap());
-        let keypair = builder.generate_keypair().unwrap();
+        let builder = snow::Builder::new(
+            "Noise_XX_25519_ChaChaPoly_BLAKE2s"
+                .parse()
+                .expect("static noise pattern is always valid"),
+        );
+        let keypair = builder
+            .generate_keypair()
+            .expect("keypair generation with valid pattern cannot fail");
 
         let mut public = [0u8; 32];
         let mut private = [0u8; 32];

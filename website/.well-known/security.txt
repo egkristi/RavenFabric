@@ -1,0 +1,6 @@
+Contact: mailto:security@ravenfabric.io
+Contact: https://github.com/egkristi/RavenFabric/security/advisories/new
+Expires: 2027-05-05T00:00:00.000Z
+Preferred-Languages: en, no
+Canonical: https://ravenfabric.io/.well-known/security.txt
+Policy: https://github.com/egkristi/RavenFabric/blob/main/SECURITY.md
