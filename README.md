@@ -1118,6 +1118,36 @@ See [ROADMAP.md](ROADMAP.md) for the detailed roadmap with implementation checkl
 
 ## Getting Started
 
+### Install
+
+```bash
+# Quick install (Linux/macOS)
+curl -fsSL https://raw.githubusercontent.com/egkristi/RavenFabric/main/deploy/install.sh | sh
+
+# Homebrew (macOS/Linux)
+brew install egkristi/ravenfabric/ravenfabric
+
+# Nix
+nix profile install github:egkristi/RavenFabric
+
+# Docker
+docker pull ghcr.io/egkristi/ravenfabric-relay:latest
+docker pull ghcr.io/egkristi/ravenfabric-agent:latest
+
+# Debian/Ubuntu (.deb from GitHub Releases)
+sudo dpkg -i ravenfabric-*.deb
+
+# Fedora/RHEL (.rpm from GitHub Releases)
+sudo rpm -i ravenfabric-*.rpm
+
+# From source
+cargo install --git https://github.com/egkristi/RavenFabric.git rf-cli
+```
+
+See [ROADMAP.md — Distribution & Packaging](ROADMAP.md#distribution--packaging) for all supported platforms.
+
+### Build from Source
+
 ### Prerequisites
 
 - Rust 1.85+ (install via [rustup](https://rustup.rs))

@@ -218,7 +218,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Medium-Term
 - [x] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
 - [x] `/blog/` section with RSS feed (`/feed.xml`)
-- [ ] Newsletter signup (Buttondown, not Mailchimp)
+- [x] Newsletter signup (Buttondown, not Mailchimp) — form added to website
 - [ ] Live demo sandbox (`rf-demo.ravenfabric.io`)
 
 ### Explicitly Not Planned
@@ -523,59 +523,59 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| winget | `RavenFabric.RavenFabric` | [ ] Planned |
-| Chocolatey | `ravenfabric` | [ ] Planned |
-| Scoop | `extras/ravenfabric` | [ ] Planned |
-| MSI installer | `ravenfabric-x64.msi` | [ ] Planned |
-| EXE installer | `ravenfabric-x64-setup.exe` | [ ] Planned |
-| Portable ZIP | `ravenfabric-windows-x64.zip` | [ ] Planned |
+| winget | `RavenFabric.RavenFabric` | [ ] Planned — #48 |
+| Chocolatey | `ravenfabric` | [ ] Planned — #48 |
+| Scoop | `extras/ravenfabric` | [ ] Planned — #48 |
+| MSI installer | `ravenfabric-x64.msi` | [ ] Planned — #48 |
+| EXE installer | `ravenfabric-x64-setup.exe` | [ ] Planned — #48 |
+| Portable ZIP | `ravenfabric-windows-x64.zip` | [ ] Planned — #48 |
 
 ### macOS
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| Homebrew | `brew install ravenfabric` | [ ] Planned |
-| DMG | `RavenFabric.dmg` (universal binary) | [ ] Planned |
-| pkg installer | `RavenFabric.pkg` (signed) | [ ] Planned |
+| Homebrew | `brew install ravenfabric` | [x] Formula ready (`deploy/ravenfabric.rb`) — #45 |
+| DMG | `RavenFabric.dmg` (universal binary) | [ ] Planned — #49 |
+| pkg installer | `RavenFabric.pkg` (signed) | [ ] Planned — #49 |
 
 ### Linux
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| apt (Debian/Ubuntu) | `ravenfabric.deb` + PPA | [ ] Planned |
-| dnf (Fedora/RHEL) | `ravenfabric.rpm` + Copr | [ ] Planned |
-| pacman (Arch) | AUR `ravenfabric` | [ ] Planned |
-| zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [ ] Planned |
-| apk (Alpine) | `ravenfabric` (aports) | [ ] Planned |
-| snap | `snap install ravenfabric` | [ ] Planned |
-| Flatpak | `io.ravenfabric.Agent` | [ ] Planned |
-| Nix | `nix profile install ravenfabric` | [ ] Planned |
-| AppImage | `RavenFabric-x86_64.AppImage` | [ ] Planned |
-| Static binary | `ravenfabric-linux-{amd64,arm64,armv7}-musl` | [ ] Planned |
+| apt (Debian/Ubuntu) | `ravenfabric.deb` + PPA | [x] cargo-deb configured — CI builds on release |
+| dnf (Fedora/RHEL) | `ravenfabric.rpm` + Copr | [x] cargo-generate-rpm configured — CI builds on release |
+| pacman (Arch) | AUR `ravenfabric` | [x] PKGBUILD ready (`deploy/aur/PKGBUILD`) — #46 |
+| zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [ ] Planned — #54 |
+| apk (Alpine) | `ravenfabric` (aports) | [ ] Planned — #54 |
+| snap | `snap install ravenfabric` | [x] snapcraft.yaml ready — #47 |
+| Flatpak | `io.ravenfabric.Agent` | [ ] Planned — #52 |
+| Nix | `nix profile install ravenfabric` | [x] flake.nix ready |
+| AppImage | `RavenFabric-x86_64.AppImage` | [ ] Planned — #52 |
+| Static binary | `ravenfabric-linux-{amd64,arm64,armv7}-musl` | [x] Done — release workflow |
 
 ### Android
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| APK (sideload) | `ravenfabric.apk` | [ ] Planned |
-| Termux (pkg) | `pkg install ravenfabric` | [ ] Planned |
-| F-Droid | `io.ravenfabric.agent` | [ ] Planned |
+| APK (sideload) | `ravenfabric.apk` | [ ] Planned — #50 |
+| Termux (pkg) | `pkg install ravenfabric` | [ ] Planned — #50 |
+| F-Droid | `io.ravenfabric.agent` | [ ] Planned — #50 |
 
 ### iOS / iPadOS
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| App Store | RavenFabric (Network Extension) | [ ] Planned |
-| TestFlight | Beta builds | [ ] Planned |
+| App Store | RavenFabric (Network Extension) | [ ] Planned — #51 |
+| TestFlight | Beta builds | [ ] Planned — #51 |
 
 ### Cross-Platform / Generic
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| Cargo | `cargo install ravenfabric` | [ ] Planned |
-| Container (Docker/OCI) | `ghcr.io/egkristi/ravenfabric` | [ ] Planned |
-| Helm chart | `helm install ravenfabric` | [ ] Planned |
-| curl \| sh | `curl -fsSL https://get.ravenfabric.io \| sh` | [ ] Planned |
+| Cargo | `cargo install ravenfabric` | [ ] Planned — #44 |
+| Container (Docker/OCI) | `ghcr.io/egkristi/ravenfabric` | [x] Dockerfile + CI workflow ready |
+| Helm chart | `helm install ravenfabric` | [x] Chart ready (`deploy/helm/`) |
+| curl \| sh | `curl -fsSL https://get.ravenfabric.io \| sh` | [x] Script ready (`deploy/install.sh`) |
 
 ---
 
