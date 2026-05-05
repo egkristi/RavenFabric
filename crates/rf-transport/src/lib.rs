@@ -5,10 +5,12 @@ pub mod driver;
 pub mod error;
 pub mod eyeballs;
 pub mod fingerprint;
+pub mod latency;
 pub mod memory;
 pub mod migration;
 pub mod obfuscation;
 pub mod probe;
+pub mod proxy;
 #[cfg(feature = "quic")]
 pub mod quic;
 #[cfg(feature = "websocket")]

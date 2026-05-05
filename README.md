@@ -986,10 +986,10 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel (+ close-notify), StaticKey, sealed secrets | Done (~650 LOC, 16 tests) |
-| `rf-transport` | Driver trait, AsyncStream, WebSocket + QUIC + Memory, NetworkProbe, TransportCatalog, ConnectionManager | Done (~2300 LOC, 56 tests) |
+| `rf-transport` | Driver trait, AsyncStream, WebSocket + QUIC + Memory, NetworkProbe, TransportCatalog, ConnectionManager, proxy, latency | Done (~3100 LOC, 71 tests) |
 | `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, path metrics | Done (~1100 LOC, 32 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
-| `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) | Done (281 LOC, 4 tests) |
+| `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default), RBAC | Done (~530 LOC, 11 tests) |
 | `rf-executor` | Command execution, file ops, background jobs, streaming, policy control, orchestration | Done (~1900 LOC, 39 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~380 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done |
