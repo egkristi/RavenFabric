@@ -49,7 +49,7 @@ tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
 
 # Crypto
-snow = "0.9"
+snow = "0.10"
 rand = "0.8"
 chacha20poly1305 = "0.10"
 
