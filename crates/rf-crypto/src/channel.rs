@@ -151,4 +151,20 @@ where
         plaintext.truncate(plaintext_len);
         Ok(plaintext)
     }
+
+    /// Send a close-notify frame and flush the transport.
+    ///
+    /// A close-notify is an encrypted empty payload (0 bytes plaintext).
+    /// After calling this, the channel should not be used for sending.
+    /// The peer will receive a zero-length decrypted result from `recv()`.
+    pub async fn close_notify(&self) -> Result<(), CryptoError> {
+        self.send(&[]).await?;
+        let mut writer = self.writer.lock().await;
+        writer
+            .transport
+            .flush()
+            .await
+            .map_err(|_| CryptoError::Disconnected)?;
+        Ok(())
+    }
 }

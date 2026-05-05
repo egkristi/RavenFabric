@@ -196,7 +196,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Concrete comparison table (RavenFabric vs Tailscale vs Ansible — E2E encryption, policy, air-gap)~~
 - [x] ~~Architecture diagram as SVG (from README's 6-layer ASCII diagram)~~
 - [x] ~~"Why now" section (2026 context: cable sabotage, NIS2, ZTNA mandates, monoculture risk)~~
-- [ ] Use-case personas (public sector architects, MSPs, remote-first, edge/IoT)
+- [x] ~~Use-case personas (public sector architects, MSPs, remote-first, edge/IoT)~~
 - [x] ~~FAQ section (vs Tailscale+Ansible, why Rust, why AGPLv3, production-ready?, who)~~
 - [ ] Terminal example tab-style rotation (reduce visual noise on desktop)
 
@@ -302,7 +302,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Graceful Teardown (Phase 12 of Connectivity Value Chain)
 - [x] ~~Drain in-flight requests before disconnect (with timeout)~~ — agent graceful shutdown
 - [x] ~~Flush audit log to durable storage before close~~ — agent graceful shutdown
-- [ ] Noise close-notify + yamux stream close
+- [x] ~~Noise close-notify + yamux stream close~~ — close-notify via empty encrypted frame
 - [x] ~~Session key zeroization on disconnect~~ — SecureChannel drops keys via zeroize
 - [x] ~~Cache last-known-good endpoint for fast reconnect~~
 - [x] ~~Reconnect strategies: exponential backoff + jitter, network-aware, scheduled~~ — agent reconnect loop
@@ -322,7 +322,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] macOS binary + launchd plist
 - [ ] Linux static musl binaries (amd64 + arm64) with systemd units
 - [x] ~~Feature flags: `full` (default, all transports) vs `minimal` (no TUN, no sysinfo, no QUIC)~~
-- [ ] `#[cfg()]` for all OS-specific code (no Unix-only paths without alternatives)
+- [x] ~~`#[cfg()]` for all OS-specific code (no Unix-only paths without alternatives)~~ — all cfg(unix) has cfg(not(unix)) counterpart
 
 ### Data Collection Agent
 - [ ] Metrics collector framework (plugin trait, scrape loop, push/pull modes)

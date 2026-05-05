@@ -275,12 +275,22 @@ async fn run_session(
         let data = tokio::select! {
             result = chan.recv() => {
                 match result {
-                    Ok(d) => d,
+                    Ok(d) => {
+                        // Empty payload = close-notify from peer
+                        if d.is_empty() {
+                            info!("received close-notify from peer");
+                            return Ok(());
+                        }
+                        d
+                    }
                     Err(e) => return Err(anyhow::anyhow!("channel recv: {}", e)),
                 }
             }
             _ = tokio::signal::ctrl_c() => {
-                info!("received SIGINT during session, draining...");
+                info!("received SIGINT during session, sending close-notify...");
+                if let Err(e) = chan.close_notify().await {
+                    warn!("failed to send close-notify: {}", e);
+                }
                 return Ok(());
             }
         };

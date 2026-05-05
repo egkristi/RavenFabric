@@ -262,4 +262,36 @@ mod tests {
         let received = chan_a.recv().await.unwrap();
         assert_eq!(received, b"hello from B");
     }
+
+    #[tokio::test]
+    async fn test_close_notify() {
+        let key_a = StaticKey::generate();
+        let key_b = StaticKey::generate();
+
+        let (mut client, mut server) = duplex(65536);
+
+        let (result_a, result_b) = tokio::join!(
+            handshake(&mut client, true, &key_a),
+            handshake(&mut server, false, &key_b),
+        );
+
+        let (state_a, peer_a) = result_a.unwrap();
+        let (state_b, peer_b) = result_b.unwrap();
+
+        let (client_read, client_write) = tokio::io::duplex(65536);
+        let (server_read, server_write) = tokio::io::duplex(65536);
+
+        let chan_a = SecureChannel::new(server_read, client_write, state_a, peer_a);
+        let chan_b = SecureChannel::new(client_read, server_write, state_b, peer_b);
+
+        // A sends close-notify
+        chan_a.close_notify().await.unwrap();
+
+        // B receives empty payload (the close-notify signal)
+        let received = chan_b.recv().await.unwrap();
+        assert!(
+            received.is_empty(),
+            "close-notify should produce empty payload"
+        );
+    }
 }
