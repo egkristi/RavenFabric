@@ -168,6 +168,32 @@ async fn exec_command(
             error!("unexpected streaming response for non-streaming exec");
             std::process::exit(1);
         }
+        RpcResult::JobStarted { job_id, pid } => {
+            println!("background job started: {} (pid {})", job_id, pid);
+        }
+        RpcResult::JobStatus {
+            job_id,
+            running,
+            exit_code,
+            stdout,
+            stderr,
+        } => {
+            if running {
+                println!("job {} is still running", job_id);
+            } else {
+                if let Some(out) = stdout {
+                    print!("{}", out);
+                }
+                if let Some(err) = stderr {
+                    eprint!("{}", err);
+                }
+                let code = exit_code.unwrap_or(-1);
+                info!("job {} completed, exit_code={}", job_id, code);
+                if code != 0 {
+                    std::process::exit(code);
+                }
+            }
+        }
     }
 
     Ok(())

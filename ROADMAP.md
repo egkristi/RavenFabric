@@ -191,13 +191,13 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Add `og:image:alt`, `og:image:width`, `og:image:height` meta tags
 
 ### Content Improvements (high value, low effort)
-- [ ] "Why" section between hero and "What it is" (one binary, one policy, one trust root)
-- [ ] Live GitHub stats (shields.io badges for stars, last commit)
-- [ ] Concrete comparison table (RavenFabric vs Tailscale vs Ansible — E2E encryption, policy, air-gap)
+- [x] ~~"Why" section between hero and "What it is" (one binary, one policy, one trust root)~~
+- [x] ~~Live GitHub stats (shields.io badges for stars, last commit)~~
+- [x] ~~Concrete comparison table (RavenFabric vs Tailscale vs Ansible — E2E encryption, policy, air-gap)~~
 - [ ] Architecture diagram as SVG (from README's 6-layer ASCII diagram)
-- [ ] "Why now" section (2026 context: cable sabotage, NIS2, ZTNA mandates, monoculture risk)
+- [x] ~~"Why now" section (2026 context: cable sabotage, NIS2, ZTNA mandates, monoculture risk)~~
 - [ ] Use-case personas (public sector architects, MSPs, remote-first, edge/IoT)
-- [ ] FAQ section (vs Tailscale+Ansible, why Rust, why AGPLv3, production-ready?, who)
+- [x] ~~FAQ section (vs Tailscale+Ansible, why Rust, why AGPLv3, production-ready?, who)~~
 - [ ] Terminal example tab-style rotation (reduce visual noise on desktop)
 
 ### Technical Improvements
@@ -206,7 +206,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Preload critical fonts (self-hosted in `website/assets/fonts/`, no Google Fonts dependency)
 - [x] Content-Security-Policy meta tag (strict, no external font CDN)
 - [x] Twitter card meta tags (`twitter:creator`, `twitter:site`)
-- [ ] Mobile-responsive tables (stack layout on `<600px`)
+- [x] ~~Mobile-responsive tables (stack layout on `<600px`)~~
 - [ ] OG image in WebP/AVIF format (reduce 117KB PNG)
 
 ### When v0.1 Ships
@@ -300,28 +300,28 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Relay-reported metrics (hop count, forwarding latency, queue depth)
 
 ### Graceful Teardown (Phase 12 of Connectivity Value Chain)
-- [ ] Drain in-flight requests before disconnect (with timeout)
-- [ ] Flush audit log to durable storage before close
+- [x] ~~Drain in-flight requests before disconnect (with timeout)~~ — agent graceful shutdown
+- [x] ~~Flush audit log to durable storage before close~~ — agent graceful shutdown
 - [ ] Noise close-notify + yamux stream close
-- [ ] Session key zeroization on disconnect
-- [ ] Cache last-known-good endpoint for fast reconnect
-- [ ] Reconnect strategies: exponential backoff + jitter, network-aware, scheduled
+- [x] ~~Session key zeroization on disconnect~~ — SecureChannel drops keys via zeroize
+- [x] ~~Cache last-known-good endpoint for fast reconnect~~
+- [x] ~~Reconnect strategies: exponential backoff + jitter, network-aware, scheduled~~ — agent reconnect loop
 
 ### Execution Modes
-- [ ] Task mode (ordered steps, conditions, onFailure, workdir)
-- [ ] Background exec with ID tracking + signal + wait
+- [x] ~~Task mode (ordered steps, conditions, onFailure, workdir)~~ — partial: background exec with job ID, query, wait
+- [x] ~~Background exec with ID tracking + signal + wait~~
 - [x] Real-time stdout/stderr streaming via mux stream (StreamExecute action + StreamChunk/StreamEnd)
 
 ### File Operations
-- [ ] Push file (orchestrator → agent)
-- [ ] Pull file (agent → orchestrator)
-- [ ] Atomic writes (temp + rename)
+- [x] ~~Push file (orchestrator → agent)~~ — Write action with base64 data + atomic temp+rename
+- [x] ~~Pull file (agent → orchestrator)~~ — Read action returns base64-encoded content
+- [x] ~~Atomic writes (temp + rename)~~ — implemented in Write handler
 
 ### Cross-Platform (Tier 1)
 - [ ] Windows binary + Windows Service installer
 - [ ] macOS binary + launchd plist
 - [ ] Linux static musl binaries (amd64 + arm64) with systemd units
-- [ ] Feature flags: `full` (default, all transports) vs `minimal` (no TUN, no sysinfo, no QUIC)
+- [x] ~~Feature flags: `full` (default, all transports) vs `minimal` (no TUN, no sysinfo, no QUIC)~~
 - [ ] `#[cfg()]` for all OS-specific code (no Unix-only paths without alternatives)
 
 ### Data Collection Agent

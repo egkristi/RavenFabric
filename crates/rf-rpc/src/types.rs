@@ -41,6 +41,20 @@ pub enum Action {
     },
     /// Ping/status check — agent responds with its version and uptime.
     Status,
+    /// Execute a command in the background. Returns a job ID immediately.
+    BackgroundExec {
+        command: String,
+        env: HashMap<String, String>,
+        workdir: Option<String>,
+    },
+    /// Query the status of a background job by its ID.
+    JobQuery {
+        job_id: String,
+    },
+    /// Wait for a background job to complete and return its output.
+    JobWait {
+        job_id: String,
+    },
 }
 
 /// Identifies which output stream a chunk belongs to.
@@ -88,6 +102,19 @@ pub enum RpcResult {
     StreamEnd {
         exit_code: i32,
         duration_ms: u64,
+    },
+    /// Background job was started successfully.
+    JobStarted {
+        job_id: String,
+        pid: u32,
+    },
+    /// Status of a background job.
+    JobStatus {
+        job_id: String,
+        running: bool,
+        exit_code: Option<i32>,
+        stdout: Option<String>,
+        stderr: Option<String>,
     },
 }
 
@@ -221,6 +248,17 @@ mod tests {
                 signal: 15,
             },
             Action::Status,
+            Action::BackgroundExec {
+                command: "sleep 10".into(),
+                env: HashMap::new(),
+                workdir: Some("/tmp".into()),
+            },
+            Action::JobQuery {
+                job_id: "job-123".into(),
+            },
+            Action::JobWait {
+                job_id: "job-456".into(),
+            },
         ];
         for action in actions {
             let req = Request {
@@ -232,5 +270,36 @@ mod tests {
             let decoded: Request = codec::decode(&bytes).unwrap();
             assert_eq!(req, decoded);
         }
+    }
+
+    #[test]
+    fn roundtrip_job_started() {
+        let resp = Response {
+            id: "r-1".into(),
+            result: RpcResult::JobStarted {
+                job_id: "job-abc".into(),
+                pid: 42,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_job_status() {
+        let resp = Response {
+            id: "r-2".into(),
+            result: RpcResult::JobStatus {
+                job_id: "job-xyz".into(),
+                running: false,
+                exit_code: Some(0),
+                stdout: Some("output".into()),
+                stderr: Some(String::new()),
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
     }
 }

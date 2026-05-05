@@ -5,14 +5,19 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = ["websocket", "quic"]
+websocket = ["dep:tokio-tungstenite", "dep:futures-util"]
+quic = ["dep:quinn", "dep:rustls", "dep:rcgen"]
+
 [dependencies]
 rf-crypto = { path = "../rf-crypto" }
 tokio = { workspace = true }
-tokio-tungstenite = { workspace = true }
-quinn = { workspace = true }
-rustls = { workspace = true }
-rcgen = { workspace = true }
-futures-util = "0.3"
+tokio-tungstenite = { workspace = true, optional = true }
+quinn = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+rcgen = { workspace = true, optional = true }
+futures-util = { version = "0.3", optional = true }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

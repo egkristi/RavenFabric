@@ -1447,7 +1447,9 @@ dependencies = [
 name = "rf-executor"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "chrono",
+ "libc",
  "rf-audit",
  "rf-policy",
  "rf-rpc",

@@ -987,10 +987,10 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey management | Done (470 LOC, 7 tests) |
 | `rf-transport` | Driver trait, AsyncStream abstraction, WebSocket + QUIC + Memory backends | Done (~500 LOC, 4 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux multiplexing | Done (~430 LOC, 13 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux multiplexing | Done (~500 LOC, 15 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
 | `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) | Done (281 LOC, 4 tests) |
-| `rf-executor` | Command execution + streaming under policy control with timeout + output limiting | Done (~600 LOC, 12 tests) |
+| `rf-executor` | Command execution, file ops, background jobs, streaming, policy control | Done (~1000 LOC, 18 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~380 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done |

@@ -87,6 +87,10 @@ hmac = "0.12"
 sha2 = "0.10"
 tokio-util = { version = "0.7", features = ["rt"] }
 toml = "0.8"
+base64 = "0.22"
+
+# Platform
+libc = "0.2"
 
 # System info
 sysinfo = "0.32"
