@@ -3,6 +3,8 @@
 //! Defines configuration for overlay/anonymous network integrations:
 //! Reticulum, Yggdrasil, I2P, Veilid, and mixnets.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 /// Overlay network transport configuration.
@@ -524,6 +526,465 @@ impl InterfaceMigration {
     }
 }
 
+// --- Censorship Escalation ---
+
+/// Path metrics for multipath scheduling decisions.
+#[derive(Debug, Clone)]
+pub struct PathMetrics {
+    /// Path identifier.
+    pub name: String,
+    /// Measured round-trip time (ms).
+    pub rtt_ms: u32,
+    /// Measured bandwidth (bytes/sec).
+    pub bandwidth_bps: u64,
+    /// Packet loss rate (0.0 - 1.0).
+    pub loss_rate: f64,
+    /// Whether this path is currently active.
+    pub active: bool,
+}
+
+/// Multipath frame scheduler — distributes frames across multiple paths.
+pub struct MultipathFrameScheduler {
+    /// Path metrics for scheduling.
+    paths: Vec<PathMetrics>,
+    /// Scheduling algorithm.
+    scheduler: MultipathScheduler,
+    /// Round-robin index (for RoundRobin mode).
+    rr_index: usize,
+    /// Sequence number for dedup at receiver.
+    sequence: u64,
+    /// Whether to duplicate critical frames.
+    redundant_critical: bool,
+}
+
+/// A scheduled frame with path assignment.
+#[derive(Debug, Clone)]
+pub struct ScheduledFrame {
+    /// Path to send on.
+    pub path: String,
+    /// Sequence number (for dedup).
+    pub sequence: u64,
+    /// Whether this is a redundant copy.
+    pub redundant: bool,
+}
+
+impl MultipathFrameScheduler {
+    /// Create from config.
+    pub fn new(config: &MultipathConfig) -> Self {
+        Self {
+            paths: Vec::new(),
+            scheduler: config.scheduler.clone(),
+            rr_index: 0,
+            sequence: 0,
+            redundant_critical: config.redundant_critical,
+        }
+    }
+
+    /// Update path metrics.
+    pub fn update_path(&mut self, metrics: PathMetrics) {
+        if let Some(existing) = self.paths.iter_mut().find(|p| p.name == metrics.name) {
+            *existing = metrics;
+        } else {
+            self.paths.push(metrics);
+        }
+    }
+
+    /// Remove a path.
+    pub fn remove_path(&mut self, name: &str) {
+        self.paths.retain(|p| p.name != name);
+    }
+
+    /// Schedule a frame for sending. Returns path assignments.
+    pub fn schedule(&mut self, is_critical: bool) -> Vec<ScheduledFrame> {
+        let active: Vec<&PathMetrics> = self.paths.iter().filter(|p| p.active).collect();
+        if active.is_empty() {
+            return Vec::new();
+        }
+
+        self.sequence += 1;
+        let seq = self.sequence;
+
+        match &self.scheduler {
+            MultipathScheduler::RoundRobin => {
+                self.rr_index %= active.len();
+                let path = active[self.rr_index].name.clone();
+                self.rr_index += 1;
+                let mut frames = vec![ScheduledFrame {
+                    path,
+                    sequence: seq,
+                    redundant: false,
+                }];
+                if is_critical && self.redundant_critical {
+                    self.add_redundant(&active, &mut frames, seq);
+                }
+                frames
+            }
+            MultipathScheduler::LowestLatency => {
+                let best = active.iter().min_by_key(|p| p.rtt_ms).unwrap();
+                let mut frames = vec![ScheduledFrame {
+                    path: best.name.clone(),
+                    sequence: seq,
+                    redundant: false,
+                }];
+                if is_critical && self.redundant_critical {
+                    self.add_redundant(&active, &mut frames, seq);
+                }
+                frames
+            }
+            MultipathScheduler::LatencyWeighted => {
+                // Weighted selection: inverse RTT
+                let total_inv_rtt: f64 = active
+                    .iter()
+                    .map(|p| 1.0 / (p.rtt_ms as f64).max(1.0))
+                    .sum();
+                let mut cumulative = 0.0;
+                let threshold = (seq as f64 * 0.618033988) % 1.0; // Deterministic golden ratio selection
+                let mut chosen = &active[0].name;
+                for p in &active {
+                    cumulative += (1.0 / (p.rtt_ms as f64).max(1.0)) / total_inv_rtt;
+                    if cumulative >= threshold {
+                        chosen = &p.name;
+                        break;
+                    }
+                }
+                let mut frames = vec![ScheduledFrame {
+                    path: chosen.clone(),
+                    sequence: seq,
+                    redundant: false,
+                }];
+                if is_critical && self.redundant_critical {
+                    self.add_redundant(&active, &mut frames, seq);
+                }
+                frames
+            }
+            MultipathScheduler::Redundant => {
+                // Send on all paths
+                active
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| ScheduledFrame {
+                        path: p.name.clone(),
+                        sequence: seq,
+                        redundant: i > 0,
+                    })
+                    .collect()
+            }
+            MultipathScheduler::BandwidthWeighted => {
+                let total_bw: u64 = active.iter().map(|p| p.bandwidth_bps).sum();
+                if total_bw == 0 {
+                    return vec![ScheduledFrame {
+                        path: active[0].name.clone(),
+                        sequence: seq,
+                        redundant: false,
+                    }];
+                }
+                let mut cumulative: u64 = 0;
+                let threshold = seq % total_bw;
+                let mut chosen = &active[0].name;
+                for p in &active {
+                    cumulative += p.bandwidth_bps;
+                    if cumulative > threshold {
+                        chosen = &p.name;
+                        break;
+                    }
+                }
+                let mut frames = vec![ScheduledFrame {
+                    path: chosen.clone(),
+                    sequence: seq,
+                    redundant: false,
+                }];
+                if is_critical && self.redundant_critical {
+                    self.add_redundant(&active, &mut frames, seq);
+                }
+                frames
+            }
+        }
+    }
+
+    /// Add redundant copies on all other paths.
+    fn add_redundant(&self, active: &[&PathMetrics], frames: &mut Vec<ScheduledFrame>, seq: u64) {
+        let primary = frames[0].path.clone();
+        for p in active {
+            if p.name != primary {
+                frames.push(ScheduledFrame {
+                    path: p.name.clone(),
+                    sequence: seq,
+                    redundant: true,
+                });
+            }
+        }
+    }
+
+    /// Number of active paths.
+    pub fn active_path_count(&self) -> usize {
+        self.paths.iter().filter(|p| p.active).count()
+    }
+
+    /// Receiver-side deduplication: track seen sequences.
+    pub fn dedup_filter(seen: &mut std::collections::HashSet<u64>, seq: u64) -> bool {
+        seen.insert(seq) // Returns true if new (not duplicate)
+    }
+}
+
+/// Censorship resistance tier (ordered from least to most aggressive).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CensorshipTier {
+    /// Direct connection — no censorship resistance needed.
+    Direct = 0,
+    /// Relay-based — basic indirection.
+    Relay = 1,
+    /// Overlay network — WireGuard, mesh, additional encapsulation.
+    Overlay = 2,
+    /// Hostile environment — domain fronting, ECH, protocol mimicry.
+    Hostile = 3,
+    /// Maximum resistance — steganography, physical media, DTN.
+    Maximum = 4,
+}
+
+/// Censorship escalation state machine.
+///
+/// Detects transport failures or tamper events and escalates through
+/// increasingly censorship-resistant transport tiers automatically.
+pub struct CensorshipEscalation {
+    /// Current tier.
+    current_tier: CensorshipTier,
+    /// Maximum tier allowed by policy.
+    max_tier: CensorshipTier,
+    /// Consecutive failures at current tier.
+    consecutive_failures: u32,
+    /// Failure threshold before escalation.
+    escalation_threshold: u32,
+    /// Whether tamper was detected (immediate escalation).
+    tamper_detected: bool,
+    /// History of tier changes.
+    history: Vec<(CensorshipTier, CensorshipTier, String)>,
+}
+
+impl CensorshipEscalation {
+    /// Create a new escalation controller.
+    pub fn new(max_tier: CensorshipTier, escalation_threshold: u32) -> Self {
+        Self {
+            current_tier: CensorshipTier::Direct,
+            max_tier,
+            consecutive_failures: 0,
+            escalation_threshold,
+            tamper_detected: false,
+            history: Vec::new(),
+        }
+    }
+
+    /// Record a connection success (resets failure counter).
+    pub fn on_success(&mut self) {
+        self.consecutive_failures = 0;
+    }
+
+    /// Record a connection failure. Returns the new tier if escalation occurred.
+    pub fn on_failure(&mut self, reason: &str) -> Option<CensorshipTier> {
+        self.consecutive_failures += 1;
+        if self.consecutive_failures >= self.escalation_threshold {
+            self.escalate(reason)
+        } else {
+            None
+        }
+    }
+
+    /// Record a tamper detection event. Always escalates immediately.
+    pub fn on_tamper_detected(&mut self, reason: &str) -> Option<CensorshipTier> {
+        self.tamper_detected = true;
+        self.escalate(&format!("tamper: {reason}"))
+    }
+
+    /// Attempt to de-escalate one tier (e.g., after sustained success).
+    pub fn de_escalate(&mut self) -> Option<CensorshipTier> {
+        if self.tamper_detected {
+            return None; // Never de-escalate after tamper
+        }
+        let prev = self.current_tier;
+        match self.current_tier {
+            CensorshipTier::Direct => None,
+            CensorshipTier::Relay => {
+                self.current_tier = CensorshipTier::Direct;
+                self.consecutive_failures = 0;
+                self.history
+                    .push((prev, self.current_tier, "de-escalation".into()));
+                Some(self.current_tier)
+            }
+            CensorshipTier::Overlay => {
+                self.current_tier = CensorshipTier::Relay;
+                self.consecutive_failures = 0;
+                self.history
+                    .push((prev, self.current_tier, "de-escalation".into()));
+                Some(self.current_tier)
+            }
+            CensorshipTier::Hostile => {
+                self.current_tier = CensorshipTier::Overlay;
+                self.consecutive_failures = 0;
+                self.history
+                    .push((prev, self.current_tier, "de-escalation".into()));
+                Some(self.current_tier)
+            }
+            CensorshipTier::Maximum => {
+                self.current_tier = CensorshipTier::Hostile;
+                self.consecutive_failures = 0;
+                self.history
+                    .push((prev, self.current_tier, "de-escalation".into()));
+                Some(self.current_tier)
+            }
+        }
+    }
+
+    /// Escalate to next tier. Returns None if already at max.
+    fn escalate(&mut self, reason: &str) -> Option<CensorshipTier> {
+        let prev = self.current_tier;
+        let next = match self.current_tier {
+            CensorshipTier::Direct => CensorshipTier::Relay,
+            CensorshipTier::Relay => CensorshipTier::Overlay,
+            CensorshipTier::Overlay => CensorshipTier::Hostile,
+            CensorshipTier::Hostile => CensorshipTier::Maximum,
+            CensorshipTier::Maximum => return None,
+        };
+
+        if next > self.max_tier {
+            return None;
+        }
+
+        self.current_tier = next;
+        self.consecutive_failures = 0;
+        self.history.push((prev, next, reason.to_string()));
+        Some(next)
+    }
+
+    /// Current tier.
+    pub fn current_tier(&self) -> CensorshipTier {
+        self.current_tier
+    }
+
+    /// Whether tamper has been detected.
+    pub fn is_tampered(&self) -> bool {
+        self.tamper_detected
+    }
+
+    /// Escalation history.
+    pub fn history(&self) -> &[(CensorshipTier, CensorshipTier, String)] {
+        &self.history
+    }
+}
+
+// --- Announce-Flood Protocol ---
+
+/// Announce message for flood-fill discovery.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnnounceMessage {
+    /// Announcing node ID.
+    pub node_id: String,
+    /// Transport address(es) of the announcing node.
+    pub addresses: Vec<String>,
+    /// Announce sequence number (monotonically increasing per node).
+    pub sequence: u64,
+    /// Timestamp of this announcement (Unix ms).
+    pub timestamp_ms: u64,
+    /// TTL: remaining hops this announce can traverse.
+    pub ttl: u8,
+    /// Capabilities offered by this node.
+    pub capabilities: Vec<String>,
+}
+
+/// Announce-flood protocol — gossip-based node discovery.
+///
+/// Incoming announces are deduplicated, rate-limited, and re-broadcast
+/// to neighbors with decremented TTL.
+pub struct AnnounceFlood {
+    /// Known announces: node_id → highest sequence seen.
+    seen: HashMap<String, u64>,
+    /// Rate limit: max announces per node per window.
+    max_per_node: u32,
+    /// Counters for rate limiting: node_id → count in current window.
+    counters: HashMap<String, u32>,
+    /// Collected peer announcements.
+    peers: HashMap<String, AnnounceMessage>,
+}
+
+impl AnnounceFlood {
+    /// Create a new announce-flood handler.
+    pub fn new(max_per_node: u32) -> Self {
+        Self {
+            seen: HashMap::new(),
+            max_per_node,
+            counters: HashMap::new(),
+            peers: HashMap::new(),
+        }
+    }
+
+    /// Process an incoming announce message.
+    /// Returns Some(message with decremented TTL) if it should be re-broadcast.
+    pub fn process(&mut self, announce: AnnounceMessage) -> Option<AnnounceMessage> {
+        // Deduplication: skip if we've seen equal or higher sequence from this node
+        if let Some(&last_seq) = self.seen.get(&announce.node_id) {
+            if announce.sequence <= last_seq {
+                return None;
+            }
+        }
+
+        // Rate limiting
+        let count = self.counters.entry(announce.node_id.clone()).or_insert(0);
+        if *count >= self.max_per_node {
+            return None;
+        }
+        *count += 1;
+
+        // Record this announce
+        self.seen
+            .insert(announce.node_id.clone(), announce.sequence);
+        self.peers
+            .insert(announce.node_id.clone(), announce.clone());
+
+        // Re-broadcast with decremented TTL
+        if announce.ttl > 1 {
+            Some(AnnounceMessage {
+                ttl: announce.ttl - 1,
+                ..announce
+            })
+        } else {
+            None // TTL exhausted — do not re-broadcast
+        }
+    }
+
+    /// Get all known peers.
+    pub fn known_peers(&self) -> Vec<&AnnounceMessage> {
+        self.peers.values().collect()
+    }
+
+    /// Reset rate limit counters (call at window boundary).
+    pub fn reset_counters(&mut self) {
+        self.counters.clear();
+    }
+
+    /// Create an announce message for the local node.
+    pub fn create_announce(
+        node_id: String,
+        addresses: Vec<String>,
+        sequence: u64,
+        timestamp_ms: u64,
+        ttl: u8,
+        capabilities: Vec<String>,
+    ) -> AnnounceMessage {
+        AnnounceMessage {
+            node_id,
+            addresses,
+            sequence,
+            timestamp_ms,
+            ttl,
+            capabilities,
+        }
+    }
+
+    /// Number of known peers.
+    pub fn peer_count(&self) -> usize {
+        self.peers.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -778,5 +1239,247 @@ mod tests {
 
         let result = mig.on_interface_change(&["eth0".into(), "wlan0".into()]);
         assert_eq!(result, Some("wlan0".into()));
+    }
+
+    fn make_path(name: &str, rtt: u32, bw: u64) -> PathMetrics {
+        PathMetrics {
+            name: name.into(),
+            rtt_ms: rtt,
+            bandwidth_bps: bw,
+            loss_rate: 0.0,
+            active: true,
+        }
+    }
+
+    #[test]
+    fn test_multipath_round_robin() {
+        let config = MultipathConfig {
+            scheduler: MultipathScheduler::RoundRobin,
+            redundant_critical: false,
+            ..MultipathConfig::default()
+        };
+        let mut sched = MultipathFrameScheduler::new(&config);
+        sched.update_path(make_path("quic", 10, 1_000_000));
+        sched.update_path(make_path("ws", 50, 500_000));
+
+        let f1 = sched.schedule(false);
+        let f2 = sched.schedule(false);
+        assert_eq!(f1.len(), 1);
+        assert_eq!(f2.len(), 1);
+        assert_ne!(f1[0].path, f2[0].path);
+    }
+
+    #[test]
+    fn test_multipath_lowest_latency() {
+        let config = MultipathConfig {
+            scheduler: MultipathScheduler::LowestLatency,
+            redundant_critical: false,
+            ..MultipathConfig::default()
+        };
+        let mut sched = MultipathFrameScheduler::new(&config);
+        sched.update_path(make_path("quic", 10, 1_000_000));
+        sched.update_path(make_path("ws", 50, 500_000));
+
+        let frames = sched.schedule(false);
+        assert_eq!(frames[0].path, "quic"); // Lowest RTT
+    }
+
+    #[test]
+    fn test_multipath_redundant() {
+        let config = MultipathConfig {
+            scheduler: MultipathScheduler::Redundant,
+            ..MultipathConfig::default()
+        };
+        let mut sched = MultipathFrameScheduler::new(&config);
+        sched.update_path(make_path("quic", 10, 1_000_000));
+        sched.update_path(make_path("ws", 50, 500_000));
+
+        let frames = sched.schedule(false);
+        assert_eq!(frames.len(), 2);
+        assert!(!frames[0].redundant);
+        assert!(frames[1].redundant);
+        assert_eq!(frames[0].sequence, frames[1].sequence);
+    }
+
+    #[test]
+    fn test_multipath_critical_redundancy() {
+        let config = MultipathConfig {
+            scheduler: MultipathScheduler::LowestLatency,
+            redundant_critical: true,
+            ..MultipathConfig::default()
+        };
+        let mut sched = MultipathFrameScheduler::new(&config);
+        sched.update_path(make_path("quic", 10, 1_000_000));
+        sched.update_path(make_path("ws", 50, 500_000));
+
+        // Non-critical: single path
+        let frames = sched.schedule(false);
+        assert_eq!(frames.len(), 1);
+
+        // Critical: all paths
+        let frames = sched.schedule(true);
+        assert_eq!(frames.len(), 2);
+    }
+
+    #[test]
+    fn test_multipath_dedup() {
+        let mut seen = std::collections::HashSet::new();
+        assert!(MultipathFrameScheduler::dedup_filter(&mut seen, 1));
+        assert!(MultipathFrameScheduler::dedup_filter(&mut seen, 2));
+        assert!(!MultipathFrameScheduler::dedup_filter(&mut seen, 1)); // Duplicate
+    }
+
+    #[test]
+    fn test_multipath_no_active_paths() {
+        let config = MultipathConfig::default();
+        let mut sched = MultipathFrameScheduler::new(&config);
+        let frames = sched.schedule(false);
+        assert!(frames.is_empty());
+    }
+
+    #[test]
+    fn test_censorship_escalation_on_failure() {
+        let mut esc = CensorshipEscalation::new(CensorshipTier::Maximum, 3);
+        assert_eq!(esc.current_tier(), CensorshipTier::Direct);
+
+        // 2 failures — no escalation
+        assert!(esc.on_failure("timeout").is_none());
+        assert!(esc.on_failure("timeout").is_none());
+        // 3rd failure — escalation
+        let new_tier = esc.on_failure("timeout");
+        assert_eq!(new_tier, Some(CensorshipTier::Relay));
+        assert_eq!(esc.current_tier(), CensorshipTier::Relay);
+    }
+
+    #[test]
+    fn test_censorship_escalation_tamper() {
+        let mut esc = CensorshipEscalation::new(CensorshipTier::Maximum, 3);
+        // Tamper always escalates immediately
+        let new_tier = esc.on_tamper_detected("MITM detected");
+        assert_eq!(new_tier, Some(CensorshipTier::Relay));
+        assert!(esc.is_tampered());
+    }
+
+    #[test]
+    fn test_censorship_escalation_max_tier() {
+        let mut esc = CensorshipEscalation::new(CensorshipTier::Relay, 1);
+        let _ = esc.on_failure("blocked");
+        assert_eq!(esc.current_tier(), CensorshipTier::Relay);
+
+        // Already at max_tier (Relay), cannot escalate further
+        assert!(esc.on_failure("blocked").is_none());
+    }
+
+    #[test]
+    fn test_censorship_de_escalation() {
+        let mut esc = CensorshipEscalation::new(CensorshipTier::Maximum, 1);
+        esc.on_failure("timeout");
+        assert_eq!(esc.current_tier(), CensorshipTier::Relay);
+
+        esc.on_success();
+        let de = esc.de_escalate();
+        assert_eq!(de, Some(CensorshipTier::Direct));
+    }
+
+    #[test]
+    fn test_censorship_no_de_escalation_after_tamper() {
+        let mut esc = CensorshipEscalation::new(CensorshipTier::Maximum, 1);
+        esc.on_tamper_detected("injection");
+        assert!(esc.de_escalate().is_none()); // Never de-escalate after tamper
+    }
+
+    #[test]
+    fn test_announce_flood_basic() {
+        let mut flood = AnnounceFlood::new(10);
+
+        let announce = AnnounceFlood::create_announce(
+            "node-a".into(),
+            vec!["10.0.0.1:9000".into()],
+            1,
+            1000,
+            3,
+            vec!["relay".into()],
+        );
+
+        let rebroadcast = flood.process(announce);
+        assert!(rebroadcast.is_some());
+        let rb = rebroadcast.unwrap();
+        assert_eq!(rb.ttl, 2); // Decremented
+        assert_eq!(rb.node_id, "node-a");
+        assert_eq!(flood.peer_count(), 1);
+    }
+
+    #[test]
+    fn test_announce_flood_dedup() {
+        let mut flood = AnnounceFlood::new(10);
+
+        let announce = AnnounceFlood::create_announce(
+            "node-a".into(),
+            vec!["10.0.0.1:9000".into()],
+            1,
+            1000,
+            3,
+            vec![],
+        );
+
+        flood.process(announce.clone());
+        // Same sequence — deduplicated
+        assert!(flood.process(announce).is_none());
+        assert_eq!(flood.peer_count(), 1);
+
+        // Higher sequence — accepted
+        let announce2 = AnnounceFlood::create_announce(
+            "node-a".into(),
+            vec!["10.0.0.2:9000".into()],
+            2,
+            2000,
+            3,
+            vec![],
+        );
+        assert!(flood.process(announce2).is_some());
+    }
+
+    #[test]
+    fn test_announce_flood_ttl_exhausted() {
+        let mut flood = AnnounceFlood::new(10);
+        let announce = AnnounceFlood::create_announce(
+            "node-a".into(),
+            vec![],
+            1,
+            1000,
+            1, // TTL=1 → no rebroadcast
+            vec![],
+        );
+        assert!(flood.process(announce).is_none());
+        assert_eq!(flood.peer_count(), 1); // Still recorded
+    }
+
+    #[test]
+    fn test_announce_flood_rate_limit() {
+        let mut flood = AnnounceFlood::new(2);
+
+        for seq in 1..=3 {
+            flood.process(AnnounceFlood::create_announce(
+                "node-a".into(),
+                vec![],
+                seq,
+                1000,
+                3,
+                vec![],
+            ));
+        }
+        // 3rd should be rate-limited
+        assert_eq!(flood.peer_count(), 1); // Still same node
+        // Reset counters
+        flood.reset_counters();
+        let result = flood.process(AnnounceFlood::create_announce(
+            "node-a".into(),
+            vec![],
+            4,
+            2000,
+            3,
+            vec![],
+        ));
+        assert!(result.is_some()); // Accepted after reset
     }
 }

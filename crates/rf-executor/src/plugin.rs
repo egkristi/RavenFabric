@@ -3,7 +3,10 @@
 //! Defines the plugin system for extending RavenFabric with custom
 //! resource types, transport drivers, and policy hooks via WebAssembly.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// WASM plugin manifest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +125,175 @@ pub struct PluginEntry {
     pub total_fuel_consumed: u64,
 }
 
+/// Plugin registry — manages loaded plugins and their lifecycle.
+pub struct PluginRegistry {
+    /// Loaded plugins by name.
+    plugins: HashMap<String, PluginEntry>,
+    /// Max plugins allowed.
+    max_plugins: usize,
+}
+
+impl PluginRegistry {
+    /// Create a new plugin registry.
+    pub fn new(max_plugins: usize) -> Self {
+        Self {
+            plugins: HashMap::new(),
+            max_plugins,
+        }
+    }
+
+    /// Register a plugin from its manifest and WASM module bytes.
+    /// Validates module hash before registration.
+    pub fn register(
+        &mut self,
+        manifest: PluginManifest,
+        module_bytes: &[u8],
+        sandbox: SandboxConfig,
+    ) -> Result<(), PluginError> {
+        if self.plugins.len() >= self.max_plugins {
+            return Err(PluginError::RegistryFull);
+        }
+
+        if self.plugins.contains_key(&manifest.name) {
+            return Err(PluginError::AlreadyRegistered(manifest.name.clone()));
+        }
+
+        // Verify module hash
+        let actual_hash = Self::compute_hash(module_bytes);
+        if actual_hash != manifest.module_hash {
+            return Err(PluginError::HashMismatch {
+                expected: manifest.module_hash.clone(),
+                actual: actual_hash,
+            });
+        }
+
+        // Check denied capabilities
+        for cap in &manifest.capabilities {
+            if !Self::is_capability_allowed(cap, &sandbox) {
+                return Err(PluginError::CapabilityDenied(format!("{cap:?}")));
+            }
+        }
+
+        let entry = PluginEntry {
+            manifest: manifest.clone(),
+            state: PluginState::Loaded,
+            sandbox,
+            invocation_count: 0,
+            total_fuel_consumed: 0,
+        };
+
+        self.plugins.insert(manifest.name, entry);
+        Ok(())
+    }
+
+    /// Transition a plugin to Ready state.
+    pub fn activate(&mut self, name: &str) -> Result<(), PluginError> {
+        let entry = self
+            .plugins
+            .get_mut(name)
+            .ok_or_else(|| PluginError::NotFound(name.to_string()))?;
+
+        match &entry.state {
+            PluginState::Loaded => {
+                entry.state = PluginState::Ready;
+                Ok(())
+            }
+            PluginState::Failed { .. } => {
+                entry.state = PluginState::Ready;
+                Ok(())
+            }
+            _ => Err(PluginError::InvalidState(format!("{:?}", entry.state))),
+        }
+    }
+
+    /// Disable a plugin permanently.
+    pub fn disable(&mut self, name: &str, reason: String) -> Result<(), PluginError> {
+        let entry = self
+            .plugins
+            .get_mut(name)
+            .ok_or_else(|| PluginError::NotFound(name.to_string()))?;
+
+        entry.state = PluginState::Disabled { reason };
+        Ok(())
+    }
+
+    /// Record an invocation (fuel consumed, state transitions).
+    pub fn record_invocation(&mut self, name: &str, fuel_used: u64) -> Result<(), PluginError> {
+        let entry = self
+            .plugins
+            .get_mut(name)
+            .ok_or_else(|| PluginError::NotFound(name.to_string()))?;
+
+        entry.invocation_count += 1;
+        entry.total_fuel_consumed += fuel_used;
+        Ok(())
+    }
+
+    /// Get a plugin entry by name.
+    pub fn get(&self, name: &str) -> Option<&PluginEntry> {
+        self.plugins.get(name)
+    }
+
+    /// List all plugins.
+    pub fn list(&self) -> Vec<&PluginEntry> {
+        self.plugins.values().collect()
+    }
+
+    /// List plugins by type.
+    pub fn by_type(&self, plugin_type: PluginType) -> Vec<&PluginEntry> {
+        self.plugins
+            .values()
+            .filter(|e| e.manifest.plugin_type == plugin_type)
+            .collect()
+    }
+
+    /// Unregister a plugin.
+    pub fn unregister(&mut self, name: &str) -> bool {
+        self.plugins.remove(name).is_some()
+    }
+
+    /// Number of registered plugins.
+    pub fn count(&self) -> usize {
+        self.plugins.len()
+    }
+
+    /// Compute SHA-256 hash of module bytes.
+    fn compute_hash(data: &[u8]) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        format!("{:x}", hasher.finalize())
+    }
+
+    /// Check if a capability is allowed by the sandbox.
+    fn is_capability_allowed(cap: &PluginCapability, sandbox: &SandboxConfig) -> bool {
+        match cap {
+            PluginCapability::FsRead => !sandbox.allowed_paths.is_empty(),
+            PluginCapability::FsWrite => !sandbox.allowed_paths.is_empty(),
+            PluginCapability::NetOutbound => !sandbox.allowed_hosts.is_empty(),
+            // These are always available
+            PluginCapability::EnvRead | PluginCapability::Clock | PluginCapability::Random => true,
+            PluginCapability::ProcessSpawn => false, // Never allowed
+        }
+    }
+}
+
+/// Plugin operation errors.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PluginError {
+    /// Registry capacity reached.
+    RegistryFull,
+    /// Plugin with this name already registered.
+    AlreadyRegistered(String),
+    /// Plugin not found.
+    NotFound(String),
+    /// Module hash doesn't match manifest.
+    HashMismatch { expected: String, actual: String },
+    /// Required capability denied by sandbox.
+    CapabilityDenied(String),
+    /// Invalid state transition.
+    InvalidState(String),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,5 +398,148 @@ mod tests {
         let json = serde_json::to_string(&entry).unwrap();
         assert!(json.contains("test-plugin"));
         assert!(json.contains("42"));
+    }
+
+    fn make_manifest(name: &str, module_bytes: &[u8]) -> PluginManifest {
+        let mut hasher = Sha256::new();
+        hasher.update(module_bytes);
+        let hash = format!("{:x}", hasher.finalize());
+
+        PluginManifest {
+            name: name.into(),
+            version: "1.0.0".into(),
+            author: None,
+            description: None,
+            plugin_type: PluginType::MetricsCollector,
+            capabilities: vec![PluginCapability::Clock],
+            module_hash: hash,
+            max_memory_pages: 64,
+            max_fuel: 100_000,
+        }
+    }
+
+    #[test]
+    fn test_plugin_registry_register() {
+        let mut registry = PluginRegistry::new(10);
+        let module = b"fake wasm module bytes";
+        let manifest = make_manifest("test-plugin", module);
+        let sandbox = SandboxConfig::default();
+
+        assert!(registry.register(manifest, module, sandbox).is_ok());
+        assert_eq!(registry.count(), 1);
+        assert!(registry.get("test-plugin").is_some());
+    }
+
+    #[test]
+    fn test_plugin_registry_hash_mismatch() {
+        let mut registry = PluginRegistry::new(10);
+        let manifest = PluginManifest {
+            name: "bad-plugin".into(),
+            version: "1.0.0".into(),
+            author: None,
+            description: None,
+            plugin_type: PluginType::PolicyHook,
+            capabilities: vec![],
+            module_hash: "wrong_hash".into(),
+            max_memory_pages: 16,
+            max_fuel: 10_000,
+        };
+        let result = registry.register(manifest, b"module", SandboxConfig::default());
+        assert!(matches!(result, Err(PluginError::HashMismatch { .. })));
+    }
+
+    #[test]
+    fn test_plugin_registry_duplicate() {
+        let mut registry = PluginRegistry::new(10);
+        let module = b"module";
+        let manifest = make_manifest("dup", module);
+
+        registry
+            .register(manifest.clone(), module, SandboxConfig::default())
+            .unwrap();
+        let result = registry.register(manifest, module, SandboxConfig::default());
+        assert!(matches!(result, Err(PluginError::AlreadyRegistered(_))));
+    }
+
+    #[test]
+    fn test_plugin_registry_full() {
+        let mut registry = PluginRegistry::new(1);
+        let m1 = b"mod1";
+        registry
+            .register(make_manifest("p1", m1), m1, SandboxConfig::default())
+            .unwrap();
+
+        let m2 = b"mod2";
+        let result = registry.register(make_manifest("p2", m2), m2, SandboxConfig::default());
+        assert!(matches!(result, Err(PluginError::RegistryFull)));
+    }
+
+    #[test]
+    fn test_plugin_registry_lifecycle() {
+        let mut registry = PluginRegistry::new(10);
+        let module = b"test";
+        let manifest = make_manifest("lifecycle", module);
+
+        registry
+            .register(manifest, module, SandboxConfig::default())
+            .unwrap();
+
+        // Loaded → Ready
+        assert!(registry.activate("lifecycle").is_ok());
+        assert!(matches!(
+            registry.get("lifecycle").unwrap().state,
+            PluginState::Ready
+        ));
+
+        // Record invocation
+        registry.record_invocation("lifecycle", 5000).unwrap();
+        assert_eq!(registry.get("lifecycle").unwrap().invocation_count, 1);
+
+        // Disable
+        registry.disable("lifecycle", "maintenance".into()).unwrap();
+        assert!(matches!(
+            registry.get("lifecycle").unwrap().state,
+            PluginState::Disabled { .. }
+        ));
+
+        // Unregister
+        assert!(registry.unregister("lifecycle"));
+        assert_eq!(registry.count(), 0);
+    }
+
+    #[test]
+    fn test_plugin_registry_by_type() {
+        let mut registry = PluginRegistry::new(10);
+
+        let m1 = b"mod1";
+        let mut man1 = make_manifest("metrics-1", m1);
+        man1.plugin_type = PluginType::MetricsCollector;
+
+        let m2 = b"mod2";
+        let mut man2 = make_manifest("policy-1", m2);
+        man2.plugin_type = PluginType::PolicyHook;
+        man2.capabilities = vec![];
+
+        registry
+            .register(man1, m1, SandboxConfig::default())
+            .unwrap();
+        registry
+            .register(man2, m2, SandboxConfig::default())
+            .unwrap();
+
+        let metrics_plugins = registry.by_type(PluginType::MetricsCollector);
+        assert_eq!(metrics_plugins.len(), 1);
+        assert_eq!(metrics_plugins[0].manifest.name, "metrics-1");
+    }
+
+    #[test]
+    fn test_plugin_capability_denied() {
+        let mut registry = PluginRegistry::new(10);
+        let module = b"spawn";
+        let mut manifest = make_manifest("spawner", module);
+        manifest.capabilities = vec![PluginCapability::ProcessSpawn]; // Always denied
+
+        let result = registry.register(manifest, module, SandboxConfig::default());
+        assert!(matches!(result, Err(PluginError::CapabilityDenied(_))));
     }
 }

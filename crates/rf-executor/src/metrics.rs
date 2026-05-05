@@ -511,6 +511,216 @@ impl MetricsPropagator {
     }
 }
 
+// --- OTLP/Prometheus/InfluxDB Exporters ---
+
+/// Metric export destination.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExportFormat {
+    /// Prometheus exposition format (text/plain).
+    Prometheus,
+    /// OTLP JSON (OpenTelemetry Protocol, HTTP/JSON encoding).
+    OtlpJson,
+    /// InfluxDB line protocol.
+    InfluxLineProtocol,
+}
+
+/// Metric exporter — formats and exports metric points to various backends.
+pub struct MetricExporter {
+    /// Export format.
+    format: ExportFormat,
+    /// Metric name prefix.
+    prefix: String,
+    /// Global labels added to all metrics.
+    global_labels: HashMap<String, String>,
+}
+
+impl MetricExporter {
+    /// Create a new exporter.
+    pub fn new(format: ExportFormat) -> Self {
+        Self {
+            format,
+            prefix: String::new(),
+            global_labels: HashMap::new(),
+        }
+    }
+
+    /// Set metric name prefix.
+    pub fn with_prefix(mut self, prefix: String) -> Self {
+        self.prefix = prefix;
+        self
+    }
+
+    /// Add a global label.
+    pub fn with_label(mut self, key: String, value: String) -> Self {
+        self.global_labels.insert(key, value);
+        self
+    }
+
+    /// Export metrics to the configured format.
+    pub fn export(&self, points: &[MetricPoint]) -> String {
+        match self.format {
+            ExportFormat::Prometheus => self.to_prometheus(points),
+            ExportFormat::OtlpJson => self.to_otlp_json(points),
+            ExportFormat::InfluxLineProtocol => self.to_influx_line(points),
+        }
+    }
+
+    /// Prometheus exposition format.
+    fn to_prometheus(&self, points: &[MetricPoint]) -> String {
+        let mut output = String::new();
+        for point in points {
+            let name = if self.prefix.is_empty() {
+                point.name.clone()
+            } else {
+                format!("{}_{}", self.prefix, point.name)
+            };
+
+            let mut all_labels = self.global_labels.clone();
+            for (k, v) in &point.labels {
+                all_labels.insert(k.clone(), v.clone());
+            }
+
+            let labels_str = if all_labels.is_empty() {
+                String::new()
+            } else {
+                let pairs: Vec<String> = all_labels
+                    .iter()
+                    .map(|(k, v)| format!("{k}=\"{v}\""))
+                    .collect();
+                format!("{{{}}}", pairs.join(","))
+            };
+
+            let value_str = match &point.value {
+                MetricValue::Gauge(v) => format!("{v}"),
+                MetricValue::Counter(v) => format!("{v}"),
+                MetricValue::Histogram { sum, count } => {
+                    // Emit _sum and _count
+                    output.push_str(&format!(
+                        "{name}_sum{labels_str} {sum} {}\n",
+                        point.timestamp_ms
+                    ));
+                    format!("{count}")
+                }
+            };
+
+            let suffix = if matches!(point.value, MetricValue::Histogram { .. }) {
+                "_count"
+            } else {
+                ""
+            };
+            output.push_str(&format!(
+                "{name}{suffix}{labels_str} {value_str} {}\n",
+                point.timestamp_ms
+            ));
+        }
+        output
+    }
+
+    /// OTLP JSON format (simplified — real OTLP uses protobuf, this is JSON variant).
+    fn to_otlp_json(&self, points: &[MetricPoint]) -> String {
+        let metrics: Vec<serde_json::Value> = points
+            .iter()
+            .map(|p| {
+                let mut all_labels = self.global_labels.clone();
+                for (k, v) in &p.labels {
+                    all_labels.insert(k.clone(), v.clone());
+                }
+                let name = if self.prefix.is_empty() {
+                    p.name.clone()
+                } else {
+                    format!("{}_{}", self.prefix, p.name)
+                };
+
+                let (data_type, value) = match &p.value {
+                    MetricValue::Gauge(v) => ("gauge", serde_json::json!({"asDouble": v})),
+                    MetricValue::Counter(v) => ("sum", serde_json::json!({"asInt": v})),
+                    MetricValue::Histogram { sum, count } => {
+                        ("histogram", serde_json::json!({"sum": sum, "count": count}))
+                    }
+                };
+
+                let attributes: Vec<serde_json::Value> = all_labels
+                    .iter()
+                    .map(|(k, v)| {
+                        serde_json::json!({
+                            "key": k,
+                            "value": {"stringValue": v}
+                        })
+                    })
+                    .collect();
+
+                serde_json::json!({
+                    "name": name,
+                    "unit": "",
+                    data_type: {
+                        "dataPoints": [{
+                            "timeUnixNano": p.timestamp_ms * 1_000_000,
+                            "attributes": attributes,
+                            "value": value
+                        }]
+                    }
+                })
+            })
+            .collect();
+
+        let envelope = serde_json::json!({
+            "resourceMetrics": [{
+                "scopeMetrics": [{
+                    "scope": {"name": "ravenfabric"},
+                    "metrics": metrics
+                }]
+            }]
+        });
+
+        serde_json::to_string(&envelope).unwrap_or_default()
+    }
+
+    /// InfluxDB line protocol.
+    fn to_influx_line(&self, points: &[MetricPoint]) -> String {
+        let mut output = String::new();
+        for point in points {
+            let name = if self.prefix.is_empty() {
+                point.name.clone()
+            } else {
+                format!("{}_{}", self.prefix, point.name)
+            };
+
+            // Tags (labels + global labels)
+            let mut all_labels = self.global_labels.clone();
+            for (k, v) in &point.labels {
+                all_labels.insert(k.clone(), v.clone());
+            }
+            let tags_str = if all_labels.is_empty() {
+                String::new()
+            } else {
+                let pairs: Vec<String> =
+                    all_labels.iter().map(|(k, v)| format!("{k}={v}")).collect();
+                format!(",{}", pairs.join(","))
+            };
+
+            // Field
+            let field = match &point.value {
+                MetricValue::Gauge(v) => format!("value={v}"),
+                MetricValue::Counter(v) => format!("value={v}i"),
+                MetricValue::Histogram { sum, count } => {
+                    format!("sum={sum},count={count}i")
+                }
+            };
+
+            // Timestamp in nanoseconds
+            let ts_ns = point.timestamp_ms * 1_000_000;
+
+            output.push_str(&format!("{name}{tags_str} {field} {ts_ns}\n"));
+        }
+        output
+    }
+
+    /// Export format.
+    pub fn format(&self) -> &ExportFormat {
+        &self.format
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -819,5 +1029,94 @@ mod tests {
         let mut prop = MetricsPropagator::new("node-1".into(), "ctrl".into());
         let bundles = prop.create_bundles(1000);
         assert!(bundles.is_empty());
+    }
+
+    #[test]
+    fn test_exporter_prometheus_format() {
+        let exporter = MetricExporter::new(ExportFormat::Prometheus)
+            .with_prefix("rf".into())
+            .with_label("cluster".into(), "prod".into());
+
+        let points = vec![MetricPoint {
+            name: "cpu_usage".into(),
+            value: MetricValue::Gauge(75.5),
+            labels: {
+                let mut m = HashMap::new();
+                m.insert("host".into(), "web-01".into());
+                m
+            },
+            timestamp_ms: 1_000_000,
+        }];
+
+        let output = exporter.export(&points);
+        assert!(output.contains("rf_cpu_usage"));
+        assert!(output.contains("75.5"));
+        assert!(output.contains("cluster=\"prod\""));
+        assert!(output.contains("host=\"web-01\""));
+    }
+
+    #[test]
+    fn test_exporter_otlp_json() {
+        let exporter = MetricExporter::new(ExportFormat::OtlpJson);
+
+        let points = vec![MetricPoint {
+            name: "requests_total".into(),
+            value: MetricValue::Counter(42),
+            labels: HashMap::new(),
+            timestamp_ms: 1_000_000,
+        }];
+
+        let output = exporter.export(&points);
+        assert!(output.contains("resourceMetrics"));
+        assert!(output.contains("requests_total"));
+        assert!(output.contains("\"asInt\":42"));
+    }
+
+    #[test]
+    fn test_exporter_influx_line_protocol() {
+        let exporter =
+            MetricExporter::new(ExportFormat::InfluxLineProtocol).with_prefix("rf".into());
+
+        let points = vec![
+            MetricPoint {
+                name: "cpu".into(),
+                value: MetricValue::Gauge(65.5),
+                labels: {
+                    let mut m = HashMap::new();
+                    m.insert("host".into(), "web-01".into());
+                    m
+                },
+                timestamp_ms: 1_000_000,
+            },
+            MetricPoint {
+                name: "requests".into(),
+                value: MetricValue::Counter(100),
+                labels: HashMap::new(),
+                timestamp_ms: 1_000_000,
+            },
+        ];
+
+        let output = exporter.export(&points);
+        assert!(output.contains("rf_cpu,host=web-01 value=65.5 1000000000000"));
+        assert!(output.contains("rf_requests value=100i 1000000000000"));
+    }
+
+    #[test]
+    fn test_exporter_histogram() {
+        let exporter = MetricExporter::new(ExportFormat::Prometheus);
+
+        let points = vec![MetricPoint {
+            name: "latency".into(),
+            value: MetricValue::Histogram {
+                sum: 123.45,
+                count: 100,
+            },
+            labels: HashMap::new(),
+            timestamp_ms: 5000,
+        }];
+
+        let output = exporter.export(&points);
+        assert!(output.contains("latency_sum 123.45 5000"));
+        assert!(output.contains("latency_count 100 5000"));
     }
 }

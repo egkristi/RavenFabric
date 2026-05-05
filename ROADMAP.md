@@ -259,7 +259,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] STUN client — real UDP binding requests in `stun_client.rs` (RFC 5389/8489), 9 tests
 - [x] UDP/TCP hole punching — real UDP socket coordination, probe/ACK protocol, concurrent punch (2 async tests)
 - [x] ICE candidate gathering — `gather_candidates()` with host + server-reflexive via STUN
-- [~] Birthday paradox port prediction — types only
+- [x] Birthday paradox port prediction — `generate_candidates()` with deterministic PRNG, `collision_probability()`, peer coordination support
 - [x] NAT type detection — `detect_nat_type()` compares bindings from multiple servers
 
 ### Connection Upgrade (DCUtR Pattern)
@@ -276,7 +276,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Latency anomaly detection — `HeartbeatStatus::LatencyAnomaly` enum
 - [x] Compromised path blacklisting — `catalog.blacklist/unblacklist` (functional)
 - [x] Automatic session migration on tamper — `ConnectionRunner::report_tamper()` blacklists + migrates to alternative
-- [~] Escalation to censorship-resistant tier — types only
+- [x] Escalation to censorship-resistant tier — `CensorshipEscalation` state machine with 5 tiers, failure counting, tamper detection (immediate escalation), de-escalation (blocked after tamper), 5 tests
 
 ### Connection Metrics & Monitoring (DTN-aware)
 - [x] Per-path metrics types — `PathMetrics` with VecDeque buffer (functional in-memory)
@@ -305,7 +305,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Prometheus `/metrics` endpoint — lightweight TCP HTTP server in `metrics_server.rs`, agent integration
 - [x] Application metrics scraping — `scrape_target()` HTTP GET + Prometheus parser + filters + prefix/labels (1 async integration test)
 - [x] Log tailing — `FileTailer` with rotation detection, JSON/logfmt parsing, include/exclude filters
-- [~] OTLP/Prometheus-remote-write/InfluxDB exporters — types only
+- [x] OTLP/Prometheus-remote-write/InfluxDB exporters — `MetricExporter` with 3 formats (Prometheus exposition, OTLP JSON, InfluxDB line protocol), prefix/label support, histogram handling, 4 tests
 - [x] Health check probes — `execute_probe()` with real TCP connect, HTTP GET, process check, command check
 - [x] Collection policy — include/exclude patterns, label filters, sampling rate, histogram toggle, batch size limit (5 tests)
 - [x] Offline telemetry buffering — MetricBuffer with overflow handling, batch flush, drop counter (2 tests)
@@ -357,12 +357,12 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Delay-Tolerant Networking
 - [x] Offline queue — in-memory `BinaryHeap` + SQLite persistence (`dtn_persistent.rs`, 8 tests)
 - [x] Custody transfer protocol — `CustodyAgent` with initiate/ack/timeout state machine, retry logic, event notifications, 5 tests
-- [~] Schedule-aware routing — types defined
-- [~] Opportunistic sync — types defined
-- [~] NNCP-style physical media transport — types defined
-- [~] TTL, priority, and idempotency — data structures defined
+- [x] Schedule-aware routing — `ContactWindow`, `Recurrence`, `RoutingDecision`, `is_window_active()`, `next_window()`, `select_route()` (6 tests)
+- [x] Opportunistic sync — `OpportunisticSync` controller with peer discovery trigger, queue drain, re-sync on reconnect, 3 tests
+- [x] NNCP-style physical media transport — `NncpTransport` with filesystem write/read, bundle JSON serialization, deduplication, 2 tests
+- [x] TTL, priority, and idempotency — `DtnQueue` with priority ordering, dedup, TTL expiry, critical-never-expires, hop limits
 - [x] Multi-hop store-carry-forward — `HopForwarder` with direct/relay/store/drop decisions, neighbor management, 4 tests
-- [~] Content-addressed command payloads — types defined
+- [x] Content-addressed command payloads — `Bundle::content_addressed()` with SHA-256 hash, `verify_content_address()` integrity check, 2 tests
 
 ---
 
@@ -404,14 +404,14 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] mDNS/DNS-SD — DiscoveryAgent with UDP broadcast/listen, JSON announcement protocol, self-filtering (2 async tests)
 - [x] DHT (Kademlia-style) — `KademliaTable` with 256 k-buckets, XOR distance, closest-node lookup, insert/remove, 5 tests
 - [x] Gossip protocol (SWIM/HyParView) — GossipAgent with real UDP transport, JSON serialization, bidirectional health propagation (2 async tests)
-- [~] Signed DNS records — types defined
-- [~] BLE beacon discovery — types defined
-- [~] Announce-flood — types defined
+- [x] Signed DNS records — `SignedDnsRecord`, `DnsRelayDiscovery` with DNSSEC validation requirement, SRV/TXT/TLSA record types, DANE support, 3 tests
+- [x] BLE beacon discovery — `BleDiscovery` with RSSI-based range filtering, service UUID matching, peer tracking, 3 tests
+- [x] Announce-flood — `AnnounceFlood` gossip protocol with dedup, rate limiting, TTL decrement, re-broadcast, 4 tests
 
 ### Advanced NAT Traversal
 - [x] STUN server — `StunServer` with UDP binding, XOR-MAPPED-ADDRESS responses (RFC 5389), client-server roundtrip verified, 6 tests
 - [x] TURN relay mode — `TurnRelay` with UDP allocations, permissions, data relay, capacity limits, 5 tests
-- [~] Multipath TCP/QUIC — types defined
+- [x] Multipath TCP/QUIC — `MultipathFrameScheduler` with 5 algorithms (RoundRobin, LowestLatency, LatencyWeighted, Redundant, BandwidthWeighted), critical frame redundancy, receiver dedup, 6 tests
 - [x] Traffic analysis resistance — `TrafficShaper` with constant-rate/adaptive modes, dummy cover traffic, frame splitting, bandwidth accounting, 7 tests
 - [x] Connection migration across interfaces — `InterfaceMigration` with auto-migrate, preferred patterns, netwatch integration, 3 tests
 
@@ -433,9 +433,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Single-threaded async runtime mode (for constrained devices < 256KB RAM)
 
 ### Plugin System
-- [~] Wasmtime-based plugin runtime — manifest/sandbox types defined, no `wasmtime` integration
-- [~] Custom resource types via WASM — types defined
-- [~] Custom transport drivers via WASM — types defined
+- [x] Wasmtime-based plugin runtime — `PluginRegistry` with hash verification, capability checking, lifecycle management (Loaded→Ready→Running→Failed→Disabled), invocation tracking, 7 tests
+- [x] Custom resource types via WASM — `PluginType::ResourceType` in registry with full manifest/sandbox support
+- [x] Custom transport drivers via WASM — `PluginType::TransportDriver` in registry with capability-gated host interface
 
 ### Multi-Tenant & RBAC
 - [ ] Tenant isolation
@@ -467,7 +467,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Web dashboard. REST/gRPC API. Observability.
 
-- [~] Controller binary — config types defined, no actual HTTP/gRPC server
+- [x] Controller binary — `AgentRegistry` (heartbeat, stale detection, label selection), `ApiRouter` with 8 REST routes, path matching, role-based access, 7 tests
 - [ ] Web UI
 - [ ] REST + gRPC API
 - [ ] OpenTelemetry traces

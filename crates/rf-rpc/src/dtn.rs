@@ -8,6 +8,7 @@ use std::collections::{BinaryHeap, HashMap};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -69,6 +70,46 @@ impl Bundle {
     /// Check if max hops exceeded.
     pub fn hops_exceeded(&self) -> bool {
         self.max_hops > 0 && self.hop_count >= self.max_hops
+    }
+
+    /// Create a content-addressed bundle.
+    ///
+    /// The bundle ID is the SHA-256 hex digest of the payload,
+    /// ensuring deduplication by content rather than by opaque UUID.
+    pub fn content_addressed(
+        source: String,
+        destination: String,
+        priority: Priority,
+        ttl_secs: u64,
+        payload: Vec<u8>,
+        created_at_ms: u64,
+    ) -> Self {
+        let id = Self::hash_payload(&payload);
+        Self {
+            id: id.clone(),
+            source,
+            destination,
+            priority,
+            ttl_secs,
+            created_at_ms,
+            payload,
+            custody_requested: false,
+            idempotency_key: Some(id),
+            hop_count: 0,
+            max_hops: 0,
+        }
+    }
+
+    /// Compute SHA-256 hex digest of a payload.
+    pub fn hash_payload(payload: &[u8]) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(payload);
+        format!("{:x}", hasher.finalize())
+    }
+
+    /// Verify that this bundle's ID matches its payload hash (content integrity).
+    pub fn verify_content_address(&self) -> bool {
+        Self::hash_payload(&self.payload) == self.id
     }
 }
 
@@ -365,6 +406,166 @@ impl DtnQueue {
     }
 }
 
+// --- NNCP-style Physical Media Transport ---
+
+/// NNCP-style physical media transport — serializes bundles to/from disk
+/// for sneakernet delivery (USB drives, SD cards, etc.).
+pub struct NncpTransport {
+    /// Directory to write outbound bundles.
+    outbox_path: std::path::PathBuf,
+    /// Directory to scan for inbound bundles.
+    inbox_path: std::path::PathBuf,
+    /// Bundles successfully read (for dedup).
+    processed: std::collections::HashSet<String>,
+}
+
+impl NncpTransport {
+    /// Create a new NNCP transport with inbox/outbox paths.
+    pub fn new(inbox_path: std::path::PathBuf, outbox_path: std::path::PathBuf) -> Self {
+        Self {
+            outbox_path,
+            inbox_path,
+            processed: std::collections::HashSet::new(),
+        }
+    }
+
+    /// Serialize a bundle to the outbox directory.
+    /// File name is `<bundle_id>.bundle.json`.
+    pub fn write_bundle(&self, bundle: &Bundle) -> std::io::Result<std::path::PathBuf> {
+        std::fs::create_dir_all(&self.outbox_path)?;
+        let filename = format!("{}.bundle.json", bundle.id);
+        let path = self.outbox_path.join(&filename);
+        let data = serde_json::to_vec_pretty(bundle)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        std::fs::write(&path, data)?;
+        Ok(path)
+    }
+
+    /// Scan the inbox directory for new bundles.
+    /// Returns bundles that haven't been processed yet.
+    pub fn read_inbox(&mut self) -> std::io::Result<Vec<Bundle>> {
+        let mut bundles = Vec::new();
+
+        let entries = match std::fs::read_dir(&self.inbox_path) {
+            Ok(e) => e,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(bundles),
+            Err(e) => return Err(e),
+        };
+
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+
+            // Only process .bundle.json files
+            let name = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            if !name.ends_with(".bundle.json") {
+                continue;
+            }
+
+            // Skip already processed
+            if self.processed.contains(&name) {
+                continue;
+            }
+
+            let data = std::fs::read(&path)?;
+            match serde_json::from_slice::<Bundle>(&data) {
+                Ok(bundle) => {
+                    self.processed.insert(name);
+                    bundles.push(bundle);
+                }
+                Err(_) => {
+                    // Skip malformed files
+                    continue;
+                }
+            }
+        }
+
+        Ok(bundles)
+    }
+
+    /// Number of bundles processed so far.
+    pub fn processed_count(&self) -> usize {
+        self.processed.len()
+    }
+}
+
+// --- Opportunistic Sync ---
+
+/// Opportunistic sync controller — triggers queue flush when a new peer is discovered.
+pub struct OpportunisticSync {
+    /// Known peers (already synced since last change).
+    known_peers: std::collections::HashSet<String>,
+    /// Total sync events triggered.
+    sync_count: u64,
+}
+
+impl OpportunisticSync {
+    /// Create a new opportunistic sync controller.
+    pub fn new() -> Self {
+        Self {
+            known_peers: std::collections::HashSet::new(),
+            sync_count: 0,
+        }
+    }
+
+    /// Process a peer discovery event.
+    /// Returns the peer ID if a sync should be triggered (new peer).
+    pub fn on_peer_discovered(&mut self, peer_id: &str) -> Option<String> {
+        if self.known_peers.insert(peer_id.to_string()) {
+            self.sync_count += 1;
+            Some(peer_id.to_string())
+        } else {
+            None // Already known
+        }
+    }
+
+    /// Mark a peer as disconnected (will re-trigger sync if rediscovered).
+    pub fn on_peer_lost(&mut self, peer_id: &str) {
+        self.known_peers.remove(peer_id);
+    }
+
+    /// Drain bundles from queue destined for a specific peer.
+    pub fn drain_for_peer(queue: &mut DtnQueue, peer_id: &str) -> Vec<Bundle> {
+        let mut for_peer = Vec::new();
+        let mut remaining = Vec::new();
+
+        while let Some(bundle) = queue.dequeue() {
+            if bundle.destination == peer_id {
+                for_peer.push(bundle);
+            } else {
+                remaining.push(bundle);
+            }
+        }
+
+        // Re-enqueue remaining bundles
+        for bundle in remaining {
+            queue.enqueue(bundle);
+        }
+
+        for_peer
+    }
+
+    /// Number of sync events triggered.
+    pub fn sync_count(&self) -> u64 {
+        self.sync_count
+    }
+
+    /// Number of known peers.
+    pub fn known_peer_count(&self) -> usize {
+        self.known_peers.len()
+    }
+}
+
+impl Default for OpportunisticSync {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -554,5 +755,126 @@ mod tests {
             if bundle_id == "b1" && *retries == 1)
         );
         assert_eq!(agent.pending_count(), 0); // Removed
+    }
+
+    #[test]
+    fn test_content_addressed_bundle() {
+        let payload = b"hello world".to_vec();
+        let bundle = Bundle::content_addressed(
+            "src".into(),
+            "dst".into(),
+            Priority::Normal,
+            60,
+            payload.clone(),
+            1000,
+        );
+        // ID should be SHA-256 of payload
+        assert_eq!(bundle.id, Bundle::hash_payload(&payload));
+        // Idempotency key should match ID
+        assert_eq!(bundle.idempotency_key, Some(bundle.id.clone()));
+        // Content integrity should verify
+        assert!(bundle.verify_content_address());
+    }
+
+    #[test]
+    fn test_content_address_verification_fails_on_tamper() {
+        let mut bundle = Bundle::content_addressed(
+            "src".into(),
+            "dst".into(),
+            Priority::Normal,
+            60,
+            b"original".to_vec(),
+            1000,
+        );
+        assert!(bundle.verify_content_address());
+        bundle.payload = b"tampered".to_vec();
+        assert!(!bundle.verify_content_address());
+    }
+
+    #[test]
+    fn test_nncp_write_and_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let outbox = dir.path().join("outbox");
+        let inbox = dir.path().join("inbox");
+
+        let transport_out = NncpTransport::new(inbox.clone(), outbox.clone());
+        let bundle = make_bundle("nncp-1", Priority::Normal, 60, 1000);
+        let path = transport_out.write_bundle(&bundle).unwrap();
+        assert!(path.exists());
+
+        // Copy outbox to inbox to simulate physical media transfer
+        std::fs::create_dir_all(&inbox).unwrap();
+        for entry in std::fs::read_dir(&outbox).unwrap() {
+            let entry = entry.unwrap();
+            std::fs::copy(entry.path(), inbox.join(entry.file_name())).unwrap();
+        }
+
+        let mut transport_in = NncpTransport::new(inbox, outbox);
+        let received = transport_in.read_inbox().unwrap();
+        assert_eq!(received.len(), 1);
+        assert_eq!(received[0].id, "nncp-1");
+        assert_eq!(transport_in.processed_count(), 1);
+
+        // Second read should not return duplicates
+        let received2 = transport_in.read_inbox().unwrap();
+        assert!(received2.is_empty());
+    }
+
+    #[test]
+    fn test_nncp_read_nonexistent_inbox() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut transport =
+            NncpTransport::new(dir.path().join("nonexistent"), dir.path().join("outbox"));
+        let received = transport.read_inbox().unwrap();
+        assert!(received.is_empty());
+    }
+
+    #[test]
+    fn test_opportunistic_sync_new_peer() {
+        let mut sync = OpportunisticSync::new();
+        assert_eq!(sync.on_peer_discovered("peer-a"), Some("peer-a".into()));
+        assert_eq!(sync.sync_count(), 1);
+
+        // Same peer again — no re-trigger
+        assert_eq!(sync.on_peer_discovered("peer-a"), None);
+        assert_eq!(sync.sync_count(), 1);
+
+        // New peer
+        assert_eq!(sync.on_peer_discovered("peer-b"), Some("peer-b".into()));
+        assert_eq!(sync.sync_count(), 2);
+        assert_eq!(sync.known_peer_count(), 2);
+    }
+
+    #[test]
+    fn test_opportunistic_sync_peer_lost() {
+        let mut sync = OpportunisticSync::new();
+        sync.on_peer_discovered("peer-a");
+        sync.on_peer_lost("peer-a");
+        // Rediscovery should trigger sync again
+        assert_eq!(sync.on_peer_discovered("peer-a"), Some("peer-a".into()));
+        assert_eq!(sync.sync_count(), 2);
+    }
+
+    #[test]
+    fn test_opportunistic_drain_for_peer() {
+        let mut queue = DtnQueue::new(100);
+        let mut b1 = make_bundle("b1", Priority::Normal, 60, 1000);
+        b1.destination = "peer-a".into();
+        let mut b2 = make_bundle("b2", Priority::High, 60, 1000);
+        b2.destination = "peer-b".into();
+        let mut b3 = make_bundle("b3", Priority::Normal, 60, 2000);
+        b3.destination = "peer-a".into();
+
+        queue.enqueue(b1);
+        queue.enqueue(b2);
+        queue.enqueue(b3);
+
+        let for_a = OpportunisticSync::drain_for_peer(&mut queue, "peer-a");
+        assert_eq!(for_a.len(), 2);
+        assert!(for_a.iter().all(|b| b.destination == "peer-a"));
+
+        // Queue should only have peer-b's bundle
+        assert_eq!(queue.len(), 1);
+        assert_eq!(queue.peek().unwrap().destination, "peer-b");
     }
 }

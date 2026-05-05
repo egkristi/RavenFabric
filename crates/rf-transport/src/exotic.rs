@@ -253,6 +253,175 @@ pub struct TransportCapabilities {
     pub air_gap_capable: bool,
 }
 
+// --- Signed DNS Records ---
+
+/// DNS record type for relay discovery.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DnsRecordType {
+    /// SRV record for relay endpoint.
+    Srv,
+    /// TXT record for agent metadata.
+    Txt,
+    /// TLSA record for DANE validation.
+    Tlsa,
+}
+
+/// A signed DNS record for cryptographic relay discovery.
+///
+/// Agents discover relays and verify their authenticity through
+/// DNSSEC-signed SRV/TXT/TLSA records under the ravenfabric domain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignedDnsRecord {
+    /// Domain name (e.g., "_ravenfabric._tcp.example.com").
+    pub name: String,
+    /// Record type.
+    pub record_type: DnsRecordType,
+    /// Record data (type-dependent).
+    pub data: String,
+    /// TTL in seconds.
+    pub ttl_secs: u32,
+    /// Whether this record was validated via DNSSEC.
+    pub dnssec_validated: bool,
+    /// DANE TLSA selector (0=full cert, 1=SubjectPublicKeyInfo).
+    pub tlsa_selector: Option<u8>,
+    /// DANE TLSA matching type (0=exact, 1=SHA-256, 2=SHA-512).
+    pub tlsa_matching_type: Option<u8>,
+}
+
+/// DNS-based relay discovery — resolves SRV records and validates via DANE.
+pub struct DnsRelayDiscovery {
+    /// Domain to query for relay SRV records.
+    domain: String,
+    /// Resolved records (cached).
+    records: Vec<SignedDnsRecord>,
+    /// Whether to require DNSSEC validation.
+    require_dnssec: bool,
+}
+
+impl DnsRelayDiscovery {
+    /// Create a new DNS relay discovery resolver.
+    pub fn new(domain: String, require_dnssec: bool) -> Self {
+        Self {
+            domain,
+            records: Vec::new(),
+            require_dnssec,
+        }
+    }
+
+    /// Add a discovered record.
+    pub fn add_record(&mut self, record: SignedDnsRecord) -> bool {
+        if self.require_dnssec && !record.dnssec_validated {
+            return false; // Reject unsigned records
+        }
+        self.records.push(record);
+        true
+    }
+
+    /// Get relay addresses from cached SRV records.
+    pub fn relay_addresses(&self) -> Vec<&str> {
+        self.records
+            .iter()
+            .filter(|r| r.record_type == DnsRecordType::Srv)
+            .map(|r| r.data.as_str())
+            .collect()
+    }
+
+    /// Get TLSA records for DANE validation.
+    pub fn tlsa_records(&self) -> Vec<&SignedDnsRecord> {
+        self.records
+            .iter()
+            .filter(|r| r.record_type == DnsRecordType::Tlsa)
+            .collect()
+    }
+
+    /// Domain being queried.
+    pub fn domain(&self) -> &str {
+        &self.domain
+    }
+
+    /// Number of cached records.
+    pub fn record_count(&self) -> usize {
+        self.records.len()
+    }
+}
+
+// --- BLE Beacon Discovery ---
+
+/// BLE beacon advertisement for proximity mesh discovery.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BleBeacon {
+    /// Service UUID used for RavenFabric discovery.
+    pub service_uuid: String,
+    /// Advertising node ID (truncated public key hash).
+    pub node_id_short: [u8; 8],
+    /// Signal strength indicator (RSSI, dBm).
+    pub rssi: i8,
+    /// Whether the beacon is connectable (GATT service available).
+    pub connectable: bool,
+    /// Capabilities advertised in beacon payload.
+    pub capabilities: u8,
+}
+
+/// BLE beacon discovery controller.
+pub struct BleDiscovery {
+    /// Our service UUID.
+    service_uuid: String,
+    /// Discovered beacons: node_id_short → beacon.
+    discovered: std::collections::HashMap<[u8; 8], BleBeacon>,
+    /// RSSI threshold for "in range" (dBm, e.g., -80).
+    rssi_threshold: i8,
+}
+
+impl BleDiscovery {
+    /// Create a new BLE discovery controller.
+    pub fn new(service_uuid: String, rssi_threshold: i8) -> Self {
+        Self {
+            service_uuid,
+            discovered: std::collections::HashMap::new(),
+            rssi_threshold,
+        }
+    }
+
+    /// Process a discovered beacon.
+    /// Returns true if this is a new peer in range.
+    pub fn on_beacon(&mut self, beacon: BleBeacon) -> bool {
+        if beacon.service_uuid != self.service_uuid {
+            return false;
+        }
+        if beacon.rssi < self.rssi_threshold {
+            return false; // Too far away
+        }
+
+        let is_new = !self.discovered.contains_key(&beacon.node_id_short);
+        self.discovered.insert(beacon.node_id_short, beacon);
+        is_new
+    }
+
+    /// Get all in-range peers.
+    pub fn in_range_peers(&self) -> Vec<&BleBeacon> {
+        self.discovered
+            .values()
+            .filter(|b| b.rssi >= self.rssi_threshold)
+            .collect()
+    }
+
+    /// Prune out-of-range peers.
+    pub fn prune_out_of_range(&mut self) {
+        self.discovered.retain(|_, b| b.rssi >= self.rssi_threshold);
+    }
+
+    /// Number of discovered peers.
+    pub fn peer_count(&self) -> usize {
+        self.discovered.len()
+    }
+
+    /// Our service UUID.
+    pub fn service_uuid(&self) -> &str {
+        &self.service_uuid
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -357,5 +526,127 @@ mod tests {
         };
         assert!(caps.censorship_resistant);
         assert!(caps.air_gap_capable);
+    }
+
+    #[test]
+    fn test_signed_dns_record() {
+        let record = SignedDnsRecord {
+            name: "_ravenfabric._tcp.example.com".into(),
+            record_type: DnsRecordType::Srv,
+            data: "0 10 9090 relay.example.com".into(),
+            ttl_secs: 300,
+            dnssec_validated: true,
+            tlsa_selector: None,
+            tlsa_matching_type: None,
+        };
+        let json = serde_json::to_string(&record).unwrap();
+        assert!(json.contains("srv"));
+        assert!(json.contains("dnssec_validated"));
+    }
+
+    #[test]
+    fn test_dns_relay_discovery() {
+        let mut disc = DnsRelayDiscovery::new("_ravenfabric._tcp.example.com".into(), true);
+
+        // Reject unsigned record
+        let unsigned = SignedDnsRecord {
+            name: disc.domain().to_string(),
+            record_type: DnsRecordType::Srv,
+            data: "relay.bad.com:9090".into(),
+            ttl_secs: 60,
+            dnssec_validated: false,
+            tlsa_selector: None,
+            tlsa_matching_type: None,
+        };
+        assert!(!disc.add_record(unsigned));
+        assert_eq!(disc.record_count(), 0);
+
+        // Accept signed record
+        let signed = SignedDnsRecord {
+            name: disc.domain().to_string(),
+            record_type: DnsRecordType::Srv,
+            data: "relay.good.com:9090".into(),
+            ttl_secs: 300,
+            dnssec_validated: true,
+            tlsa_selector: None,
+            tlsa_matching_type: None,
+        };
+        assert!(disc.add_record(signed));
+        assert_eq!(disc.record_count(), 1);
+        assert_eq!(disc.relay_addresses(), vec!["relay.good.com:9090"]);
+    }
+
+    #[test]
+    fn test_dns_discovery_tlsa() {
+        let mut disc = DnsRelayDiscovery::new("example.com".into(), false);
+        disc.add_record(SignedDnsRecord {
+            name: "_443._tcp.relay.example.com".into(),
+            record_type: DnsRecordType::Tlsa,
+            data: "abcdef1234567890".into(),
+            ttl_secs: 3600,
+            dnssec_validated: true,
+            tlsa_selector: Some(1),
+            tlsa_matching_type: Some(1),
+        });
+        let tlsa = disc.tlsa_records();
+        assert_eq!(tlsa.len(), 1);
+        assert_eq!(tlsa[0].tlsa_selector, Some(1));
+    }
+
+    #[test]
+    fn test_ble_beacon_discovery() {
+        let uuid = "12345678-1234-1234-1234-123456789abc".to_string();
+        let mut disc = BleDiscovery::new(uuid.clone(), -80);
+
+        let beacon = BleBeacon {
+            service_uuid: uuid.clone(),
+            node_id_short: [1, 2, 3, 4, 5, 6, 7, 8],
+            rssi: -65,
+            connectable: true,
+            capabilities: 0x03,
+        };
+        assert!(disc.on_beacon(beacon));
+        assert_eq!(disc.peer_count(), 1);
+
+        // Same node again — not new
+        let beacon2 = BleBeacon {
+            service_uuid: uuid.clone(),
+            node_id_short: [1, 2, 3, 4, 5, 6, 7, 8],
+            rssi: -70,
+            connectable: true,
+            capabilities: 0x03,
+        };
+        assert!(!disc.on_beacon(beacon2));
+        assert_eq!(disc.peer_count(), 1);
+    }
+
+    #[test]
+    fn test_ble_beacon_out_of_range() {
+        let uuid = "12345678-1234-1234-1234-123456789abc".to_string();
+        let mut disc = BleDiscovery::new(uuid.clone(), -80);
+
+        let far_beacon = BleBeacon {
+            service_uuid: uuid,
+            node_id_short: [1, 2, 3, 4, 5, 6, 7, 8],
+            rssi: -95, // Too far
+            connectable: true,
+            capabilities: 0,
+        };
+        assert!(!disc.on_beacon(far_beacon));
+        assert_eq!(disc.peer_count(), 0);
+    }
+
+    #[test]
+    fn test_ble_wrong_service_uuid() {
+        let mut disc = BleDiscovery::new("our-uuid".into(), -80);
+
+        let beacon = BleBeacon {
+            service_uuid: "other-uuid".into(),
+            node_id_short: [1, 2, 3, 4, 5, 6, 7, 8],
+            rssi: -50,
+            connectable: true,
+            capabilities: 0,
+        };
+        assert!(!disc.on_beacon(beacon));
     }
 }

@@ -148,6 +148,43 @@ impl Default for BirthdayPortPrediction {
     }
 }
 
+impl BirthdayPortPrediction {
+    /// Generate a list of candidate ports using deterministic selection.
+    ///
+    /// Both peers use the same shared secret to derive identical port lists,
+    /// then simultaneously bind to them, relying on the birthday paradox
+    /// for a collision on the NAT's external port mapping.
+    pub fn generate_candidates(&self, shared_seed: &[u8]) -> Vec<u16> {
+        let range = self.port_range_end.saturating_sub(self.port_range_start) + 1;
+        if range == 0 {
+            return Vec::new();
+        }
+
+        let mut ports = Vec::with_capacity(self.num_attempts as usize);
+        let mut state: u64 = 0;
+        for byte in shared_seed {
+            state = state.wrapping_mul(31).wrapping_add(u64::from(*byte));
+        }
+
+        for i in 0..self.num_attempts {
+            // Simple deterministic PRNG seeded by shared secret + index
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(u64::from(i));
+            let port = self.port_range_start + (state as u16 % range);
+            ports.push(port);
+        }
+
+        ports
+    }
+
+    /// Collision probability for the current configuration.
+    pub fn collision_probability(&self) -> f64 {
+        let range = self.port_range_end.saturating_sub(self.port_range_start) + 1;
+        birthday_collision_probability(self.num_attempts, range)
+    }
+}
+
 /// Calculate the probability of port collision with birthday paradox.
 /// Given n attempts in a range of d ports:
 /// P(collision) ≈ 1 - e^(-n² / 2d)
@@ -251,6 +288,32 @@ mod tests {
             prob2 > 0.99,
             "Expected > 99% with 1024 attempts, got {prob2}"
         );
+    }
+
+    #[test]
+    fn test_birthday_generate_candidates() {
+        let prediction = BirthdayPortPrediction::default();
+        let seed = b"shared-secret-between-peers";
+        let ports = prediction.generate_candidates(seed);
+
+        assert_eq!(ports.len(), 256);
+        // All ports in valid range
+        assert!(ports.iter().all(|p| *p >= 1024));
+
+        // Deterministic: same seed → same ports
+        let ports2 = prediction.generate_candidates(seed);
+        assert_eq!(ports, ports2);
+
+        // Different seed → different ports
+        let ports3 = prediction.generate_candidates(b"different-secret");
+        assert_ne!(ports, ports3);
+    }
+
+    #[test]
+    fn test_birthday_collision_probability_method() {
+        let prediction = BirthdayPortPrediction::default();
+        let prob = prediction.collision_probability();
+        assert!(prob > 0.3);
     }
 
     #[test]
