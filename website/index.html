@@ -620,6 +620,74 @@
             .replaces-table .products { font-size: 0.75rem; }
         }
 
+        /* === Table responsive (comparison) === */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .table-responsive table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .table-responsive th,
+        .table-responsive td {
+            padding: var(--space-3) var(--space-4);
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .table-responsive th {
+            background: var(--bg-deep);
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .table-responsive tr:last-child td {
+            border-bottom: none;
+        }
+        .table-responsive tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+        @media (max-width: 600px) {
+            .table-responsive table,
+            .table-responsive thead,
+            .table-responsive tbody,
+            .table-responsive th,
+            .table-responsive td,
+            .table-responsive tr {
+                display: block;
+            }
+            .table-responsive thead {
+                display: none;
+            }
+            .table-responsive tr {
+                margin-bottom: var(--space-4);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: var(--space-3);
+            }
+            .table-responsive td {
+                border: none;
+                padding: var(--space-2) var(--space-3);
+                position: relative;
+                padding-left: 45%;
+            }
+            .table-responsive td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: var(--space-3);
+                width: 40%;
+                font-weight: 600;
+                color: var(--accent);
+                font-size: 0.75rem;
+                text-transform: uppercase;
+            }
+        }
+
         /* === Code section === */
         .terminal-section {
             background: var(--bg-deep);
@@ -1113,6 +1181,33 @@
         </div>
     </section>
 
+    <!-- ─── WHY ───────────────────────────────────────────────────── -->
+    <section id="why" class="content-section">
+        <div class="container">
+            <div class="section-eyebrow">Why</div>
+            <h2 class="section-title">One binary. One policy. <em>One trust root</em>.</h2>
+            <p class="section-lead">
+                Today's infrastructure requires a dozen tools bolted together: a VPN for network access,
+                SSH for shells, Ansible for execution, Prometheus for metrics, ZTNA for access control.
+                Each has its own auth model, its own attack surface, its own failure mode.
+            </p>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>The problem is fragmentation</h3>
+                    <p>Five different authentication systems. Five different audit logs. Five different teams maintaining five different tools — each a potential breach point.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>The fix is convergence</h3>
+                    <p>One cryptographic identity. One policy engine. One audit stream. One static binary that deploys everywhere from data centers to Raspberry Pis.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Why now (2026)</h3>
+                    <p>NIS2 mandates zero-trust. Subsea cable sabotage demands transport diversity. Monoculture VPNs are single points of failure. Air-gap is no longer edge-case.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- ─── WHAT IT IS ───────────────────────────────────────────── -->
     <section id="what">
         <div class="container">
@@ -1209,6 +1304,70 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── COMPARISON ───────────────────────────────────────────── -->
+    <section id="comparison" class="content-section">
+        <div class="container">
+            <div class="section-eyebrow">Comparison</div>
+            <h2 class="section-title">How RavenFabric compares to <em>existing tools</em></h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Capability</th>
+                            <th>RavenFabric</th>
+                            <th>Tailscale + Ansible</th>
+                            <th>SSH + bastion</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td data-label="Capability">E2E encryption</td><td data-label="RavenFabric">Noise XX (no TLS, no certs)</td><td data-label="Tailscale+Ansible">WireGuard + SSH keys</td><td data-label="SSH+bastion">SSH only</td></tr>
+                        <tr><td data-label="Capability">Policy engine</td><td data-label="RavenFabric">Built-in, deny-by-default</td><td data-label="Tailscale+Ansible">Separate (Ansible vault/roles)</td><td data-label="SSH+bastion">None (shell access = full access)</td></tr>
+                        <tr><td data-label="Capability">Audit trail</td><td data-label="RavenFabric">Structured JSON, every action</td><td data-label="Tailscale+Ansible">Ansible logs + Tailscale admin</td><td data-label="SSH+bastion">Shell history (easily deleted)</td></tr>
+                        <tr><td data-label="Capability">Air-gap support</td><td data-label="RavenFabric">First-class (DTN, USB, radio)</td><td data-label="Tailscale+Ansible">None</td><td data-label="SSH+bastion">Manual sneakernet</td></tr>
+                        <tr><td data-label="Capability">Transport diversity</td><td data-label="RavenFabric">WS, QUIC, WireGuard, LoRa, Tor</td><td data-label="Tailscale+Ansible">WireGuard only</td><td data-label="SSH+bastion">TCP only</td></tr>
+                        <tr><td data-label="Capability">Agent binary</td><td data-label="RavenFabric">Single static &lt;15 MB</td><td data-label="Tailscale+Ansible">Tailscale + Python + Ansible</td><td data-label="SSH+bastion">OpenSSH</td></tr>
+                        <tr><td data-label="Capability">Mobile / IoT</td><td data-label="RavenFabric">Android, iOS, RPi, ESP32</td><td data-label="Tailscale+Ansible">Tailscale (mobile) + no Ansible</td><td data-label="SSH+bastion">Limited</td></tr>
+                        <tr><td data-label="Capability">Relay trust</td><td data-label="RavenFabric">Zero (content-blind)</td><td data-label="Tailscale+Ansible">Coordination server sees metadata</td><td data-label="SSH+bastion">Bastion sees all traffic</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── FAQ ──────────────────────────────────────────────────── -->
+    <section id="faq" class="content-section">
+        <div class="container">
+            <div class="section-eyebrow">FAQ</div>
+            <h2 class="section-title">Frequently asked <em>questions</em></h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>Why not just use Tailscale + Ansible?</h3>
+                    <p>That combination works but requires two trust domains, two auth systems, and gives no end-to-end encryption between orchestrator and agent. The relay/coordination server sees metadata. Ansible has no real-time streaming, no built-in policy engine, and requires Python on targets.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Why Rust?</h3>
+                    <p>Memory safety without garbage collection. Single static binary (no runtime deps). Fearless concurrency for async I/O. Compiles to every target from x86 to RISC-V to WASM. Sub-10 MB binaries.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Why AGPLv3?</h3>
+                    <p>Prevents silent forks as managed services without contributing back. Commercial dual-license available for enterprises that need proprietary integration. AGPLv3 ensures the community always has access.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Is it production-ready?</h3>
+                    <p>Not yet. v0.1 is alpha — the architecture is proven and the security model is sound, but it needs more transport drivers, broader platform testing, and fuzz testing before production use.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Who is this for?</h3>
+                    <p>Security-conscious infrastructure teams. Public sector architects needing NIS2 compliance. MSPs managing diverse fleets. Anyone running systems in hostile, air-gapped, or low-connectivity environments.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Can I contribute?</h3>
+                    <p>Yes. The project is open-source on GitHub. See CONTRIBUTING.md for guidelines. All contributions must pass CI (tests, clippy, fmt) and follow the security-first design principles.</p>
+                </div>
             </div>
         </div>
     </section>

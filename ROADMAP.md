@@ -185,8 +185,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Critical Quick-Wins (this week)
 - [x] Fix broken links — create stubs for `SECURITY.md`, `LICENSING.md`, `CONTRIBUTING.md`, `CHANGELOG.md`
-- [ ] Threat model section (what relay cannot see, agent compromise scope, controller compromise scope, immutable rules)
-- [ ] About / "Built by" section (name + LinkedIn, gives credibility)
+- [x] Threat model section (what relay cannot see, agent compromise scope, controller compromise scope, immutable rules)
+- [x] About / "Built by" section (name + LinkedIn, gives credibility)
 - [x] JSON-LD structured data (`SoftwareApplication` schema)
 - [x] Add `og:image:alt`, `og:image:width`, `og:image:height` meta tags
 
@@ -203,8 +203,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Technical Improvements
 - [x] Skip-link for accessibility (`<a href="#main" class="skip-link">Skip to content</a>`)
 - [x] Declare `color-scheme: dark` (prevent flash-of-white)
-- [ ] Preload critical fonts (or self-host to avoid Google Fonts GDPR/FOUT issues)
-- [x] Content-Security-Policy meta tag (strict, allow only fonts.googleapis.com + shields.io)
+- [x] Preload critical fonts (self-hosted in `website/assets/fonts/`, no Google Fonts dependency)
+- [x] Content-Security-Policy meta tag (strict, no external font CDN)
 - [x] Twitter card meta tags (`twitter:creator`, `twitter:site`)
 - [ ] Mobile-responsive tables (stack layout on `<600px`)
 - [ ] OG image in WebP/AVIF format (reduce 117KB PNG)
@@ -235,9 +235,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Transport diversity. Task mode. File operations. Data collection agent. Windows + macOS.
 
 ### Transport Expansion
-- [ ] WebSocket driver implementation (tokio-tungstenite)
-- [ ] In-memory driver for testing
-- [ ] QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)
+- [x] ~~WebSocket driver implementation (tokio-tungstenite)~~
+- [x] ~~In-memory driver for testing~~
+- [x] ~~QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)~~
 - [ ] WireGuard userspace (boringtun, direct peers on open network)
 - [ ] Happy Eyeballs (RFC 8305) — race IPv4/IPv6, use first responder
 - [ ] IPv6-first with NAT64/464XLAT awareness
@@ -574,28 +574,28 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ## Technical Debt (Audit Findings — 5 May 2026)
 
-Must be resolved before v0.1 is feature-complete.
+All critical and important issues resolved. Minor items tracked below.
 
 ### Critical
-- [ ] **Executor has zero tests** — most security-sensitive component runs untested
+- [x] ~~**Executor has zero tests**~~ — resolved: 12 tests covering policy denial, exec, timeout, output limiting, streaming
 
 ### Important (code correctness)
-- [ ] `unwrap()` in library code — 5 instances across `rf-crypto` and `rf-bootstrap`
-- [ ] Wire magic/version constants defined but never exchanged during handshake
-- [ ] `TransportState` API gap — `handshake()` returns one state, `SecureChannel` needs two
-- [ ] `RwLock` poisoning not handled in `rf-bootstrap` (3 instances)
-- [ ] Audit log write errors silently swallowed
+- [x] ~~`unwrap()` in library code~~ — resolved: all production code uses `?` or `expect()` with justification
+- [x] ~~Wire magic/version constants defined but never exchanged during handshake~~ — resolved: RVNF + version byte sent and validated
+- [x] ~~`TransportState` API gap~~ — resolved: `handshake()` returns `StatelessTransportState` for split-free SecureChannel
+- [x] ~~`RwLock` poisoning not handled in `rf-bootstrap`~~ — resolved: `unwrap_or_else(|p| p.into_inner())`
+- [x] ~~Audit log write errors silently swallowed~~ — resolved: `log()` returns `Result<(), AuditError>`
 
 ### Minor (code hygiene)
-- [ ] Unused workspace deps: `proptest`, `base64`, `crc32fast`
+- [x] ~~Unused workspace deps: `proptest`, `base64`, `crc32fast`~~ — removed
 - [x] ~~`yamux` declared in `rf-crypto` Cargo.toml (should be in `rf-rpc`)~~ — fixed, yamux now in rf-rpc
-- [ ] `Target` type in `rf-transport` missing `Debug`/`Clone` derives
-- [ ] `rf-rpc` types have no serialization roundtrip tests
-- [ ] `RpcPolicy` error types use `Box<dyn Error>` instead of typed error
-- [ ] `sysinfo::System::new_all()` called per-request in executor metrics (should cache)
-- [ ] `#[allow(dead_code)]` on `agent_id` field in `rf-bootstrap`
-- [ ] CI clippy allows `unwrap_used` but workspace has it as `warn` (inconsistent)
-- [ ] Release workflow uses `|| true` on binary copy (hides build failures)
+- [x] ~~`Target` type in `rf-transport` missing `Debug`/`Clone` derives~~ — fixed
+- [x] ~~`rf-rpc` types have no serialization roundtrip tests~~ — added 8 roundtrip tests
+- [x] ~~`RpcPolicy` error types use `Box<dyn Error>` instead of typed error~~ — resolved: uses `PolicyError` enum
+- [x] ~~`sysinfo::System::new_all()` called per-request in executor metrics (should cache)~~ — uses `Arc<Mutex<System>>` now
+- [x] ~~`#[allow(dead_code)]` on `agent_id` field in `rf-bootstrap`~~ — field now used
+- [x] ~~CI clippy allows `unwrap_used` but workspace has it as `warn`~~ — aligned
+- [x] ~~Release workflow uses `|| true` on binary copy~~ — fixed
 
 ---
 

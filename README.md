@@ -986,8 +986,8 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey management | Done (470 LOC, 7 tests) |
-| `rf-transport` | Driver trait, AsyncStream abstraction, WebSocket + Memory backends | Done (~250 LOC, 2 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux multiplexing | Done (~430 LOC, 5 tests) |
+| `rf-transport` | Driver trait, AsyncStream abstraction, WebSocket + QUIC + Memory backends | Done (~500 LOC, 4 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux multiplexing | Done (~430 LOC, 13 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
 | `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) | Done (281 LOC, 4 tests) |
 | `rf-executor` | Command execution + streaming under policy control with timeout + output limiting | Done (~600 LOC, 12 tests) |
@@ -1137,7 +1137,7 @@ RavenFabric/
 ├── Cargo.toml              # Workspace root
 ├── crates/
 │   ├── rf-crypto/          # Noise XX, keys, SecureChannel
-│   ├── rf-transport/       # Driver trait, WebSocket backend
+│   ├── rf-transport/       # Driver trait, WebSocket + QUIC backends
 │   ├── rf-rpc/             # Message types, msgpack codec
 │   ├── rf-policy/          # Policy loading + enforcement
 │   ├── rf-executor/        # Command execution under policy

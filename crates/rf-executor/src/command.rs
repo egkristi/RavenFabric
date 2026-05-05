@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use chrono::Utc;
 use tokio::process::Command;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{Duration, timeout};
 
 use rf_audit::logger::AuditLogger;
@@ -20,6 +20,8 @@ pub struct Executor {
     caller_key: String,
     agent_id: String,
     start_time: Instant,
+    /// Cached sysinfo System to avoid re-scanning on every metrics request.
+    sysinfo_cache: Arc<Mutex<sysinfo::System>>,
 }
 
 impl Executor {
@@ -34,6 +36,7 @@ impl Executor {
             caller_key,
             agent_id: String::new(),
             start_time: Instant::now(),
+            sysinfo_cache: Arc::new(Mutex::new(sysinfo::System::new_all())),
         }
     }
 
@@ -170,13 +173,14 @@ impl Executor {
     }
 
     async fn handle_metrics(&self) -> RpcResult {
-        let info = sysinfo::System::new_all();
+        let mut sys = self.sysinfo_cache.lock().await;
+        sys.refresh_all();
         let stdout = format!(
             "{{\"hostname\":\"{}\",\"cpus\":{},\"memory_total_mb\":{},\"memory_used_mb\":{}}}",
             sysinfo::System::host_name().unwrap_or_default(),
-            info.cpus().len(),
-            info.total_memory() / 1024 / 1024,
-            info.used_memory() / 1024 / 1024,
+            sys.cpus().len(),
+            sys.total_memory() / 1024 / 1024,
+            sys.used_memory() / 1024 / 1024,
         );
 
         RpcResult::Success {
