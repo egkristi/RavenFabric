@@ -236,6 +236,182 @@ impl SessionRecorder {
     }
 }
 
+/// A live PTY session on Unix.
+///
+/// Spawns a shell process attached to a pseudo-terminal and provides
+/// async read/write access to it via Tokio.
+#[cfg(unix)]
+pub struct PtySession {
+    /// The master file descriptor (owned).
+    master_fd: std::os::unix::io::OwnedFd,
+    /// The child process.
+    child: tokio::process::Child,
+    /// Session configuration.
+    config: PtyConfig,
+}
+
+#[cfg(unix)]
+impl PtySession {
+    /// Spawn a new PTY session with the given config.
+    ///
+    /// Uses `openpty()` to create a pseudo-terminal pair, then forks
+    /// the shell process with the slave end as its controlling terminal.
+    pub fn spawn(config: PtyConfig) -> std::io::Result<Self> {
+        use std::os::unix::io::{FromRawFd, OwnedFd};
+
+        // Allocate a PTY pair
+        let mut master: libc::c_int = 0;
+        let mut slave: libc::c_int = 0;
+        let ret = unsafe {
+            libc::openpty(
+                &mut master,
+                &mut slave,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        };
+        if ret != 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+
+        // Wrap in OwnedFd for safety
+        let master_fd = unsafe { OwnedFd::from_raw_fd(master) };
+        let slave_fd = unsafe { OwnedFd::from_raw_fd(slave) };
+
+        // Set initial terminal size
+        let winsize = libc::winsize {
+            ws_row: config.size.rows,
+            ws_col: config.size.cols,
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        };
+        unsafe {
+            libc::ioctl(master, libc::TIOCSWINSZ, &winsize);
+        }
+
+        // Determine shell
+        let shell = config
+            .shell
+            .clone()
+            .unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into()));
+
+        // Build command — use the slave fd as stdin/stdout/stderr
+        let slave_file: std::fs::File = slave_fd.into();
+        let slave_stdout = slave_file.try_clone()?;
+        let slave_stderr = slave_file.try_clone()?;
+
+        let mut cmd = tokio::process::Command::new(&shell);
+        cmd.stdin(slave_file)
+            .stdout(slave_stdout)
+            .stderr(slave_stderr);
+
+        if let Some(ref cwd) = config.cwd {
+            cmd.current_dir(cwd);
+        }
+
+        for (k, v) in &config.env {
+            cmd.env(k, v);
+        }
+
+        // Create a new session and set controlling terminal
+        unsafe {
+            cmd.pre_exec(|| {
+                libc::setsid();
+                libc::ioctl(0, libc::TIOCSCTTY as libc::c_ulong, 0);
+                Ok(())
+            });
+        }
+
+        let child = cmd.spawn()?;
+
+        Ok(Self {
+            master_fd,
+            child,
+            config,
+        })
+    }
+
+    /// Write data to the PTY (input to the shell).
+    pub fn write(&self, data: &[u8]) -> std::io::Result<usize> {
+        use std::os::unix::io::AsRawFd;
+        let n =
+            unsafe { libc::write(self.master_fd.as_raw_fd(), data.as_ptr().cast(), data.len()) };
+        if n < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(n as usize)
+        }
+    }
+
+    /// Read data from the PTY (output from the shell).
+    /// This is a blocking call — use `tokio::task::spawn_blocking` if needed.
+    pub fn read(&self, buf: &mut [u8]) -> std::io::Result<usize> {
+        use std::os::unix::io::AsRawFd;
+        let n =
+            unsafe { libc::read(self.master_fd.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len()) };
+        if n < 0 {
+            let err = std::io::Error::last_os_error();
+            if err.kind() == std::io::ErrorKind::WouldBlock {
+                Ok(0)
+            } else {
+                Err(err)
+            }
+        } else {
+            Ok(n as usize)
+        }
+    }
+
+    /// Resize the terminal.
+    pub fn resize(&self, size: TerminalSize) {
+        use std::os::unix::io::AsRawFd;
+        let winsize = libc::winsize {
+            ws_row: size.rows,
+            ws_col: size.cols,
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        };
+        unsafe {
+            libc::ioctl(self.master_fd.as_raw_fd(), libc::TIOCSWINSZ, &winsize);
+        }
+    }
+
+    /// Send a signal to the PTY child process.
+    pub fn signal(&self, sig: PtySignal) -> std::io::Result<()> {
+        if let Some(pid) = self.child.id() {
+            let signum = match sig {
+                PtySignal::Sigint => libc::SIGINT,
+                PtySignal::Sigterm => libc::SIGTERM,
+                PtySignal::Sigkill => libc::SIGKILL,
+                PtySignal::Sighup => libc::SIGHUP,
+                PtySignal::Sigwinch => libc::SIGWINCH,
+            };
+            let ret = unsafe { libc::kill(pid as libc::pid_t, signum) };
+            if ret == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "child process has no PID",
+            ))
+        }
+    }
+
+    /// Wait for the child process to exit, returning the exit code.
+    pub async fn wait(&mut self) -> std::io::Result<i32> {
+        let status = self.child.wait().await?;
+        Ok(status.code().unwrap_or(-1))
+    }
+
+    /// Get the PTY configuration.
+    pub fn config(&self) -> &PtyConfig {
+        &self.config
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,5 +500,111 @@ mod tests {
         };
         let json = serde_json::to_string(&err).unwrap();
         assert!(json.contains("spawn failed"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_pty_session_spawn_and_exit() {
+        use super::PtySession;
+
+        let config = PtyConfig {
+            shell: Some("/bin/sh".into()),
+            size: TerminalSize { rows: 24, cols: 80 },
+            cwd: None,
+            env: vec![],
+            timeout_secs: 10,
+            record: false,
+        };
+
+        let mut session = PtySession::spawn(config).unwrap();
+
+        // Give the shell time to start
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        // Send "exit" command
+        session.write(b"exit\n").unwrap();
+
+        // Drain output while waiting for exit (shell may block writing prompt)
+        let exit_code = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                // Drain output to unblock the shell
+                let mut buf = vec![0u8; 4096];
+                let _ = session.read(&mut buf);
+                // Try wait
+                match session.child.try_wait() {
+                    Ok(Some(status)) => return Ok(status.code().unwrap_or(-1)),
+                    Ok(None) => {}
+                    Err(e) => return Err(e),
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+        })
+        .await
+        .expect("PTY wait timed out")
+        .unwrap();
+        assert_eq!(exit_code, 0);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_pty_session_echo() {
+        use super::PtySession;
+
+        let config = PtyConfig {
+            shell: Some("/bin/sh".into()),
+            size: TerminalSize { rows: 24, cols: 80 },
+            cwd: None,
+            env: vec![],
+            timeout_secs: 10,
+            record: false,
+        };
+
+        let mut session = PtySession::spawn(config).unwrap();
+
+        // Give the shell time to start
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        // Write a command
+        session.write(b"echo PTYTEST123\n").unwrap();
+
+        // Give the shell time to process
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        // Read output (blocking read in spawn_blocking)
+        let mut buf = vec![0u8; 4096];
+        let n = session.read(&mut buf).unwrap();
+        let output = String::from_utf8_lossy(&buf[..n]);
+        assert!(
+            output.contains("PTYTEST123"),
+            "expected PTYTEST123 in output: {output}"
+        );
+
+        session.write(b"exit\n").unwrap();
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), session.wait()).await;
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_pty_session_resize() {
+        use super::PtySession;
+
+        let config = PtyConfig {
+            shell: Some("/bin/sh".into()),
+            size: TerminalSize { rows: 24, cols: 80 },
+            cwd: None,
+            env: vec![],
+            timeout_secs: 10,
+            record: false,
+        };
+
+        let mut session = PtySession::spawn(config).unwrap();
+        // Resize should not panic or error
+        session.resize(TerminalSize {
+            rows: 50,
+            cols: 120,
+        });
+
+        session.write(b"exit\n").unwrap();
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), session.wait()).await;
     }
 }

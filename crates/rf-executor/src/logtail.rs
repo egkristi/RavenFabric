@@ -254,6 +254,192 @@ pub fn resolve_glob(pattern: &str) -> Vec<PathBuf> {
     }
 }
 
+/// A file tailer that watches a file and yields new lines as they appear.
+///
+/// Uses polling (checking file metadata for size changes) rather than
+/// inotify/kqueue to remain platform-portable.
+pub struct FileTailer {
+    path: PathBuf,
+    offset: u64,
+    config: TailConfig,
+    stats: TailStats,
+    state: TailState,
+    partial_line: String,
+}
+
+impl FileTailer {
+    /// Create a new file tailer starting at the end of the file.
+    pub fn new(path: PathBuf, config: TailConfig) -> std::io::Result<Self> {
+        let offset = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        Ok(Self {
+            path,
+            offset,
+            config,
+            stats: TailStats::default(),
+            state: TailState::Idle,
+            partial_line: String::new(),
+        })
+    }
+
+    /// Create a new file tailer starting from the beginning of the file.
+    pub fn from_beginning(path: PathBuf, config: TailConfig) -> Self {
+        Self {
+            path,
+            offset: 0,
+            config,
+            stats: TailStats::default(),
+            state: TailState::Idle,
+            partial_line: String::new(),
+        }
+    }
+
+    /// Poll for new lines. Returns any new complete lines since last poll.
+    ///
+    /// Detects file truncation/rotation (file got smaller) and reopens from the start.
+    pub fn poll(&mut self) -> std::io::Result<Vec<LogEntry>> {
+        use std::io::{BufRead, Seek};
+
+        let metadata = match std::fs::metadata(&self.path) {
+            Ok(m) => m,
+            Err(e) => {
+                self.state = TailState::Error;
+                return Err(e);
+            }
+        };
+
+        let current_size = metadata.len();
+
+        // Detect rotation: file got smaller → reopen from start
+        if current_size < self.offset {
+            self.offset = 0;
+            self.stats.record_rotation();
+        }
+
+        // No new data
+        if current_size == self.offset {
+            self.state = TailState::Running;
+            return Ok(Vec::new());
+        }
+
+        let file = std::fs::File::open(&self.path)?;
+        let mut reader = std::io::BufReader::new(file);
+        reader.seek(std::io::SeekFrom::Start(self.offset))?;
+
+        self.state = TailState::Running;
+        let mut entries = Vec::new();
+
+        loop {
+            let mut line = String::new();
+            let bytes_read = reader.read_line(&mut line)?;
+            if bytes_read == 0 {
+                break;
+            }
+            self.offset += bytes_read as u64;
+
+            // Handle partial lines (no newline at end = partial)
+            if !line.ends_with('\n') {
+                self.partial_line.push_str(&line);
+                continue;
+            }
+
+            // Prepend any partial line from last poll
+            if !self.partial_line.is_empty() {
+                line = std::mem::take(&mut self.partial_line) + &line;
+            }
+
+            let line = line.trim_end_matches('\n').trim_end_matches('\r');
+            if line.is_empty() {
+                continue;
+            }
+
+            let line_bytes = line.len() as u64;
+
+            // Apply exclude pattern filter
+            if let Some(ref exclude) = self.config.exclude_pattern {
+                if line.contains(exclude.as_str()) {
+                    self.stats.record_filtered(line_bytes);
+                    continue;
+                }
+            }
+
+            // Apply include pattern filter
+            if let Some(ref include) = self.config.include_pattern {
+                if !line.contains(include.as_str()) {
+                    self.stats.record_filtered(line_bytes);
+                    continue;
+                }
+            }
+
+            // Parse the line based on format
+            let mut entry = match &self.config.format {
+                LogFormat::Json => parse_json_line(line).unwrap_or(LogEntry {
+                    raw: line.to_string(),
+                    timestamp: None,
+                    level: None,
+                    fields: std::collections::HashMap::new(),
+                    source: String::new(),
+                    agent_id: String::new(),
+                }),
+                LogFormat::Logfmt => {
+                    let fields = parse_logfmt(line);
+                    let level = fields.get("level").and_then(|l| parse_level(l));
+                    let timestamp = fields
+                        .get("ts")
+                        .or_else(|| fields.get("timestamp"))
+                        .or_else(|| fields.get("time"))
+                        .cloned();
+                    LogEntry {
+                        raw: line.to_string(),
+                        timestamp,
+                        level,
+                        fields,
+                        source: String::new(),
+                        agent_id: String::new(),
+                    }
+                }
+                _ => LogEntry {
+                    raw: line.to_string(),
+                    timestamp: None,
+                    level: None,
+                    fields: std::collections::HashMap::new(),
+                    source: String::new(),
+                    agent_id: String::new(),
+                },
+            };
+
+            entry.source = self.path.to_string_lossy().to_string();
+
+            // Apply min_level filter
+            if let (Some(min), Some(entry_level)) = (self.config.min_level, entry.level) {
+                if entry_level < min {
+                    self.stats.record_filtered(line_bytes);
+                    continue;
+                }
+            }
+
+            self.stats.record_forwarded(line_bytes);
+            entries.push(entry);
+        }
+
+        Ok(entries)
+    }
+
+    /// Current tailing state.
+    pub fn state(&self) -> TailState {
+        self.state
+    }
+
+    /// Tailing statistics.
+    pub fn stats(&self) -> &TailStats {
+        &self.stats
+    }
+
+    /// File path being tailed.
+    pub fn path(&self) -> &PathBuf {
+        &self.path
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,5 +522,192 @@ mod tests {
     fn test_resolve_glob_literal_nonexistent() {
         let paths = resolve_glob("/nonexistent/path/foo.log");
         assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn test_file_tailer_new_lines() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        // Write initial content
+        {
+            let mut f = std::fs::File::create(&log_path).unwrap();
+            writeln!(f, "line1").unwrap();
+            writeln!(f, "line2").unwrap();
+        }
+
+        // Tailer starts at end — should not see initial lines
+        let config = TailConfig {
+            name: "test".into(),
+            source: LogSource::File {
+                pattern: log_path.to_string_lossy().into(),
+                follow_rotation: false,
+            },
+            format: LogFormat::Raw,
+            min_level: None,
+            rate_limit: None,
+            include_pattern: None,
+            exclude_pattern: None,
+        };
+        let mut tailer = FileTailer::new(log_path.clone(), config).unwrap();
+        let entries = tailer.poll().unwrap();
+        assert!(entries.is_empty());
+
+        // Append new lines
+        {
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&log_path)
+                .unwrap();
+            writeln!(f, "line3").unwrap();
+            writeln!(f, "line4").unwrap();
+        }
+
+        let entries = tailer.poll().unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].raw, "line3");
+        assert_eq!(entries[1].raw, "line4");
+        assert_eq!(tailer.stats().lines_forwarded, 2);
+    }
+
+    #[test]
+    fn test_file_tailer_from_beginning() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        {
+            let mut f = std::fs::File::create(&log_path).unwrap();
+            writeln!(f, "first").unwrap();
+            writeln!(f, "second").unwrap();
+        }
+
+        let config = TailConfig {
+            name: "test".into(),
+            source: LogSource::File {
+                pattern: log_path.to_string_lossy().into(),
+                follow_rotation: false,
+            },
+            format: LogFormat::Raw,
+            min_level: None,
+            rate_limit: None,
+            include_pattern: None,
+            exclude_pattern: None,
+        };
+        let mut tailer = FileTailer::from_beginning(log_path.clone(), config);
+        let entries = tailer.poll().unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].raw, "first");
+    }
+
+    #[test]
+    fn test_file_tailer_rotation_detection() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        // Write initial data
+        {
+            let mut f = std::fs::File::create(&log_path).unwrap();
+            writeln!(f, "before-rotation-1").unwrap();
+            writeln!(f, "before-rotation-2").unwrap();
+        }
+
+        let config = TailConfig {
+            name: "test".into(),
+            source: LogSource::File {
+                pattern: log_path.to_string_lossy().into(),
+                follow_rotation: true,
+            },
+            format: LogFormat::Raw,
+            min_level: None,
+            rate_limit: None,
+            include_pattern: None,
+            exclude_pattern: None,
+        };
+        let mut tailer = FileTailer::from_beginning(log_path.clone(), config);
+        let _ = tailer.poll().unwrap();
+
+        // Simulate rotation: truncate and write new content
+        {
+            let mut f = std::fs::File::create(&log_path).unwrap(); // truncates
+            writeln!(f, "after-rotation").unwrap();
+        }
+
+        let entries = tailer.poll().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].raw, "after-rotation");
+        assert_eq!(tailer.stats().rotations, 1);
+    }
+
+    #[test]
+    fn test_file_tailer_filtering() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        let config = TailConfig {
+            name: "test".into(),
+            source: LogSource::File {
+                pattern: log_path.to_string_lossy().into(),
+                follow_rotation: false,
+            },
+            format: LogFormat::Raw,
+            min_level: None,
+            rate_limit: None,
+            include_pattern: Some("ERROR".into()),
+            exclude_pattern: Some("healthcheck".into()),
+        };
+
+        {
+            let mut f = std::fs::File::create(&log_path).unwrap();
+            writeln!(f, "INFO normal log").unwrap();
+            writeln!(f, "ERROR something broke").unwrap();
+            writeln!(f, "ERROR healthcheck timeout").unwrap(); // excluded
+            writeln!(f, "WARN just a warning").unwrap();
+        }
+
+        let mut tailer = FileTailer::from_beginning(log_path, config);
+        let entries = tailer.poll().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].raw, "ERROR something broke");
+        assert_eq!(tailer.stats().lines_filtered, 3);
+    }
+
+    #[test]
+    fn test_file_tailer_json_parsing() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        let config = TailConfig {
+            name: "test".into(),
+            source: LogSource::File {
+                pattern: log_path.to_string_lossy().into(),
+                follow_rotation: false,
+            },
+            format: LogFormat::Json,
+            min_level: Some(LogLevel::Warn),
+            rate_limit: None,
+            include_pattern: None,
+            exclude_pattern: None,
+        };
+
+        {
+            let mut f = std::fs::File::create(&log_path).unwrap();
+            writeln!(f, r#"{{"level":"info","msg":"hello"}}"#).unwrap();
+            writeln!(f, r#"{{"level":"error","msg":"failure","timestamp":"2024-01-15T10:30:00Z"}}"#).unwrap();
+        }
+
+        let mut tailer = FileTailer::from_beginning(log_path, config);
+        let entries = tailer.poll().unwrap();
+        // info is below min_level Warn, so only error line passes
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].level, Some(LogLevel::Error));
+        assert_eq!(
+            entries[0].timestamp.as_deref(),
+            Some("2024-01-15T10:30:00Z")
+        );
     }
 }

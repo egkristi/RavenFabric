@@ -49,17 +49,97 @@ pub trait MetricCollector: Send + Sync {
 #[derive(Debug)]
 pub struct SystemMetricsCollector {
     interval: Duration,
+    #[cfg(feature = "sysinfo")]
+    sys: sysinfo::System,
 }
 
 impl SystemMetricsCollector {
     pub fn new(interval: Duration) -> Self {
-        Self { interval }
+        Self {
+            interval,
+            #[cfg(feature = "sysinfo")]
+            sys: sysinfo::System::new_all(),
+        }
     }
 
     /// Collect basic system metrics (CPU, memory, load).
-    /// In production this uses sysinfo crate; here we define the interface.
-    pub fn collect_system_metrics(&self, timestamp_ms: u64) -> Vec<MetricPoint> {
-        // These would be populated by sysinfo in the actual agent
+    #[cfg(feature = "sysinfo")]
+    pub fn collect_system_metrics(&mut self, timestamp_ms: u64) -> Vec<MetricPoint> {
+        use sysinfo::System;
+
+        self.sys.refresh_all();
+
+        let cpu_usage = self.sys.global_cpu_usage() as f64;
+        let mem_used = self.sys.used_memory() as f64;
+        let mem_total = self.sys.total_memory() as f64;
+        let load_avg = System::load_average();
+
+        let mut points = vec![
+            MetricPoint {
+                name: "system_cpu_usage_percent".into(),
+                value: MetricValue::Gauge(cpu_usage),
+                labels: HashMap::new(),
+                timestamp_ms,
+            },
+            MetricPoint {
+                name: "system_memory_used_bytes".into(),
+                value: MetricValue::Gauge(mem_used),
+                labels: HashMap::new(),
+                timestamp_ms,
+            },
+            MetricPoint {
+                name: "system_memory_total_bytes".into(),
+                value: MetricValue::Gauge(mem_total),
+                labels: HashMap::new(),
+                timestamp_ms,
+            },
+            MetricPoint {
+                name: "system_load_1m".into(),
+                value: MetricValue::Gauge(load_avg.one),
+                labels: HashMap::new(),
+                timestamp_ms,
+            },
+            MetricPoint {
+                name: "system_load_5m".into(),
+                value: MetricValue::Gauge(load_avg.five),
+                labels: HashMap::new(),
+                timestamp_ms,
+            },
+            MetricPoint {
+                name: "system_load_15m".into(),
+                value: MetricValue::Gauge(load_avg.fifteen),
+                labels: HashMap::new(),
+                timestamp_ms,
+            },
+        ];
+
+        // Per-disk metrics
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        for disk in disks.list() {
+            let mount = disk.mount_point().to_string_lossy().to_string();
+            let mut labels = HashMap::new();
+            labels.insert("mount".into(), mount);
+
+            points.push(MetricPoint {
+                name: "system_disk_total_bytes".into(),
+                value: MetricValue::Gauge(disk.total_space() as f64),
+                labels: labels.clone(),
+                timestamp_ms,
+            });
+            points.push(MetricPoint {
+                name: "system_disk_available_bytes".into(),
+                value: MetricValue::Gauge(disk.available_space() as f64),
+                labels,
+                timestamp_ms,
+            });
+        }
+
+        points
+    }
+
+    /// Collect basic system metrics (stub when sysinfo feature is disabled).
+    #[cfg(not(feature = "sysinfo"))]
+    pub fn collect_system_metrics(&mut self, timestamp_ms: u64) -> Vec<MetricPoint> {
         vec![
             MetricPoint {
                 name: "system_cpu_usage_percent".into(),
@@ -247,9 +327,18 @@ mod tests {
     fn test_system_metrics_collector() {
         let mut collector = SystemMetricsCollector::new(Duration::from_secs(10));
         let points = collector.collect();
-        assert_eq!(points.len(), 4);
+        // With sysinfo feature, we get at least 6 system metrics + disk metrics
+        // Without sysinfo feature, we get 4 stub metrics
+        assert!(points.len() >= 4);
         assert_eq!(collector.name(), "system");
         assert_eq!(collector.interval(), Duration::from_secs(10));
+
+        // Verify metric names
+        let names: Vec<&str> = points.iter().map(|p| p.name.as_str()).collect();
+        assert!(names.contains(&"system_cpu_usage_percent"));
+        assert!(names.contains(&"system_memory_used_bytes"));
+        assert!(names.contains(&"system_memory_total_bytes"));
+        assert!(names.contains(&"system_load_1m"));
     }
 
     #[test]

@@ -300,13 +300,13 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~`#[cfg()]` for all OS-specific code~~
 
 ### Data Collection Agent
-- [~] Metrics collector framework — trait + types defined, `SystemMetricsCollector` returns hardcoded zeros
-- [x] Built-in system metrics via `sysinfo` — working in executor `Action::Metrics` handler
+- [x] Metrics collector framework — `SystemMetricsCollector` with real sysinfo (CPU, memory, load, disk)
+- [x] Built-in system metrics via `sysinfo` — working in executor `Action::Metrics` handler + standalone collector
 - [~] Prometheus `/metrics` endpoint — formatter exists, no HTTP server
 - [~] Application metrics scraping — Prometheus parser exists, no actual HTTP scraping
-- [~] Log tailing — types/format definitions, no actual file watching
+- [x] Log tailing — `FileTailer` with rotation detection, JSON/logfmt parsing, include/exclude filters
 - [~] OTLP/Prometheus-remote-write/InfluxDB exporters — types only
-- [~] Health check probes — `HealthTracker` state machine, no actual TCP/HTTP connections
+- [x] Health check probes — `execute_probe()` with real TCP connect, HTTP GET, process check, command check
 - [~] Collection policy — types defined
 - [~] Offline telemetry buffering — types defined
 
@@ -317,12 +317,12 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Interactive shell. Port forwarding. Multi-agent orchestration. Cross-protocol path upgrade.
 
 ### Interactive Shell
-- [~] PTY allocation — types defined (`PtyConfig`, `SessionInfo`), no actual `openpty` calls
-- [~] Session recording — event types defined, no actual recording
-- [~] `rf shell <agent>` — CLI stub sends command, not an interactive terminal session
+- [x] PTY allocation — real `openpty` on Unix with `PtySession` (spawn, read, write, resize, signal)
+- [x] Session recording — `SessionRecorder` with asciicast v2 output (functional)
+- [~] `rf shell <agent>` — CLI stub sends command, not yet wired to PTY session over RPC
 
 ### Port Forwarding
-- [~] Local port forward — `PortForward`/`ForwardManager` types, no actual TCP listener
+- [x] Local port forward — `start_local_forward()` with real TCP listener + bidirectional copy
 - [~] Remote port forward — types only
 - [~] SOCKS5 dynamic forward — protocol parser functional, not connected to sockets
 

@@ -139,6 +139,79 @@ impl ForwardManager {
     }
 }
 
+/// Start a local TCP port forward: listen on `bind_addr`, forward each
+/// connection to `target_addr`. Runs until `cancel` is notified.
+///
+/// Returns immediately after the listener is bound. Each accepted connection
+/// is handled in a spawned Tokio task that copies data bidirectionally.
+pub async fn start_local_forward(
+    bind_addr: &str,
+    target_addr: String,
+    cancel: tokio::sync::watch::Receiver<bool>,
+) -> std::io::Result<tokio::task::JoinHandle<()>> {
+    let listener = tokio::net::TcpListener::bind(bind_addr).await?;
+    let handle = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                result = listener.accept() => {
+                    match result {
+                        Ok((inbound, _addr)) => {
+                            let target = target_addr.clone();
+                            tokio::spawn(async move {
+                                if let Err(e) = forward_connection(inbound, &target).await {
+                                    tracing::warn!("forward to {target} failed: {e}");
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            tracing::error!("accept failed: {e}");
+                            break;
+                        }
+                    }
+                }
+                _ = cancel_wait(&cancel) => {
+                    tracing::info!("port forward cancelled");
+                    break;
+                }
+            }
+        }
+    });
+    Ok(handle)
+}
+
+/// Wait until the cancel signal is received.
+async fn cancel_wait(cancel: &tokio::sync::watch::Receiver<bool>) {
+    let mut rx = cancel.clone();
+    while !*rx.borrow() {
+        if rx.changed().await.is_err() {
+            return;
+        }
+    }
+}
+
+/// Forward data bidirectionally between an inbound stream and a target address.
+async fn forward_connection(
+    mut inbound: tokio::net::TcpStream,
+    target_addr: &str,
+) -> std::io::Result<()> {
+    let mut outbound = tokio::net::TcpStream::connect(target_addr).await?;
+    let (mut ri, mut wi) = inbound.split();
+    let (mut ro, mut wo) = outbound.split();
+
+    let client_to_server = tokio::io::copy(&mut ri, &mut wo);
+    let server_to_client = tokio::io::copy(&mut ro, &mut wi);
+
+    tokio::select! {
+        result = client_to_server => {
+            result?;
+        }
+        result = server_to_client => {
+            result?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,5 +303,75 @@ mod tests {
         let json = serde_json::to_string(&fwd).unwrap();
         let parsed: PortForward = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, fwd);
+    }
+
+    #[tokio::test]
+    async fn test_local_forward_data_flow() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        // Start an echo server (simulates the "target" service)
+        let echo_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let echo_port = echo_listener.local_addr().unwrap().port();
+
+        tokio::spawn(async move {
+            while let Ok((mut stream, _)) = echo_listener.accept().await {
+                tokio::spawn(async move {
+                    let mut buf = vec![0u8; 1024];
+                    loop {
+                        let n = stream.read(&mut buf).await.unwrap_or(0);
+                        if n == 0 {
+                            break;
+                        }
+                        stream.write_all(&buf[..n]).await.unwrap();
+                    }
+                });
+            }
+        });
+
+        // Start the port forwarder
+        let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
+        let handle = start_local_forward(
+            "127.0.0.1:0",
+            format!("127.0.0.1:{echo_port}"),
+            cancel_rx,
+        )
+        .await;
+
+        // We need the actual port — re-bind to get it. Use a different approach:
+        // Bind first, get port, then connect.
+        // Actually, start_local_forward already bound. We need the port.
+        // Let's use a known port approach instead:
+        drop(handle);
+        drop(cancel_tx);
+
+        // Re-do with a known bind port
+        let temp_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let forward_port = temp_listener.local_addr().unwrap().port();
+        drop(temp_listener);
+
+        let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
+        let _handle = start_local_forward(
+            &format!("127.0.0.1:{forward_port}"),
+            format!("127.0.0.1:{echo_port}"),
+            cancel_rx,
+        )
+        .await
+        .unwrap();
+
+        // Give the listener a moment to start
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Connect through the forwarder
+        let mut client = tokio::net::TcpStream::connect(format!("127.0.0.1:{forward_port}"))
+            .await
+            .unwrap();
+        client.write_all(b"hello forward").await.unwrap();
+
+        let mut buf = vec![0u8; 64];
+        let n = client.read(&mut buf).await.unwrap();
+        assert_eq!(&buf[..n], b"hello forward");
+
+        // Cancel the forwarder
+        cancel_tx.send(true).unwrap();
     }
 }
