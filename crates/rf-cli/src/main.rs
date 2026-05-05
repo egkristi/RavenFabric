@@ -49,8 +49,12 @@ enum Commands {
         #[arg(short, long, default_value = "9090")]
         port: u16,
     },
-    /// Show status
-    Status,
+    /// Show agent status
+    Status {
+        /// Meet token (shared secret for relay pairing)
+        #[arg(short, long)]
+        token: String,
+    },
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for
@@ -73,8 +77,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::Dev { port } => {
             dev_mode(port).await?;
         }
-        Commands::Status => {
-            println!("rf status — not yet implemented");
+        Commands::Status { token } => {
+            status_command(&cli.relay, &cli.key_path, &token).await?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "rf", &mut std::io::stdout());
@@ -154,6 +158,73 @@ async fn exec_command(
         }
         RpcResult::Error { message } => {
             error!("ERROR: {}", message);
+            std::process::exit(1);
+        }
+        RpcResult::StatusInfo { .. } => {
+            error!("unexpected StatusInfo response for exec");
+            std::process::exit(1);
+        }
+    }
+
+    Ok(())
+}
+
+async fn status_command(
+    relay_url: &str,
+    key_path: &std::path::Path,
+    token: &str,
+) -> anyhow::Result<()> {
+    let key = StaticKey::load_or_generate(key_path)?;
+    info!("client public key: {}", key.public_hex());
+
+    let driver = WebSocketDriver::new();
+    let target = Target {
+        agent_id: String::new(),
+        relay_url: Some(relay_url.to_string()),
+        meet_token: Some(token.to_string()),
+    };
+
+    info!("connecting to relay: {}", relay_url);
+    let mut stream = driver.dial(&target, &Default::default()).await?;
+
+    // Noise handshake (client is initiator)
+    let (state, peer_key) = handshake(&mut stream, true, &key).await?;
+    info!("connected to agent: {}", hex::encode(peer_key));
+
+    let (stream_read, stream_write) = tokio::io::split(stream);
+    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+
+    // Send Status request
+    let request = Request {
+        id: uuid::Uuid::new_v4().to_string(),
+        action: Action::Status,
+        timeout_ms: Some(5_000),
+    };
+
+    let req_data = codec::encode(&request)?;
+    chan.send(&req_data).await?;
+
+    let resp_data = chan.recv().await?;
+    let response: Response = codec::decode(&resp_data)?;
+
+    match response.result {
+        RpcResult::StatusInfo {
+            agent_id,
+            version,
+            uptime_seconds,
+        } => {
+            println!("Agent:   {}", agent_id);
+            println!("Version: {}", version);
+            println!("Uptime:  {}s", uptime_seconds);
+            println!("Peer:    {}", hex::encode(peer_key));
+            println!("Status:  connected");
+        }
+        RpcResult::Error { message } => {
+            error!("ERROR: {}", message);
+            std::process::exit(1);
+        }
+        _ => {
+            error!("unexpected response type");
             std::process::exit(1);
         }
     }
@@ -270,7 +341,9 @@ async fn connect_dev_agent(
     let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
 
     let executor =
-        rf_executor::command::Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key));
+        rf_executor::command::Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
+            .with_agent_id("dev-agent".to_string())
+            .with_start_time(std::time::Instant::now());
 
     loop {
         let data = match chan.recv().await {

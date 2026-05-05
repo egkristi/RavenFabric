@@ -122,7 +122,7 @@ rf exec test-agent "uname -a"
 - [x] `rf-policy/src/rpc_policy.rs` — RPCPolicy enforcement (allow/deny regex, path rules, symlink resolution)
 - [x] `rf-policy/src/decision.rs` — Decision type (allowed/denied + reason + rule)
 - [x] **Fix:** Replace `Box<dyn Error>` in `load()`/`from_yaml()` with typed `PolicyError`
-- [ ] Hot-reload via SIGHUP (atomic policy swap)
+- [x] Hot-reload via SIGHUP (atomic policy swap)
 
 ### Executor (Phase 6) — DONE
 - [x] `rf-executor/src/command.rs` — Policy-checked execution with timeout + output limiting
@@ -139,8 +139,8 @@ rf exec test-agent "uname -a"
 - [x] `rf-relay/src/main.rs` — Full relay broker binary
 - [x] WebSocket listener + meet-token pairing
 - [x] Channel-based agent/client pairing (bidirectional forwarding)
-- [ ] Per-IP rate limiting
-- [ ] HMAC token auth (meet tokens)
+- [x] Per-IP rate limiting
+- [x] HMAC token auth (meet tokens)
 
 ### Agent Binary (Phase 9) — DONE
 - [x] `rf-agent/src/main.rs` — Full agent binary
@@ -154,13 +154,13 @@ rf exec test-agent "uname -a"
 - [x] `rf-cli/src/main.rs` — clap CLI with exec/dev/status subcommands
 - [x] `rf exec` — connect, handshake, send Request, display Response
 - [x] `rf dev` — local relay + agent in one process (no auth)
-- [ ] `rf status` — show connected agents
+- [x] `rf status` — show connected agents
 - [x] Shell completions (bash, zsh, fish)
 
 ### Packaging
 - [x] Dockerfile (multi-stage alpine build → scratch runtime)
 - [x] Release workflow (5 platform targets)
-- [ ] Linux amd64 + arm64 static binaries (musl)
+- [x] Linux amd64 + arm64 static binaries (musl)
 - [x] systemd service units (agent + relay)
 
 ### Workspace Cleanup (from audit)
@@ -183,11 +183,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Run broken link check: `npx broken-link-checker https://ravenfabric.io --recursive --ordered`
 
 ### Critical Quick-Wins (this week)
-- [ ] Fix broken links — create stubs for `SECURITY.md`, `LICENSING.md`, `CONTRIBUTING.md`, `CHANGELOG.md`
+- [x] Fix broken links — create stubs for `SECURITY.md`, `LICENSING.md`, `CONTRIBUTING.md`, `CHANGELOG.md`
 - [ ] Threat model section (what relay cannot see, agent compromise scope, controller compromise scope, immutable rules)
 - [ ] About / "Built by" section (name + LinkedIn, gives credibility)
-- [ ] JSON-LD structured data (`SoftwareApplication` schema)
-- [ ] Add `og:image:alt`, `og:image:width`, `og:image:height` meta tags
+- [x] JSON-LD structured data (`SoftwareApplication` schema)
+- [x] Add `og:image:alt`, `og:image:width`, `og:image:height` meta tags
 
 ### Content Improvements (high value, low effort)
 - [ ] "Why" section between hero and "What it is" (one binary, one policy, one trust root)
@@ -200,11 +200,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Terminal example tab-style rotation (reduce visual noise on desktop)
 
 ### Technical Improvements
-- [ ] Skip-link for accessibility (`<a href="#main" class="skip-link">Skip to content</a>`)
-- [ ] Declare `color-scheme: dark` (prevent flash-of-white)
+- [x] Skip-link for accessibility (`<a href="#main" class="skip-link">Skip to content</a>`)
+- [x] Declare `color-scheme: dark` (prevent flash-of-white)
 - [ ] Preload critical fonts (or self-host to avoid Google Fonts GDPR/FOUT issues)
-- [ ] Content-Security-Policy meta tag (strict, allow only fonts.googleapis.com + shields.io)
-- [ ] Twitter card meta tags (`twitter:creator`, `twitter:site`)
+- [x] Content-Security-Policy meta tag (strict, allow only fonts.googleapis.com + shields.io)
+- [x] Twitter card meta tags (`twitter:creator`, `twitter:site`)
 - [ ] Mobile-responsive tables (stack layout on `<600px`)
 - [ ] OG image in WebP/AVIF format (reduce 117KB PNG)
 

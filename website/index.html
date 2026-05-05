@@ -7,6 +7,10 @@
     <meta name="keywords" content="ZTNA, mesh VPN, distributed execution, zero trust, policy-driven, E2E encryption, Noise XX, Rust, Tailscale alternative, Ansible alternative">
     <meta name="author" content="Erling Kristoffersen">
     <meta name="theme-color" content="#0a0b0d">
+    <meta name="color-scheme" content="dark">
+
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
@@ -14,6 +18,9 @@
     <meta property="og:title" content="RavenFabric — Security-first distributed execution engine">
     <meta property="og:description" content="One fabric for transport, policy, and execution. E2E encrypted. Network-agnostic. ZTNA-native.">
     <meta property="og:image" content="https://ravenfabric.io/assets/og-image.png">
+    <meta property="og:image:alt" content="RavenFabric — Security-first distributed execution engine logo and branding">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
@@ -21,11 +28,37 @@
     <meta name="twitter:title" content="RavenFabric — Security-first distributed execution engine">
     <meta name="twitter:description" content="One fabric for transport, policy, and execution. E2E encrypted. Network-agnostic. ZTNA-native.">
     <meta name="twitter:image" content="https://ravenfabric.io/assets/og-image.png">
+    <meta name="twitter:image:alt" content="RavenFabric — Security-first distributed execution engine logo and branding">
 
     <title>RavenFabric — Security-first distributed execution engine</title>
 
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
     <link rel="canonical" href="https://ravenfabric.io/">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "RavenFabric",
+        "description": "Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.",
+        "url": "https://ravenfabric.io/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Linux, macOS, Windows, FreeBSD, Android, iOS",
+        "programmingLanguage": "Rust",
+        "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+        "codeRepository": "https://github.com/egkristi/RavenFabric",
+        "author": {
+            "@type": "Person",
+            "name": "Erling Kristoffersen"
+        },
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        }
+    }
+    </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -978,6 +1011,9 @@
 </head>
 <body>
 
+    <!-- Skip link for accessibility -->
+    <a href="#main-content" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:0.5rem 1rem;background:var(--accent-gold);color:var(--bg-deep);font-weight:600;text-decoration:none;border-radius:0.25rem;" onfocus="this.style.left='1rem';this.style.top='1rem';this.style.width='auto';this.style.height='auto';this.style.overflow='visible'" onblur="this.style.left='-9999px';this.style.width='1px';this.style.height='1px';this.style.overflow='hidden'">Skip to main content</a>
+
     <!-- ─── TOP BAR ──────────────────────────────────────────────── -->
     <header class="topbar">
         <div class="container topbar-inner">
@@ -1002,7 +1038,7 @@
     </header>
 
     <!-- ─── HERO ─────────────────────────────────────────────────── -->
-    <section class="hero">
+    <section id="main-content" class="hero">
         <div class="container">
             <div class="hero-eyebrow">v0.1 · Alpha · AGPLv3 + Commercial</div>
             <h1 class="hero-title">

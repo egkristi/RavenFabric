@@ -12,6 +12,11 @@ struct Args {
     /// Listen address
     #[arg(short, long, default_value = "0.0.0.0:9090")]
     listen: String,
+
+    /// HMAC secret for meet token verification (optional).
+    /// Can also be set via RELAY_SECRET env var.
+    #[arg(short, long, env = "RELAY_SECRET")]
+    secret: Option<String>,
 }
 
 #[tokio::main]
@@ -28,5 +33,5 @@ async fn main() -> anyhow::Result<()> {
         cancel_clone.cancel();
     });
 
-    rf_relay::run_relay(&args.listen, cancel).await
+    rf_relay::run_relay_with_secret(&args.listen, cancel, args.secret).await
 }

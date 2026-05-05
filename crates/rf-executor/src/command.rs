@@ -18,6 +18,8 @@ pub struct Executor {
     policy: Arc<RwLock<RpcPolicy>>,
     audit: Arc<dyn AuditLogger>,
     caller_key: String,
+    agent_id: String,
+    start_time: Instant,
 }
 
 impl Executor {
@@ -30,7 +32,21 @@ impl Executor {
             policy,
             audit,
             caller_key,
+            agent_id: String::new(),
+            start_time: Instant::now(),
         }
+    }
+
+    /// Set the agent ID for status reporting.
+    pub fn with_agent_id(mut self, id: String) -> Self {
+        self.agent_id = id;
+        self
+    }
+
+    /// Set the start time for uptime calculation.
+    pub fn with_start_time(mut self, start: Instant) -> Self {
+        self.start_time = start;
+        self
     }
 
     /// Handle an incoming RPC request.
@@ -47,6 +63,7 @@ impl Executor {
                     .await
             }
             Action::Metrics => self.handle_metrics().await,
+            Action::Status => self.handle_status(),
             _ => RpcResult::Error {
                 message: "action not yet implemented".into(),
             },
@@ -167,6 +184,14 @@ impl Executor {
             stderr: String::new(),
             exit_code: 0,
             duration_ms: 0,
+        }
+    }
+
+    fn handle_status(&self) -> RpcResult {
+        RpcResult::StatusInfo {
+            agent_id: self.agent_id.clone(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            uptime_seconds: self.start_time.elapsed().as_secs(),
         }
     }
 }

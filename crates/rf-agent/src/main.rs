@@ -167,6 +167,36 @@ async fn main() -> anyhow::Result<()> {
 
     info!("agent {} starting, relay: {}", cfg.id, cfg.relay);
 
+    // Set up SIGHUP handler for policy hot-reload (Unix only)
+    #[cfg(unix)]
+    let mut sighup = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup())?;
+
+    // Spawn policy reload task (Unix only)
+    #[cfg(unix)]
+    {
+        let policy_reload = policy.clone();
+        let policy_path_reload = cfg.policy_path.clone();
+        tokio::spawn(async move {
+            loop {
+                sighup.recv().await;
+                info!(
+                    "SIGHUP received, reloading policy from {}",
+                    policy_path_reload.display()
+                );
+                match RpcPolicy::load(&policy_path_reload) {
+                    Ok(new_policy) => {
+                        let mut w = policy_reload.write().await;
+                        *w = new_policy;
+                        info!("policy reloaded successfully");
+                    }
+                    Err(e) => {
+                        error!("policy reload failed (keeping old policy): {}", e);
+                    }
+                }
+            }
+        });
+    }
+
     // Reconnect loop with exponential backoff + jitter
     let mut attempt: u64 = 0;
     loop {
@@ -235,7 +265,9 @@ async fn run_session(
     let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
 
     // Executor
-    let executor = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key));
+    let executor = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
+        .with_agent_id(cfg.id.clone())
+        .with_start_time(std::time::Instant::now());
 
     // RPC loop with graceful shutdown
     info!("agent {} ready, waiting for RPC requests", cfg.id);

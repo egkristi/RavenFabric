@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~2,500 LOC | 30 tests | 0 clippy warnings | All CI green**
+**~3,000 LOC | 42 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -588,6 +588,7 @@ What works today:
 - Static key management with zeroing-on-drop, cross-platform (full)
 - OTP token generation and validation with poisoning-safe locks (full)
 - Policy engine with deny-by-default, regex allow/deny, path checks, symlink resolution (full)
+- SIGHUP-triggered hot-reload of policy (atomic swap via RwLock)
 - Command execution under policy control with timeout and output limiting (full, tested)
 - Structured JSON-lines audit logging (full)
 - Msgpack RPC codec with length-prefixed framing and roundtrip tests (full)
@@ -595,8 +596,15 @@ What works today:
 - In-memory transport driver for testing (full, tested)
 - WebSocket transport driver with DuplexStream bridge (full)
 - Relay broker with meet-token pairing over WebSocket (full)
+- Per-IP rate limiting on relay (sliding window, 20 conn/min default)
+- HMAC-SHA256 meet token authentication (optional, via `--secret` / `RELAY_SECRET`)
 - Agent binary: connects to relay, performs handshake, runs RPC loop (full)
+- Agent reconnect with exponential backoff + jitter
 - CLI `rf exec` command: connect, handshake, send, display result (full)
+- CLI `rf status` command: connect to agent, display version/uptime (full)
+- CLI `rf dev` mode: local relay + agent in one process (full)
+- Shell completions (bash, zsh, fish)
+- Linux musl static binaries (amd64 + arm64) via release workflow
 
 Working end-to-end flow: `rf exec --token <token> "command"` → relay → agent → execute → respond
 

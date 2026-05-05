@@ -33,6 +33,8 @@ pub enum Action {
         pid: u32,
         signal: i32,
     },
+    /// Ping/status check — agent responds with its version and uptime.
+    Status,
 }
 
 /// RPC response sent from agent back to client.
@@ -57,5 +59,11 @@ pub enum RpcResult {
     },
     Error {
         message: String,
+    },
+    /// Response to a Status action.
+    StatusInfo {
+        agent_id: String,
+        version: String,
+        uptime_seconds: u64,
     },
 }
