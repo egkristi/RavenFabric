@@ -408,6 +408,38 @@ All discovery methods produce the same output: a signed peer record containing t
 | `parallel` | Establish all, use lowest-latency | Mission-critical |
 | `multipath` | Keep multiple active, stripe or replicate | Ultra-reliable |
 
+### Connectivity Value Chain
+
+The full lifecycle — from identity genesis through session establishment to graceful teardown — is documented in [CONNECTIVITY.md](CONNECTIVITY.md). It covers 13 phases:
+
+```
+Identity → Enrollment → Discovery → Rendezvous → NAT Assessment →
+Path Selection → Tunnel Establishment → Broker Decision →
+Crypto Handshake → Session → Path Upgrade → Health Monitoring → Teardown
+```
+
+### Health Monitoring & Failover
+
+Active paths are continuously monitored:
+
+| Indicator | Threshold |
+|-----------|-----------|
+| Round-trip time | > 2x baseline = degraded |
+| Packet loss | > 1% sustained = degraded |
+| Heartbeat miss | 3 consecutive = failed |
+| Network change (OS event) | Re-probe all drivers |
+
+Failover is automatic: if the active path degrades, a secondary path is promoted (or racing begins with relay as bridge). See [CONNECTIVITY.md](CONNECTIVITY.md) Phase 11.
+
+### Reconnect Strategy
+
+| Strategy | Behavior |
+|----------|----------|
+| Immediate retry | Transient glitch |
+| Exponential backoff + jitter | Standard (1s → 60s max) |
+| Network-aware | Wait for OS network event (mobile, lid-close) |
+| Scheduled | Air-gap rendezvous windows |
+
 ### Transport Philosophy
 
 > Any channel that can move signed bytes is a valid transport.
@@ -995,6 +1027,7 @@ RavenFabric/
 ├── docs/                   # Documentation
 ├── .github/workflows/      # CI/CD (check, fmt, clippy, test, coverage, release)
 ├── ARCHITECTURE.md         # System design + data flow
+├── CONNECTIVITY.md         # Connectivity value chain (13-phase lifecycle)
 ├── ROADMAP.md              # Implementation plan with phases
 ├── SECURITY.md             # Vulnerability reporting
 ├── CONTRIBUTING.md         # Development workflow

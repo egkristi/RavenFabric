@@ -1,119 +1,119 @@
 # RavenFabric — Connectivity Value Chain
 
-> Komplett oversikt over verdikjeden fra to noder vet om hverandres eksistens
-> til en kryptert, policy-validert datapakke flyter mellom dem. Hver fase har
-> flere realistiske implementeringsalternativer.
+Complete reference for the end-to-end connectivity lifecycle: from identity genesis
+to encrypted, policy-validated data flowing between two nodes. Each phase has
+multiple implementation alternatives, ordered by priority.
 
 ---
 
-## Verdikjede-oversikt
+## Value Chain Overview
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 0: IDENTITY GENESIS                                        │
-│  Hvem er noden? Hvordan vet vi at den er ekte?                   │
+│  Phase 0: IDENTITY GENESIS                                       │
+│  Who is the node? How do we know it's authentic?                 │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 1: ENROLLMENT / BOOTSTRAP                                  │
-│  Hvordan blir en ny node kjent for fabric-en?                    │
+│  Phase 1: ENROLLMENT / BOOTSTRAP                                 │
+│  How does a new node become known to the fabric?                 │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 2: DISCOVERY                                               │
-│  Hvordan finner to noder hverandre?                              │
+│  Phase 2: DISCOVERY                                              │
+│  How do two nodes find each other?                               │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 3: RENDEZVOUS                                              │
-│  Hvordan møtes de første gang? Hvor utveksler de endepunkt-info? │
+│  Phase 3: RENDEZVOUS                                             │
+│  How do they meet? Where do they exchange endpoint information?  │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 4: NAT/REACHABILITY ASSESSMENT                             │
-│  Hvilket nett er vi i? Hva slags traversering trengs?            │
+│  Phase 4: NAT / REACHABILITY ASSESSMENT                          │
+│  What network are we in? What traversal is needed?               │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 5: PATH SELECTION                                          │
-│  Hvilke transporter er tilgjengelige? Hvilke skal prøves?        │
+│  Phase 5: PATH SELECTION                                         │
+│  Which transports are available? Which should be attempted?      │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 6: NAT TRAVERSAL / TUNNEL ESTABLISHMENT                    │
-│  Faktisk åpning av en pakkebar kanal mellom A og B               │
+│  Phase 6: NAT TRAVERSAL / TUNNEL ESTABLISHMENT                   │
+│  Actually opening a packet-carrying channel between A and B      │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 7: BROKER / RELAY DECISION                                 │
-│  Direkte? Via broker? Hybridt? Hvordan oppgraderes det senere?   │
+│  Phase 7: BROKER / RELAY DECISION                                │
+│  Direct? Via broker? Hybrid? How do we upgrade later?            │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 8: CRYPTOGRAPHIC HANDSHAKE                                 │
-│  Mutual auth + nøkkel-etablering (uavhengig av transport)        │
+│  Phase 8: CRYPTOGRAPHIC HANDSHAKE                                │
+│  Mutual auth + key establishment (transport-independent)         │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 9: SESSION ESTABLISHMENT                                   │
-│  Multipleksing, flow control, channel allocation                 │
+│  Phase 9: SESSION ESTABLISHMENT                                  │
+│  Multiplexing, flow control, stream allocation                   │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 10: PATH UPGRADE / MIGRATION                               │
-│  Bytte transport mid-session uten å miste data                   │
+│  Phase 10: PATH UPGRADE / MIGRATION                              │
+│  Switch transport mid-session without losing data                │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 11: HEALTH MONITORING & FAILOVER                           │
-│  Kontinuerlig probing, automatisk fallback                       │
+│  Phase 11: HEALTH MONITORING & FAILOVER                          │
+│  Continuous probing, automatic fallback                          │
 └──────────────────────────────────────────────────────────────────┘
                               │
 ┌──────────────────────────────────────────────────────────────────┐
-│  Fase 12: GRACEFUL TEARDOWN                                      │
-│  Drenering, audit-flush, nøkkel-rotasjon                         │
+│  Phase 12: GRACEFUL TEARDOWN                                     │
+│  Draining, audit-flush, key rotation                             │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Fase 0 — Identity Genesis
+## Phase 0 — Identity Genesis
 
-Identitet er fundamentet. Alt annet bygger på dette.
+Identity is the foundation. Everything else builds on this.
 
-### Implementeringsalternativer
+### Implementation Alternatives
 
-| Metode | Beskrivelse | Bruk i RavenFabric |
-|--------|-------------|--------------------|
-| **Curve25519 keypair** | Lokal generert, 32-byte privat/offentlig nøkkel | **Primær** — basis for Noise XX |
-| **Ed25519 signing key** | Signering separat fra DH-nøkkel | Audit-logger, capability-tokens |
-| **Hybrid PQ keypair** | X25519 + ML-KEM-768 (Kyber) | v0.6+ — harvest-now-decrypt-later-motstand |
-| **TPM-bundet nøkkel** | Privat nøkkel kan ikke ekstraheres fra hardware | Enterprise-modus, attestasjon |
-| **YubiKey/PKCS#11** | Smart-card-bundet identitet | Operatør-identiteter, ikke agent |
-| **SPIFFE SVID** | Workload identity uavhengig av host | Kubernetes-modus, integrasjon med eksisterende SPIRE |
-| **Content-addressed identity** | ID = hash(public_key) | Reticulum-stil — adresse = nøkkel |
-| **Hierarkisk avledet** | HKDF fra master-secret per agent | Flåte-deployment, sentral nøkkelhierarki |
+| Method | Description | Use in RavenFabric |
+|--------|-------------|-------------------|
+| **Curve25519 keypair** | Locally generated, 32-byte private/public | **Primary** — basis for Noise XX |
+| **Ed25519 signing key** | Signing separate from DH key | Audit logger, capability tokens |
+| **Hybrid PQ keypair** | X25519 + ML-KEM-768 (Kyber) | v0.6+ — harvest-now-decrypt-later resistance |
+| **TPM-bound key** | Private key cannot be extracted from hardware | Enterprise mode, attestation |
+| **YubiKey/PKCS#11** | Smart-card-bound identity | Operator identities, not agents |
+| **SPIFFE SVID** | Workload identity independent of host | Kubernetes mode, SPIRE integration |
+| **Content-addressed identity** | ID = hash(public_key) | Reticulum-style — address = key |
+| **Hierarchically derived** | HKDF from master-secret per agent | Fleet deployment, central key hierarchy |
 
 ### Identity Forms
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Static Identity (langlivet)                                    │
-│  ├── Agent identity key   (Curve25519, 5+ år)                   │
-│  ├── Audit signing key    (Ed25519, separat for accountability) │
-│  └── Recovery key         (offline, kun for disaster recovery)  │
+│  Static Identity (long-lived)                                   │
+│  ├── Agent identity key   (Curve25519, 5+ year lifetime)        │
+│  ├── Audit signing key    (Ed25519, separate for accountability)│
+│  └── Recovery key         (offline, disaster recovery only)     │
 ├─────────────────────────────────────────────────────────────────┤
-│  Session Identity (kortlivet)                                   │
+│  Session Identity (short-lived)                                 │
 │  ├── Ephemeral DH key     (Curve25519, per session)             │
-│  └── PQ-KEM ephemeral     (ML-KEM, per session, hybrid)         │
+│  └── PQ-KEM ephemeral     (ML-KEM, per session, hybrid)        │
 ├─────────────────────────────────────────────────────────────────┤
-│  Capability Tokens (per-handling)                               │
-│  ├── Macaroons / Biscuits (kontekstualiserte tillatelser)       │
-│  └── Time-bound caveats   (utløp, scope, attenuering)           │
+│  Capability Tokens (per-action)                                 │
+│  ├── Biscuit tokens       (contextualized permissions)          │
+│  └── Time-bound caveats   (expiry, scope, attenuation)         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Filsystem-layout (eksempel)
+### Filesystem Layout
 
 ```
 /etc/ravenfabric/
@@ -123,146 +123,134 @@ Identitet er fundamentet. Alt annet bygger på dette.
 │   ├── audit.key         (0600)
 │   └── recovery.key.gpg  (offline-encrypted backup)
 ├── known_peers/
-│   └── <agent-id>.pub    (TOFU-cache av peers)
+│   └── <agent-id>.pub    (TOFU-cache of peers)
 └── policy/
     └── ...
 ```
 
 ---
 
-## Fase 1 — Enrollment / Bootstrap
+## Phase 1 — Enrollment / Bootstrap
 
-Hvordan blir en helt ny node lagt til i fabric-en?
+How a completely new node joins the fabric.
 
-### Implementeringsalternativer
+### Implementation Alternatives
 
-| Metode | Sikkerhet | Bruksområde |
-|--------|-----------|-------------|
-| **OTP / one-time token** | Høy (TTL, single-use, hash-stored) | **Primær** — manuell admin-utstedelse |
-| **Pre-shared key (PSK)** | Medium | Lab/dev, ikke produksjon |
-| **Cloud-init / metadata service** | Medium-høy | AWS/Azure/GCP, instans-identitet |
-| **Kubernetes ServiceAccount JWT** | Høy | K8s-deployments, projected token |
-| **mTLS bootstrap** | Høy | Eksisterende PKI |
-| **Hardware attestation (TPM/SEV/TDX)** | Svært høy | Confidential computing, regulert sektor |
-| **Cloud provider IID** | Høy | AWS Instance Identity Document, Azure IMDS |
-| **QR-kode + manuell** | Høy (out-of-band) | Edge-devices, fysisk tilgang |
-| **NFC tap-to-enroll** | Høy | IoT, fysisk proximity |
-| **DNS-validated** | Medium | Hvis agent eier DNS-record |
-| **OAuth Device Flow** | Høy | Operatør-bootstrap (ikke agent) |
-| **Sneakernet enrollment** | Maks (offline) | Air-gapped via USB/QR |
+| Method | Security | Use case |
+|--------|----------|----------|
+| **OTP / one-time token** | High (TTL, single-use, hash-stored) | **Primary** — admin-issued |
+| **Pre-shared key (PSK)** | Medium | Lab/dev only, not production |
+| **Cloud-init / metadata service** | Medium-high | AWS/Azure/GCP instance identity |
+| **Kubernetes ServiceAccount JWT** | High | K8s deployments, projected token |
+| **Hardware attestation (TPM/SEV/TDX)** | Very high | Confidential computing, regulated |
+| **Cloud provider IID** | High | AWS Instance Identity Document, Azure IMDS |
+| **QR-code + manual** | High (out-of-band) | Edge devices, physical access |
+| **NFC tap-to-enroll** | High | IoT, physical proximity |
+| **OAuth Device Flow** | High | Operator bootstrap (not agent) |
+| **Sneakernet enrollment** | Maximum (offline) | Air-gapped via USB/QR |
 
-### Bootstrap Flow Pattern
+### Bootstrap Flow
 
 ```
 ┌──────────┐                    ┌──────────┐                    ┌──────────┐
 │  Admin   │                    │  Broker  │                    │  Agent   │
 └────┬─────┘                    └────┬─────┘                    └────┬─────┘
-     │                                │                                │
-     │  1. generate OTP               │                                │
-     │ ──────────────────────────────►│                                │
-     │       hash(otp), TTL, scope    │                                │
-     │                                │                                │
-     │  2. deliver token (out-of-band)│                                │
-     │ ─────────────────────────────────────────────────────────────► │
-     │       SSH / cloud-init / QR / NFC                               │
-     │                                │                                │
-     │                                │   3. generate keypair locally  │
-     │                                │       (private NEVER leaves)   │
-     │                                │                                │
-     │                                │   4. POST /bootstrap           │
-     │                                │ ◄──────────────────────────────│
-     │                                │       {token, agent_id, pubkey}│
-     │                                │                                │
-     │                                │   5. validate + register       │
-     │                                │       mark token used          │
-     │                                │                                │
-     │                                │   6. return relay endpoints +  │
-     │                                │      controller pubkey         │
-     │                                │ ──────────────────────────────►│
-     │                                │                                │
-     │                                │   7. agent caches identity     │
-     │                                │       /etc/ravenfabric/        │
-     │                                │                                │
-     │                                │   8. all future: Noise XX      │
-     │                                │       (bootstrap path closed)  │
+     │                               │                               │
+     │  1. generate OTP              │                               │
+     │ ─────────────────────────────►│                               │
+     │       hash(otp), TTL, scope   │                               │
+     │                               │                               │
+     │  2. deliver token (out-of-band)                               │
+     │ ──────────────────────────────────────────────────────────────►│
+     │       SSH / cloud-init / QR / NFC                             │
+     │                               │                               │
+     │                               │   3. generate keypair locally │
+     │                               │       (private NEVER leaves)  │
+     │                               │                               │
+     │                               │   4. POST /bootstrap          │
+     │                               │ ◄─────────────────────────────│
+     │                               │       {token, agent_id, pubkey}│
+     │                               │                               │
+     │                               │   5. validate + register      │
+     │                               │       mark token used         │
+     │                               │                               │
+     │                               │   6. return relay endpoints + │
+     │                               │      controller pubkey        │
+     │                               │ ─────────────────────────────►│
+     │                               │                               │
+     │                               │   7. all future: Noise XX     │
+     │                               │       (bootstrap path closed) │
 ```
 
 ---
 
-## Fase 2 — Discovery
+## Phase 2 — Discovery
 
-Når en node skal kommunisere, hvordan finner den ut hvem som er der?
+When a node needs to communicate, how does it find out who's out there?
 
-### Implementeringsalternativer
+### Implementation Alternatives
 
-| Metode | Skalerer til | Sensur-resistens | Bruk |
-|--------|--------------|------------------|------|
-| **Sentral broker-direktorat** | 100k+ noder | Lav | Standard enterprise |
-| **DNS SRV records** | 10k+ | Lav-medium | Hvis kontroll over DNS |
-| **mDNS / DNS-SD** | LAN-scope | N/A (lokalt) | Same-subnet bootstrap |
-| **DHT (Kademlia)** | Globalt | Høy | P2P-modus, BitTorrent-stil |
-| **Gossip (SWIM/HyParView)** | 10k+ | Høy | Self-organizing fleet |
-| **Consul/etcd service discovery** | 10k+ | Lav | Eksisterende infrastruktur |
-| **Kubernetes API** | Cluster-scope | Lav | K8s-native deployment |
-| **Tailscale-stil tailnet map** | 100k+ | Lav | Sentral kontrollplan med push |
-| **IPFS/IPNS lookup** | Globalt | Høy | Sensur-resistent rendezvous |
-| **Reticulum announce-flood** | Mesh-scope | Høy | Air-gap, LoRa-mesh |
-| **Yggdrasil DHT** | Globalt | Medium | IPv6-overlay |
-| **Bluetooth LE advertise** | Proximity | N/A (lokalt) | Mobil/IoT |
-| **Wi-Fi Direct discovery** | Proximity | N/A | Ad-hoc møter |
-| **Static config file** | N/A | N/A | Air-gap, små deployments |
-| **Verifiable signed records** | 100k+ | Høy | DNSSEC-stil signerte endepunkter |
+| Method | Scales to | Censorship resistance | Use |
+|--------|-----------|----------------------|-----|
+| **Central broker directory** | 100k+ nodes | Low | Standard enterprise |
+| **DNS SRV records** | 10k+ | Low-medium | If DNS control exists |
+| **mDNS / DNS-SD** | LAN scope | N/A (local) | Same-subnet bootstrap |
+| **DHT (Kademlia)** | Global | High | P2P mode, BitTorrent-style |
+| **Gossip (SWIM/HyParView)** | 10k+ | High | Self-organizing fleet |
+| **Consul/etcd integration** | 10k+ | Low | Existing infrastructure |
+| **Kubernetes API** | Cluster scope | Low | K8s-native deployment |
+| **Reticulum announce-flood** | Mesh scope | High | Air-gap, LoRa mesh |
+| **Yggdrasil DHT** | Global | Medium | IPv6 overlay |
+| **Bluetooth LE advertise** | Proximity | N/A (local) | Mobile/IoT |
+| **Static config file** | N/A | N/A | Air-gap, small deployments |
+| **Verifiable signed records** | 100k+ | High | DNSSEC-style signed endpoints |
 
-### Hybrid Discovery (anbefalt for RavenFabric)
+### Hybrid Discovery (recommended)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  PRIORITY 1: Cached known peers                                 │
-│              (raskest, ingen rundtur)                           │
+│              (fastest, no round-trip)                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  PRIORITY 2: mDNS/DNS-SD (LAN-scope)                            │
-│              (lav latens, ingen broker nødvendig)               │
+│  PRIORITY 2: mDNS/DNS-SD (LAN scope)                           │
+│              (low latency, no broker required)                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  PRIORITY 3: Broker directory query                             │
-│              (autoritativt, krever internett)                   │
+│              (authoritative, requires internet)                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  PRIORITY 4: Gossip from connected peers                        │
 │              (eventual consistency, robust)                     │
 ├─────────────────────────────────────────────────────────────────┤
 │  PRIORITY 5: DHT lookup                                         │
-│              (sensur-resistent, treig bootstrap)                │
+│              (censorship-resistant, slow bootstrap)             │
 ├─────────────────────────────────────────────────────────────────┤
 │  PRIORITY 6: Reticulum announce / mesh broadcast                │
-│              (offline, langsomt, sist resort)                   │
+│              (offline, slow, last resort)                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Fase 3 — Rendezvous
+## Phase 3 — Rendezvous
 
-To noder vet at den andre eksisterer. Nå må de utveksle nok info til å faktisk
-forsøke en forbindelse — kandidat-endepunkter, transport-preferanser, osv.
+Two nodes know each other exists. Now they must exchange enough information
+to attempt a connection — candidate endpoints, transport preferences, etc.
 
-### Implementeringsalternativer
+### Implementation Alternatives
 
-| Metode | Latens | Privacy | Bruk |
-|--------|--------|---------|------|
-| **Broker as rendezvous point** | Lav | Lav (broker ser metadata) | **Primær** for fabric-modus |
-| **STUN-style server-reflexive discovery** | Lav | Medium | Klassisk WebRTC-mønster |
-| **DHT-stored endpoint records** | Medium | Høy | Signerte records i Kademlia |
-| **Out-of-band exchange (QR/NFC)** | N/A (manuelt) | Maks | Initial pairing |
-| **IPFS PubSub topics** | Medium | Medium | Topic = hash(peer_id) |
-| **libp2p Circuit Relay v2 reservation** | Lav | Medium | DCUtR-mønster |
-| **Tailscale-stil koordinator-push** | Lav | Lav | Sentral kontrollplan |
-| **Matrix room as rendezvous** | Medium | Medium | Federert chat-protokoll som signaling |
-| **Email-based rendezvous** | Høy | Høy | NNCP-stil offline rendezvous |
-| **Blockchain anchored rendezvous** | Høy | Maks | Sensur-resistent men dyrt |
+| Method | Latency | Privacy | Use |
+|--------|---------|---------|-----|
+| **Broker as rendezvous point** | Low | Low (broker sees metadata) | **Primary** for fabric mode |
+| **STUN-style server-reflexive discovery** | Low | Medium | Classic WebRTC pattern |
+| **DHT-stored endpoint records** | Medium | High | Signed records in Kademlia |
+| **Out-of-band exchange (QR/NFC)** | N/A (manual) | Maximum | Initial pairing |
+| **libp2p Circuit Relay v2 reservation** | Low | Medium | DCUtR pattern |
+| **Email-based rendezvous** | High | High | NNCP-style offline rendezvous |
 
-### Rendezvous Payload (eksempel)
+### Rendezvous Payload
 
 ```yaml
-# Det som utveksles ved rendezvous, signert med agentens identity key:
+# Exchanged at rendezvous, signed with agent's identity key:
 peer_id: "agent-prod-1"
 public_key: "32-bytes-hex"
 endpoints:
@@ -293,392 +281,284 @@ signature: "ed25519-signature-bytes"
 
 ---
 
-## Fase 4 — NAT / Reachability Assessment
+## Phase 4 — NAT / Reachability Assessment
 
-Før man velger transport: hva slags nett er vi *i*?
+Before choosing transport: what kind of network are we *in*?
 
-### Implementeringsalternativer
+### Probes
 
-| Probe | Hva det avdekker | Cost |
-|-------|------------------|------|
-| **STUN binding request** | Public IP, port mapping behavior | Lav |
-| **STUN behavior tests (RFC 5780)** | NAT type (full cone, restricted, symmetric) | Lav |
-| **UPnP / NAT-PMP / PCP query** | Mulighet for port forwarding | Lav |
-| **IPv6 reachability test** | Direkte IPv6-tilgjengelighet | Lav |
-| **Captive portal detection** | Er vi i hotell/flyplass-WiFi? | Lav |
-| **MTU discovery** | Path MTU mellom peers | Medium |
-| **HTTP/HTTPS reachability** | Funker ihvertfall port 443? | Lav |
-| **DNS-over-HTTPS test** | Er DNS-trafikk filtrert? | Lav |
-| **TCP fingerprint analysis** | Er det DPI/proxy i veien? | Medium |
-| **Socks/HTTP proxy detection** | Bedrifts-proxy konfigurert? | Lav |
-| **Per-relay latency probe** | Hvilken relay er nærmest? | Medium |
-| **Bandwidth estimation** | Hva er praktisk throughput? | Høy |
-| **Time-of-day correlation** | Er det tidssone-baserte filtre? | Lang sikt |
+| Probe | What it reveals | Cost |
+|-------|----------------|------|
+| **STUN binding request** | Public IP, port mapping behavior | Low |
+| **STUN behavior tests (RFC 5780)** | NAT type (full cone, restricted, symmetric) | Low |
+| **UPnP / NAT-PMP / PCP query** | Port forwarding possible? | Low |
+| **IPv6 reachability test** | Direct IPv6 availability | Low |
+| **Captive portal detection** | Hotel/airport WiFi? | Low |
+| **HTTP/HTTPS reachability** | At least port 443 works? | Low |
+| **DNS-over-HTTPS test** | DNS traffic filtered? | Low |
+| **TCP fingerprint analysis** | DPI/proxy in the way? | Medium |
+| **SOCKS/HTTP proxy detection** | Corporate proxy configured? | Low |
+| **Per-relay latency probe** | Which relay is closest? | Medium |
+| **Bandwidth estimation** | Practical throughput? | High |
 
-### Tailscale netcheck-mønster (utvidet)
+### Network Environment Classification
 
-```
-NetworkProbe {
-    nat_type: NATType,                     // Open, FullCone, Restricted, PortRestricted, Symmetric
+```rust
+struct NetworkProbe {
+    nat_type: NatType,                     // Open, FullCone, Restricted, PortRestricted, Symmetric
     ipv4_available: bool,
     ipv6_available: bool,
     udp_blocked: bool,
     tcp_443_open: bool,
     udp_443_open: bool,
     captive_portal: Option<CaptivePortal>,
-    mtu_v4: u16,
-    mtu_v6: u16,
     relay_latencies: HashMap<RelayId, Duration>,
     has_corporate_proxy: bool,
     proxy_endpoint: Option<ProxyConfig>,
     dns_filtered: bool,
     ipv6_only: bool,
     nat64_present: bool,
-    available_drivers: Vec<DriverId>,        // Hvilke transport-drivers kan teoretisk fungere
-    egress_filter_class: EgressClass,        // Open / EnterpriseProxy / Hostile / AirGap
+    available_drivers: Vec<DriverId>,
+    egress_class: EgressClass,
+}
+
+enum EgressClass {
+    Open,              // All transports possible
+    HomeRouter,        // Most transports work, NAT in the way
+    EnterpriseProxy,   // Only HTTP/HTTPS through proxy
+    RestrictiveDpi,    // Must disguise as HTTPS (MASQUE/domain fronting)
+    Hostile,           // Must actively camouflage (obfs4, Shadowsocks)
+    AirGap,            // No IP network, physical/radio only
+    Sneakernet,        // Only USB/QR/manual transport
 }
 ```
 
-### Egress Klassifisering
-
-```
-EgressClass:
-  Open              → alle transporter mulig
-  HomeRouter        → de fleste mulig, NAT i veien
-  EnterpriseProxy   → kun HTTP/HTTPS gjennom proxy
-  RestrictiveDPI    → må gjemme seg som HTTPS (MASQUE/domain fronting)
-  Hostile           → må kamufleres aktivt (obfs4, Shadowsocks)
-  AirGap            → ingen IP-nett, kun fysisk/radio
-  Sneakernet        → kun USB/QR/manual transport
-```
-
 ---
 
-## Fase 5 — Path Selection
+## Phase 5 — Path Selection
 
-Med kjent nett-miljø: hvilke transporter skal vi prøve, og i hvilken rekkefølge?
+With known network environment: which transports to try, in what order?
 
-### Komplett transport-katalog for RavenFabric
+### Transport Catalog
 
-#### Tier 1: Direct Connectivity (lavest latens)
+#### Tier 1: Direct Connectivity (lowest latency)
 
-| Transport | NAT-traversering | Internett | Kommentar |
-|-----------|------------------|-----------|-----------|
-| **WireGuard direct (IPv4)** | Åpent nett | Ja | Lavest latens, krever direkte rute |
-| **WireGuard direct (IPv6)** | IPv6 (ofte ingen NAT) | Ja | Foretrukket hvis tilgjengelig |
-| **QUIC direct** | Åpent nett | Ja | Connection migration, 0-RTT resumption |
-| **TCP direct (Noise-over-TCP)** | Åpent nett | Ja | Fallback når UDP blokkert |
-| **SCTP direct** | Åpent nett | Ja | Eksotisk, men multistreaming innebygd |
+| Transport | NAT requirement | Notes |
+|-----------|----------------|-------|
+| **WireGuard direct (IPv6)** | None (often no NAT) | Preferred if available |
+| **WireGuard direct (IPv4)** | Open network | Lowest latency |
+| **QUIC direct** | Open network | Connection migration, 0-RTT |
+| **TCP direct (Noise-over-TCP)** | Open network | Fallback when UDP blocked |
 
-#### Tier 2: NAT Traversal (krever koordinering)
+#### Tier 2: NAT Traversal (requires coordination)
 
-| Transport | Metode | Hit rate |
-|-----------|--------|----------|
+| Transport | Method | Success rate |
+|-----------|--------|--------------|
 | **WireGuard + STUN** | Server-reflexive endpoint | ~70% |
-| **WireGuard + UDP hole punching** | Symmetric coordination via broker | ~85% |
-| **QUIC + ICE** | Full ICE-rammeverk | ~95% |
-| **libp2p DCUtR** | "Direct Connection Upgrade through Relay" | ~90% |
-| **TCP simultaneous open** | RFC 5128 hole punching for TCP | ~60% |
-| **Birthday-paradox port prediction** | For symmetric NAT | ~40% |
+| **WireGuard + UDP hole punch** | Symmetric coordination via broker | ~85% |
+| **QUIC + ICE** | Full ICE framework | ~95% |
+| **DCUtR pattern** | Direct Connection Upgrade through Relay | ~90% |
+| **TCP simultaneous open** | RFC 5128 hole punching | ~60% |
+| **Birthday paradox port prediction** | For symmetric NAT | ~40% |
 
-#### Tier 3: Brokered Transports (alltid funker hvis broker er nådd)
+#### Tier 3: Brokered Transports (always works if broker reachable)
 
-| Transport | Båndbredde | Latens | Kommentar |
-|-----------|------------|--------|-----------|
-| **WebSocket via broker (port 443)** | Høy | Medium | Funker overalt med HTTPS |
-| **QUIC via broker** | Høy | Lav | Med 0-RTT resumption |
-| **HTTP/3 + MASQUE** | Høy | Lav | Skjuler seg som HTTPS |
-| **TCP-relay (TURN-stil)** | Medium | Medium | Klassisk fallback |
-| **WebRTC DataChannel via TURN** | Medium | Medium | Bra for nettleser-klienter |
+| Transport | Bandwidth | Latency | Notes |
+|-----------|-----------|---------|-------|
+| **WebSocket via broker (port 443)** | High | Medium | Works everywhere |
+| **QUIC via broker** | High | Low | With 0-RTT resumption |
+| **HTTP/3 + MASQUE** | High | Low | Indistinguishable from HTTPS |
+| **TCP relay (TURN-style)** | Medium | Medium | Classic fallback |
 
 #### Tier 4: Overlay Networks
 
-| Transport | Sensur-resistens | Kommentar |
-|-----------|------------------|-----------|
-| **Yggdrasil overlay** | Medium | IPv6 mesh, self-routing |
-| **CJDNS** | Medium | Mer veteran enn Yggdrasil |
-| **Tor hidden service (.onion)** | Høy | Anonymitet inkludert |
-| **I2P** | Høy | Garlic routing, intern fokus |
-| **libp2p mesh** | Medium | Modulært, mange transporter |
+| Transport | Censorship resistance | Notes |
+|-----------|----------------------|-------|
+| **Yggdrasil overlay** | Medium | IPv6 mesh, self-routing, key-derived addresses |
+| **Tor hidden service (.onion)** | High | Anonymity included |
+| **I2P** | High | Garlic routing, internal focus |
+| **Veilid** | High | DHT-based, onion-routed by default |
 
 #### Tier 5: Censorship-Resistant / Hostile Networks
 
-| Transport | Hva det skjuler |
+| Transport | What it conceals |
 |-----------|-----------------|
-| **Domain fronting (CDN)** | Faktisk destinasjon |
-| **ECH (Encrypted Client Hello)** | SNI-info |
-| **MASQUE (CONNECT-UDP)** | All trafikk inni HTTPS |
-| **obfs4 / meek / snowflake** | Trafikk-mønster (Tor pluggable transports) |
-| **Shadowsocks** | Stealth ut fra Kina-stil DPI |
-| **Trojan-GFW** | Ser ut som vanlig HTTPS |
-| **V2Ray VMess / VLESS** | Multi-protocol obfuscation |
-| **Hysteria2 / TUIC** | QUIC-basert med ekstra obfuskering |
+| **HTTP/3 MASQUE (CONNECT-UDP)** | All traffic inside HTTPS |
+| **ECH (Encrypted Client Hello)** | SNI information |
+| **Domain fronting (CDN)** | Actual destination |
+| **Traffic obfuscation (obfs4-style)** | Protocol fingerprint |
+| **Shadowsocks / Trojan-GFW** | Looks like standard HTTPS |
 
 #### Tier 6: Out-of-Band (offline / air-gap)
 
-| Transport | Båndbredde | Latens | Bruk |
-|-----------|------------|--------|------|
-| **Reticulum (TCP backbone)** | Lav | Medium | Mesh over hva som helst |
-| **Reticulum (LoRa)** | < 11 kbps | Sekunder-minutter | Lang rekkevidde, lavt strømforbruk |
-| **Reticulum (BLE)** | Medium | Medium | Proximity, lokal |
-| **Reticulum (packet radio AX.25)** | Lav | Sekunder | HF/VHF/UHF, global rekkevidde |
-| **Serial (RS-232/USB)** | Variabel | Lav | Direkte kabel, true air-gap |
-| **NNCP (sneakernet)** | Variabel | Timer-dager | USB-stick, brevpost |
-| **SMTP/IMAP tunnel** | Lav | Minutter | E-post som transport |
-| **DNS tunnel (DoH/DoT)** | Veldig lav | Høy | Sist resort |
-| **ICMP tunnel** | Lav | Medium | Funker når kun ping er tillatt |
-| **HF radio (Winlink-stil)** | Veldig lav | Minutter | Globalt, ingen infrastruktur |
-| **Iridium SBD** | Veldig lav | Minutter | Satellitt, globalt |
-| **Starlink** | Høy | Lav | Satellitt-bredbånd |
-| **Audio modem (lyd)** | Veldig lav | N/A | Mellom enheter med mikrofon |
-| **QR-stream (visuelt)** | Lav | N/A | Air-gap exfil/import |
-| **NFC** | Lav | N/A | Proximity bootstrap |
+| Transport | Bandwidth | Latency | Use |
+|-----------|-----------|---------|-----|
+| **Reticulum (TCP backbone)** | Low | Medium | Mesh over anything |
+| **Reticulum (LoRa)** | < 11 kbps | Seconds–minutes | Long range, low power |
+| **Reticulum (packet radio AX.25)** | Low | Seconds | HF/VHF/UHF, global |
+| **Serial (RS-232/USB)** | Variable | Low | Direct cable, true air-gap |
+| **NNCP (sneakernet)** | Variable | Hours–days | USB stick, physical mail |
+| **DNS tunnel (DoH/DoT)** | Very low | High | Last resort |
+| **ICMP tunnel** | Low | Medium | Works when only ping allowed |
+| **HF radio (Winlink-style)** | Very low | Minutes | Global, no commercial infra |
+| **Satellite (Iridium/Starlink)** | Low–high | ms–seconds | Global coverage |
+| **Audio modem** | Very low | N/A | Between devices with mic/speaker |
+| **QR-stream (visual)** | Low | N/A | Air-gap import/export |
 
-### Path Selection Strategier
+### Path Selection Strategies
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Strategi: SEQUENTIAL                                           │
-│  Prøv én av gangen i prioritert rekkefølge.                     │
-│  Bra for: Batteri-sparing, mobile noder                         │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Strategi: RACE (Happy Eyeballs)                                │
-│  Start alle parallelt, bruk første som svarer.                  │
-│  Bra for: Latency-kritisk, bruker mer båndbredde                │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Strategi: PARALLEL                                             │
-│  Etabler ALLE samtidig, hold dem oppe.                          │
-│  Bra for: Mission-critical, multipath, redundans                │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Strategi: TIERED RACE                                          │
-│  Prøv tier 1 parallelt. Hvis alle feiler, tier 2 parallelt.     │
-│  Bra for: Balansert ytelse vs båndbredde                        │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Strategi: POLICY-DRIVEN                                        │
-│  Policy bestemmer tillatte transporter per kommando-type.       │
-│  Bra for: Sikkerhet — sensitive operasjoner kun via direkte WG. │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Strategi: ADAPTIVE                                             │
-│  ML/heuristikk basert på historisk suksess i samme nett.        │
-│  Bra for: Noder som flytter mye (mobile, laptop)                │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Strategy | Behavior | Best for |
+|----------|----------|----------|
+| **Sequential** | Try one at a time in priority order | Battery-saving, mobile |
+| **Race (Happy Eyeballs)** | Start all in parallel, use first responder | Latency-critical |
+| **Parallel** | Establish ALL simultaneously, keep active | Mission-critical, redundancy |
+| **Tiered race** | Race tier 1; if all fail, race tier 2 | Balanced performance |
+| **Policy-driven** | Policy determines allowed transports per command | Security — sensitive ops via WG only |
+| **Adaptive** | Heuristics based on historical success | Mobile nodes, varying networks |
 
 ---
 
-## Fase 6 — NAT Traversal / Tunnel Establishment
+## Phase 6 — NAT Traversal / Tunnel Establishment
 
-Selve åpningen av en pakkebar kanal.
+Actually opening a packet-carrying channel.
 
-### Teknikker
+### Techniques
 
-| Teknikk | NAT-type det funker for | Kommentar |
-|---------|-------------------------|-----------|
-| **Direct connect** | Open / IPv6 | Ingen traversering nødvendig |
+| Technique | NAT types it works for | Notes |
+|-----------|----------------------|-------|
+| **Direct connect** | Open / IPv6 | No traversal needed |
 | **STUN binding (RFC 8489)** | Cone NAT | Server-reflexive endpoint |
-| **UDP hole punching** | Restricted, port-restricted | Krever simultan signaling |
-| **TCP hole punching (RFC 5128)** | De fleste | Vanskeligere enn UDP |
-| **TCP simultaneous open** | Spesifikke implementasjoner | OS-avhengig |
-| **UPnP IGD** | Hjemme-rutere | Ofte deaktivert i bedrift |
-| **NAT-PMP / PCP** | Apple-rutere, moderne | Mer pålitelig enn UPnP |
-| **Birthday paradox attack** | Symmetric | Statistisk port-gjetting |
-| **Port prediction** | Sequential symmetric | Forutsigbar portallokering |
-| **TURN relay** | Alle | 100% suksess, men relay i veien |
-| **DCUtR (libp2p)** | De fleste | Smart "start relay, oppgrader direkte" |
-| **ICE (RFC 8445)** | Alle | Komplett rammeverk, prøver alle metoder |
-| **Trickle ICE** | Alle | Inkrementell kandidat-utveksling |
-| **MASQUE CONNECT-UDP** | Alle | UDP-traversering inni HTTPS |
+| **UDP hole punching** | Restricted, port-restricted | Requires simultaneous signaling |
+| **TCP hole punching (RFC 5128)** | Most | Harder than UDP |
+| **UPnP / NAT-PMP / PCP** | Home routers | Often disabled in enterprise |
+| **Birthday paradox attack** | Symmetric | Statistical port guessing |
+| **TURN relay** | All | 100% success, but relay in path |
+| **DCUtR (libp2p pattern)** | Most | Start relay, upgrade to direct |
+| **ICE (RFC 8445)** | All | Complete framework, tries all methods |
+| **MASQUE CONNECT-UDP** | All | UDP traversal inside HTTPS |
 
-### Hole Punching Sekvens (UDP)
+### UDP Hole Punching Sequence
 
 ```
 ┌──────────┐                ┌──────────┐                ┌──────────┐
 │  Peer A  │                │  Broker  │                │  Peer B  │
 │ (NAT)    │                │ (public) │                │ (NAT)    │
 └────┬─────┘                └────┬─────┘                └────┬─────┘
-     │                            │                            │
-     │  1. STUN binding           │                            │
-     │ ──────────────────────────►│                            │
-     │  ◄──────────────────────── │                            │
-     │  Public: 198.51.100.1:443  │                            │
-     │                            │                            │
-     │                            │   2. STUN binding          │
-     │                            │ ◄──────────────────────────│
-     │                            │ ──────────────────────────►│
-     │                            │  Public: 203.0.113.7:31443 │
-     │                            │                            │
-     │  3. Request to talk to B   │                            │
-     │ ──────────────────────────►│                            │
-     │                            │   4. Forward A's endpoint  │
-     │                            │ ──────────────────────────►│
-     │                            │   B's endpoint to A        │
-     │  ◄──────────────────────── │                            │
-     │                            │                            │
-     │  5. SIMULTANEOUS PUNCH                                  │
-     │ ───────────────────────────┼───────────────────────────►│
-     │ ◄──────────────────────────┼───────────────────────────  │
-     │                            │                            │
-     │  6. (Hopefully) direct path established                 │
-     │ ────────────────────────────────────────────────────────►│
-     │ ◄────────────────────────────────────────────────────── │
+     │                           │                           │
+     │  1. STUN binding          │                           │
+     │ ─────────────────────────►│                           │
+     │  ◄────────────────────────│                           │
+     │  Public: 198.51.100.1:443 │                           │
+     │                           │                           │
+     │                           │  2. STUN binding          │
+     │                           │ ◄─────────────────────────│
+     │                           │ ─────────────────────────►│
+     │                           │  Public: 203.0.113.7:31443│
+     │                           │                           │
+     │  3. Request to talk to B  │                           │
+     │ ─────────────────────────►│                           │
+     │                           │  4. Exchange endpoints    │
+     │  ◄────────────────────────│──────────────────────────►│
+     │                           │                           │
+     │  5. SIMULTANEOUS PUNCH                                │
+     │ ──────────────────────────┼──────────────────────────►│
+     │ ◄─────────────────────────┼───────────────────────────│
+     │                           │                           │
+     │  6. Direct path established                           │
+     │ ◄────────────────────────────────────────────────────►│
 ```
 
 ---
 
-## Fase 7 — Broker / Relay Decision
+## Phase 7 — Broker / Relay Decision
 
-Når og hvordan brukes broker-en?
+When and how the broker (rf-relay) is used.
 
-### Broker-roller i RavenFabric
+### Broker Roles
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  RavenFabric Broker (rf-relay)                                  │
 │                                                                 │
-│  Roller:                                                        │
-│  ├── Discovery directory     (hvem finnes)                      │
-│  ├── Rendezvous facilitator  (utveksle endepunkter)             │
-│  ├── Hole-punch coordinator  (synkroniser punch-pakker)         │
-│  ├── Fallback data relay     (bytte-pakker når direkte feiler)  │
-│  ├── Session metadata logger (kun metadata, ikke innhold)       │
-│  └── Health reporter         (oppetid, latens, kapasitet)       │
+│  Roles:                                                         │
+│  ├── Discovery directory     (who exists)                       │
+│  ├── Rendezvous facilitator  (exchange endpoints)               │
+│  ├── Hole-punch coordinator  (synchronize punch packets)        │
+│  ├── Fallback data relay     (forward ciphertext when direct    │
+│  │                            fails)                            │
+│  ├── Session metadata logger (metadata only, not content)       │
+│  └── Health reporter         (uptime, latency, capacity)        │
 │                                                                 │
-│  ALDRI roller:                                                  │
-│  ├── Decryption                                                 │
-│  ├── Policy evaluation                                          │
-│  ├── Identity issuer (kun OTP-validering)                       │
-│  └── Audit storage (audit ligger på agenten)                    │
+│  NEVER roles:                                                   │
+│  ├── Decryption (has no keys)                                   │
+│  ├── Policy evaluation (agent's responsibility)                 │
+│  ├── Identity issuer (only validates OTP)                       │
+│  └── Audit storage (audit stays on agent)                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Broker-arkitektur-mønstre
+### Connection Modes
 
-| Mønster | Eksempel | Trade-offs |
-|---------|----------|------------|
-| **Sentral broker** | Tailscale DERP | Enkelt, men single point of failure |
-| **Geo-distribuert mesh av brokere** | Cloudflare-stil | Lav latens, kompleks |
-| **Federerte brokere** | Matrix homeservers | Selvhosting per organisasjon |
-| **Self-hosted only** | Headscale | Full kontroll, drift-byrde |
-| **DHT-basert (ingen broker)** | BitTorrent, IPFS | Sensur-resistent, treig bootstrap |
-| **Hybrid (sentral + DHT-fallback)** | Hyperswarm | Best av begge verdener |
-| **P2P broker rotation** | Veilid | Hvilken som helst node kan være broker |
+| Mode | Description | When |
+|------|-------------|------|
+| **Broker-assisted, direct data** | Broker helps with rendezvous, then out of the way | Preferred — lowest latency |
+| **Broker-relayed** | All data through broker (encrypted, opaque) | When direct fails |
+| **Hybrid (relay → upgrade)** | Start relay, upgrade to direct in background | Default for first connection |
+| **Brokerless** | Only local/cached endpoint info, no broker | Air-gap, mDNS, pre-configured |
+| **Multi-broker (anycast)** | Client uses geographically nearest broker | Geo-distributed deployments |
 
-### Broker Connection Modes
+### Broker Threat Model
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Mode 1: BROKER-ASSISTED, DIRECT DATA                           │
-│  ┌────────┐                ┌────────┐                ┌────────┐ │
-│  │ Agent A│ ◄──signal───►  │ Broker │ ◄──signal───►  │ Agent B│ │
-│  └────┬───┘                └────────┘                └───┬────┘ │
-│       │                                                  │      │
-│       └──────────────── direct data ──────────────────── ┘      │
-│  Broker hjelper med rendezvous, så ute av veien.                │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Mode 2: BROKER-RELAYED                                         │
-│  ┌────────┐                ┌────────┐                ┌────────┐ │
-│  │ Agent A│ ◄──data────►   │ Broker │ ◄──data────►   │ Agent B│ │
-│  └────────┘                └────────┘                └────────┘ │
-│  Hvis direkte feiler. Broker ser kun ciphertext.                │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Mode 3: HYBRID (broker-relay → direct upgrade)                 │
-│  Start relay, oppgrader til direkte i bakgrunnen.               │
-│  Pakker kan migreres mid-stream via session ID.                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Mode 4: BROKERLESS                                             │
-│  Kun lokal/cached endpoint info. Ingen broker.                  │
-│  For air-gap, mDNS, eller pre-configured peers.                 │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│  Mode 5: MULTI-BROKER (anycast)                                 │
-│  Klient bruker geografisk nærmeste broker, kan failover.        │
-│  Alle brokere er synkroniserte (gossip).                        │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Broker Authentication
-
-| Metode | Hva broker validerer | Bruk |
-|--------|----------------------|------|
-| **HMAC token** | Pre-shared secret per agent | Standard |
-| **Certificate-based** | mTLS med agent-cert | Enterprise |
-| **OTP for bootstrap** | Single-use token | Initial enrollment |
-| **Signed challenge** | Agent signerer broker-utstedt nonce | Anti-replay |
-| **No auth (federated)** | Kun rate-limiting | Public broker-mesh |
-
-### Hva broker IKKE skal kunne (sikkerhetsegenskaper)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  RavenFabric Broker Threat Model                                │
+│  ASSUMPTION: BROKER IS POTENTIALLY COMPROMISED                  │
 │                                                                 │
-│  Antakelse: BROKER ER POTENSIELT KOMPROMITTERT                  │
+│  Broker MUST NOT be able to:                                    │
+│  ✗  Read command content                                        │
+│  ✗  Read file content                                           │
+│  ✗  Read audit events                                           │
+│  ✗  Modify messages without detection                           │
+│  ✗  Impersonate either party                                    │
+│  ✗  Decrypt after the fact (forward secrecy)                    │
 │                                                                 │
-│  Broker MÅ IKKE kunne:                                          │
-│  ✗  Lese kommando-innhold                                       │
-│  ✗  Lese fil-innhold                                            │
-│  ✗  Lese audit-events                                           │
-│  ✗  Modifisere meldinger uten å bli oppdaget                    │
-│  ✗  Impersonate enten part                                      │
-│  ✗  Decrypte i ettertid (forward secrecy)                       │
+│  Broker CAN see:                                                │
+│  •  Which peer IDs are communicating (metadata)                 │
+│  •  Timing and volume (traffic analysis)                        │
+│  •  IP addresses of endpoints                                   │
 │                                                                 │
-│  Broker KAN se:                                                 │
-│  •  Hvilke peer-IDs som snakker (metadata)                      │
-│  •  Tidspunkt og volum (timing/size analysis)                   │
-│  •  IP-adresser til endpunkter                                  │
-│                                                                 │
-│  Mitigering for metadata-leakage:                               │
-│  •  Padding til faste rammestørrelser                           │
+│  Mitigations for metadata leakage:                              │
+│  •  Padding to fixed frame sizes                                │
 │  •  Cover traffic / dummy packets (high-paranoia mode)          │
-│  •  Mixnet routing for kontroll-plan (v0.5+)                    │
+│  •  Mixnet routing for control plane (v0.5+)                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Fase 8 — Cryptographic Handshake
+## Phase 8 — Cryptographic Handshake
 
-Mutual auth + nøkkel-etablering, helt uavhengig av transport.
+Mutual authentication + key establishment, completely independent of transport.
 
-### Implementeringsalternativer
+### Protocol Options
 
-| Protokoll | Egenskap | Bruk i RF |
-|-----------|----------|-----------|
-| **Noise XX** | Mutual auth, forward secrecy, no PKI | **Primær (v0.1)** |
-| **Noise IK** | Initiator kjenner responder pubkey på forhånd | Resumption / kjente peers |
-| **Noise NK** | Responder anonym | Klient → broker uten klient-cert |
+| Protocol | Properties | Use in RavenFabric |
+|----------|-----------|-------------------|
+| **Noise XX** | Mutual auth, forward secrecy, no PKI | **Primary (v0.1)** |
+| **Noise IK** | Initiator knows responder pubkey | Resumption / known peers |
+| **Noise NK** | Responder anonymous | Client → broker without client cert |
 | **Noise XX + ML-KEM hybrid** | Post-quantum | **v0.6+** |
-| **TLS 1.3 + mTLS** | PKI-basert | Hvis interop med eksisterende systemer |
-| **WireGuard (Noise IK-variant)** | Innebygd i WG-protokollen | For wireguard-driver |
-| **CurveCP** | DJBs ChaCha-baserte | Eksotisk, men interessant |
-| **PQXDH (Signal)** | Hybrid PQ for asynkron messaging | Async/store-and-forward |
+| **WireGuard (Noise IK variant)** | Built into WG protocol | For WireGuard driver |
+| **PQXDH (Signal)** | Hybrid PQ for async messaging | Async/store-and-forward |
 | **MLS (RFC 9420)** | Group key agreement | Multi-party sessions |
 
-### Noise XX Pattern (RavenFabric primær)
+### Noise XX Pattern (primary)
 
 ```
 Pattern: Noise_XX_25519_ChaChaPoly_BLAKE2s
 
-  -> e
-  <- e, ee, s, es        (responder authenticates)
-  -> s, se               (initiator authenticates)
+  -> e                        (initiator ephemeral)
+  <- e, ee, s, es            (responder authenticates)
+  -> s, se                   (initiator authenticates)
 
 Properties:
   ✓ Mutual authentication
@@ -694,7 +574,7 @@ Properties:
 ```
 Pattern: Noise_XXhfs_25519+ML-KEM-768_ChaChaPoly_BLAKE2s
 
-  -> e, e1                       (e = X25519, e1 = ML-KEM ephemeral)
+  -> e, e1                        (e = X25519, e1 = ML-KEM encaps)
   <- e, ee, ekem1, s, es
   -> s, se
 
@@ -704,26 +584,23 @@ Harvest-now-decrypt-later: defeated.
 
 ---
 
-## Fase 9 — Session Establishment
+## Phase 9 — Session Establishment
 
-Etter handshake: hvordan strukturerer vi kanal-en?
+After handshake: how the channel is structured.
 
-### Multipleksering
+### Multiplexing Options
 
-| Protokoll | Egenskap | Bruk |
-|-----------|----------|------|
-| **yamux** | Battle-tested (libp2p) | **Primær (v0.1)** |
-| **HTTP/2 framing** | Standard, men HTTP-orientert | Hvis interop med web |
-| **QUIC streams** | Native i QUIC | Når transport = QUIC |
-| **mplex** | Enklere libp2p mux | For embedded/IoT |
-| **SCTP streams** | Native | SCTP-transport |
-| **Custom length-delimited** | Enkleste | Air-gap, low-bandwidth |
+| Protocol | Properties | Use |
+|----------|-----------|-----|
+| **yamux** | Battle-tested (libp2p), per-stream flow control | **Primary (v0.1)** |
+| **QUIC streams** | Native when transport = QUIC | QUIC driver |
+| **Custom length-delimited** | Simplest possible | Air-gap, low-bandwidth |
 
-### Stream Allocation Patterns
+### Stream Allocation
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  En Noise XX session kan ha mange yamux-streams:                │
+│  One Noise XX session carries many yamux streams:               │
 │                                                                 │
 │  Stream 0:  Control plane (heartbeat, capability negotiation)   │
 │  Stream 1:  RPC requests/responses                              │
@@ -733,52 +610,40 @@ Etter handshake: hvordan strukturerer vi kanal-en?
 │  Stream 5:  Metrics push                                        │
 │  Stream 6:  Tunnel: localhost:8080 → agent:80                   │
 │  Stream 7:  Tunnel: SOCKS5 dynamic forward                      │
-│  ...                                                             │
+│  ...                                                            │
 │                                                                 │
-│  Hver stream har independent flow control.                      │
-│  Hver stream lukkes uavhengig av andre.                         │
-│  Per-stream policy mulig (audit forskjellige streams ulikt).    │
+│  Each stream has independent flow control.                      │
+│  Each stream closes independently.                              │
+│  Per-stream policy possible (audit different streams differently)│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Frame Format (RavenFabric wire-protokoll)
+### Wire Protocol
 
 ```
-Outer frame (transport-uavhengig):
+Outer frame (transport-independent):
 ┌──────────┬──────────┬──────────────────────────────────┐
 │ Magic    │ Length   │ Noise ciphertext + 16B MAC       │
-│ "RVNF"   │ u32 BE   │ ...                              │
+│ "RVNF"  │ u32 BE  │ ...                              │
 └──────────┴──────────┴──────────────────────────────────┘
 
-Inner (etter Noise decrypt) — yamux-frame:
+Inner (after Noise decrypt) — yamux frame:
 ┌────────┬─────┬───────┬────────────┬────────┬────────────────┐
 │Version │Type │ Flags │ Stream ID  │ Length │ Payload        │
 │ u8     │ u8  │ u16   │ u32        │ u32    │ ...            │
 └────────┴─────┴───────┴────────────┴────────┴────────────────┘
 
 Payload (msgpack):
-  RPC Request, RPC Response, ShellInput, ShellOutput, FileChunk, ...
+  Request, Response, ShellInput, ShellOutput, FileChunk, MetricsBatch, ...
 ```
 
 ---
 
-## Fase 10 — Path Upgrade / Migration
+## Phase 10 — Path Upgrade / Migration
 
-En etablert session kan bytte underlag uten å miste data.
+An established session can switch underlying transport without losing data.
 
-### Migration-mønstre
-
-| Mønster | Hvordan |
-|---------|---------|
-| **QUIC connection migration** | Native — connection ID overlever IP-bytte |
-| **MPTCP subflow add/remove** | Multipath TCP add/remove subflow |
-| **Session ticket resumption** | Re-handshake på ny transport, samme session ID |
-| **0-RTT resumption** | Forhåndsdelte parametre, ingen RTT |
-| **Channel binding** | Session ID kryptografisk knyttet til Noise-state |
-| **Background race + atomic swap** | Etabler ny path, switch atomisk når klar |
-| **Make-before-break** | Hold begge paths oppe i overlap-vindu |
-
-### Cross-Protocol Upgrade (RavenFabric unik egenskap)
+### Cross-Protocol Upgrade (unique to RavenFabric)
 
 ```
 TIMELINE:
@@ -792,90 +657,79 @@ t=0:    Initial connect via WebSocket relay (port 443)
 t=1s:   Background race: try direct WireGuard
         ┌─────┐         ┌──────┐         ┌─────┐
         │  A  │ ◄═════► │relay │ ◄═════► │  B  │
-        │     │ ····················════► │     │  ← attempting
-        └─────┘                            └─────┘
+        │     │ ·····························► │     │  ← attempting
+        └─────┘                           └─────┘
 
 t=3s:   Direct WireGuard succeeds, validate peer key
-        ┌─────┐                            ┌─────┐
-        │  A  │ ◄══════════════════════►   │  B  │  ← new path verified
-        │     │ ◄═════► relay ◄═════►      │     │  ← old path warm
-        └─────┘                            └─────┘
+        ┌─────┐                           ┌─────┐
+        │  A  │ ◄════════════════════════► │  B  │  ← new path
+        │     │ ◄═════► relay ◄═════►     │     │  ← old path warm
+        └─────┘                           └─────┘
 
 t=3.1s: Atomic switch — same session, new transport
         Outstanding RPCs transferred via session ID continuity.
-        Audit entry: "transport upgraded ws → wireguard-direct"
+        Audit entry: "transport upgraded ws-relay → wireguard-direct"
 
 t=3.5s: Old WebSocket gracefully closed (after drain timeout)
-        ┌─────┐                            ┌─────┐
-        │  A  │ ◄══════════════════════►   │  B  │
-        └─────┘                            └─────┘
+        ┌─────┐                           ┌─────┐
+        │  A  │ ◄════════════════════════► │  B  │
+        └─────┘                           └─────┘
 ```
+
+### Migration Techniques
+
+| Technique | How |
+|-----------|-----|
+| **QUIC connection migration** | Native — connection ID survives IP change |
+| **Session ticket resumption** | Re-handshake on new transport, same session ID |
+| **0-RTT resumption** | Pre-shared parameters, zero RTT |
+| **Background race + atomic swap** | Establish new path, switch atomically when ready |
+| **Make-before-break** | Hold both paths up during overlap window |
 
 ---
 
-## Fase 11 — Health Monitoring & Failover
+## Phase 11 — Health Monitoring & Failover
 
-Kontinuerlig overvåking av path-helse.
+Continuous monitoring of path health.
 
-### Helse-indikatorer
+### Health Indicators
 
-| Indikator | Måles hvordan | Threshold |
-|-----------|---------------|-----------|
+| Indicator | How measured | Threshold |
+|-----------|-------------|-----------|
 | **Round-trip time** | Periodic ping | > 2x baseline = degraded |
 | **Packet loss** | Sequence number gaps | > 1% sustained = degraded |
-| **Throughput** | Active probing | < expected = investigate |
 | **Connection liveness** | Heartbeat | Miss 3 = failed |
-| **MTU changes** | DPLPMTUD | Trigger reconfigure |
-| **Network change** | OS event (route table, default gw) | Re-probe alle drivers |
+| **Network change** | OS event (route table, default gw) | Re-probe all drivers |
 | **Captive portal appearance** | Detection probe | Pause + alert |
 
 ### Failover Logic
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  ACTIVE PATH HEALTH CHECK (every 5s)                            │
-└────────────────┬────────────────────────────────────────────────┘
-                 │
-                 ▼
-        ┌────────────────┐         No
-        │ Path healthy?  │ ────────────►  ┌──────────────────────┐
-        └────────┬───────┘                │ Trigger failover     │
-                 │ Yes                    └──────────┬───────────┘
-                 │                                   │
-                 ▼                                   ▼
-        ┌────────────────┐                 ┌────────────────────┐
-        │ Continue       │                 │ Already racing     │
-        └────────────────┘                 │ secondary path?    │
-                                           └─────┬──────────┬───┘
-                                                 │ Yes      │ No
-                                                 ▼          ▼
-                                        ┌──────────┐  ┌─────────────┐
-                                        │ Promote  │  │ Start race  │
-                                        │ secondary│  │ + use relay │
-                                        └──────────┘  │ as bridge   │
-                                                      └─────────────┘
+ACTIVE PATH HEALTH CHECK (every 5s)
+         │
+         ▼
+    Path healthy? ─── No ───► Already racing secondary?
+         │                         │ Yes      │ No
+         │ Yes                     ▼          ▼
+         ▼                    Promote     Start race +
+    Continue                  secondary   use relay as bridge
 ```
 
 ### Sticky vs Adaptive
 
-```
-Sticky:    Hold valgt path til den feiler hardt.
-           Bra for: Stabilitet, lav variabilitet
-
-Adaptive:  Re-evaluer kontinuerlig, bytt hvis bedre finnes.
-           Bra for: Mobile noder, varierende nett
-
-Hybrid:    Sticky innen samme nettverkssegment,
-           re-evaluer ved oppdaget nettverksskifte.
-```
+| Mode | Behavior | Use case |
+|------|----------|----------|
+| **Sticky** | Hold chosen path until hard failure | Stability, low variability |
+| **Adaptive** | Continuously re-evaluate, switch if better | Mobile nodes, varying network |
+| **Hybrid** | Sticky within segment, re-evaluate on network change | Default recommended |
 
 ---
 
-## Fase 12 — Graceful Teardown
+## Phase 12 — Graceful Teardown
 
-Avslutning er like viktig som oppstart.
+Clean shutdown is as important as clean startup.
 
-### Teardown-sekvens
+### Teardown Sequence
 
 ```
 1. Stop accepting new RPC requests on session
@@ -889,42 +743,42 @@ Avslutning er like viktig som oppstart.
 9. Cache last-known-good endpoint for fast reconnect
 ```
 
-### Reconnect Strategi
+### Reconnect Strategy
 
-| Strategi | Backoff | Bruk |
-|----------|---------|------|
-| **Immediate retry** | None | Transient nettverks-glitch |
-| **Exponential backoff** | 1s, 2s, 4s, 8s, ..., max 60s | Standard |
-| **Exponential + jitter** | Fullt jitter | Forhindre thundering herd |
-| **Adaptive (network-aware)** | Vent på nettverk-event | Mobile, lokk-laptop |
-| **Scheduled** | Cron-stil | Air-gap rendezvous-vinduer |
+| Strategy | Backoff | Use |
+|----------|---------|-----|
+| **Immediate retry** | None | Transient network glitch |
+| **Exponential backoff** | 1s, 2s, 4s, ..., max 60s | Standard |
+| **Exponential + jitter** | Full jitter | Prevent thundering herd |
+| **Network-aware** | Wait for network event | Mobile, lid-close |
+| **Scheduled** | Cron-style | Air-gap rendezvous windows |
 
 ---
 
-## Komplett Verdikjede — Sammensatt Eksempel
+## End-to-End Example
 
 ```
 ═══════════════════════════════════════════════════════════════════
   rf exec prod-server-1 "systemctl status nginx"
 ═══════════════════════════════════════════════════════════════════
 
-[0]  IDENTITY GENESIS
-     CLI loads operator identity from ~/.config/ravenfabric/operator.key
-     
+[0]  IDENTITY
+     CLI loads operator key from ~/.config/ravenfabric/operator.key
+
 [1]  ENROLLMENT — already done (operator enrolled previously)
 
 [2]  DISCOVERY
      CLI checks local cache: prod-server-1 → endpoints?
-     ✓ Cache hit, 4 endpoints (ws-relay, quic-relay, wg-direct, reticulum)
+     ✓ Cache hit: 4 endpoints (ws-relay, quic-relay, wg-direct, reticulum)
 
 [3]  RENDEZVOUS
-     CLI verifies cache freshness via broker (signed endpoint record)
-     ✓ Endpoints still valid (issued 12 min ago)
+     CLI verifies cache freshness via broker (signed record)
+     ✓ Endpoints valid (issued 12 min ago)
 
 [4]  REACHABILITY ASSESSMENT
      NetworkProbe:
      - IPv6 available: yes
-     - UDP 443 open: yes  
+     - UDP 443 open: yes
      - Corporate proxy: no
      - NAT type: full cone
 
@@ -944,28 +798,28 @@ Avslutning er like viktig som oppstart.
      Direct path established. Broker only for initial signaling.
 
 [8]  CRYPTOGRAPHIC HANDSHAKE
-     t+12ms:  Noise XX e (initiator)
-     t+24ms:  Noise XX e, ee, s, es (responder)
-     t+36ms:  Noise XX s, se (initiator)
+     t+12ms:  Noise XX -> e
+     t+24ms:  Noise XX <- e, ee, s, es
+     t+36ms:  Noise XX -> s, se
      ✓ Mutual auth complete
 
 [9]  SESSION ESTABLISHMENT
-     t+36ms:  yamux session opened over Noise channel
-     t+37ms:  Open stream 1 (RPC), capability negotiation
+     t+36ms:  yamux session over Noise channel
+     t+37ms:  Open stream 1 (RPC)
 
-[10] BACKGROUND PATH MONITORING
-     QUIC kept warm as standby (race won by WG, but QUIC OK)
+[10] BACKGROUND MONITORING
+     QUIC kept warm as standby
 
 [11] EXECUTE
-     t+38ms:  Send RPC request (msgpack-encoded, Noise-sealed)
+     t+38ms:  Send RPC request (msgpack, Noise-sealed)
      t+50ms:  Agent receives, policy check
      t+52ms:  Policy ALLOW — execute "systemctl status nginx"
-     t+103ms: Output streamed back via stream 1
+     t+103ms: Output streamed back
      t+105ms: CLI displays output
 
-[12] GRACEFUL TEARDOWN (or session kept alive)
-     If single-shot: tear down after response
-     If interactive: keep session warm 30s for next command
+[12] TEARDOWN (or keep-alive)
+     Single-shot: tear down after response
+     Interactive: keep session warm 30s for next command
 
 ═══════════════════════════════════════════════════════════════════
 TOTAL: ~105ms cold, <50ms warm
@@ -974,123 +828,63 @@ TOTAL: ~105ms cold, <50ms warm
 
 ---
 
-## Roadmap-implikasjoner for RavenFabric
+## Extended Driver Trait Design
 
-Basert på denne verdikjeden, her er en utvidet implementeringsplan:
-
-### v0.1 — Foundation (allerede planlagt)
-- [x] Identity (Curve25519 keypair)
-- [x] Bootstrap (OTP)
-- [x] Crypto (Noise XX)
-- [x] Policy + audit
-- [ ] **Discovery: cached + broker-directory** (ny)
-- [ ] **Single transport: WebSocket via broker** (allerede planlagt)
-- [ ] **Broker: stateless relay** (allerede planlagt)
-
-### v0.2 — Multi-Transport
-- [ ] **NetworkProbe / NAT detection** (Fase 4)
-- [ ] **Path selection engine** (sequential strategy først)
-- [ ] **WireGuard direct driver** (Fase 6 tier 1)
-- [ ] **QUIC driver med connection migration** (Fase 6 tier 1)
-- [ ] **STUN/hole punching koordinator** (Fase 6 tier 2)
-
-### v0.3 — Path Diversity
-- [ ] **Race + parallel strategier** (Fase 5)
-- [ ] **Background transport upgrade** (Fase 10)
-- [ ] **mDNS discovery** (LAN-scope)
-- [ ] **MagicDNS / overlay IP** (allerede planlagt)
-
-### v0.4 — Enterprise Networks
-- [ ] **HTTP/HTTPS proxy support** (Fase 4 → 6)
-- [ ] **MASQUE driver** (Fase 6 tier 5)
-- [ ] **Federated brokers** (geo-distribuert)
-
-### v0.5 — Air-Gap & Hostile Networks
-- [ ] **Reticulum driver** (Fase 6 tier 6)
-- [ ] **Tor hidden service driver** (Fase 6 tier 4)
-- [ ] **Serial driver (RS-232/USB)** (Fase 6 tier 6)
-- [ ] **NNCP driver (sneakernet)** (Fase 6 tier 6)
-- [ ] **DNS tunnel driver** (sist resort)
-
-### v0.6 — Post-Quantum & Advanced
-- [ ] **Hybrid PQ Noise (X25519 + ML-KEM-768)** (Fase 8)
-- [ ] **Capability tokens (biscuit/macaroon)** (Fase 0)
-- [ ] **CRDT-baserte audit-logger** (eventual consistency)
-- [ ] **Mixnet kontroll-plan (high-paranoia mode)** (metadata-beskyttelse)
-
-### v0.7 — Mesh-Native Discovery
-- [ ] **Gossip-based peer discovery** (Fase 2)
-- [ ] **DHT discovery (Kademlia)** (Fase 2)
-- [ ] **Brokerless mode** (Fase 7 mode 4)
-- [ ] **Yggdrasil overlay driver** (Fase 6 tier 4)
-
-### v1.0 — Adaptive Intelligence
-- [ ] **ML-based path selection** (Fase 5 adaptive)
-- [ ] **Predictive failover** (Fase 11)
-- [ ] **Network change events (OS-integration)** (Fase 11)
-- [ ] **Multi-path simultan (multipath QUIC)** (Fase 6 + 10)
-
----
-
-## Driver Trait Design (utvidet)
-
-For å støtte hele dette spekteret, må Driver-traiten være ekstremt fleksibel:
+To support the full transport catalog, the Driver trait must be rich:
 
 ```rust
 #[async_trait]
 pub trait TransportDriver: Send + Sync {
     /// Unique identifier (e.g. "wireguard-direct", "websocket-relay")
     fn id(&self) -> &'static str;
-    
-    /// Tier (1 = direct, 2 = nat-traversal, 3 = relay, ...)
+
+    /// Tier classification (1 = direct, 2 = NAT-traversal, 3 = relay, ...)
     fn tier(&self) -> Tier;
-    
+
     /// Probe whether this driver can work in the current network
     async fn probe(&self, env: &NetworkEnvironment) -> ProbeResult;
-    
+
     /// Establish a transport-level connection (no crypto yet)
-    async fn dial(&self, target: &Target, ctx: DialContext) -> Result<Box<dyn AsyncStream>>;
-    
+    async fn dial(&self, target: &Target, ctx: &DialContext) -> Result<Box<dyn AsyncStream>>;
+
     /// Listen for incoming connections (relay/server-side)
     async fn listen(&self, addr: &ListenAddr) -> Result<Box<dyn TransportListener>>;
-    
+
     /// Capabilities of this transport
-    fn capabilities(&self) -> Capabilities {
-        // - bidirectional?
-        // - reliable?
-        // - ordered?
-        // - max_bandwidth_estimate?
-        // - typical_latency?
-        // - supports_migration?
-    }
-    
+    fn capabilities(&self) -> Capabilities;
+
     /// Health check for an established connection
     async fn health(&self, conn: &dyn AsyncStream) -> Health;
-    
-    /// Optional: support migration of session state to this transport
-    async fn accept_migration(&self, session_token: SessionToken) -> Result<Box<dyn AsyncStream>>;
+
+    /// Support migration of session state to this transport
+    async fn accept_migration(&self, token: SessionToken) -> Result<Box<dyn AsyncStream>>;
+}
+
+struct Capabilities {
+    bidirectional: bool,
+    reliable: bool,
+    ordered: bool,
+    max_bandwidth_bps: Option<u64>,
+    typical_latency_ms: Option<u32>,
+    supports_migration: bool,
+    delay_tolerant: bool,
 }
 ```
 
 ---
 
-## Oppsummering — Hva dette betyr for RavenFabric
+## Architectural Implications
 
-Denne verdikjeden viser at RavenFabric ikke er én ting, men en **abstraksjon
-over et stort mulighetsrom**. De arkitektoniske valgene som gjør produktet
-unikt er:
+This connectivity value chain establishes six core properties unique to RavenFabric:
 
-1. **Driver-traiten er kjernen.** Alt annet bygger på at "transport" er pluggable.
-2. **Identitet er uavhengig av transport.** Samme Noise XX over alt — fra 
-   WireGuard til Reticulum til serial.
-3. **Broker er aldri privilegert.** Den er en bytteservice, ikke en kontroll-plan.
-4. **Path selection er policy-styrt.** Ikke bare "raskeste path" — også 
-   "tillatt path for denne kommando-typen".
-5. **Migration er førsteklasses.** Session lever lenger enn enhver enkelt path.
-6. **Air-gap er ikke en spesialcase.** Det er bare en annen tier av driver.
-7. **PQ-hybrid fra dag 1 av designet** (selv om implementering venter til v0.6).
+1. **The Driver trait is the kernel.** Everything else builds on pluggable transports.
+2. **Identity is independent of transport.** Same Noise XX over WireGuard, LoRa, serial, or USB stick.
+3. **Broker is never privileged.** It facilitates connections, never controls them.
+4. **Path selection is policy-driven.** Not just "fastest path" — "permitted path for this command type."
+5. **Migration is first-class.** Sessions outlive any individual transport path.
+6. **Air-gap is not a special case.** It's just another tier of driver.
+7. **PQ-hybrid is designed in from day one** (implementation in v0.6).
 
-Dette gjør RavenFabric unik i markedet: ingen andre system jeg kjenner til
-spenner fra direkte WireGuard på datasenter-LAN til Reticulum over LoRa i
-arktisk villmark — under samme policy-engine, samme audit-logg, og samme
-identitet.
+No other system spans from direct WireGuard on datacenter LAN to Reticulum over
+LoRa in arctic wilderness — under the same policy engine, same audit log,
+and same identity.

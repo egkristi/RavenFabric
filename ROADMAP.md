@@ -1,5 +1,7 @@
 # RavenFabric Roadmap
 
+> For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md).
+
 ## Implementation Order (Dependency Graph)
 
 The crates must be built bottom-up. Each layer depends only on layers below it.
@@ -161,6 +163,21 @@ rf exec test-agent "uname -a"
 - [ ] Happy Eyeballs (RFC 8305) — race IPv4/IPv6, use first responder
 - [ ] IPv6-first with NAT64/464XLAT awareness
 
+### Network Environment Probing (Phase 4 of Connectivity Value Chain)
+- [ ] NetworkProbe struct — unified assessment of network environment
+- [ ] EgressClass classification (Open, HomeRouter, EnterpriseProxy, RestrictiveDPI, Hostile, AirGap)
+- [ ] STUN-based NAT type detection (full cone, restricted, port-restricted, symmetric)
+- [ ] IPv4/IPv6 availability and preference detection
+- [ ] UDP reachability (per-port), captive portal detection
+- [ ] Corporate proxy detection (HTTP CONNECT support)
+- [ ] Per-relay latency measurement (geographic selection)
+
+### Path Selection Engine (Phase 5 of Connectivity Value Chain)
+- [ ] Transport catalog with tier classification (direct, NAT-traversal, relay, overlay, hostile, out-of-band)
+- [ ] Path selection strategies: sequential, race, parallel, tiered-race, policy-driven
+- [ ] Driver probing (which drivers can work in current network environment)
+- [ ] Policy-driven path selection (sensitive commands require specific transports)
+
 ### NAT Traversal (ICE-style)
 - [ ] STUN client — discover server-reflexive candidates (public IP:port)
 - [ ] UDP hole punching — coordinated simultaneous send via relay coordinator
@@ -176,6 +193,21 @@ rf exec test-agent "uname -a"
 - [ ] Seamless migration to direct path when found (verify peer key)
 - [ ] Automatic failback to relay if direct path fails
 - [ ] Connection migration on network change (WiFi ↔ cellular)
+
+### Health Monitoring & Failover (Phase 11 of Connectivity Value Chain)
+- [ ] Heartbeat-based liveness detection (miss 3 = failed)
+- [ ] RTT baseline tracking (> 2x baseline = degraded)
+- [ ] Automatic failover (promote secondary path or start race + relay bridge)
+- [ ] OS network change events (route table, default gateway) → re-probe all drivers
+- [ ] Sticky/adaptive/hybrid path selection modes
+
+### Graceful Teardown (Phase 12 of Connectivity Value Chain)
+- [ ] Drain in-flight requests before disconnect (with timeout)
+- [ ] Flush audit log to durable storage before close
+- [ ] Noise close-notify + yamux stream close
+- [ ] Session key zeroization on disconnect
+- [ ] Cache last-known-good endpoint for fast reconnect
+- [ ] Reconnect strategies: exponential backoff + jitter, network-aware, scheduled
 
 ### Execution Modes
 - [ ] Task mode (ordered steps, conditions, onFailure, workdir)
@@ -208,7 +240,7 @@ rf exec test-agent "uname -a"
 
 ## v0.3 — Shell + Tunnels + Playbooks
 
-**Goal:** Interactive shell. Port forwarding. Multi-agent orchestration.
+**Goal:** Interactive shell. Port forwarding. Multi-agent orchestration. Cross-protocol path upgrade.
 
 ### Interactive Shell
 - [ ] PTY allocation + terminal session handler
@@ -219,6 +251,12 @@ rf exec test-agent "uname -a"
 - [ ] Local port forward (ssh -L equivalent)
 - [ ] Remote port forward (ssh -R equivalent)
 - [ ] SOCKS5 dynamic forward (ssh -D equivalent)
+
+### Cross-Protocol Path Upgrade (Phase 10 of Connectivity Value Chain)
+- [ ] Background transport upgrade (relay → direct, any driver → any driver)
+- [ ] Session ticket resumption (re-handshake on new transport, same session ID)
+- [ ] Atomic swap (make-before-break, overlap window, then close old path)
+- [ ] 0-RTT resumption for known peers
 
 ### Playbook Engine
 - [ ] Multi-agent orchestration (rolling/canary/parallel strategies)
@@ -443,3 +481,4 @@ rf exec test-agent "uname -a"
 | 2026-05-05 | CRDT state convergence (future) | Desired-state reconciliation without master. Works over intermittent links |
 | 2026-05-05 | Content-addressed payloads | Hash-identified commands/policies. Dedup, verify, cache naturally |
 | 2026-05-05 | Transport-aware policy | Sensitivity level determines acceptable transport channels |
+| 2026-05-05 | 13-phase connectivity value chain | Connection lifecycle is a formal pipeline (CONNECTIVITY.md). Each phase is independent and composable |
