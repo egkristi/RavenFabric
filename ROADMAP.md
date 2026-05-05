@@ -328,7 +328,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Metrics collector framework (plugin trait, scrape loop, push/pull modes)
 - [x] Built-in system metrics (CPU, memory, disk, network, load, filesystems, processes)
 - [x] Prometheus-compatible `/metrics` endpoint (pull mode)
-- [ ] Application metrics scraping (scrape localhost Prometheus endpoints)
+- [x] Application metrics scraping (scrape localhost Prometheus endpoints)
 - [x] Log tailing (glob patterns, journald, structured parsing: JSON/logfmt/regex/grok)
 - [x] OTLP exporter (metrics + logs + traces to any OTLP-compatible backend)
 - [x] Prometheus remote-write exporter
@@ -385,7 +385,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Custody transfer protocol (each hop acknowledges responsibility)
 - [x] Schedule-aware routing (contact windows, satellite passes)
 - [x] Opportunistic sync (exchange queued messages when agents meet)
-- [ ] NNCP-style physical media transport (USB, SD card, file-based delivery)
+- [x] NNCP-style physical media transport (USB, SD card, file-based delivery)
 - [x] TTL, priority, and idempotency for queued commands
 - [x] Multi-hop store-carry-forward (intermediate nodes relay when path opens)
 - [x] Content-addressed command payloads (deduplication across paths)
@@ -397,28 +397,28 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Air-gap support. Anonymity. Hostile network traversal. Peer discovery. Radio mesh.
 
 ### Censorship-Resistant Transports
-- [ ] HTTP/3 MASQUE driver (CONNECT-UDP/CONNECT-IP via HTTP/3, impossible to distinguish from browsing)
+- [x] HTTP/3 MASQUE driver (CONNECT-UDP/CONNECT-IP via HTTP/3, impossible to distinguish from browsing)
 - [x] Traffic obfuscation layer (make Noise XX indistinguishable from random bytes, obfs4-inspired)
-- [ ] Encrypted Client Hello (ECH) support for WebSocket TLS connections
-- [ ] Domain fronting transport (TLS SNI ≠ HTTP Host, CDN-routed)
-- [ ] DNS tunneling driver (encode frames in DNS queries, iodine/dnscat2-style)
-- [ ] ICMP tunneling driver (data in echo payloads, restricted environments)
-- [ ] Shadowsocks/Trojan-style protocol mimicry (look like standard HTTPS)
+- [x] Encrypted Client Hello (ECH) support for WebSocket TLS connections
+- [x] Domain fronting transport (TLS SNI ≠ HTTP Host, CDN-routed)
+- [x] DNS tunneling driver (encode frames in DNS queries, iodine/dnscat2-style)
+- [x] ICMP tunneling driver (data in echo payloads, restricted environments)
+- [x] Shadowsocks/Trojan-style protocol mimicry (look like standard HTTPS)
 
 ### Air-Gap and Proximity Transports
 - [ ] Reticulum Network Stack driver (multi-hop mesh, announce-based discovery, FEC)
-- [ ] Tor hidden service driver (.onion endpoints, garlic routing via I2P optional)
-- [ ] Serial port driver (RS-232/USB, true physical air-gap)
-- [ ] Bluetooth/BLE driver (proximity mesh, no infrastructure, Briar-inspired)
-- [ ] Wi-Fi Direct driver (ad-hoc local connections)
-- [ ] Audio modem driver (data over sound, extreme air-gap, chirp/quietnet-style)
-- [ ] QR-stream visual channel (animated QR codes for air-gap transfer)
+- [x] Tor hidden service driver (.onion endpoints, garlic routing via I2P optional)
+- [x] Serial port driver (RS-232/USB, true physical air-gap)
+- [x] Bluetooth/BLE driver (proximity mesh, no infrastructure, Briar-inspired)
+- [x] Wi-Fi Direct driver (ad-hoc local connections)
+- [x] Audio modem driver (data over sound, extreme air-gap, chirp/quietnet-style)
+- [x] QR-stream visual channel (animated QR codes for air-gap transfer)
 
 ### Radio Transports
-- [ ] LoRa/Meshtastic driver (sub-GHz, 250bps–11kbps, 10+ km range, mesh routing)
-- [ ] AX.25 packet radio driver (amateur radio, global coverage, no commercial infra)
+- [x] LoRa/Meshtastic driver (sub-GHz, 250bps–11kbps, 10+ km range, mesh routing)
+- [x] AX.25 packet radio driver (amateur radio, global coverage, no commercial infra)
 - [ ] HF radio / Winlink bridge (global reach via amateur radio e-mail gateways)
-- [ ] Satellite link driver (Iridium/Starlink with DTN buffering for high-latency)
+- [x] Satellite link driver (Iridium/Starlink with DTN buffering for high-latency)
 
 ### Overlay Networks
 - [ ] Yggdrasil driver (self-configuring IPv6 mesh, key-derived addresses, spanning tree)

@@ -3,6 +3,7 @@ pub mod connmgr;
 pub mod discovery;
 pub mod driver;
 pub mod error;
+pub mod exotic;
 pub mod eyeballs;
 pub mod fingerprint;
 pub mod gossip;
