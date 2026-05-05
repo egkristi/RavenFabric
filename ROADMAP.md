@@ -497,6 +497,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** RavenFabric installs natively on every platform through the user's preferred package manager. One command to install, one command to update.
 
+**Principle:** All packaging, signing, and publishing is handled entirely in the GitHub Actions CI/CD pipeline. No manual builds, no local packaging steps. A tagged release triggers automated builds for all platforms and pushes artifacts to the respective package repositories.
+
 ### Windows
 
 | Method | Package / Artifact | Status |
@@ -535,6 +537,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
+| Google Play Store | `io.ravenfabric.agent` | [ ] Planned — #50 |
 | APK (sideload) | `ravenfabric.apk` | [ ] Planned — #50 |
 | Termux (pkg) | `pkg install ravenfabric` | [ ] Planned — #50 |
 | F-Droid | `io.ravenfabric.agent` | [ ] Planned — #50 |
