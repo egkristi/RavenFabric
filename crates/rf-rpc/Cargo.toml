@@ -24,6 +24,11 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 yamux = { workspace = true }
 futures-util = "0.3"
+rusqlite = { version = "0.35", features = ["bundled"], optional = true }
+
+[features]
+default = []
+sqlite = ["dep:rusqlite"]
 
 [dev-dependencies]
 criterion = { workspace = true }

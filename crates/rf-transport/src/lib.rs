@@ -19,6 +19,7 @@ pub mod probe;
 pub mod proxy;
 #[cfg(feature = "quic")]
 pub mod quic;
+pub mod stun_client;
 #[cfg(feature = "websocket")]
 pub mod websocket;
 pub mod wireguard;

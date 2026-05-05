@@ -1,6 +1,7 @@
 pub mod codec;
 pub mod controller;
 pub mod dtn;
+pub mod dtn_persistent;
 pub mod error;
 pub mod forward;
 pub mod heartbeat;
