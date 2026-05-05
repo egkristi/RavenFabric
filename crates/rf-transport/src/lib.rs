@@ -22,4 +22,5 @@ pub mod quic;
 pub mod stun_client;
 #[cfg(feature = "websocket")]
 pub mod websocket;
+pub mod wg_tunnel;
 pub mod wireguard;

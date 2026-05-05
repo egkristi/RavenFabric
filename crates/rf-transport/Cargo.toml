@@ -15,6 +15,7 @@ keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol",
 default = ["websocket", "quic"]
 websocket = ["dep:tokio-tungstenite", "dep:futures-util"]
 quic = ["dep:quinn", "dep:rustls", "dep:rcgen"]
+wireguard = []
 
 [dependencies]
 rf-crypto = { path = "../rf-crypto" }
