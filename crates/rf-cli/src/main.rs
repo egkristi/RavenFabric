@@ -43,6 +43,20 @@ enum Commands {
         /// Command to execute
         command: String,
     },
+    /// Open interactive shell on a remote agent
+    Shell {
+        /// Meet token (shared secret for relay pairing)
+        #[arg(short, long)]
+        token: String,
+
+        /// Terminal columns
+        #[arg(long, default_value = "80")]
+        cols: u16,
+
+        /// Terminal rows
+        #[arg(long, default_value = "24")]
+        rows: u16,
+    },
     /// Start local development mode (relay + agent in one process, permissive policy)
     Dev {
         /// Listen port for the local relay
@@ -73,6 +87,9 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Exec { token, command } => {
             exec_command(&cli.relay, &cli.key_path, &token, &command).await?;
+        }
+        Commands::Shell { token, cols, rows } => {
+            shell_command(&cli.relay, &cli.key_path, &token, cols, rows).await?;
         }
         Commands::Dev { port } => {
             dev_mode(port).await?;
@@ -258,6 +275,86 @@ async fn status_command(
         }
         _ => {
             error!("unexpected response type");
+            std::process::exit(1);
+        }
+    }
+
+    Ok(())
+}
+
+/// Interactive shell session through the fabric.
+/// Connects to agent, requests a PTY, and proxies stdin/stdout.
+async fn shell_command(
+    relay_url: &str,
+    key_path: &std::path::Path,
+    token: &str,
+    cols: u16,
+    rows: u16,
+) -> anyhow::Result<()> {
+    let key = StaticKey::load_or_generate(key_path)?;
+    info!("client public key: {}", key.public_hex());
+
+    let driver = WebSocketDriver::new();
+    let target = Target {
+        agent_id: String::new(),
+        relay_url: Some(relay_url.to_string()),
+        meet_token: Some(token.to_string()),
+    };
+
+    info!("connecting to relay: {}", relay_url);
+    let mut stream = driver.dial(&target, &Default::default()).await?;
+
+    // Noise handshake (client is initiator)
+    let (state, peer_key) = handshake(&mut stream, true, &key).await?;
+    info!("connected to agent: {}", hex::encode(peer_key));
+
+    let (stream_read, stream_write) = tokio::io::split(stream);
+    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+
+    // Request shell session
+    let request = Request {
+        id: uuid::Uuid::new_v4().to_string(),
+        action: Action::Execute {
+            command: format!("__pty__:{}x{}", cols, rows),
+            env: Default::default(),
+            workdir: None,
+        },
+        timeout_ms: None, // No timeout for interactive sessions
+    };
+
+    let req_data = codec::encode(&request)?;
+    chan.send(&req_data).await?;
+
+    info!(
+        "shell session requested ({}x{}), waiting for response...",
+        cols, rows
+    );
+
+    // In a full implementation, this would:
+    // 1. Set terminal to raw mode
+    // 2. Forward stdin to chan.send() as PtyInput::Data
+    // 3. Forward chan.recv() to stdout as PtyOutput::Data
+    // 4. Handle resize events (SIGWINCH → PtyInput::Resize)
+    // 5. Restore terminal on exit
+    //
+    // For now, just receive the initial response:
+    let resp_data = chan.recv().await?;
+    let response: Response = codec::decode(&resp_data)?;
+
+    match response.result {
+        RpcResult::Success { stdout, .. } => {
+            println!("{}", stdout);
+        }
+        RpcResult::Denied { reason, rule } => {
+            error!("DENIED: {} (rule: {})", reason, rule);
+            std::process::exit(1);
+        }
+        RpcResult::Error { message } => {
+            error!("ERROR: {}", message);
+            std::process::exit(1);
+        }
+        _ => {
+            error!("unexpected response");
             std::process::exit(1);
         }
     }

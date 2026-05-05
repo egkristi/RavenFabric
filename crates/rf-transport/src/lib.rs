@@ -5,6 +5,7 @@ pub mod driver;
 pub mod error;
 pub mod eyeballs;
 pub mod fingerprint;
+pub mod gossip;
 pub mod latency;
 pub mod memory;
 pub mod mesh;

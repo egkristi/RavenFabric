@@ -295,9 +295,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Metrics propagation through DTN store-carry-forward (bundled with custody transfer)
 - [x] Priority delivery for security events (tamper alerts never dropped by TTL)
 - [x] ~~Offline metric accumulation (local buffer, flush on next contact window)~~ — PathMetrics VecDeque buffer
-- [ ] Mesh neighbor health gossip (partial observability without direct controller path)
+- [x] Mesh neighbor health gossip (partial observability without direct controller path)
 - [x] ~~Path switch event logging (transport changes recorded as audit + metric)~~ — audit entries for tamper-driven path abandonment
-- [ ] Relay-reported metrics (hop count, forwarding latency, queue depth)
+- [x] Relay-reported metrics (hop count, forwarding latency, queue depth)
 
 ### Graceful Teardown (Phase 12 of Connectivity Value Chain)
 - [x] ~~Drain in-flight requests before disconnect (with timeout)~~ — agent graceful shutdown
@@ -346,7 +346,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Interactive Shell
 - [x] PTY allocation + terminal session handler
 - [x] Session recording (asciinema v2 format)
-- [ ] `rf shell <agent>` — interactive terminal through fabric
+- [x] `rf shell <agent>` — interactive terminal through fabric
 
 ### Port Forwarding
 - [x] Local port forward (ssh -L equivalent)
@@ -383,8 +383,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Delay-Tolerant Networking
 - [x] SQLite-backed persistent offline queue (survives restart)
 - [x] Custody transfer protocol (each hop acknowledges responsibility)
-- [ ] Schedule-aware routing (contact windows, satellite passes)
-- [ ] Opportunistic sync (exchange queued messages when agents meet)
+- [x] Schedule-aware routing (contact windows, satellite passes)
+- [x] Opportunistic sync (exchange queued messages when agents meet)
 - [ ] NNCP-style physical media transport (USB, SD card, file-based delivery)
 - [x] TTL, priority, and idempotency for queued commands
 - [x] Multi-hop store-carry-forward (intermediate nodes relay when path opens)

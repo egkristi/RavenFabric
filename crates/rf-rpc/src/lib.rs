@@ -5,6 +5,7 @@ pub mod forward;
 pub mod heartbeat;
 pub mod metrics;
 pub mod mux;
+pub mod routing;
 pub mod socks5;
 pub mod types;
 pub mod yamux_mux;

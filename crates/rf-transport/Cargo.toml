@@ -20,6 +20,8 @@ rcgen = { workspace = true, optional = true }
 futures-util = { version = "0.3", optional = true }
 async-trait = { workspace = true }
 rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
