@@ -4,6 +4,7 @@ use regex::Regex;
 use serde::Deserialize;
 
 use crate::decision::Decision;
+use crate::error::PolicyError;
 
 /// RPCPolicy — commands, filesystem, resources.
 pub struct RpcPolicy {
@@ -59,13 +60,13 @@ struct ResourceSpec {
 
 impl RpcPolicy {
     /// Load policy from a YAML file.
-    pub fn load(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load(path: &Path) -> Result<Self, PolicyError> {
         let content = std::fs::read_to_string(path)?;
         Self::from_yaml(&content)
     }
 
     /// Parse policy from YAML string.
-    pub fn from_yaml(yaml: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_yaml(yaml: &str) -> Result<Self, PolicyError> {
         let config: PolicyConfig = serde_yaml::from_str(yaml)?;
         let spec = config.spec;
 
@@ -174,7 +175,7 @@ impl RpcPolicy {
 }
 
 /// Compile a regex pattern, ensuring it is anchored (^...$).
-fn compile_anchored(pattern: &str) -> Result<Regex, regex::Error> {
+fn compile_anchored(pattern: &str) -> Result<Regex, PolicyError> {
     let anchored = if pattern.starts_with('^') && pattern.ends_with('$') {
         pattern.to_string()
     } else if pattern.starts_with('^') {
@@ -184,7 +185,10 @@ fn compile_anchored(pattern: &str) -> Result<Regex, regex::Error> {
     } else {
         format!("^{}$", pattern)
     };
-    Regex::new(&anchored)
+    Regex::new(&anchored).map_err(|source| PolicyError::InvalidRegex {
+        pattern: pattern.to_string(),
+        source,
+    })
 }
 
 #[cfg(test)]

@@ -19,4 +19,7 @@ tracing-subscriber = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }
 hex = { workspace = true }
+serde = { workspace = true }
 serde_yaml = { workspace = true }
+toml = { workspace = true }
+rand = { workspace = true }

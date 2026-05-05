@@ -31,9 +31,10 @@ Cargo workspace with 10 crates:
 | `rf-bootstrap` | OTP enrollment flow, relay pairing | **Done** (122 LOC, 4 tests) |
 | `rf-relay` | Stateless encrypted relay broker (binary) | **Done** |
 | `rf-agent` | Agent binary (connects to relay, executes RPC) | **Done** |
-| `rf-cli` | CLI client `rf` (exec, dev, status) | **Done** (exec working) |
+| `rf-cli` | CLI client `rf` (exec, dev, status, completions) | **Done** |
+| `rf-integration-tests` | End-to-end integration tests | **Done** (2 tests) |
 
-**Total: ~2,500 LOC, 30 tests, 0 clippy warnings.**
+**Total: ~3,000 LOC, 35 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

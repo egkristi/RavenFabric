@@ -7,6 +7,7 @@ use crate::error::CryptoError;
 
 /// Long-lived Curve25519 identity key pair.
 /// The private key never leaves the system.
+#[derive(Clone)]
 pub struct StaticKey {
     pub public: [u8; 32],
     private: [u8; 32],

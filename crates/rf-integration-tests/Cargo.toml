@@ -1,28 +1,19 @@
 [package]
-name = "rf-cli"
-description = "RavenFabric — CLI client (rf)"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-
-[[bin]]
-name = "rf"
-path = "src/main.rs"
+name = "rf-integration-tests"
+version = "0.0.0"
+edition = "2024"
+publish = false
 
 [dependencies]
+rf-relay = { path = "../rf-relay" }
 rf-crypto = { path = "../rf-crypto" }
 rf-transport = { path = "../rf-transport" }
 rf-rpc = { path = "../rf-rpc" }
-rf-relay = { path = "../rf-relay" }
 rf-executor = { path = "../rf-executor" }
 rf-policy = { path = "../rf-policy" }
 rf-audit = { path = "../rf-audit" }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
-clap = { workspace = true, features = ["env"] }
-clap_complete = { workspace = true }
 anyhow = { workspace = true }
 hex = { workspace = true }
 uuid = { workspace = true }

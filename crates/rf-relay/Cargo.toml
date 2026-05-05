@@ -9,6 +9,7 @@ license.workspace = true
 rf-transport = { path = "../rf-transport" }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }
 futures-util = "0.3"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

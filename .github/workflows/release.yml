@@ -73,9 +73,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/rf-agent dist/${{ matrix.artifact }}-agent || true
-          cp target/${{ matrix.target }}/release/rf-relay dist/${{ matrix.artifact }}-relay || true
-          cp target/${{ matrix.target }}/release/rf dist/${{ matrix.artifact }}-cli || true
+          cp target/${{ matrix.target }}/release/rf-agent dist/${{ matrix.artifact }}-agent
+          cp target/${{ matrix.target }}/release/rf-relay dist/${{ matrix.artifact }}-relay
+          cp target/${{ matrix.target }}/release/rf dist/${{ matrix.artifact }}-cli
 
       - uses: actions/upload-artifact@v4
         with:

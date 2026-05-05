@@ -49,9 +49,18 @@ impl Driver for WebSocketDriver {
             .as_ref()
             .ok_or_else(|| TransportError::Connection("no relay_url in target".into()))?;
 
-        let (ws_stream, _) = connect_async(url)
+        let (mut ws_stream, _) = connect_async(url)
             .await
             .map_err(|e| TransportError::Connection(e.to_string()))?;
+
+        // Send meet token as the first WS message before bridging.
+        // This ensures it arrives as a separate frame (relay protocol requirement).
+        if let Some(token) = &target.meet_token {
+            ws_stream
+                .send(Message::Binary(token.as_bytes().to_vec()))
+                .await
+                .map_err(|e| TransportError::Connection(e.to_string()))?;
+        }
 
         let stream = bridge_ws(ws_stream);
         Ok(Box::new(stream))

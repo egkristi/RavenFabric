@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// A single audit log entry.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AuditEntry {
     pub timestamp: DateTime<Utc>,
     pub request_id: String,

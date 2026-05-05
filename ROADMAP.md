@@ -85,7 +85,7 @@ rf exec test-agent "uname -a"
 - [x] Dependabot for dependency updates
 - [x] Pre-commit hook (fmt + clippy + test)
 - [x] In-memory transport driver for testing (no network required)
-- [ ] Integration test harness: spawn relay + agent + client in-process
+- [x] Integration test harness: spawn relay + agent + client in-process
 
 ### Crypto Layer (Phase 1) — DONE
 - [x] `rf-crypto/src/noise.rs` — Noise XX handshake + wire protocol (RVNF magic + version)
@@ -114,14 +114,14 @@ rf exec test-agent "uname -a"
 ### Audit (Phase 4) — DONE (with known debt)
 - [x] `rf-audit/src/types.rs` — AuditEntry struct (timestamp, action, decision, duration, caller)
 - [x] `rf-audit/src/logger.rs` — AuditLogger trait + FileAuditLogger (JSON-lines append)
-- [ ] **Fix:** Return `Result` from `log()` instead of silently swallowing write errors
-- [ ] **Fix:** Add `Deserialize` derive to `AuditEntry` for log reading
-- [ ] Add unit tests for logger (write, rotation, error handling)
+- [x] **Fix:** Return `Result` from `log()` instead of silently swallowing write errors
+- [x] **Fix:** Add `Deserialize` derive to `AuditEntry` for log reading
+- [x] Add unit tests for logger (write, rotation, error handling)
 
 ### Policy Layer (Phase 5) — DONE
 - [x] `rf-policy/src/rpc_policy.rs` — RPCPolicy enforcement (allow/deny regex, path rules, symlink resolution)
 - [x] `rf-policy/src/decision.rs` — Decision type (allowed/denied + reason + rule)
-- [ ] **Fix:** Replace `Box<dyn Error>` in `load()`/`from_yaml()` with typed `PolicyError`
+- [x] **Fix:** Replace `Box<dyn Error>` in `load()`/`from_yaml()` with typed `PolicyError`
 - [ ] Hot-reload via SIGHUP (atomic policy swap)
 
 ### Executor (Phase 6) — DONE
@@ -146,28 +146,28 @@ rf exec test-agent "uname -a"
 - [x] `rf-agent/src/main.rs` — Full agent binary
 - [x] Connect to relay, perform Noise handshake, run RPC loop
 - [x] Policy-checked executor integration
-- [ ] Config loading (raven.toml)
-- [ ] Reconnect loop with exponential backoff + jitter
-- [ ] Graceful shutdown (drain in-flight, flush audit)
+- [x] Config loading (raven.toml)
+- [x] Reconnect loop with exponential backoff + jitter
+- [x] Graceful shutdown (drain in-flight, flush audit)
 
 ### CLI Binary (Phase 10) — DONE
 - [x] `rf-cli/src/main.rs` — clap CLI with exec/dev/status subcommands
 - [x] `rf exec` — connect, handshake, send Request, display Response
-- [ ] `rf dev` — local relay + agent in one process (no auth)
+- [x] `rf dev` — local relay + agent in one process (no auth)
 - [ ] `rf status` — show connected agents
-- [ ] Shell completions (bash, zsh, fish)
+- [x] Shell completions (bash, zsh, fish)
 
 ### Packaging
 - [x] Dockerfile (multi-stage alpine build → scratch runtime)
 - [x] Release workflow (5 platform targets)
 - [ ] Linux amd64 + arm64 static binaries (musl)
-- [ ] systemd service units (agent + relay)
+- [x] systemd service units (agent + relay)
 
 ### Workspace Cleanup (from audit)
 - [x] Remove unused workspace deps (`proptest`, `base64`, `crc32fast`)
 - [x] Move `yamux` dep from `rf-crypto` to `rf-rpc` (removed from crypto; yamux available for future use)
-- [ ] Align CI clippy settings with workspace lint config
-- [ ] Fix release workflow `|| true` on binary copy
+- [x] Align CI clippy settings with workspace lint config
+- [x] Fix release workflow `|| true` on binary copy
 
 ---
 

@@ -73,7 +73,7 @@ impl Executor {
         let duration_ms = start.elapsed().as_millis() as u64;
 
         if !decision.allowed {
-            self.audit.log(AuditEntry {
+            if let Err(e) = self.audit.log(AuditEntry {
                 timestamp: Utc::now(),
                 request_id: request_id.to_string(),
                 action: "execute".into(),
@@ -83,7 +83,9 @@ impl Executor {
                 exit_code: None,
                 duration_ms,
                 caller_key: self.caller_key.clone(),
-            });
+            }) {
+                tracing::error!("audit log write failed: {}", e);
+            }
 
             return RpcResult::Denied {
                 reason: decision.reason,
@@ -128,7 +130,7 @@ impl Executor {
         let exit_code = output.status.code().unwrap_or(-1);
         let duration_ms = start.elapsed().as_millis() as u64;
 
-        self.audit.log(AuditEntry {
+        if let Err(e) = self.audit.log(AuditEntry {
             timestamp: Utc::now(),
             request_id: request_id.to_string(),
             action: "execute".into(),
@@ -138,7 +140,9 @@ impl Executor {
             exit_code: Some(exit_code),
             duration_ms,
             caller_key: self.caller_key.clone(),
-        });
+        }) {
+            tracing::error!("audit log write failed: {}", e);
+        }
 
         RpcResult::Success {
             stdout,
@@ -192,8 +196,9 @@ mod tests {
     }
 
     impl AuditLogger for TestAuditLogger {
-        fn log(&self, entry: AuditEntry) {
+        fn log(&self, entry: AuditEntry) -> Result<(), rf_audit::logger::AuditError> {
             self.entries.lock().unwrap().push(entry);
+            Ok(())
         }
     }
 

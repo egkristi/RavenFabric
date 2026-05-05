@@ -11,6 +11,7 @@ members = [
     "crates/rf-relay",
     "crates/rf-agent",
     "crates/rf-cli",
+    "crates/rf-integration-tests",
 ]
 
 [workspace.package]
@@ -73,6 +74,7 @@ anyhow = "1"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
@@ -80,6 +82,8 @@ uuid = { version = "1", features = ["v4"] }
 hex = "0.4"
 hmac = "0.12"
 sha2 = "0.10"
+tokio-util = { version = "0.7", features = ["rt"] }
+toml = "0.8"
 
 # System info
 sysinfo = "0.32"

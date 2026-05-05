@@ -3,7 +3,7 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Pre-alpha** — Foundation layers implemented. Not yet functional end-to-end.
+**Status: Alpha** — v0.1 foundation complete. End-to-end execution working (`rf exec`).
 
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSES/AGPLv3.txt)

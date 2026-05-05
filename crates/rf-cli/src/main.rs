@@ -1,9 +1,12 @@
 //! RavenFabric CLI — `rf` command for remote execution and management.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use clap::{Parser, Subcommand};
-use tokio::io::AsyncWriteExt;
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
+use tokio::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 use rf_crypto::channel::SecureChannel;
@@ -40,15 +43,26 @@ enum Commands {
         /// Command to execute
         command: String,
     },
-    /// Start local development mode (agent + relay, no auth)
-    Dev,
+    /// Start local development mode (relay + agent in one process, permissive policy)
+    Dev {
+        /// Listen port for the local relay
+        #[arg(short, long, default_value = "9090")]
+        port: u16,
+    },
     /// Show status
     Status,
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        shell: Shell,
+    },
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt().with_env_filter("rf=info").init();
+    tracing_subscriber::fmt()
+        .with_env_filter("rf=info,rf_relay=info")
+        .init();
 
     let cli = Cli::parse();
 
@@ -56,12 +70,14 @@ async fn main() -> anyhow::Result<()> {
         Commands::Exec { token, command } => {
             exec_command(&cli.relay, &cli.key_path, &token, &command).await?;
         }
-        Commands::Dev => {
-            println!("rf dev — not yet implemented");
-            println!("Hint: run rf-relay and rf-agent separately for now.");
+        Commands::Dev { port } => {
+            dev_mode(port).await?;
         }
         Commands::Status => {
             println!("rf status — not yet implemented");
+        }
+        Commands::Completions { shell } => {
+            clap_complete::generate(shell, &mut Cli::command(), "rf", &mut std::io::stdout());
         }
     }
 
@@ -74,11 +90,9 @@ async fn exec_command(
     token: &str,
     command: &str,
 ) -> anyhow::Result<()> {
-    // Load or generate identity key
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    // Connect to relay
     let driver = WebSocketDriver::new();
     let target = Target {
         agent_id: String::new(),
@@ -88,10 +102,6 @@ async fn exec_command(
 
     info!("connecting to relay: {}", relay_url);
     let mut stream = driver.dial(&target, &Default::default()).await?;
-
-    // Send meet token for relay pairing
-    stream.write_all(token.as_bytes()).await?;
-    stream.flush().await?;
 
     // Noise handshake (client is initiator)
     info!("performing Noise XX handshake...");
@@ -145,6 +155,143 @@ async fn exec_command(
         RpcResult::Error { message } => {
             error!("ERROR: {}", message);
             std::process::exit(1);
+        }
+    }
+
+    Ok(())
+}
+
+/// Development mode: starts a relay and agent in a single process with permissive policy.
+async fn dev_mode(port: u16) -> anyhow::Result<()> {
+    let listen_addr = format!("127.0.0.1:{}", port);
+    let relay_url = format!("ws://127.0.0.1:{}", port);
+    let dev_token = "dev";
+
+    println!("RavenFabric Dev Mode");
+    println!("====================");
+    println!("Relay:  {}", listen_addr);
+    println!("Token:  {}", dev_token);
+    println!();
+    println!("Usage:");
+    println!("  rf exec --token {} \"<command>\"", dev_token);
+    println!();
+    println!("Press Ctrl+C to stop.");
+    println!();
+
+    let cancel = CancellationToken::new();
+
+    // Start relay
+    let relay_cancel = cancel.clone();
+    let relay_addr = listen_addr.clone();
+    let relay_handle = tokio::spawn(async move {
+        if let Err(e) = rf_relay::run_relay(&relay_addr, relay_cancel).await {
+            error!("relay error: {}", e);
+        }
+    });
+
+    // Give relay time to bind
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    // Start agent in-process
+    let agent_cancel = cancel.clone();
+    let agent_handle = tokio::spawn(async move {
+        run_dev_agent(&relay_url, dev_token, agent_cancel).await;
+    });
+
+    // Wait for Ctrl+C
+    tokio::signal::ctrl_c().await?;
+    println!("\nShutting down...");
+    cancel.cancel();
+
+    let _ = tokio::join!(relay_handle, agent_handle);
+    Ok(())
+}
+
+/// Run a dev-mode agent with a permissive policy (allow everything).
+async fn run_dev_agent(relay_url: &str, token: &str, cancel: CancellationToken) {
+    use rf_audit::logger::NullAuditLogger;
+    use rf_policy::rpc_policy::RpcPolicy;
+
+    // Permissive policy for dev mode
+    let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  resources:
+    maxOutputBytes: 104857600
+    timeoutSeconds: 300
+"#;
+    let policy = RpcPolicy::from_yaml(yaml).expect("dev policy must parse");
+    let policy = Arc::new(RwLock::new(policy));
+    let audit: Arc<dyn rf_audit::logger::AuditLogger> = Arc::new(NullAuditLogger);
+
+    // Generate ephemeral key for dev mode
+    let key = StaticKey::generate();
+
+    loop {
+        tokio::select! {
+            () = cancel.cancelled() => break,
+            result = connect_dev_agent(relay_url, token, &key, &policy, &audit) => {
+                match result {
+                    Ok(()) => info!("dev agent session ended"),
+                    Err(e) => error!("dev agent error: {}", e),
+                }
+                // Reconnect after brief pause
+                tokio::select! {
+                    () = cancel.cancelled() => break,
+                    () = tokio::time::sleep(tokio::time::Duration::from_secs(1)) => {}
+                }
+            }
+        }
+    }
+}
+
+async fn connect_dev_agent(
+    relay_url: &str,
+    token: &str,
+    key: &StaticKey,
+    policy: &Arc<RwLock<rf_policy::rpc_policy::RpcPolicy>>,
+    audit: &Arc<dyn rf_audit::logger::AuditLogger>,
+) -> anyhow::Result<()> {
+    let driver = WebSocketDriver::new();
+    let target = Target {
+        agent_id: "dev-agent".to_string(),
+        relay_url: Some(relay_url.to_string()),
+        meet_token: Some(token.to_string()),
+    };
+
+    let mut stream = driver.dial(&target, &Default::default()).await?;
+
+    let (state, peer_key) = handshake(&mut stream, false, key).await?;
+    info!("dev agent connected, peer: {}", hex::encode(peer_key));
+
+    let (stream_read, stream_write) = tokio::io::split(stream);
+    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+
+    let executor =
+        rf_executor::command::Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key));
+
+    loop {
+        let data = match chan.recv().await {
+            Ok(d) => d,
+            Err(_) => break,
+        };
+
+        let request: Request = match codec::decode(&data) {
+            Ok(r) => r,
+            Err(e) => {
+                error!("decode error: {}", e);
+                continue;
+            }
+        };
+
+        info!("request: {} action={:?}", request.id, request.action);
+        let response: Response = executor.handle(request).await;
+
+        let resp_data = codec::encode(&response)?;
+        if chan.send(&resp_data).await.is_err() {
+            break;
         }
     }
 
