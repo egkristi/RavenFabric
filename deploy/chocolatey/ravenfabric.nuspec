@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>ravenfabric</id>
+    <version>0.1.0</version>
+    <title>RavenFabric</title>
+    <authors>Erling Kristiansen</authors>
+    <owners>egkristi</owners>
+    <projectUrl>https://ravenfabric.io</projectUrl>
+    <projectSourceUrl>https://github.com/egkristi/RavenFabric</projectSourceUrl>
+    <docsUrl>https://ravenfabric.io/docs/</docsUrl>
+    <bugTrackerUrl>https://github.com/egkristi/RavenFabric/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/egkristi/RavenFabric/blob/main/LICENSES/AGPLv3.txt</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <iconUrl>https://ravenfabric.io/assets/favicon.svg</iconUrl>
+    <description>Secure remote execution and mesh networking agent. Zero-trust, E2E encrypted (Noise XX), policy-driven. Replaces Tailscale + Ansible + Telegraf in a single binary.</description>
+    <summary>Secure remote execution and mesh networking agent</summary>
+    <releaseNotes>https://github.com/egkristi/RavenFabric/blob/main/CHANGELOG.md</releaseNotes>
+    <tags>security remote-execution mesh-networking zero-trust noise-protocol vpn</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

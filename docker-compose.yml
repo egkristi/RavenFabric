@@ -1,0 +1,51 @@
+# RavenFabric Demo — Docker Compose
+#
+# Starts a relay + agent + CLI environment for trying out RavenFabric locally.
+#
+# Usage:
+#   docker compose up -d
+#   docker compose exec cli rf exec demo-agent "uname -a"
+#   docker compose down
+
+services:
+  relay:
+    image: ghcr.io/egkristi/ravenfabric-relay:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: relay
+    ports:
+      - "9090:9090"
+    command: ["--listen", "0.0.0.0:9090", "--dev"]
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+  agent:
+    image: ghcr.io/egkristi/ravenfabric-agent:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: agent
+    depends_on:
+      - relay
+    command: ["--relay", "ws://relay:9090", "--id", "demo-agent", "--dev"]
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+  cli:
+    image: ghcr.io/egkristi/ravenfabric-agent:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: agent
+    depends_on:
+      - relay
+      - agent
+    entrypoint: ["/bin/sh", "-c", "echo 'RavenFabric CLI ready. Use: docker compose exec cli rf exec demo-agent <command>' && sleep infinity"]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true

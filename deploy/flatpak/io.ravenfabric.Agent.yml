@@ -1,0 +1,31 @@
+app-id: io.ravenfabric.Agent
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: rf-agent
+
+finish-args:
+  - --share=network
+  - --filesystem=home:ro
+  - --filesystem=/etc/ravenfabric:ro
+  - --filesystem=/var/log/ravenfabric:create
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/ravenfabric/cargo
+
+modules:
+  - name: ravenfabric
+    buildsystem: simple
+    build-commands:
+      - cargo build --release -p rf-agent -p rf-relay -p rf-cli
+      - install -Dm755 target/release/rf-agent /app/bin/rf-agent
+      - install -Dm755 target/release/rf-relay /app/bin/rf-relay
+      - install -Dm755 target/release/rf /app/bin/rf
+    sources:
+      - type: git
+        url: https://github.com/egkristi/RavenFabric.git
+        branch: main

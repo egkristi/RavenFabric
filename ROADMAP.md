@@ -523,12 +523,12 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| winget | `RavenFabric.RavenFabric` | [ ] Planned — #48 |
-| Chocolatey | `ravenfabric` | [ ] Planned — #48 |
-| Scoop | `extras/ravenfabric` | [ ] Planned — #48 |
-| MSI installer | `ravenfabric-x64.msi` | [ ] Planned — #48 |
-| EXE installer | `ravenfabric-x64-setup.exe` | [ ] Planned — #48 |
-| Portable ZIP | `ravenfabric-windows-x64.zip` | [ ] Planned — #48 |
+| winget | `RavenFabric.RavenFabric` | [x] Manifest ready (`deploy/winget/`) — needs submission #48 |
+| Chocolatey | `ravenfabric` | [x] Nuspec ready (`deploy/chocolatey/`) — needs submission #48 |
+| Scoop | `extras/ravenfabric` | [x] Manifest ready (`deploy/scoop/`) — needs submission #48 |
+| MSI installer | `ravenfabric-x64.msi` | [ ] Planned — needs WiX toolset #48 |
+| EXE installer | `ravenfabric-x64-setup.exe` | [ ] Planned — needs NSIS/Inno #48 |
+| Portable ZIP | `ravenfabric-windows-x64.zip` | [x] CI builds on release |
 
 ### macOS
 
@@ -548,9 +548,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 | zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [ ] Planned — #54 |
 | apk (Alpine) | `ravenfabric` (aports) | [ ] Planned — #54 |
 | snap | `snap install ravenfabric` | [x] snapcraft.yaml ready — #47 |
-| Flatpak | `io.ravenfabric.Agent` | [ ] Planned — #52 |
+| Flatpak | `io.ravenfabric.Agent` | [x] Manifest ready (`deploy/flatpak/`) — needs Flathub submission #52 |
 | Nix | `nix profile install ravenfabric` | [x] flake.nix ready |
-| AppImage | `RavenFabric-x86_64.AppImage` | [ ] Planned — #52 |
+| AppImage | `RavenFabric-x86_64.AppImage` | [x] Build script ready (`deploy/appimage/`) — #52 |
 | Static binary | `ravenfabric-linux-{amd64,arm64,armv7}-musl` | [x] Done — release workflow |
 
 ### Android
@@ -572,7 +572,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| Cargo | `cargo install ravenfabric` | [ ] Planned — #44 |
+| Cargo | `cargo install ravenfabric` | [x] Metadata ready — needs `cargo publish` #44 |
 | Container (Docker/OCI) | `ghcr.io/egkristi/ravenfabric` | [x] Dockerfile + CI workflow ready |
 | Helm chart | `helm install ravenfabric` | [x] Chart ready (`deploy/helm/`) |
 | curl \| sh | `curl -fsSL https://get.ravenfabric.io \| sh` | [x] Script ready (`deploy/install.sh`) |

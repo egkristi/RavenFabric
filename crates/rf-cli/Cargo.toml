@@ -4,6 +4,12 @@ description = "RavenFabric — CLI client (rf)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+categories = ["command-line-utilities", "network-programming"]
+keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
 
 [[bin]]
 name = "rf"

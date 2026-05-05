@@ -1140,6 +1140,17 @@ sudo dpkg -i ravenfabric-*.deb
 # Fedora/RHEL (.rpm from GitHub Releases)
 sudo rpm -i ravenfabric-*.rpm
 
+# Windows (Scoop)
+scoop bucket add ravenfabric https://github.com/egkristi/scoop-ravenfabric
+scoop install ravenfabric
+
+# Windows (Chocolatey)
+choco install ravenfabric
+
+# Docker Compose (demo)
+docker compose up -d
+docker compose exec cli rf exec demo-agent "uname -a"
+
 # From source
 cargo install --git https://github.com/egkristi/RavenFabric.git rf-cli
 ```

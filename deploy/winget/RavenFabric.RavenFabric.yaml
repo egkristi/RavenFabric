@@ -1,0 +1,44 @@
+# Created using wingetcreate
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+
+PackageIdentifier: RavenFabric.RavenFabric
+PackageVersion: 0.1.0
+PackageName: RavenFabric
+Publisher: Erling Kristiansen
+PublisherUrl: https://ravenfabric.io
+PublisherSupportUrl: https://github.com/egkristi/RavenFabric/issues
+Author: Erling Kristiansen
+PackageUrl: https://github.com/egkristi/RavenFabric
+License: AGPL-3.0-or-later
+LicenseUrl: https://github.com/egkristi/RavenFabric/blob/main/LICENSES/AGPLv3.txt
+ShortDescription: Secure remote execution and mesh networking agent
+Description: >-
+  RavenFabric is a universal agent that provides secure, policy-controlled
+  access to any system — regardless of network topology, operating system,
+  or device class. It unifies mesh VPN, remote execution, configuration
+  management, and zero-trust access into a single binary with no runtime
+  dependencies. Uses Noise XX (same cryptographic core as WireGuard) for
+  E2E encryption.
+Tags:
+  - security
+  - remote-execution
+  - mesh-networking
+  - zero-trust
+  - noise-protocol
+  - vpn
+  - rust
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/egkristi/RavenFabric/releases/download/v0.1.0/ravenfabric-windows-x64.zip
+    InstallerSha256: ""
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: rf.exe
+        PortableCommandAlias: rf
+      - RelativeFilePath: rf-agent.exe
+        PortableCommandAlias: rf-agent
+      - RelativeFilePath: rf-relay.exe
+        PortableCommandAlias: rf-relay
+ManifestType: singleton
+ManifestVersion: 1.6.0

@@ -4,13 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-    paths:
-      - 'crates/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'Dockerfile'
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
