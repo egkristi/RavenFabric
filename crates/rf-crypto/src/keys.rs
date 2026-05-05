@@ -2,7 +2,6 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-
 use crate::error::CryptoError;
 
 /// Long-lived Curve25519 identity key pair.
@@ -94,7 +93,6 @@ impl Drop for StaticKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn test_generate_key() {

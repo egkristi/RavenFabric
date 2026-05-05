@@ -31,8 +31,8 @@ pub async fn handshake<T>(
 where
     T: AsyncRead + AsyncWrite + Unpin,
 {
-    let builder = Builder::new(NOISE_PATTERN.parse().unwrap())
-        .local_private_key(static_key.private_bytes());
+    let builder =
+        Builder::new(NOISE_PATTERN.parse().unwrap()).local_private_key(static_key.private_bytes());
 
     let mut noise = if is_initiator {
         builder.build_initiator()

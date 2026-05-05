@@ -116,7 +116,9 @@ impl RpcPolicy {
             denied_commands,
             allowed_paths,
             denied_paths,
-            max_output_bytes: resources.and_then(|r| r.max_output_bytes).unwrap_or(10_485_760),
+            max_output_bytes: resources
+                .and_then(|r| r.max_output_bytes)
+                .unwrap_or(10_485_760),
             timeout_seconds: resources.and_then(|r| r.timeout_seconds).unwrap_or(300),
         })
     }

@@ -17,10 +17,7 @@ pub struct FileAuditLogger {
 
 impl FileAuditLogger {
     pub fn new(path: PathBuf) -> std::io::Result<Self> {
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
+        let file = OpenOptions::new().create(true).append(true).open(path)?;
         Ok(Self {
             file: Mutex::new(file),
         })

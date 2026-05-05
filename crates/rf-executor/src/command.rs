@@ -6,7 +6,7 @@ use std::time::Instant;
 use chrono::Utc;
 use tokio::process::Command;
 use tokio::sync::RwLock;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 use rf_audit::logger::AuditLogger;
 use rf_audit::types::AuditEntry;

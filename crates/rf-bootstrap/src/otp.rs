@@ -14,6 +14,7 @@ pub struct OtpStore {
 }
 
 struct OtpEntry {
+    #[allow(dead_code)]
     agent_id: Option<String>,
     created_at: Instant,
     used: bool,
