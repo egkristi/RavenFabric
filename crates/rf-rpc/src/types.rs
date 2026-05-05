@@ -58,6 +58,48 @@ pub enum Action {
     /// Lightweight heartbeat ping — agent responds with Pong immediately.
     /// Used for liveness detection. No policy check required.
     Ping,
+    /// Open an interactive shell session via PTY on the agent.
+    Shell {
+        shell: Option<String>,
+        rows: u16,
+        cols: u16,
+        env: HashMap<String, String>,
+    },
+    /// Send data (input) to an active shell session.
+    ShellInput {
+        session_id: String,
+        data: Vec<u8>,
+    },
+    /// Resize an active shell session.
+    ShellResize {
+        session_id: String,
+        rows: u16,
+        cols: u16,
+    },
+    /// Close an active shell session.
+    ShellClose {
+        session_id: String,
+    },
+    /// Start a local-to-remote port forward on the agent.
+    PortForward {
+        bind_addr: String,
+        target_addr: String,
+    },
+    /// Stop a port forward by ID.
+    PortForwardClose {
+        forward_id: String,
+    },
+    /// Run a health check probe.
+    HealthCheck {
+        probe_type: String,
+        target: String,
+        timeout_ms: u64,
+    },
+    /// Tail a log file on the agent.
+    TailLog {
+        path: String,
+        lines: Option<u32>,
+    },
 }
 
 /// Identifies which output stream a chunk belongs to.
@@ -122,6 +164,40 @@ pub enum RpcResult {
     /// Response to a Ping action — heartbeat acknowledgment.
     Pong {
         timestamp_ms: u64,
+    },
+    /// Shell session opened successfully.
+    ShellOpened {
+        session_id: String,
+    },
+    /// Output data from a shell session.
+    ShellOutput {
+        session_id: String,
+        data: Vec<u8>,
+    },
+    /// Shell session has exited.
+    ShellExited {
+        session_id: String,
+        exit_code: i32,
+    },
+    /// Port forward started successfully.
+    ForwardStarted {
+        forward_id: String,
+        bind_addr: String,
+    },
+    /// Port forward stopped.
+    ForwardStopped {
+        forward_id: String,
+    },
+    /// Health check result.
+    HealthCheckResult {
+        success: bool,
+        latency_ms: u64,
+        error: Option<String>,
+    },
+    /// Log tail output.
+    TailOutput {
+        lines: Vec<String>,
+        path: String,
     },
 }
 
@@ -267,6 +343,40 @@ mod tests {
                 job_id: "job-456".into(),
             },
             Action::Ping,
+            Action::Shell {
+                shell: Some("/bin/bash".into()),
+                rows: 24,
+                cols: 80,
+                env: HashMap::new(),
+            },
+            Action::ShellInput {
+                session_id: "sess-1".into(),
+                data: b"ls\n".to_vec(),
+            },
+            Action::ShellResize {
+                session_id: "sess-1".into(),
+                rows: 50,
+                cols: 120,
+            },
+            Action::ShellClose {
+                session_id: "sess-1".into(),
+            },
+            Action::PortForward {
+                bind_addr: "127.0.0.1:8080".into(),
+                target_addr: "db:5432".into(),
+            },
+            Action::PortForwardClose {
+                forward_id: "fwd-1".into(),
+            },
+            Action::HealthCheck {
+                probe_type: "tcp".into(),
+                target: "127.0.0.1:80".into(),
+                timeout_ms: 5000,
+            },
+            Action::TailLog {
+                path: "/var/log/app.log".into(),
+                lines: Some(100),
+            },
         ];
         for action in actions {
             let req = Request {

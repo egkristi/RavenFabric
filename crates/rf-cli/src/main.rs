@@ -214,6 +214,49 @@ async fn exec_command(
         RpcResult::Pong { timestamp_ms } => {
             println!("pong (timestamp: {}ms)", timestamp_ms);
         }
+        RpcResult::ShellOpened { session_id } => {
+            println!("shell session opened: {}", session_id);
+        }
+        RpcResult::ShellOutput { data, .. } => {
+            let output = String::from_utf8_lossy(&data);
+            print!("{}", output);
+        }
+        RpcResult::ShellExited {
+            session_id,
+            exit_code,
+        } => {
+            println!("shell session {} exited (code {})", session_id, exit_code);
+        }
+        RpcResult::ForwardStarted {
+            forward_id,
+            bind_addr,
+        } => {
+            println!("port forward started: {} on {}", forward_id, bind_addr);
+        }
+        RpcResult::ForwardStopped { forward_id } => {
+            println!("port forward stopped: {}", forward_id);
+        }
+        RpcResult::HealthCheckResult {
+            success,
+            latency_ms,
+            error,
+        } => {
+            if success {
+                println!("health check OK ({}ms)", latency_ms);
+            } else {
+                println!(
+                    "health check FAILED ({}ms): {}",
+                    latency_ms,
+                    error.unwrap_or_default()
+                );
+            }
+        }
+        RpcResult::TailOutput { lines, path } => {
+            println!("--- {} ---", path);
+            for line in lines {
+                println!("{}", line);
+            }
+        }
     }
 
     Ok(())

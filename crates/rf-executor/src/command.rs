@@ -33,6 +33,14 @@ enum JobState {
     Completed(CompletedJob),
 }
 
+/// State of an active port forward.
+struct ActiveForward {
+    _handle: tokio::task::JoinHandle<()>,
+    cancel: tokio::sync::watch::Sender<bool>,
+    #[allow(dead_code)] // Kept for diagnostics/listing
+    bind_addr: String,
+}
+
 /// Executor handles RPC requests under policy control.
 pub struct Executor {
     policy: Arc<RwLock<RpcPolicy>>,
@@ -42,6 +50,11 @@ pub struct Executor {
     start_time: Instant,
     /// Background jobs tracked by job ID.
     jobs: Arc<tokio::sync::Mutex<HashMap<String, JobState>>>,
+    /// Active shell sessions (PTY).
+    #[cfg(unix)]
+    shells: Arc<tokio::sync::Mutex<HashMap<String, crate::pty::PtySession>>>,
+    /// Active port forwards.
+    forwards: Arc<tokio::sync::Mutex<HashMap<String, ActiveForward>>>,
     /// Cached sysinfo System to avoid re-scanning on every metrics request.
     #[cfg(feature = "sysinfo")]
     sysinfo_cache: Arc<Mutex<sysinfo::System>>,
@@ -60,6 +73,9 @@ impl Executor {
             agent_id: String::new(),
             start_time: Instant::now(),
             jobs: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            #[cfg(unix)]
+            shells: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            forwards: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             #[cfg(feature = "sysinfo")]
             sysinfo_cache: Arc::new(Mutex::new(sysinfo::System::new_all())),
         }
@@ -114,6 +130,60 @@ impl Executor {
                     .unwrap_or_default()
                     .as_millis() as u64,
             },
+            #[cfg(unix)]
+            Action::Shell {
+                shell,
+                rows,
+                cols,
+                env,
+            } => {
+                self.handle_shell_open(shell.clone(), *rows, *cols, env.clone())
+                    .await
+            }
+            #[cfg(not(unix))]
+            Action::Shell { .. } => RpcResult::Error {
+                message: "shell sessions not supported on this platform".into(),
+            },
+            #[cfg(unix)]
+            Action::ShellInput { session_id, data } => {
+                self.handle_shell_input(session_id, data).await
+            }
+            #[cfg(not(unix))]
+            Action::ShellInput { .. } => RpcResult::Error {
+                message: "shell sessions not supported on this platform".into(),
+            },
+            #[cfg(unix)]
+            Action::ShellResize {
+                session_id,
+                rows,
+                cols,
+            } => self.handle_shell_resize(session_id, *rows, *cols).await,
+            #[cfg(not(unix))]
+            Action::ShellResize { .. } => RpcResult::Error {
+                message: "shell sessions not supported on this platform".into(),
+            },
+            #[cfg(unix)]
+            Action::ShellClose { session_id } => self.handle_shell_close(session_id).await,
+            #[cfg(not(unix))]
+            Action::ShellClose { .. } => RpcResult::Error {
+                message: "shell sessions not supported on this platform".into(),
+            },
+            Action::PortForward {
+                bind_addr,
+                target_addr,
+            } => self.handle_port_forward(bind_addr, target_addr).await,
+            Action::PortForwardClose { forward_id } => {
+                self.handle_port_forward_close(forward_id).await
+            }
+            Action::HealthCheck {
+                probe_type,
+                target,
+                timeout_ms,
+            } => {
+                self.handle_health_check(probe_type, target, *timeout_ms)
+                    .await
+            }
+            Action::TailLog { path, lines } => self.handle_tail_log(path, *lines).await,
             _ => RpcResult::Error {
                 message: "action not yet implemented".into(),
             },
@@ -571,6 +641,252 @@ impl Executor {
                 };
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+
+    // --- Shell session handlers ---
+
+    #[cfg(unix)]
+    async fn handle_shell_open(
+        &self,
+        shell: Option<String>,
+        rows: u16,
+        cols: u16,
+        env: HashMap<String, String>,
+    ) -> RpcResult {
+        use crate::pty::{PtyConfig, PtySession, TerminalSize};
+
+        let config = PtyConfig {
+            shell,
+            size: TerminalSize { rows, cols },
+            cwd: None,
+            env: env.into_iter().collect(),
+            timeout_secs: 3600,
+            record: false,
+        };
+
+        match PtySession::spawn(config) {
+            Ok(session) => {
+                let session_id = uuid::Uuid::new_v4().to_string();
+                let mut shells = self.shells.lock().await;
+                shells.insert(session_id.clone(), session);
+                RpcResult::ShellOpened { session_id }
+            }
+            Err(e) => RpcResult::Error {
+                message: format!("PTY spawn failed: {e}"),
+            },
+        }
+    }
+
+    #[cfg(unix)]
+    async fn handle_shell_input(&self, session_id: &str, data: &[u8]) -> RpcResult {
+        let mut shells = self.shells.lock().await;
+        match shells.get_mut(session_id) {
+            Some(session) => match session.write(data) {
+                Ok(_) => {
+                    // Read back any available output
+                    let mut buf = vec![0u8; 8192];
+                    // Small delay to let the shell process the input
+                    drop(shells);
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                    let mut shells = self.shells.lock().await;
+                    if let Some(session) = shells.get_mut(session_id) {
+                        match session.read(&mut buf) {
+                            Ok(0) => RpcResult::ShellOutput {
+                                session_id: session_id.to_string(),
+                                data: Vec::new(),
+                            },
+                            Ok(n) => RpcResult::ShellOutput {
+                                session_id: session_id.to_string(),
+                                data: buf[..n].to_vec(),
+                            },
+                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                                RpcResult::ShellOutput {
+                                    session_id: session_id.to_string(),
+                                    data: Vec::new(),
+                                }
+                            }
+                            Err(e) => RpcResult::Error {
+                                message: format!("PTY read error: {e}"),
+                            },
+                        }
+                    } else {
+                        RpcResult::Error {
+                            message: "session disappeared".into(),
+                        }
+                    }
+                }
+                Err(e) => RpcResult::Error {
+                    message: format!("PTY write error: {e}"),
+                },
+            },
+            None => RpcResult::Error {
+                message: format!("shell session not found: {session_id}"),
+            },
+        }
+    }
+
+    #[cfg(unix)]
+    async fn handle_shell_resize(&self, session_id: &str, rows: u16, cols: u16) -> RpcResult {
+        use crate::pty::TerminalSize;
+        let shells = self.shells.lock().await;
+        match shells.get(session_id) {
+            Some(session) => {
+                session.resize(TerminalSize { rows, cols });
+                RpcResult::Success {
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    exit_code: 0,
+                    duration_ms: 0,
+                }
+            }
+            None => RpcResult::Error {
+                message: format!("shell session not found: {session_id}"),
+            },
+        }
+    }
+
+    #[cfg(unix)]
+    async fn handle_shell_close(&self, session_id: &str) -> RpcResult {
+        use crate::pty::PtySignal;
+        let mut shells = self.shells.lock().await;
+        match shells.remove(session_id) {
+            Some(session) => {
+                let _ = session.signal(PtySignal::Sighup);
+                RpcResult::ShellExited {
+                    session_id: session_id.to_string(),
+                    exit_code: 0,
+                }
+            }
+            None => RpcResult::Error {
+                message: format!("shell session not found: {session_id}"),
+            },
+        }
+    }
+
+    // --- Port forward handlers ---
+
+    async fn handle_port_forward(&self, bind_addr: &str, target_addr: &str) -> RpcResult {
+        use rf_rpc::forward::start_local_forward;
+
+        let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
+        match start_local_forward(bind_addr, target_addr.to_string(), cancel_rx).await {
+            Ok(handle) => {
+                let forward_id = uuid::Uuid::new_v4().to_string();
+                let bound = bind_addr.to_string();
+                let mut forwards = self.forwards.lock().await;
+                forwards.insert(
+                    forward_id.clone(),
+                    ActiveForward {
+                        _handle: handle,
+                        cancel: cancel_tx,
+                        bind_addr: bound.clone(),
+                    },
+                );
+                RpcResult::ForwardStarted {
+                    forward_id,
+                    bind_addr: bound,
+                }
+            }
+            Err(e) => RpcResult::Error {
+                message: format!("port forward bind failed: {e}"),
+            },
+        }
+    }
+
+    async fn handle_port_forward_close(&self, forward_id: &str) -> RpcResult {
+        let mut forwards = self.forwards.lock().await;
+        match forwards.remove(forward_id) {
+            Some(fwd) => {
+                let _ = fwd.cancel.send(true);
+                RpcResult::ForwardStopped {
+                    forward_id: forward_id.to_string(),
+                }
+            }
+            None => RpcResult::Error {
+                message: format!("forward not found: {forward_id}"),
+            },
+        }
+    }
+
+    // --- Health check handler ---
+
+    async fn handle_health_check(
+        &self,
+        probe_type: &str,
+        target: &str,
+        timeout_ms: u64,
+    ) -> RpcResult {
+        use crate::health::{ProbeType, execute_probe};
+
+        let probe = match probe_type {
+            "tcp" => {
+                // Parse target as host:port
+                let parts: Vec<&str> = target.rsplitn(2, ':').collect();
+                if parts.len() != 2 {
+                    return RpcResult::Error {
+                        message: "invalid target format, expected host:port".into(),
+                    };
+                }
+                let port: u16 = match parts[0].parse() {
+                    Ok(p) => p,
+                    Err(_) => {
+                        return RpcResult::Error {
+                            message: "invalid port".into(),
+                        };
+                    }
+                };
+                ProbeType::Tcp {
+                    host: parts[1].to_string(),
+                    port,
+                }
+            }
+            "http" => ProbeType::Http {
+                url: target.to_string(),
+                expected_status: 200,
+            },
+            "command" => ProbeType::Command {
+                cmd: target.to_string(),
+            },
+            "process" => ProbeType::Process {
+                name: target.to_string(),
+            },
+            _ => {
+                return RpcResult::Error {
+                    message: format!("unknown probe type: {probe_type}"),
+                };
+            }
+        };
+
+        let timeout_dur = Duration::from_millis(timeout_ms);
+        let result = execute_probe(&probe, timeout_dur).await;
+
+        RpcResult::HealthCheckResult {
+            success: result.success,
+            latency_ms: result.latency_ms,
+            error: result.error,
+        }
+    }
+
+    // --- Log tail handler ---
+
+    async fn handle_tail_log(&self, path: &str, lines: Option<u32>) -> RpcResult {
+        // Read the last N lines from a file
+        let max_lines = lines.unwrap_or(50) as usize;
+
+        match tokio::fs::read_to_string(path).await {
+            Ok(content) => {
+                let all_lines: Vec<&str> = content.lines().collect();
+                let start = all_lines.len().saturating_sub(max_lines);
+                let tail: Vec<String> = all_lines[start..].iter().map(|s| s.to_string()).collect();
+                RpcResult::TailOutput {
+                    lines: tail,
+                    path: path.to_string(),
+                }
+            }
+            Err(e) => RpcResult::Error {
+                message: format!("failed to read {path}: {e}"),
+            },
         }
     }
 }
