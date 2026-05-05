@@ -283,6 +283,36 @@ async fn run_session(
                         }
                         d
                     }
+                    Err(rf_crypto::error::CryptoError::TamperDetected) => {
+                        error!("TAMPER DETECTED: MAC verification failed — possible MITM attack");
+                        let _ = audit.log(rf_audit::types::AuditEntry {
+                            timestamp: chrono::Utc::now(),
+                            request_id: "SECURITY".into(),
+                            action: "tamper_detected".into(),
+                            command: None,
+                            decision: "abandon_path".into(),
+                            matched_rule: "MAC verification failure".into(),
+                            exit_code: None,
+                            duration_ms: 0,
+                            caller_key: String::new(),
+                        });
+                        return Err(anyhow::anyhow!("tamper detected: MAC verification failed"));
+                    }
+                    Err(rf_crypto::error::CryptoError::FrameInjection) => {
+                        error!("FRAME INJECTION: unexpected bytes in protocol framing");
+                        let _ = audit.log(rf_audit::types::AuditEntry {
+                            timestamp: chrono::Utc::now(),
+                            request_id: "SECURITY".into(),
+                            action: "frame_injection".into(),
+                            command: None,
+                            decision: "abandon_path".into(),
+                            matched_rule: "invalid frame size".into(),
+                            exit_code: None,
+                            duration_ms: 0,
+                            caller_key: String::new(),
+                        });
+                        return Err(anyhow::anyhow!("frame injection detected"));
+                    }
                     Err(e) => return Err(anyhow::anyhow!("channel recv: {}", e)),
                 }
             }

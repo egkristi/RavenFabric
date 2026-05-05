@@ -987,7 +987,7 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel (+ close-notify), StaticKey management | Done (490 LOC, 8 tests) |
 | `rf-transport` | Driver trait, AsyncStream abstraction, WebSocket + QUIC + Memory backends | Done (~500 LOC, 4 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux multiplexing | Done (~530 LOC, 16 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux multiplexing, heartbeat | Done (~700 LOC, 21 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
 | `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) | Done (281 LOC, 4 tests) |
 | `rf-executor` | Command execution, file ops, background jobs, streaming, policy control | Done (~1000 LOC, 18 tests) |

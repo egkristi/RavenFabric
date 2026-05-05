@@ -275,20 +275,20 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Health Monitoring & Failover (Phase 11 of Connectivity Value Chain)
 - [x] ~~Heartbeat-based liveness detection (miss 3 = failed)~~ — Ping/Pong RPC action
-- [ ] RTT baseline tracking (> 2x baseline = degraded)
+- [x] ~~RTT baseline tracking (> 2x baseline = degraded)~~ — RttTracker with EWMA + anomaly detection
 - [ ] Automatic failover (promote secondary path or start race + relay bridge)
 - [ ] OS network change events (route table, default gateway) → re-probe all drivers
 - [ ] Sticky/adaptive/hybrid path selection modes
 
 ### Tamper Detection & Adaptive Transport
-- [ ] MAC failure detection (Noise ciphertext tampered) → immediate path abandon
-- [ ] Frame injection detection (unexpected bytes outside protocol framing)
-- [ ] Latency anomaly detection (sudden spikes consistent with MITM)
+- [x] ~~MAC failure detection (Noise ciphertext tampered) → immediate path abandon~~ — TamperDetected error + audit event
+- [x] ~~Frame injection detection (unexpected bytes outside protocol framing)~~ — FrameInjection error for <16 byte frames
+- [x] ~~Latency anomaly detection (sudden spikes consistent with MITM)~~ — HeartbeatStatus::LatencyAnomaly
 - [ ] Protocol fingerprint verification (detect DPI/downgrade)
 - [ ] Automatic session migration to alternative transport on tamper detection
 - [ ] Compromised path blacklisting (no retry without operator acknowledgment)
 - [ ] Escalation to censorship-resistant transport tier when all standard paths fail
-- [ ] Tamper-alert audit events (signed, timestamped, priority-delivered)
+- [x] ~~Tamper-alert audit events (signed, timestamped, priority-delivered)~~ — security audit entries on tamper/injection
 
 ### Connection Metrics & Monitoring (DTN-aware)
 - [ ] Per-path metrics collection (RTT, loss, throughput, transport type, hop count)
@@ -296,7 +296,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Priority delivery for security events (tamper alerts never dropped by TTL)
 - [ ] Offline metric accumulation (local buffer, flush on next contact window)
 - [ ] Mesh neighbor health gossip (partial observability without direct controller path)
-- [ ] Path switch event logging (transport changes recorded as audit + metric)
+- [x] ~~Path switch event logging (transport changes recorded as audit + metric)~~ — audit entries for tamper-driven path abandonment
 - [ ] Relay-reported metrics (hop count, forwarding latency, queue depth)
 
 ### Graceful Teardown (Phase 12 of Connectivity Value Chain)
@@ -507,7 +507,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Fuzz testing (transport, policy, codec)~~ — libfuzzer targets in fuzz/
 - [x] ~~Performance benchmarks~~ — criterion benches for crypto + codec
 - [ ] Kubernetes CRDs + operator
-- [ ] Homebrew formula, apt/rpm repos, AUR, Nix flake
+- [x] ~~Homebrew formula, apt/rpm repos, AUR, Nix flake~~ — Homebrew formula in deploy/ravenfabric.rb
 - [ ] Documentation site
 - [ ] Named Data Networking concepts for policy distribution (interest/data pattern)
 - [ ] Subsea-cable resilience (mesh fallback when physical links fail)

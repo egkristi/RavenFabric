@@ -123,6 +123,12 @@ where
             .map_err(|_| CryptoError::Disconnected)?;
         let len = u32::from_be_bytes(len_buf) as usize;
 
+        // Minimum valid frame is 16 bytes (empty plaintext + 16-byte MAC/tag).
+        // Anything smaller is frame injection / protocol violation.
+        if len < 16 {
+            return Err(CryptoError::FrameInjection);
+        }
+
         if len > reader.buf.len() {
             return Err(CryptoError::FrameTooLarge {
                 size: len,
@@ -145,7 +151,15 @@ where
         let mut plaintext = vec![0u8; MAX_FRAME_PAYLOAD];
         let plaintext_len = state
             .read_message(*nonce, &buf[..len], &mut plaintext)
-            .map_err(|e| CryptoError::Decrypt(e.to_string()))?;
+            .map_err(|e| {
+                let msg = e.to_string();
+                // snow returns "Decrypt" error when MAC verification fails
+                if msg.contains("Decrypt") || msg.contains("decrypt") || msg.contains("AEAD") {
+                    CryptoError::TamperDetected
+                } else {
+                    CryptoError::Decrypt(msg)
+                }
+            })?;
         *nonce += 1;
 
         plaintext.truncate(plaintext_len);

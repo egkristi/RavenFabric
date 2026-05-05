@@ -11,6 +11,12 @@ pub enum CryptoError {
     #[error("decryption failed: {0}")]
     Decrypt(String),
 
+    #[error("tamper detected: MAC verification failed (possible MITM)")]
+    TamperDetected,
+
+    #[error("frame injection detected: unexpected bytes in protocol framing")]
+    FrameInjection,
+
     #[error("key file error: {0}")]
     KeyFile(#[from] std::io::Error),
 
