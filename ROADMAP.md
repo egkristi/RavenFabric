@@ -345,9 +345,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Full mesh VPN. MagicDNS. Secrets injection. DTN store-carry-forward.
 
 ### Mesh VPN
-- [~] TUN device creation — platform types defined, no actual TUN device
+- [x] TUN device creation — Linux (/dev/net/tun + ioctl) and macOS (utun control socket), read/write/drop, 3 tests
 - [x] Mesh IP allocation — `derive_mesh_ip()` hash function (functional)
-- [~] MagicDNS — no DNS server implementation
+- [x] MagicDNS — UDP DNS server with AAAA query handling, label-length parsing, NXDOMAIN (2 async tests)
 - [x] Petname system — local name mapping (functional)
 
 ### Secrets
@@ -479,8 +479,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Battle-tested. Fully documented. Packaged. The first system where "network" is fully abstracted from application and policy layers.
 
-- [ ] Fuzz testing (transport, policy, codec)
-- [ ] Performance benchmarks (criterion benches for crypto + codec)
+- [x] Fuzz testing (transport, policy, codec) — 3 fuzz targets via cargo-fuzz (fuzz_codec, fuzz_policy, fuzz_frame)
+- [x] Performance benchmarks (criterion benches for crypto + codec) — crypto_bench + codec_bench
 - [ ] Kubernetes CRDs + operator
 - [x] ~~Homebrew formula, apt/rpm repos, AUR, Nix flake~~ — packaging infrastructure ready
 - [x] Documentation site — mdBook at ravenfabric.io/docs/

@@ -3,9 +3,13 @@
 //! Derives deterministic IPv6 addresses from agent public keys,
 //! provides a petname system (human-readable ↔ cryptographic ID),
 //! and resolves agent-name.rf.local to mesh IPs.
+//! Includes a UDP DNS server for local resolution.
 
 use std::collections::HashMap;
 use std::net::Ipv6Addr;
+use std::sync::Arc;
+use tokio::net::UdpSocket;
+use tokio::sync::RwLock;
 
 /// Mesh network configuration.
 #[derive(Debug, Clone)]
@@ -190,6 +194,153 @@ fn hex_to_key(hex: &str) -> [u8; 32] {
     key
 }
 
+/// MagicDNS UDP server — listens on a local port and resolves queries
+/// for `*.rf.local` to mesh IPv6 addresses.
+pub struct DnsServer {
+    resolver: Arc<RwLock<MeshDns>>,
+    socket: UdpSocket,
+}
+
+/// DNS header flags and constants.
+const DNS_FLAG_RESPONSE: u16 = 0x8000;
+const DNS_FLAG_AA: u16 = 0x0400; // Authoritative Answer
+const DNS_RCODE_NXDOMAIN: u16 = 0x0003;
+const DNS_TYPE_AAAA: u16 = 28;
+const DNS_CLASS_IN: u16 = 1;
+
+impl DnsServer {
+    /// Bind a DNS server to the given address (e.g., "127.0.0.1:5353").
+    pub async fn bind(addr: &str, resolver: Arc<RwLock<MeshDns>>) -> std::io::Result<Self> {
+        let socket = UdpSocket::bind(addr).await?;
+        Ok(Self { resolver, socket })
+    }
+
+    /// Get the local address this server is bound to.
+    pub fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    /// Run the DNS server loop. Processes one query per call (for testing).
+    /// In production, call this in a loop or use `serve()`.
+    pub async fn handle_one(&self) -> std::io::Result<()> {
+        let mut buf = [0u8; 512];
+        let (len, src) = self.socket.recv_from(&mut buf).await?;
+        if len < 12 {
+            return Ok(()); // Too short for a DNS header
+        }
+
+        let response = self.process_query(&buf[..len]).await;
+        self.socket.send_to(&response, src).await?;
+        Ok(())
+    }
+
+    /// Process a raw DNS query and return the response bytes.
+    async fn process_query(&self, query: &[u8]) -> Vec<u8> {
+        // Parse DNS header: ID (2), Flags (2), QDCOUNT (2), ...
+        let id = u16::from_be_bytes([query[0], query[1]]);
+        let qdcount = u16::from_be_bytes([query[4], query[5]]);
+
+        if qdcount == 0 {
+            return self.build_error_response(id, DNS_RCODE_NXDOMAIN);
+        }
+
+        // Parse the question section
+        let (qname, offset) = match Self::parse_qname(query, 12) {
+            Some(v) => v,
+            None => return self.build_error_response(id, DNS_RCODE_NXDOMAIN),
+        };
+
+        if offset + 4 > query.len() {
+            return self.build_error_response(id, DNS_RCODE_NXDOMAIN);
+        }
+
+        let qtype = u16::from_be_bytes([query[offset], query[offset + 1]]);
+        let _qclass = u16::from_be_bytes([query[offset + 2], query[offset + 3]]);
+
+        // Only handle AAAA queries
+        if qtype != DNS_TYPE_AAAA {
+            return self.build_error_response(id, DNS_RCODE_NXDOMAIN);
+        }
+
+        // Look up in MeshDns
+        let resolver = self.resolver.read().await;
+        match resolver.resolve(&qname) {
+            Some(record) => self.build_aaaa_response(id, query, offset + 4, &record),
+            None => self.build_error_response(id, DNS_RCODE_NXDOMAIN),
+        }
+    }
+
+    /// Parse a DNS name from wire format (label-length encoding).
+    fn parse_qname(buf: &[u8], mut pos: usize) -> Option<(String, usize)> {
+        let mut labels = Vec::new();
+        loop {
+            if pos >= buf.len() {
+                return None;
+            }
+            let len = buf[pos] as usize;
+            if len == 0 {
+                pos += 1;
+                break;
+            }
+            if len >= 64 {
+                // Compression pointer — not supported for queries
+                return None;
+            }
+            pos += 1;
+            if pos + len > buf.len() {
+                return None;
+            }
+            labels.push(String::from_utf8_lossy(&buf[pos..pos + len]).to_string());
+            pos += len;
+        }
+        Some((labels.join("."), pos))
+    }
+
+    /// Build an AAAA response.
+    fn build_aaaa_response(
+        &self,
+        id: u16,
+        query: &[u8],
+        question_end: usize,
+        record: &DnsRecord,
+    ) -> Vec<u8> {
+        let mut resp = Vec::with_capacity(128);
+
+        // Header: ID, Flags (response + AA), QDCOUNT=1, ANCOUNT=1, NSCOUNT=0, ARCOUNT=0
+        resp.extend_from_slice(&id.to_be_bytes());
+        resp.extend_from_slice(&(DNS_FLAG_RESPONSE | DNS_FLAG_AA).to_be_bytes());
+        resp.extend_from_slice(&1u16.to_be_bytes()); // QDCOUNT
+        resp.extend_from_slice(&1u16.to_be_bytes()); // ANCOUNT
+        resp.extend_from_slice(&0u16.to_be_bytes()); // NSCOUNT
+        resp.extend_from_slice(&0u16.to_be_bytes()); // ARCOUNT
+
+        // Copy the question section
+        resp.extend_from_slice(&query[12..question_end]);
+
+        // Answer: pointer to question name (0xC00C), TYPE=AAAA, CLASS=IN, TTL, RDLEN=16, RDATA
+        resp.extend_from_slice(&[0xC0, 0x0C]); // Name pointer to offset 12
+        resp.extend_from_slice(&DNS_TYPE_AAAA.to_be_bytes());
+        resp.extend_from_slice(&DNS_CLASS_IN.to_be_bytes());
+        resp.extend_from_slice(&record.ttl.to_be_bytes());
+        resp.extend_from_slice(&16u16.to_be_bytes()); // RDLENGTH
+        resp.extend_from_slice(&record.addr.octets()); // 16 bytes IPv6
+
+        resp
+    }
+
+    /// Build an NXDOMAIN or error response.
+    fn build_error_response(&self, id: u16, rcode: u16) -> Vec<u8> {
+        let mut resp = Vec::with_capacity(12);
+        resp.extend_from_slice(&id.to_be_bytes());
+        resp.extend_from_slice(&(DNS_FLAG_RESPONSE | DNS_FLAG_AA | rcode).to_be_bytes());
+        resp.extend_from_slice(&0u16.to_be_bytes()); // QDCOUNT
+        resp.extend_from_slice(&0u16.to_be_bytes()); // ANCOUNT
+        resp.extend_from_slice(&0u16.to_be_bytes()); // NSCOUNT
+        resp.extend_from_slice(&0u16.to_be_bytes()); // ARCOUNT
+        resp
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,5 +431,110 @@ mod tests {
 
         assert_eq!(dns.resolve_key(&key), Some("my-agent"));
         assert_eq!(dns.resolve_key("unknown"), None);
+    }
+
+    #[tokio::test]
+    async fn test_dns_server_resolves_aaaa() {
+        use std::sync::Arc;
+        use tokio::sync::RwLock;
+
+        // Set up resolver with a registered agent
+        let mut dns = MeshDns::new(MeshConfig::default());
+        dns.register(
+            "web-01",
+            "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            None,
+        );
+        let resolver = Arc::new(RwLock::new(dns));
+
+        // Start DNS server on random port
+        let server = DnsServer::bind("127.0.0.1:0", resolver.clone())
+            .await
+            .unwrap();
+        let server_addr = server.local_addr().unwrap();
+
+        // Build a DNS AAAA query for "web-01.rf.local"
+        let mut query = Vec::new();
+        query.extend_from_slice(&[0x12, 0x34]); // ID
+        query.extend_from_slice(&[0x01, 0x00]); // Flags (standard query)
+        query.extend_from_slice(&[0x00, 0x01]); // QDCOUNT = 1
+        query.extend_from_slice(&[0x00, 0x00]); // ANCOUNT = 0
+        query.extend_from_slice(&[0x00, 0x00]); // NSCOUNT = 0
+        query.extend_from_slice(&[0x00, 0x00]); // ARCOUNT = 0
+        // QNAME: web-01.rf.local
+        query.push(6);
+        query.extend_from_slice(b"web-01");
+        query.push(2);
+        query.extend_from_slice(b"rf");
+        query.push(5);
+        query.extend_from_slice(b"local");
+        query.push(0); // End of name
+        query.extend_from_slice(&28u16.to_be_bytes()); // QTYPE = AAAA
+        query.extend_from_slice(&1u16.to_be_bytes()); // QCLASS = IN
+
+        // Send query from client socket
+        let client = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        client.send_to(&query, server_addr).await.unwrap();
+
+        // Server handles one query
+        server.handle_one().await.unwrap();
+
+        // Receive response
+        let mut resp_buf = [0u8; 512];
+        let (resp_len, _) = client.recv_from(&mut resp_buf).await.unwrap();
+
+        // Verify response
+        assert!(resp_len >= 12 + 16); // Header + at least an answer
+        // Check ID matches
+        assert_eq!(resp_buf[0], 0x12);
+        assert_eq!(resp_buf[1], 0x34);
+        // Check flags: response bit set
+        assert!(resp_buf[2] & 0x80 != 0);
+        // Check ANCOUNT = 1
+        assert_eq!(u16::from_be_bytes([resp_buf[6], resp_buf[7]]), 1);
+    }
+
+    #[tokio::test]
+    async fn test_dns_server_nxdomain_for_unknown() {
+        use std::sync::Arc;
+        use tokio::sync::RwLock;
+
+        let dns = MeshDns::new(MeshConfig::default());
+        let resolver = Arc::new(RwLock::new(dns));
+
+        let server = DnsServer::bind("127.0.0.1:0", resolver).await.unwrap();
+        let server_addr = server.local_addr().unwrap();
+
+        // Query for non-existent name
+        let mut query = Vec::new();
+        query.extend_from_slice(&[0xAB, 0xCD]); // ID
+        query.extend_from_slice(&[0x01, 0x00]); // Flags
+        query.extend_from_slice(&[0x00, 0x01]); // QDCOUNT = 1
+        query.extend_from_slice(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+        query.push(7);
+        query.extend_from_slice(b"unknown");
+        query.push(2);
+        query.extend_from_slice(b"rf");
+        query.push(5);
+        query.extend_from_slice(b"local");
+        query.push(0);
+        query.extend_from_slice(&28u16.to_be_bytes()); // AAAA
+        query.extend_from_slice(&1u16.to_be_bytes()); // IN
+
+        let client = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        client.send_to(&query, server_addr).await.unwrap();
+        server.handle_one().await.unwrap();
+
+        let mut resp_buf = [0u8; 512];
+        let (resp_len, _) = client.recv_from(&mut resp_buf).await.unwrap();
+
+        // Check NXDOMAIN response
+        assert!(resp_len >= 12);
+        assert_eq!(resp_buf[0], 0xAB);
+        assert_eq!(resp_buf[1], 0xCD);
+        // RCODE = 3 (NXDOMAIN)
+        assert_eq!(resp_buf[3] & 0x0F, 3);
+        // ANCOUNT = 0
+        assert_eq!(u16::from_be_bytes([resp_buf[6], resp_buf[7]]), 0);
     }
 }

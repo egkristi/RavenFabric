@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~19,900 LOC | 363 tests | 0 clippy warnings | All CI green**
+**~20,100 LOC | 381 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -624,6 +624,8 @@ What works today:
 - Session migration (make-before-break) with peer key verification and automatic rollback
 - Sealed secret store (ChaCha20-Poly1305) with `{{ secrets.KEY }}` template resolution in commands
 - DTN offline queue with SQLite persistence (priority ordering, TTL, deduplication)
+- TUN device creation: Linux (/dev/net/tun + ioctl), macOS (utun control socket), platform-agnostic API
+- MagicDNS UDP server: AAAA query resolution for `*.rf.local`, authoritative responses, NXDOMAIN
 
 Working end-to-end flows:
 - `rf exec --token <token> "command"` → relay → agent → execute → respond

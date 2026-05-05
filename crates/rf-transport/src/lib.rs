@@ -21,6 +21,7 @@ pub mod proxy;
 #[cfg(feature = "quic")]
 pub mod quic;
 pub mod stun_client;
+pub mod tun;
 #[cfg(feature = "websocket")]
 pub mod websocket;
 pub mod wg_tunnel;
