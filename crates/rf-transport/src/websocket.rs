@@ -57,7 +57,7 @@ impl Driver for WebSocketDriver {
         // This ensures it arrives as a separate frame (relay protocol requirement).
         if let Some(token) = &target.meet_token {
             ws_stream
-                .send(Message::Binary(token.as_bytes().to_vec()))
+                .send(Message::Binary(token.as_bytes().to_vec().into()))
                 .await
                 .map_err(|e| TransportError::Connection(e.to_string()))?;
         }
@@ -136,7 +136,7 @@ where
             match bridge_read.read(&mut buf).await {
                 Ok(0) => break,
                 Ok(n) => {
-                    let msg = Message::Binary(buf[..n].to_vec());
+                    let msg = Message::Binary(buf[..n].to_vec().into());
                     if ws_sink.send(msg).await.is_err() {
                         break;
                     }

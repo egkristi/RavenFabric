@@ -32,7 +32,7 @@ impl OtpStore {
     /// The plaintext is given to the agent. The hash is stored.
     pub fn generate(&self, agent_id: Option<String>) -> String {
         let mut bytes = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut bytes);
+        rand::rng().fill_bytes(&mut bytes);
         let token = format!("rf-otp-{}", hex::encode(bytes));
 
         let hash = hash_token(&token);

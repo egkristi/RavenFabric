@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
-use rand::Rng;
+use rand::Rng as _;
 use serde::Deserialize;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
@@ -221,7 +221,7 @@ async fn main() -> anyhow::Result<()> {
         let base = cfg.reconnect_interval;
         let backoff = base.saturating_mul(1u64 << attempt.min(5));
         let capped = backoff.min(60);
-        let jitter = rand::thread_rng().gen_range(0..=capped / 4);
+        let jitter = rand::rng().random_range(0..=capped / 4);
         let wait = capped + jitter;
 
         info!("reconnecting in {}s...", wait);

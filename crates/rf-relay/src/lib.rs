@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use futures_util::{SinkExt, StreamExt};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use tokio::net::TcpListener;
 use tokio::sync::{Mutex, mpsc};

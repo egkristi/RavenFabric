@@ -72,7 +72,8 @@ where
             .parse()
             .expect("static noise pattern is always valid"),
     )
-    .local_private_key(static_key.private_bytes());
+    .local_private_key(static_key.private_bytes())
+    .map_err(|e| CryptoError::Handshake(e.to_string()))?;
 
     let mut noise = if is_initiator {
         builder.build_initiator()

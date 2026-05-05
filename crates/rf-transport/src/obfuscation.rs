@@ -40,7 +40,7 @@ pub struct ObfuscatedFrame {
 /// The result should be indistinguishable from random bytes
 /// (assumes input is already encrypted via Noise).
 pub fn obfuscate(encrypted_data: &[u8], config: &ObfuscationConfig) -> ObfuscatedFrame {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Random padding length within configured bounds
     let padding_len = if config.max_padding > config.min_padding {
@@ -90,7 +90,7 @@ pub fn jitter_delay(config: &ObfuscationConfig) -> std::time::Duration {
     if !config.timing_jitter || config.max_jitter_ms == 0 {
         return std::time::Duration::ZERO;
     }
-    let jitter_ms = rand::thread_rng().next_u64() % config.max_jitter_ms;
+    let jitter_ms = rand::rng().next_u64() % config.max_jitter_ms;
     std::time::Duration::from_millis(jitter_ms)
 }
 
@@ -175,7 +175,7 @@ mod tests {
         };
         // Use random-looking input (simulating Noise output)
         let mut input = vec![0u8; 1000];
-        rand::thread_rng().fill_bytes(&mut input);
+        rand::rng().fill_bytes(&mut input);
 
         let obfuscated = obfuscate(&input, &config);
         let score = randomness_score(&obfuscated.data);
