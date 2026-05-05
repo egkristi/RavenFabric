@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="dark">
 
     <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://img.shields.io; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
@@ -110,7 +110,7 @@
 
             --text-primary: #e8e6e3;
             --text-secondary: #a8a39a;
-            --text-tertiary: #6b675f;
+            --text-tertiary: #8a8579;
             --text-dim: #4a4843;
 
             --accent-gold: #c9a961;
@@ -1189,6 +1189,7 @@
         </div>
     </header>
 
+    <main>
     <!-- ─── HERO ─────────────────────────────────────────────────── -->
     <section id="main-content" class="hero">
         <div class="container">
@@ -1321,7 +1322,7 @@
                 Every layer is a separate crate — testable, replaceable, auditable independently.
                 Policy and audit sit beside execution, not bolted on after the fact.
             </p>
-            <img src="assets/architecture.svg" alt="RavenFabric 6-layer architecture diagram showing crypto, transport, RPC, policy, executor, and application layers" style="width:100%;max-width:800px;margin:2rem auto;display:block;border-radius:8px;">
+            <img src="assets/architecture.svg" alt="RavenFabric 6-layer architecture diagram showing crypto, transport, RPC, policy, executor, and application layers" width="800" height="600" style="width:100%;max-width:800px;margin:2rem auto;display:block;border-radius:8px;">
         </div>
     </section>
 
@@ -1847,6 +1848,7 @@
             </p>
         </div>
     </section>
+    </main>
 
     <!-- ─── FOOTER ──────────────────────────────────────────────── -->
     <footer>
