@@ -41,6 +41,10 @@ pub enum ConnectionEvent {
     NetworkChange,
     /// All paths failed.
     AllPathsFailed,
+    /// Tamper detected on a transport — path abandoned and blacklisted.
+    TamperDetected { transport: String, reason: String },
+    /// Session migrated to alternative transport after tamper/failure.
+    SessionMigrated { from: String, to: String },
 }
 
 /// Connection manager that implements relay-first with background probing.
@@ -147,6 +151,47 @@ impl ConnectionManager {
     pub fn network_changed(&mut self) {
         self.state = ConnectionState::Reprobing;
         self.events.push(ConnectionEvent::NetworkChange);
+    }
+
+    /// Tamper detected on current transport — blacklist it and migrate.
+    /// Returns the transport that was abandoned.
+    pub fn tamper_detected(&mut self, reason: &str) -> Option<String> {
+        let abandoned = self.active_transport.take();
+
+        // Blacklist the compromised transport
+        if let Some(ref name) = abandoned {
+            self.catalog.blacklist(name);
+            self.events.push(ConnectionEvent::TamperDetected {
+                transport: name.clone(),
+                reason: reason.to_string(),
+            });
+        }
+
+        // Try to migrate to fallback
+        if let Some(fallback) = self.fallback_transport.take() {
+            self.active_transport = Some(fallback.clone());
+            self.state = ConnectionState::RelayConnected;
+            self.events.push(ConnectionEvent::SessionMigrated {
+                from: abandoned.clone().unwrap_or_default(),
+                to: fallback,
+            });
+        } else {
+            // No fallback — try to find any available non-blacklisted transport
+            let available = self.catalog.available();
+            if let Some(entry) = available.first() {
+                self.active_transport = Some(entry.name.clone());
+                self.state = ConnectionState::RelayConnected;
+                self.events.push(ConnectionEvent::SessionMigrated {
+                    from: abandoned.clone().unwrap_or_default(),
+                    to: entry.name.clone(),
+                });
+            } else {
+                self.state = ConnectionState::Disconnected;
+                self.events.push(ConnectionEvent::AllPathsFailed);
+            }
+        }
+
+        abandoned
     }
 
     /// Drain accumulated events.
@@ -265,5 +310,40 @@ mod tests {
         mgr.connect_relay_first();
         mgr.network_changed();
         assert_eq!(mgr.state(), ConnectionState::Reprobing);
+    }
+
+    #[test]
+    fn test_tamper_detected_migrates_to_fallback() {
+        let mut mgr = ConnectionManager::new(test_catalog());
+        mgr.connect_relay_first();
+        mgr.migrate_to_direct("quic-direct");
+
+        // Simulate tamper on direct path
+        let abandoned = mgr.tamper_detected("MAC failure");
+        assert_eq!(abandoned, Some("quic-direct".to_string()));
+        // Should migrate back to relay
+        assert_eq!(mgr.state(), ConnectionState::RelayConnected);
+        assert_eq!(mgr.active_transport(), Some("ws-relay"));
+
+        // Verify quic-direct is blacklisted
+        let events = mgr.drain_events();
+        assert!(events.iter().any(|e| matches!(e, ConnectionEvent::TamperDetected { transport, .. } if transport == "quic-direct")));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, ConnectionEvent::SessionMigrated { .. }))
+        );
+    }
+
+    #[test]
+    fn test_tamper_no_fallback_finds_available() {
+        let mut mgr = ConnectionManager::new(test_catalog());
+        mgr.connect_relay_first();
+
+        // Tamper on relay with no fallback set — should find quic-direct
+        let abandoned = mgr.tamper_detected("frame injection");
+        assert_eq!(abandoned, Some("ws-relay".to_string()));
+        // Should have migrated to quic-direct (the only other available)
+        assert_eq!(mgr.active_transport(), Some("quic-direct"));
     }
 }

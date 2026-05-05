@@ -285,7 +285,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Frame injection detection (unexpected bytes outside protocol framing)~~ — FrameInjection error for <16 byte frames
 - [x] ~~Latency anomaly detection (sudden spikes consistent with MITM)~~ — HeartbeatStatus::LatencyAnomaly
 - [ ] Protocol fingerprint verification (detect DPI/downgrade)
-- [ ] Automatic session migration to alternative transport on tamper detection
+- [x] Automatic session migration to alternative transport on tamper detection
 - [x] ~~Compromised path blacklisting (no retry without operator acknowledgment)~~ — catalog.blacklist/unblacklist
 - [ ] Escalation to censorship-resistant transport tier when all standard paths fail
 - [x] ~~Tamper-alert audit events (signed, timestamped, priority-delivered)~~ — security audit entries on tamper/injection
@@ -360,9 +360,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] 0-RTT resumption for known peers
 
 ### Playbook Engine
-- [ ] Multi-agent orchestration (rolling/canary/parallel strategies)
-- [ ] Rollback on failure
-- [ ] Grain-based targeting
+- [x] Multi-agent orchestration (rolling/canary/parallel strategies)
+- [x] Rollback on failure
+- [x] Grain-based targeting
 
 ---
 
@@ -377,8 +377,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Petname system (local names → cryptographic identifiers)
 
 ### Secrets
-- [ ] Sealed secret store (encrypted at rest)
-- [ ] `{{ secrets.KEY }}` resolution at execution time
+- [x] Sealed secret store (encrypted at rest)
+- [x] `{{ secrets.KEY }}` resolution at execution time
 
 ### Delay-Tolerant Networking
 - [ ] SQLite-backed persistent offline queue (survives restart)
