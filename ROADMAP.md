@@ -227,64 +227,114 @@ rf exec test-agent "uname -a"
 
 ---
 
-## v0.4 — VPN + DNS + Secrets
+## v0.4 — VPN + DNS + Secrets + Delay-Tolerant Delivery
 
-**Goal:** Full mesh VPN. MagicDNS. Secrets injection.
+**Goal:** Full mesh VPN. MagicDNS. Secrets injection. DTN store-carry-forward.
 
+### Mesh VPN
 - [ ] TUN device creation (cross-platform)
-- [ ] Mesh IP allocation
+- [ ] Mesh IP allocation (key-derived addresses)
 - [ ] MagicDNS (agent-name.rf.local)
+- [ ] Petname system (local names → cryptographic identifiers)
+
+### Secrets
 - [ ] Sealed secret store (encrypted at rest)
 - [ ] `{{ secrets.KEY }}` resolution at execution time
-- [ ] Offline command queue (SQLite-backed, TTL, priority)
+
+### Delay-Tolerant Networking
+- [ ] SQLite-backed persistent offline queue (survives restart)
+- [ ] Custody transfer protocol (each hop acknowledges responsibility)
+- [ ] Schedule-aware routing (contact windows, satellite passes)
+- [ ] Opportunistic sync (exchange queued messages when agents meet)
+- [ ] NNCP-style physical media transport (USB, SD card, file-based delivery)
+- [ ] TTL, priority, and idempotency for queued commands
+- [ ] Multi-hop store-carry-forward (intermediate nodes relay when path opens)
+- [ ] Content-addressed command payloads (deduplication across paths)
 
 ---
 
 ## v0.5 — Alternative Transports + Censorship Resistance
 
-**Goal:** Air-gap support. Anonymity. Hostile network traversal. Peer discovery.
+**Goal:** Air-gap support. Anonymity. Hostile network traversal. Peer discovery. Radio mesh.
 
 ### Censorship-Resistant Transports
 - [ ] HTTP/3 MASQUE driver (CONNECT-UDP/CONNECT-IP via HTTP/3, impossible to distinguish from browsing)
-- [ ] Traffic obfuscation layer (make Noise XX indistinguishable from random bytes)
+- [ ] Traffic obfuscation layer (make Noise XX indistinguishable from random bytes, obfs4-inspired)
 - [ ] Encrypted Client Hello (ECH) support for WebSocket TLS connections
 - [ ] Domain fronting transport (TLS SNI ≠ HTTP Host, CDN-routed)
-- [ ] DNS tunneling driver (encode frames in DNS queries, iodine-style)
+- [ ] DNS tunneling driver (encode frames in DNS queries, iodine/dnscat2-style)
 - [ ] ICMP tunneling driver (data in echo payloads, restricted environments)
+- [ ] Shadowsocks/Trojan-style protocol mimicry (look like standard HTTPS)
 
 ### Air-Gap and Proximity Transports
-- [ ] Reticulum mesh driver (LoRa, BLE, packet radio, multi-hop)
-- [ ] Tor hidden service driver (.onion endpoints)
+- [ ] Reticulum Network Stack driver (multi-hop mesh, announce-based discovery, FEC)
+- [ ] Tor hidden service driver (.onion endpoints, garlic routing via I2P optional)
 - [ ] Serial port driver (RS-232/USB, true physical air-gap)
-- [ ] Bluetooth/BLE driver (proximity mesh, no infrastructure)
+- [ ] Bluetooth/BLE driver (proximity mesh, no infrastructure, Briar-inspired)
 - [ ] Wi-Fi Direct driver (ad-hoc local connections)
+- [ ] Audio modem driver (data over sound, extreme air-gap, chirp/quietnet-style)
+- [ ] QR-stream visual channel (animated QR codes for air-gap transfer)
+
+### Radio Transports
+- [ ] LoRa/Meshtastic driver (sub-GHz, 250bps–11kbps, 10+ km range, mesh routing)
+- [ ] AX.25 packet radio driver (amateur radio, global coverage, no commercial infra)
+- [ ] HF radio / Winlink bridge (global reach via amateur radio e-mail gateways)
+- [ ] Satellite link driver (Iridium/Starlink with DTN buffering for high-latency)
+
+### Overlay Networks
+- [ ] Yggdrasil driver (self-configuring IPv6 mesh, key-derived addresses, spanning tree)
+- [ ] I2P driver (garlic routing, anonymous internal services)
+- [ ] Veilid driver (DHT-based, onion-routed by default)
+- [ ] Mixnet integration (Nym/Loopix — for high-paranoia mode, traffic analysis resistant)
 
 ### Peer Discovery
-- [ ] mDNS/DNS-SD — zero-config LAN discovery
-- [ ] DHT (Kademlia-style) — decentralized global discovery
+- [ ] mDNS/DNS-SD — zero-config LAN discovery (first attempt before external)
+- [ ] DHT (Kademlia-style) — decentralized global discovery, censorship-resistant
 - [ ] Gossip protocol (SWIM/HyParView) — self-healing mesh topology
 - [ ] Signed DNS records (DNSSEC SRV) — verifiable rendezvous
 - [ ] BLE beacon discovery — proximity without infrastructure
+- [ ] Announce-flood (Reticulum-style) — path discovery without central coordination
 
 ### Advanced NAT Traversal
 - [ ] STUN server (self-hosted, for deployments without public STUN)
 - [ ] TURN relay mode on rf-relay (full TURN compliance)
-- [ ] Multipath transport — use multiple paths simultaneously
+- [ ] Multipath TCP/QUIC — single logical connection over multiple physical paths
 - [ ] Traffic analysis resistance (noise floor, packet normalization, timing obfuscation)
-- [ ] Sneakernet-aware sync (eventual consistency for periodically-connected nodes)
+- [ ] Connection migration across interfaces (WiFi ↔ cellular ↔ Ethernet seamless)
 
 ---
 
-## v0.6 — WASM Plugins + Multi-Tenant + Post-Quantum
+## v0.6 — WASM Plugins + Multi-Tenant + Advanced Security
 
-**Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography.
+**Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography. Capability-based auth.
 
+### Plugin System
 - [ ] Wasmtime-based plugin runtime
 - [ ] Custom resource types via WASM
+- [ ] Custom transport drivers via WASM (extend without recompiling)
+
+### Multi-Tenant & RBAC
 - [ ] Tenant isolation
 - [ ] RBAC (admin, operator, viewer, auditor)
 - [ ] SecurityPolicy with immutable rules
+
+### Capability-Based Authorization
+- [ ] Biscuit token integration (commands carry their own signed permission)
+- [ ] Capability delegation (agent A grants agent B limited capabilities)
+- [ ] Attenuation (capabilities can be narrowed, never widened)
+- [ ] Offline-verifiable (no central authority needed at execution time)
+
+### Post-Quantum Cryptography
 - [ ] Post-quantum hybrid handshake (ML-KEM + X25519, Noise XX with hybrid KEM)
+- [ ] Signal PQXDH-inspired key exchange for long-lived sessions
+- [ ] Harvest-now-decrypt-later resistance for all stored data
+
+### CRDT State Propagation
+- [ ] CRDT-based desired-state convergence (no master required)
+- [ ] Append-only signed policy logs (Scuttlebutt-inspired)
+- [ ] Opportunistic policy sync between neighboring agents
+- [ ] Conflict-free policy merging across disconnected clusters
+- [ ] Content-addressed policy distribution (request by hash, any node can serve)
 - [ ] SPIFFE-style workload identity (identity independent of network position)
 
 ---
@@ -302,13 +352,16 @@ rf exec test-agent "uname -a"
 
 ## v1.0 — Production Ready
 
-**Goal:** Battle-tested. Fully documented. Packaged.
+**Goal:** Battle-tested. Fully documented. Packaged. The first system where "network" is fully abstracted from application and policy layers.
 
 - [ ] Fuzz testing (transport, policy, codec)
 - [ ] Performance benchmarks
 - [ ] Kubernetes CRDs + operator
 - [ ] Homebrew formula, apt/rpm repos, AUR, Nix flake
 - [ ] Documentation site
+- [ ] Named Data Networking concepts for policy distribution (interest/data pattern)
+- [ ] Subsea-cable resilience (mesh fallback when physical links fail)
+- [ ] Full SPIFFE workload identity compliance
 
 ---
 
@@ -383,3 +436,10 @@ rf exec test-agent "uname -a"
 | 2026-05-05 | Relay is stateless and dumb | Minimizes relay's value as attack target |
 | 2026-05-05 | `unsafe_code = "forbid"` | Enforced at workspace level via lints |
 | 2026-05-05 | AGPLv3 + Commercial dual-license | Protects against silent forks as managed services |
+| 2026-05-05 | Identity = key hash (Reticulum-inspired) | IP is implementation detail. Address derives from identity key |
+| 2026-05-05 | DTN store-carry-forward | Disconnection is normal state. NASA Bundle Protocol concepts |
+| 2026-05-05 | Transport = any byte-moving channel | USB sticks, radio, sound, QR are valid transports |
+| 2026-05-05 | Capability-based auth (future) | Biscuit tokens scale better than centralized ACL in distributed mesh |
+| 2026-05-05 | CRDT state convergence (future) | Desired-state reconciliation without master. Works over intermittent links |
+| 2026-05-05 | Content-addressed payloads | Hash-identified commands/policies. Dedup, verify, cache naturally |
+| 2026-05-05 | Transport-aware policy | Sensitivity level determines acceptable transport channels |

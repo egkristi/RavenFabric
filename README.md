@@ -408,6 +408,87 @@ All discovery methods produce the same output: a signed peer record containing t
 | `parallel` | Establish all, use lowest-latency | Mission-critical |
 | `multipath` | Keep multiple active, stripe or replicate | Ultra-reliable |
 
+### Transport Philosophy
+
+> Any channel that can move signed bytes is a valid transport.
+
+"Transport" is not limited to TCP/IP. RavenFabric defines transport as any medium capable of carrying authenticated, encrypted frames — including physical media:
+
+| Class | Examples | Bandwidth | Latency |
+|-------|----------|-----------|---------|
+| **Internet** | WireGuard, QUIC, WebSocket, HTTP/3 MASQUE | Gbps | ms |
+| **Overlay mesh** | Yggdrasil, I2P, Tor, Veilid | Mbps | 100ms+ |
+| **Radio** | LoRa/Meshtastic, AX.25 packet radio, HF/Winlink | bps–kbps | seconds–hours |
+| **Proximity** | Bluetooth, Wi-Fi Direct, NFC | kbps–Mbps | ms |
+| **Satellite** | Starlink, Iridium | Mbps/kbps | 20ms–2000ms |
+| **Physical** | USB/serial, SD card, sneakernet (NNCP-style) | Variable | hours–days |
+| **Extreme** | DNS tunneling, ICMP, audio modem, QR-stream | bits–kbps | seconds |
+
+**Architectural invariant:** The policy layer, execution layer, and application code never know which transport is active. A command that executes over WireGuard has identical semantics to one that arrives via LoRa mesh or USB stick.
+
+### Delay-Tolerant Networking (DTN)
+
+Inspired by NASA's Bundle Protocol (RFC 9171) and NNCP, RavenFabric treats disconnection as normal:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  STORE-CARRY-FORWARD                                                 │
+│                                                                      │
+│  Command signed → policy pre-validated → custody transferred →       │
+│  stored on intermediate nodes → carried (physically if needed) →     │
+│  forwarded when path opens → executed on arrival                     │
+│                                                                      │
+│  Every hop takes custody: responsible for delivery until next hop     │
+│  accepts. No data lost due to transient disconnection.               │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+- **Schedule-aware routing** — agents know contact windows ("satellite pass at 14:32, 6 minutes of connectivity")
+- **Custody transfer** — each intermediate node accepts responsibility for delivery
+- **Opportunistic sync** — when nodes meet (BLE, Wi-Fi, physical), they exchange queued messages
+- **TTL and priority** — stale commands expire; urgent commands route preferentially
+- **Idempotency** — duplicate delivery (via multiple paths) is safe
+
+Use cases: fishing boats, oil platforms, remote cabins, military forward positions, industrial air-gaps — anywhere connectivity is intermittent or non-existent.
+
+### Transport-Aware Policy
+
+The policy engine doesn't just decide *what* can execute — it decides *how* it may travel:
+
+```yaml
+spec:
+  transport_policy:
+    # High-sensitivity commands require strong transport
+    high_sensitivity:
+      require_transport: [wireguard, quic]
+      require_post_quantum: true
+      deny_transport: [dns-tunnel, lora, relay]
+
+    # Status reporting can use any channel
+    low_sensitivity:
+      allow_transport: [any]
+      allow_delay_tolerant: true
+
+    # Air-gapped zones accept physical media
+    air_gapped:
+      allow_transport: [serial, bluetooth, usb, nncp]
+      require_dual_signature: true
+```
+
+### Cryptographic Identity
+
+Identity in RavenFabric is independent of network position (inspired by Reticulum and SPIFFE):
+
+```
+Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
+```
+
+- **Address = key hash** — no DHCP, no DNS required for identity. Inspired by Reticulum's destination addressing.
+- **IP is a routing hint** — not identity. Agent can change IP, network, transport — identity persists.
+- **TOFU + OTP enrollment** — first contact bootstrapped via one-time token, then TOFU for all future connections.
+- **Post-quantum hybrid** — ML-KEM + X25519 for harvest-now-decrypt-later resistance (planned).
+- **Petname system** — agents are locally named (`web-01`) mapping to cryptographic identifiers. No global namespace required.
+
 ---
 
 ## Capabilities
@@ -517,15 +598,19 @@ What Telegraf, Metricbeat, collectd, node_exporter, and OpenTelemetry Collector 
 
 **Key differentiator:** No separate collection agent needed. The same binary that executes commands and enforces policy also ships telemetry — through the same encrypted channel, under the same policy controls, with the same audit trail. Zero additional attack surface.
 
-### Offline Queue
-What no other tool does — handle disconnected agents:
-- **Queue commands** while agent is offline
+### Offline Queue & Delay-Tolerant Delivery
+What no other tool does — handle disconnected agents as a first-class concern:
+- **Store-carry-forward** — commands traverse intermediate nodes, each taking custody
+- **Queue commands** while agent is offline (SQLite-backed, persistent across restart)
 - **Deliver on reconnect** with policy-controlled TTL
-- **Idempotency tokens** — prevent duplicate execution
-- **Priority queue** — urgent commands delivered first
-- **Expiry** — stale commands auto-discarded
+- **Opportunistic sync** — agents exchange queued messages when they meet (BLE, Wi-Fi, physical)
+- **Schedule-aware routing** — route via known contact windows (satellite passes, shift changes)
+- **Idempotency tokens** — duplicate delivery (via multiple paths) is safe
+- **Priority queue** — urgent commands route preferentially
+- **Expiry** — stale commands auto-discarded after TTL
+- **Physical media transport** — commands can travel via USB, SD card, or any file-moving mechanism (NNCP-style)
 
-All capabilities: policy-checked, audited, E2E encrypted.
+All capabilities: policy-checked, audited, E2E encrypted — regardless of how many hops or how long the journey.
 
 ---
 
@@ -813,13 +898,16 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 3. **Agent is final authority** — re-checks policy locally, cannot be overridden by orchestrator
 4. **Encrypted by default** — Noise XX always, regardless of transport
 5. **Audit everything** — every decision logged to structured JSON
-6. **Transport-agnostic** — drivers implement one trait; caller never knows transport
+6. **Transport-agnostic** — any channel that can move signed bytes is a valid transport
 7. **Graceful degradation** — transports tried in priority order, offline queue for disconnected agents
 8. **No partial execution** — all pre-flight checks pass or entire execution rejected
 9. **Hot-reload** — policy reloadable without reconnection
 10. **Zero trust** — no implicit trust based on network position
 11. **Single binary** — no runtime dependencies, no interpreters, no JVM
 12. **Offline-first** — queue, retry, idempotency — disconnected agents are a normal state
+13. **Identity = key, not address** — IP is a routing hint, cryptographic key is identity
+14. **Delay-tolerant by design** — commands are signed orders that mature through policy and execute when path exists
+15. **Content-addressed integrity** — policies and payloads identified by hash, naturally deduplicated and verifiable
 
 ---
 
@@ -837,6 +925,11 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Policy transitions | Atomic swap + grace period | In-flight executions complete under old policy. New connections get new policy |
 | Cargo workspace | 10 small crates | Compile-time isolation, clear boundaries, parallel compilation |
 | CLI name | `rf` (not `ravenfabric`) | Short, memorable, fast to type. `rf exec`, `rf dev`, `rf status` |
+| Identity model | Key-derived address | Address = hash(pubkey). No DNS/DHCP dependency. Reticulum-inspired |
+| Disconnection model | DTN store-carry-forward | Offline is normal. Commands queue, deliver when path exists. NASA Bundle Protocol inspired |
+| Authorization (future) | Capability tokens (biscuit) | Commands carry own permission. Scales better than centralized ACL in distributed systems |
+| State sync (future) | CRDT convergence | Desired-state converges without master. Automerge-inspired. Works over intermittent links |
+| Content integrity | Hash-addressed payloads | Policies/payloads identified by content hash. Natural dedup, cache, verify. Git/IPFS-inspired |
 
 ---
 
