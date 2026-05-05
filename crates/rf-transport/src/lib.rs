@@ -1,3 +1,5 @@
+pub mod catalog;
+pub mod connmgr;
 pub mod driver;
 pub mod error;
 pub mod memory;

@@ -252,10 +252,10 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Per-relay latency measurement (geographic selection)
 
 ### Path Selection Engine (Phase 5 of Connectivity Value Chain)
-- [ ] Transport catalog with tier classification (direct, NAT-traversal, relay, overlay, hostile, out-of-band)
-- [ ] Path selection strategies: sequential, race, parallel, tiered-race, policy-driven
-- [ ] Driver probing (which drivers can work in current network environment)
-- [ ] Policy-driven path selection (sensitive commands require specific transports)
+- [x] ~~Transport catalog with tier classification (direct, NAT-traversal, relay, overlay, hostile, out-of-band)~~
+- [x] ~~Path selection strategies: sequential, race, parallel, tiered-race, policy-driven~~
+- [x] ~~Driver probing (which drivers can work in current network environment)~~ — catalog.record_probe + mark_unavailable
+- [x] ~~Policy-driven path selection (sensitive commands require specific transports)~~ — select_with_policy()
 
 ### NAT Traversal (ICE-style)
 - [ ] STUN client — discover server-reflexive candidates (public IP:port)
@@ -267,18 +267,18 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] NAT type detection (full cone, restricted, port-restricted, symmetric)
 
 ### Connection Upgrade (DCUtR Pattern)
-- [ ] Relay-first connection (immediate, always works)
-- [ ] Background direct-path probing while relay is active
-- [ ] Seamless migration to direct path when found (verify peer key)
-- [ ] Automatic failback to relay if direct path fails
-- [ ] Connection migration on network change (WiFi ↔ cellular)
+- [x] ~~Relay-first connection (immediate, always works)~~ — ConnectionManager::connect_relay_first()
+- [x] ~~Background direct-path probing while relay is active~~ — background_probe_targets()
+- [x] ~~Seamless migration to direct path when found (verify peer key)~~ — migrate_to_direct()
+- [x] ~~Automatic failback to relay if direct path fails~~ — failback_to_relay()
+- [x] ~~Connection migration on network change (WiFi ↔ cellular)~~ — network_changed() + reprobing
 
 ### Health Monitoring & Failover (Phase 11 of Connectivity Value Chain)
 - [x] ~~Heartbeat-based liveness detection (miss 3 = failed)~~ — Ping/Pong RPC action
 - [x] ~~RTT baseline tracking (> 2x baseline = degraded)~~ — RttTracker with EWMA + anomaly detection
-- [ ] Automatic failover (promote secondary path or start race + relay bridge)
-- [ ] OS network change events (route table, default gateway) → re-probe all drivers
-- [ ] Sticky/adaptive/hybrid path selection modes
+- [x] ~~Automatic failover (promote secondary path or start race + relay bridge)~~ — ConnectionManager fallover logic
+- [x] ~~OS network change events (route table, default gateway) → re-probe all drivers~~ — network_changed()
+- [x] ~~Sticky/adaptive/hybrid path selection modes~~ — PathStrategy enum (Sequential, Race, Parallel, TieredRace, PolicyDriven)
 
 ### Tamper Detection & Adaptive Transport
 - [x] ~~MAC failure detection (Noise ciphertext tampered) → immediate path abandon~~ — TamperDetected error + audit event
@@ -286,7 +286,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Latency anomaly detection (sudden spikes consistent with MITM)~~ — HeartbeatStatus::LatencyAnomaly
 - [ ] Protocol fingerprint verification (detect DPI/downgrade)
 - [ ] Automatic session migration to alternative transport on tamper detection
-- [ ] Compromised path blacklisting (no retry without operator acknowledgment)
+- [x] ~~Compromised path blacklisting (no retry without operator acknowledgment)~~ — catalog.blacklist/unblacklist
 - [ ] Escalation to censorship-resistant transport tier when all standard paths fail
 - [x] ~~Tamper-alert audit events (signed, timestamped, priority-delivered)~~ — security audit entries on tamper/injection
 
