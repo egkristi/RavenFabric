@@ -171,6 +171,64 @@ rf exec test-agent "uname -a"
 
 ---
 
+## Website (ravenfabric.io)
+
+The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioritized improvements.
+
+### Validation & SEO Setup
+- [ ] Test Open Graph cards (LinkedIn Post Inspector, X Card Validator, Facebook Debugger, opengraph.xyz)
+- [ ] Set up Google Search Console (DNS TXT verification via Namecheap)
+- [ ] Submit sitemap: `https://ravenfabric.io/sitemap.xml`
+- [ ] Run Lighthouse audit: `npx lighthouse https://ravenfabric.io --view`
+- [ ] Run broken link check: `npx broken-link-checker https://ravenfabric.io --recursive --ordered`
+
+### Critical Quick-Wins (this week)
+- [ ] Fix broken links — create stubs for `SECURITY.md`, `LICENSING.md`, `CONTRIBUTING.md`, `CHANGELOG.md`
+- [ ] Threat model section (what relay cannot see, agent compromise scope, controller compromise scope, immutable rules)
+- [ ] About / "Built by" section (name + LinkedIn, gives credibility)
+- [ ] JSON-LD structured data (`SoftwareApplication` schema)
+- [ ] Add `og:image:alt`, `og:image:width`, `og:image:height` meta tags
+
+### Content Improvements (high value, low effort)
+- [ ] "Why" section between hero and "What it is" (one binary, one policy, one trust root)
+- [ ] Live GitHub stats (shields.io badges for stars, last commit)
+- [ ] Concrete comparison table (RavenFabric vs Tailscale vs Ansible — E2E encryption, policy, air-gap)
+- [ ] Architecture diagram as SVG (from README's 6-layer ASCII diagram)
+- [ ] "Why now" section (2026 context: cable sabotage, NIS2, ZTNA mandates, monoculture risk)
+- [ ] Use-case personas (public sector architects, MSPs, remote-first, edge/IoT)
+- [ ] FAQ section (vs Tailscale+Ansible, why Rust, why AGPLv3, production-ready?, who)
+- [ ] Terminal example tab-style rotation (reduce visual noise on desktop)
+
+### Technical Improvements
+- [ ] Skip-link for accessibility (`<a href="#main" class="skip-link">Skip to content</a>`)
+- [ ] Declare `color-scheme: dark` (prevent flash-of-white)
+- [ ] Preload critical fonts (or self-host to avoid Google Fonts GDPR/FOUT issues)
+- [ ] Content-Security-Policy meta tag (strict, allow only fonts.googleapis.com + shields.io)
+- [ ] Twitter card meta tags (`twitter:creator`, `twitter:site`)
+- [ ] Mobile-responsive tables (stack layout on `<600px`)
+- [ ] OG image in WebP/AVIF format (reduce 117KB PNG)
+
+### When v0.1 Ships
+- [ ] Asciinema cast of `rf exec` demo (30s, embedded player)
+- [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no
+- [ ] First blog post ("Why Noise XX over TLS" or "Why air-gap support is first-class")
+- [ ] Status badge in header (build status, version, last release date)
+
+### Medium-Term
+- [ ] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
+- [ ] `/blog/` section with RSS feed (`/feed.xml`)
+- [ ] Newsletter signup (Buttondown, not Mailchimp)
+- [ ] Live demo sandbox (`rf-demo.ravenfabric.io`)
+
+### Explicitly Not Planned
+- No cookie banner (no cookies, no analytics)
+- No animated hero backgrounds (CPU waste, AI-slop aesthetic)
+- No "Get Started" CTA before product works (use "View on GitHub")
+- No live chat widget (signals sales, not engineering)
+- No pricing page before commercial features exist
+
+---
+
 ## v0.2 — Multi-Transport + Data Collection
 
 **Goal:** Transport diversity. Task mode. File operations. Data collection agent. Windows + macOS.
