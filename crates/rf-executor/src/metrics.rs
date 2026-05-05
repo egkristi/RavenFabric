@@ -591,7 +591,10 @@ mod tests {
         };
         let histogram = MetricPoint {
             name: "latency".into(),
-            value: MetricValue::Histogram { sum: 100.0, count: 10 },
+            value: MetricValue::Histogram {
+                sum: 100.0,
+                count: 10,
+            },
             labels: HashMap::new(),
             timestamp_ms: 0,
         };
@@ -609,10 +612,30 @@ mod tests {
         };
 
         let points = vec![
-            MetricPoint { name: "system_cpu".into(), value: MetricValue::Gauge(1.0), labels: HashMap::new(), timestamp_ms: 0 },
-            MetricPoint { name: "app_req".into(), value: MetricValue::Counter(1), labels: HashMap::new(), timestamp_ms: 0 },
-            MetricPoint { name: "system_mem".into(), value: MetricValue::Gauge(2.0), labels: HashMap::new(), timestamp_ms: 0 },
-            MetricPoint { name: "system_disk".into(), value: MetricValue::Gauge(3.0), labels: HashMap::new(), timestamp_ms: 0 },
+            MetricPoint {
+                name: "system_cpu".into(),
+                value: MetricValue::Gauge(1.0),
+                labels: HashMap::new(),
+                timestamp_ms: 0,
+            },
+            MetricPoint {
+                name: "app_req".into(),
+                value: MetricValue::Counter(1),
+                labels: HashMap::new(),
+                timestamp_ms: 0,
+            },
+            MetricPoint {
+                name: "system_mem".into(),
+                value: MetricValue::Gauge(2.0),
+                labels: HashMap::new(),
+                timestamp_ms: 0,
+            },
+            MetricPoint {
+                name: "system_disk".into(),
+                value: MetricValue::Gauge(3.0),
+                labels: HashMap::new(),
+                timestamp_ms: 0,
+            },
         ];
 
         let filtered = policy.filter_batch(points);

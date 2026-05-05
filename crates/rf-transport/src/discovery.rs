@@ -192,9 +192,8 @@ impl DiscoveryAgent {
             version: self.advertisement.version,
         };
 
-        let encoded = serde_json::to_vec(&packet).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-        })?;
+        let encoded = serde_json::to_vec(&packet)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
 
         self.socket.send_to(&encoded, target).await?;
         Ok(())
@@ -387,7 +386,8 @@ mod tests {
             "port": 9090,
             "key_fingerprint": "cccc3333",
             "version": 1
-        })).unwrap();
+        }))
+        .unwrap();
         sender.send_to(&packet, addr).await.unwrap();
 
         let discovered = agent.listen_one().await.unwrap();

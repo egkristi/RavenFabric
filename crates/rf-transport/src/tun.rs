@@ -131,7 +131,8 @@ impl TunDevice {
         ctl_info[4..4 + ctl_name.len()].copy_from_slice(ctl_name);
 
         // CTLIOCGINFO = 0xC0644E03
-        let ret = unsafe { libc::ioctl(fd, 0xC064_4E03u64 as libc::c_ulong, ctl_info.as_mut_ptr()) };
+        let ret =
+            unsafe { libc::ioctl(fd, 0xC064_4E03u64 as libc::c_ulong, ctl_info.as_mut_ptr()) };
         if ret < 0 {
             unsafe { libc::close(fd) };
             return Err(io::Error::last_os_error());
@@ -148,13 +149,8 @@ impl TunDevice {
         sa_ctl[4..8].copy_from_slice(&ctl_id.to_ne_bytes());
         sa_ctl[8..12].copy_from_slice(&sc_unit.to_ne_bytes());
 
-        let ret = unsafe {
-            libc::connect(
-                fd,
-                sa_ctl.as_ptr().cast(),
-                sa_ctl.len() as libc::socklen_t,
-            )
-        };
+        let ret =
+            unsafe { libc::connect(fd, sa_ctl.as_ptr().cast(), sa_ctl.len() as libc::socklen_t) };
         if ret < 0 {
             unsafe { libc::close(fd) };
             return Err(io::Error::last_os_error());
@@ -175,7 +171,10 @@ impl TunDevice {
         };
 
         let assigned_name = if ret == 0 {
-            let name_end = ifname.iter().position(|&b| b == 0).unwrap_or(ifname_len as usize);
+            let name_end = ifname
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(ifname_len as usize);
             String::from_utf8_lossy(&ifname[..name_end]).to_string()
         } else {
             config.name.clone()

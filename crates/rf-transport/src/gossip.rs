@@ -278,9 +278,8 @@ impl GossipAgent {
             neighbor_reports: self.tracker.build_reports(now_ms),
         };
 
-        let encoded = serde_json::to_vec(&msg).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-        })?;
+        let encoded = serde_json::to_vec(&msg)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
 
         let mut sent = 0;
         for peer in &self.peers {
@@ -296,9 +295,8 @@ impl GossipAgent {
         let mut buf = [0u8; 4096];
         let (len, _from) = self.socket.recv_from(&mut buf).await?;
 
-        let msg: GossipMessage = serde_json::from_slice(&buf[..len]).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-        })?;
+        let msg: GossipMessage = serde_json::from_slice(&buf[..len])
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
 
         let from_id = msg.from.clone();
         let now_ms = now_millis();

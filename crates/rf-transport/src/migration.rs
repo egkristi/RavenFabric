@@ -256,11 +256,7 @@ impl ZeroRttCache {
 
     /// Validate an incoming 0-RTT ticket from a peer.
     /// Returns true if the ticket is valid for resumption.
-    pub fn validate_incoming(
-        &self,
-        ticket: &SessionTicket,
-        claimed_peer_key: &[u8; 32],
-    ) -> bool {
+    pub fn validate_incoming(&self, ticket: &SessionTicket, claimed_peer_key: &[u8; 32]) -> bool {
         // Verify the ticket's peer key matches what the peer claims
         ticket.peer_static_key == *claimed_peer_key
             // Verify the session isn't ancient (24h max)

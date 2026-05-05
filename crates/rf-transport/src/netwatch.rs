@@ -225,7 +225,11 @@ mod tests {
         let snapshot = NetworkSnapshot::capture();
         // Should always have at least loopback
         assert!(!snapshot.addresses.is_empty());
-        assert!(snapshot.addresses.contains(&IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)));
+        assert!(
+            snapshot
+                .addresses
+                .contains(&IpAddr::V4(std::net::Ipv4Addr::LOCALHOST))
+        );
     }
 
     #[test]
@@ -251,8 +255,16 @@ mod tests {
         };
 
         let events = snap1.diff(&snap2);
-        assert!(events.iter().any(|e| matches!(e, NetworkEvent::AddressAdded { .. })));
-        assert!(events.iter().any(|e| matches!(e, NetworkEvent::RouteChanged)));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, NetworkEvent::AddressAdded { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, NetworkEvent::RouteChanged))
+        );
     }
 
     #[test]
@@ -270,7 +282,11 @@ mod tests {
         };
 
         let events = snap1.diff(&snap2);
-        assert!(events.iter().any(|e| matches!(e, NetworkEvent::AddressRemoved { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, NetworkEvent::AddressRemoved { .. }))
+        );
     }
 
     #[test]

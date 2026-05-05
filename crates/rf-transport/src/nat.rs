@@ -273,7 +273,8 @@ impl HolePuncher {
             probes_sent += 1;
 
             // Wait for response with timeout
-            let recv_timeout = tokio::time::timeout(self.probe_interval, self.socket.recv_from(&mut buf));
+            let recv_timeout =
+                tokio::time::timeout(self.probe_interval, self.socket.recv_from(&mut buf));
 
             match recv_timeout.await {
                 Ok(Ok((len, from_addr))) => {
@@ -439,10 +440,7 @@ mod tests {
         let addr_b = puncher_b.local_addr().unwrap();
 
         // Punch from both sides concurrently
-        let (result_a, result_b) = tokio::join!(
-            puncher_a.punch(addr_b),
-            puncher_b.punch(addr_a),
-        );
+        let (result_a, result_b) = tokio::join!(puncher_a.punch(addr_b), puncher_b.punch(addr_a),);
 
         // At least one should succeed (in local loopback, both will)
         assert!(result_a.success || result_b.success);
