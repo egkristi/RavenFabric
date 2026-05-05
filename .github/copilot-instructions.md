@@ -20,18 +20,20 @@ and structured audit logging are non-negotiable foundations.
 
 Cargo workspace with 10 crates:
 
-| Crate | Purpose |
-|---|---|
-| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management |
-| `rf-transport` | Driver trait, WebSocket/QUIC/WireGuard backends |
-| `rf-rpc` | Request/Response types, msgpack codec, yamux multiplexing |
-| `rf-audit` | Structured JSON-lines audit logging (every action logged) |
-| `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default |
-| `rf-executor` | Command execution under policy control with timeout and output limiting |
-| `rf-bootstrap` | OTP enrollment flow, relay pairing |
-| `rf-relay` | Stateless encrypted relay broker (binary) |
-| `rf-agent` | Agent binary (connects to relay, executes RPC) |
-| `rf-cli` | CLI client `rf` (exec, dev, status) |
+| Crate | Purpose | Status |
+|---|---|---|
+| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management | **Done** (470 LOC, 5 tests) |
+| `rf-transport` | Driver trait, WebSocket/QUIC/WireGuard backends | **Trait only** (53 LOC, 0 tests) |
+| `rf-rpc` | Request/Response types, msgpack codec, yamux multiplexing | **Types only** (63 LOC, 0 tests) |
+| `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (53 LOC, 0 tests) |
+| `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default | **Done** (281 LOC, 4 tests) |
+| `rf-executor` | Command execution under policy control with timeout and output limiting | **Done** (170 LOC, 0 tests) |
+| `rf-bootstrap` | OTP enrollment flow, relay pairing | **Done** (122 LOC, 4 tests) |
+| `rf-relay` | Stateless encrypted relay broker (binary) | **Stub** |
+| `rf-agent` | Agent binary (connects to relay, executes RPC) | **Stub** |
+| `rf-cli` | CLI client `rf` (exec, dev, status) | **Skeleton** (clap args only) |
+
+**Total: ~1,260 LOC, 13 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
@@ -67,7 +69,7 @@ rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 ## Key Design Principles
 
 1. **Thread-safe by default**: All public types must be `Send + Sync`
-2. **No unwrap in library code**: Use `?` and proper error types
+2. **No unwrap in library code**: Use `?` and proper error types. Use `expect()` only for truly impossible failures with an explanation
 3. **Deny-by-default**: Policy engine denies anything not explicitly allowed
 4. **Zero-trust networking**: Every connection mutually authenticated via Noise XX
 5. **Audit everything**: Every RPC action produces a structured audit entry
@@ -76,6 +78,8 @@ rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 8. **Builder pattern**: For complex types (SecureChannel, Executor, etc.)
 9. **Feature flags**: Optional transports behind cargo features (quic, wireguard)
 10. **Single static binary**: Agent deploys as one file, no runtime dependencies
+11. **Tests for security-critical code**: Every policy check, every executor path, every crypto operation must have test coverage
+12. **Propagate errors, never swallow**: Audit writes, file I/O, lock acquisition — failures must be reported, not ignored
 
 ## Wire Protocol
 
@@ -105,6 +109,36 @@ rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 8. Execution timeout enforced (prevent hanging)
 9. No shell injection — commands run via `sh -c` with policy-checked string
 10. Relay never decrypts payload (end-to-end between agent and client)
+11. Wire protocol magic (`RVNF`) and version byte validated on every connection
+12. `RwLock`/`Mutex` poisoning handled gracefully (no panics on poisoned locks)
+
+## Known Technical Debt
+
+The following issues are known and must be addressed before v0.1 is feature-complete:
+
+| Priority | Issue | Location | Fix |
+|----------|-------|----------|-----|
+| Critical | Zero test coverage for executor | `rf-executor/src/command.rs` | Add tests for policy denial, successful exec, timeout, output limiting |
+| Important | `unwrap()` in library code (5 instances) | `rf-crypto` (noise.rs, keys.rs), `rf-bootstrap` (otp.rs) | Replace with `?` or `expect()` with justification |
+| Important | Wire magic/version defined but never exchanged | `rf-crypto/src/noise.rs` | Add magic+version send/validate in `handshake()` |
+| Important | `TransportState` API gap | `rf-crypto` → `SecureChannel` | `handshake()` returns one state; `SecureChannel::new()` needs two. Add split method |
+| Important | `RwLock::write().unwrap()` (3 instances) | `rf-bootstrap/src/otp.rs` | Handle poisoned lock or use `parking_lot` (non-poisoning) |
+| Minor | Audit write errors silently swallowed | `rf-audit/src/logger.rs` | Return `Result` from `log()` or use `tracing::error!` |
+| Minor | Unused workspace deps | `Cargo.toml` | Remove `proptest`, `base64`, `crc32fast` until needed |
+| Minor | `yamux` dep in `rf-crypto` | `crates/rf-crypto/Cargo.toml` | Move to `rf-rpc` where mux lives |
+| Minor | Missing `Debug`/`Clone` derives | `rf-transport` `Target` type | Add derives for ergonomics |
+
+## Testing Requirements
+
+When implementing new code or fixing bugs:
+
+- **Every public function** in library crates must have at least one test
+- **Security-critical paths** (policy check, key validation, OTP validation) need positive AND negative tests
+- **Serialization types** need roundtrip tests (serialize → deserialize → assert equality)
+- **Error paths** must be tested — not just the happy path
+- **Use `tokio::io::duplex`** for transport/channel tests (no real network)
+- **Use `tempfile`** for filesystem tests (no test pollution)
+- Integration tests go in `tests/` directories within crates
 
 ## GitHub Security & Quality Checks
 
@@ -179,3 +213,19 @@ max_retries = 0  # infinite
 listen = "0.0.0.0:9090"
 meet_secret = "env:RELAY_SECRET"
 ```
+
+## Implementation Priority (What to Build Next)
+
+The critical path to a working demo (`rf exec agent "cmd"`) requires these items in order:
+
+1. **Fix `TransportState` split** in `rf-crypto` — needed for `SecureChannel` to work
+2. **Wire protocol magic/version exchange** in `handshake()` — security invariant
+3. **In-memory transport driver** in `rf-transport` — enables all testing without network
+4. **yamux multiplexer** in `rf-rpc` — connects crypto to RPC
+5. **msgpack codec** in `rf-rpc` — frame encode/decode
+6. **WebSocket driver** in `rf-transport` — first real transport
+7. **Relay implementation** in `rf-relay` — agent/client pairing
+8. **Agent RPC loop** in `rf-agent` — receive requests, dispatch to executor
+9. **CLI exec command** in `rf-cli` — connect, handshake, send, display
+
+After the working demo, prioritize test coverage for executor and crypto.

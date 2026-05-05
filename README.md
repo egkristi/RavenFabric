@@ -3,6 +3,8 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
+**Status: Pre-alpha** — Foundation layers implemented. Not yet functional end-to-end.
+
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSES/AGPLv3.txt)
 [![CI](https://github.com/egkristi/RavenFabric/actions/workflows/ci.yml/badge.svg)](https://github.com/egkristi/RavenFabric/actions/workflows/ci.yml)
@@ -523,7 +525,35 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ---
 
-## Capabilities
+## Current Implementation Status
+
+**~1,260 LOC | 13 tests | 0 clippy warnings | All CI green**
+
+What works today:
+- Noise XX mutual authentication handshake (full)
+- Secure channel with encrypted frames (full)
+- Static key management with zeroing-on-drop (full)
+- OTP token generation and validation (full)
+- Policy engine with deny-by-default, regex allow/deny, path checks, symlink resolution (full)
+- Command execution under policy control with timeout and output limiting (full)
+- Structured JSON-lines audit logging (full)
+- CLI argument parsing with clap (skeleton)
+
+What's next (critical path to working demo):
+1. Fix `TransportState` split for `SecureChannel` to accept connections
+2. Wire protocol magic/version exchange
+3. In-memory transport driver (enables testing without network)
+4. yamux multiplexer + msgpack codec
+5. WebSocket transport driver
+6. Relay, agent, and CLI implementation
+
+See [ROADMAP.md](ROADMAP.md) for the full plan.
+
+---
+
+## Capabilities (Planned)
+
+> The following capabilities describe the target architecture. See [Current Implementation Status](#current-implementation-status) above for what exists today.
 
 ### Full Mesh VPN (Layer 3)
 What Tailscale/ZeroTier/NetBird do — but over any transport, not just WireGuard:
@@ -892,18 +922,18 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 
 ### Core Crates (Workspace)
 
-| Crate | Responsibility |
-|-------|---------------|
-| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey management |
-| `rf-transport` | Driver trait, AsyncStream abstraction, WebSocket backend |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec |
-| `rf-audit` | Structured JSON-lines audit logging |
-| `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) |
-| `rf-executor` | Command execution under policy control with timeout + output limiting |
-| `rf-bootstrap` | OTP enrollment (single-use, hash-stored, TTL-enforced) |
-| `rf-relay` | Stateless encrypted relay broker binary |
-| `rf-agent` | Agent binary (connects outbound, serves RPC under policy) |
-| `rf-cli` | `rf` CLI binary (exec, dev, status) |
+| Crate | Responsibility | Status |
+|-------|---------------|--------|
+| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey management | Done (470 LOC, 5 tests) |
+| `rf-transport` | Driver trait, AsyncStream abstraction, WebSocket backend | Trait only (53 LOC) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec | Types only (63 LOC) |
+| `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
+| `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) | Done (281 LOC, 4 tests) |
+| `rf-executor` | Command execution under policy control with timeout + output limiting | Done (170 LOC) |
+| `rf-bootstrap` | OTP enrollment (single-use, hash-stored, TTL-enforced) | Done (122 LOC, 4 tests) |
+| `rf-relay` | Stateless encrypted relay broker binary | Stub |
+| `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Stub |
+| `rf-cli` | `rf` CLI binary (exec, dev, status) | Skeleton |
 
 ### Key Dependencies
 
