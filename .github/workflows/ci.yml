@@ -79,7 +79,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin
+        run: |
+          curl -sL https://github.com/xd009642/tarpaulin/releases/latest/download/cargo-tarpaulin-x86_64-unknown-linux-musl.tar.gz | tar xz -C /usr/local/bin
       - name: Generate coverage
         run: |
           cargo tarpaulin --out xml --skip-clean --exclude-files "crates/rf-cli/*" "crates/rf-agent/*" "crates/rf-relay/*" 2>&1 | tee coverage-output.txt
