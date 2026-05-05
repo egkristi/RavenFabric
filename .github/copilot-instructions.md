@@ -86,6 +86,13 @@ rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 - Multiplexing: yamux over SecureChannel
 - RPC encoding: msgpack (rmp-serde)
 
+## Security Philosophy
+
+- **Security is always the top priority.** Never trade security for convenience or speed.
+- **Security must always be implemented**, not deferred. Every feature ships with its security controls in place.
+- **Remember and enforce security policies.** Every code path must respect the deny-by-default policy engine.
+- **Airtight policy → execution within its bounds only.** No capability exists outside what the policy explicitly permits. If the policy does not allow it, it does not happen.
+
 ## Security Invariants
 
 1. No command executes without policy check
@@ -98,6 +105,17 @@ rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 8. Execution timeout enforced (prevent hanging)
 9. No shell injection — commands run via `sh -c` with policy-checked string
 10. Relay never decrypts payload (end-to-end between agent and client)
+
+## GitHub Security & Quality Checks
+
+Periodically verify the following are in good standing on the GitHub repository:
+
+- **Security policy** — `SECURITY.md` is present and up-to-date
+- **Security advisories** — no unresolved advisories
+- **Vulnerability reporting** — private reporting enabled
+- **Dependabot alerts** — no open critical/high alerts; review and resolve promptly
+- **Code scanning alerts** — CodeQL has no open findings
+- **Secret scanning alerts** — no exposed secrets; resolve immediately if any appear
 
 ## Build & Test
 

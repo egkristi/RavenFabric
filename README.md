@@ -283,22 +283,121 @@ spec:
 
 ## Transport: Any Network
 
-RavenFabric connects through any available transport. All agents initiate outbound — no inbound ports required anywhere.
+RavenFabric connects through any available transport. All agents initiate outbound — no inbound ports required anywhere. The Driver trait abstracts all connectivity — upper layers never know which transport is active.
+
+### Transport Drivers
 
 | Transport | NAT traversal | Needs internet | Use case |
 |-----------|-------------|---------------|----------|
-| `wireguard-direct` | Open network | Yes | Lowest latency |
-| `wireguard-stun` | Cone NAT | Yes | Home/office |
-| `wireguard-relay` | All NAT | Yes | Universal |
-| `quic` | All NAT | Yes | Fast, connection migration |
-| `websocket` port 443 | All NAT | Yes | Works everywhere |
-| `websocket-proxy` | Enterprise proxy | Yes | Corporate |
-| `reticulum` | No internet | No | Air-gap, LoRa, BLE |
-| `yggdrasil` | Overlay | Yes | IPv6 overlay mesh |
-| `tor` | All | Yes | Anonymity |
-| `serial` | Physical | No | True air-gap |
+| `wireguard-direct` | Open network | Yes | Lowest latency, direct peers |
+| `wireguard-stun` | Cone NAT | Yes | Home/office (STUN-assisted hole punch) |
+| `wireguard-relay` | All NAT | Yes | Universal fallback (TURN-style) |
+| `quic` | All NAT | Yes | Connection migration, 0-RTT, multiplexed |
+| `websocket` port 443 | All NAT | Yes | Works everywhere, corporate proxies |
+| `websocket-proxy` | Enterprise proxy | Yes | HTTP CONNECT through corporate proxies |
+| `http3-masque` | All NAT | Yes | CONNECT-UDP/IP via HTTP/3, impossible to block |
+| `reticulum` | No internet | No | Air-gap, LoRa, BLE, packet radio |
+| `tor` | All | Yes | Anonymity, .onion hidden service |
+| `dns-tunnel` | All | Yes | Extreme fallback through restrictive firewalls |
+| `serial` | Physical | No | True air-gap (RS-232/USB) |
+| `bluetooth` | Physical proximity | No | Local mesh, no infrastructure |
 
 All transports: **Noise XX on top, always.** Relay sees only ciphertext.
+
+### NAT Traversal Stack
+
+RavenFabric implements a full NAT traversal stack (inspired by ICE, libp2p DCUtR, and Tailscale DERP):
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  1. Try direct (host candidates, IPv6, LAN)                     │
+│  2. STUN: discover reflexive address (server-reflexive candidates)│
+│  3. UDP hole punch (simultaneous send via coordinator)          │
+│  4. TCP hole punch (simultaneous open, RFC 5128)                │
+│  5. Birthday attack on symmetric NAT (port prediction)          │
+│  6. Relay fallback (TURN-style, always works)                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- **STUN** — discover public IP:port mapping. Works for ~80% of NATs (full cone, restricted, port-restricted)
+- **UDP hole punching** — coordinated simultaneous send. Both NATs create entries allowing bidirectional traffic
+- **TCP hole punching** — simultaneous open (RFC 5128). Harder but works through some NATs that block UDP
+- **Birthday paradox attack** — for symmetric NAT: predict port allocation by sending many packets. ~65% success rate
+- **Relay (TURN-style)** — when all else fails: encrypted relay forwards opaque bytes. Works 100%, costs latency
+- **ICE-style orchestration** — try all candidates in parallel, select fastest successful path
+
+### Connection Lifecycle (DCUtR Pattern)
+
+Inspired by libp2p's DCUtR (Direct Connection Upgrade through Relay):
+
+```
+1. Agent connects to relay (immediate, always works)
+2. Client connects to relay, paired with agent
+3. Noise XX handshake through relay (E2E, relay sees nothing)
+4. Connection is functional — commands can execute NOW
+5. Background: probe for direct path (STUN, hole punch, WireGuard)
+6. If direct path found → verify peer key → migrate seamlessly
+7. Old relay path kept as fallback (automatic failback)
+```
+
+Key insight: **never wait for optimal path**. Use relay immediately, upgrade in background.
+
+### Background Transport Upgrade
+
+Unlike Tailscale (DERP→WireGuard only), RavenFabric can upgrade **across protocol families**:
+1. Connect via fastest available (often relay/WebSocket)
+2. Race all higher-priority transports in background
+3. When faster transport succeeds → offer upgrade via channel
+4. Verify peer key matches → accept, old transport kept as fallback
+5. Supports multipath: use multiple transports simultaneously for redundancy
+
+### IPv6 and Dual-Stack (Happy Eyeballs)
+
+- **IPv6 first** — if both peers have IPv6, NAT traversal is trivial (no NAT)
+- **Happy Eyeballs (RFC 8305)** — race IPv4 and IPv6 in parallel, use first responder
+- **NAT64/464XLAT awareness** — detect IPv6-only networks (common on mobile), behave correctly
+- **Dual-stack candidates** — generate both IPv4 and IPv6 candidates for ICE-style negotiation
+
+### Network Environment Probing
+
+Transport-agnostic network probing (inspired by Tailscale's netcheck but probes ALL drivers):
+- NAT type detection (open, full cone, restricted, port restricted, symmetric)
+- IPv4/IPv6 availability and preference
+- UDP reachability (per-port)
+- Per-relay latency measurement (geographic selection)
+- Captive portal detection
+- HTTP proxy detection (CONNECT support)
+- Per-driver availability probes
+- QUIC/UDP vs TCP-only detection
+
+### Censorship Resistance (Pluggable Transports)
+
+For hostile network environments (corporate DPI, nation-state censorship):
+
+| Technique | How it works | Blocks it defeats |
+|-----------|-------------|-------------------|
+| **WebSocket on 443** | Looks like HTTPS | Basic port blocking |
+| **HTTP/3 MASQUE** | CONNECT-UDP inside QUIC/HTTP/3 | DPI, protocol blocking |
+| **ECH (Encrypted Client Hello)** | Hides SNI from DPI | SNI-based blocking |
+| **Traffic obfuscation** | Make Noise XX look like random bytes | Protocol fingerprinting |
+| **Domain fronting** | TLS SNI ≠ HTTP Host header | Domain-based blocking |
+| **DNS tunneling** | Encode data in DNS queries | Everything except DNS blocking |
+| **ICMP tunneling** | Data in ICMP echo payloads | Firewalls allowing ping |
+
+Architecture: transports are pluggable. Adding a new censorship-resistant transport requires only implementing the `Driver` trait — no changes to crypto, RPC, policy, or execution layers.
+
+### Peer Discovery
+
+| Method | Scope | Decentralized | Use case |
+|--------|-------|---------------|----------|
+| **mDNS/DNS-SD** | LAN | Yes | Local network, zero-config |
+| **Relay registry** | Global | No (relay-mediated) | Primary, always works |
+| **DHT (Kademlia)** | Global | Yes | Censorship-resistant discovery |
+| **Gossip (SWIM/HyParView)** | Mesh | Yes | Self-healing mesh topology |
+| **Signed DNS records** | Global | Partial | Verifiable, cached |
+| **Bluetooth/BLE beacon** | Proximity | Yes | No-infrastructure environments |
+
+All discovery methods produce the same output: a signed peer record containing the peer's static public key and reachable addresses. The key is the identity — addresses are just hints.
 
 ### Fallback Strategies
 
@@ -307,24 +406,7 @@ All transports: **Noise XX on top, always.** Relay sees only ciphertext.
 | `sequential` | Try one-by-one, stop at first success | Battery-optimized |
 | `race` | Start all concurrently, use first to succeed | Latency-optimized |
 | `parallel` | Establish all, use lowest-latency | Mission-critical |
-
-### Background Transport Upgrade
-
-Unlike Tailscale (DERP→WireGuard only), RavenFabric can upgrade **across protocol families**:
-1. Connect via fastest available (often relay)
-2. Race all higher-priority transports in background
-3. When faster transport succeeds → offer upgrade via channel
-4. Verify peer key matches → accept, old transport kept as fallback
-
-### Network Environment Probing
-
-Transport-agnostic network probing (inspired by Tailscale's netcheck but probes ALL drivers):
-- NAT type detection (open, full cone, restricted, port restricted, symmetric)
-- IPv4/IPv6 availability
-- UDP reachability
-- Per-relay latency measurement
-- Captive portal detection
-- Per-driver availability probes
+| `multipath` | Keep multiple active, stripe or replicate | Ultra-reliable |
 
 ---
 

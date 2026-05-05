@@ -156,8 +156,26 @@ rf exec test-agent "uname -a"
 ### Transport Expansion
 - [ ] WebSocket driver implementation (tokio-tungstenite)
 - [ ] In-memory driver for testing
-- [ ] QUIC relay driver (quinn, 0-RTT, connection migration)
-- [ ] WireGuard userspace (boringtun, direct + STUN)
+- [ ] QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)
+- [ ] WireGuard userspace (boringtun, direct peers on open network)
+- [ ] Happy Eyeballs (RFC 8305) — race IPv4/IPv6, use first responder
+- [ ] IPv6-first with NAT64/464XLAT awareness
+
+### NAT Traversal (ICE-style)
+- [ ] STUN client — discover server-reflexive candidates (public IP:port)
+- [ ] UDP hole punching — coordinated simultaneous send via relay coordinator
+- [ ] TCP hole punching — simultaneous open (RFC 5128)
+- [ ] ICE candidate gathering — host, server-reflexive, relayed candidates
+- [ ] ICE candidate selection — parallel probing, select fastest path
+- [ ] Birthday paradox port prediction for symmetric NAT
+- [ ] NAT type detection (full cone, restricted, port-restricted, symmetric)
+
+### Connection Upgrade (DCUtR Pattern)
+- [ ] Relay-first connection (immediate, always works)
+- [ ] Background direct-path probing while relay is active
+- [ ] Seamless migration to direct path when found (verify peer key)
+- [ ] Automatic failback to relay if direct path fails
+- [ ] Connection migration on network change (WiFi ↔ cellular)
 
 ### Execution Modes
 - [ ] Task mode (ordered steps, conditions, onFailure, workdir)
@@ -222,26 +240,52 @@ rf exec test-agent "uname -a"
 
 ---
 
-## v0.5 — Alternative Transports
+## v0.5 — Alternative Transports + Censorship Resistance
 
-**Goal:** Air-gap support. Anonymity.
+**Goal:** Air-gap support. Anonymity. Hostile network traversal. Peer discovery.
 
-- [ ] Reticulum mesh (LoRa, BLE, packet radio)
-- [ ] Tor hidden service (.onion)
-- [ ] Serial port (RS-232/USB)
-- [ ] Traffic analysis resistance (noise floor, packet normalization)
+### Censorship-Resistant Transports
+- [ ] HTTP/3 MASQUE driver (CONNECT-UDP/CONNECT-IP via HTTP/3, impossible to distinguish from browsing)
+- [ ] Traffic obfuscation layer (make Noise XX indistinguishable from random bytes)
+- [ ] Encrypted Client Hello (ECH) support for WebSocket TLS connections
+- [ ] Domain fronting transport (TLS SNI ≠ HTTP Host, CDN-routed)
+- [ ] DNS tunneling driver (encode frames in DNS queries, iodine-style)
+- [ ] ICMP tunneling driver (data in echo payloads, restricted environments)
+
+### Air-Gap and Proximity Transports
+- [ ] Reticulum mesh driver (LoRa, BLE, packet radio, multi-hop)
+- [ ] Tor hidden service driver (.onion endpoints)
+- [ ] Serial port driver (RS-232/USB, true physical air-gap)
+- [ ] Bluetooth/BLE driver (proximity mesh, no infrastructure)
+- [ ] Wi-Fi Direct driver (ad-hoc local connections)
+
+### Peer Discovery
+- [ ] mDNS/DNS-SD — zero-config LAN discovery
+- [ ] DHT (Kademlia-style) — decentralized global discovery
+- [ ] Gossip protocol (SWIM/HyParView) — self-healing mesh topology
+- [ ] Signed DNS records (DNSSEC SRV) — verifiable rendezvous
+- [ ] BLE beacon discovery — proximity without infrastructure
+
+### Advanced NAT Traversal
+- [ ] STUN server (self-hosted, for deployments without public STUN)
+- [ ] TURN relay mode on rf-relay (full TURN compliance)
+- [ ] Multipath transport — use multiple paths simultaneously
+- [ ] Traffic analysis resistance (noise floor, packet normalization, timing obfuscation)
+- [ ] Sneakernet-aware sync (eventual consistency for periodically-connected nodes)
 
 ---
 
-## v0.6 — WASM Plugins + Multi-Tenant
+## v0.6 — WASM Plugins + Multi-Tenant + Post-Quantum
 
-**Goal:** Extensibility without recompiling. RBAC.
+**Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography.
 
 - [ ] Wasmtime-based plugin runtime
 - [ ] Custom resource types via WASM
 - [ ] Tenant isolation
 - [ ] RBAC (admin, operator, viewer, auditor)
 - [ ] SecurityPolicy with immutable rules
+- [ ] Post-quantum hybrid handshake (ML-KEM + X25519, Noise XX with hybrid KEM)
+- [ ] SPIFFE-style workload identity (identity independent of network position)
 
 ---
 
