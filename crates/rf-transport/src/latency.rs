@@ -1,10 +1,14 @@
 //! Per-relay latency measurement and scoring.
 //!
 //! Maintains RTT history for each relay endpoint and selects the
-//! lowest-latency relay for new connections.
+//! lowest-latency relay for new connections. Includes an active
+//! TCP prober for measuring real RTT.
 
 use std::collections::HashMap;
-use std::time::Duration;
+use std::net::SocketAddr;
+use std::time::{Duration, Instant};
+use tokio::net::TcpStream;
+use tokio::time::timeout;
 
 /// A single latency sample.
 #[derive(Debug, Clone, Copy)]
@@ -161,7 +165,92 @@ impl LatencyTracker {
         self.relays.len()
     }
 }
+/// Active latency prober — measures real TCP connect RTT to relay endpoints.
+pub struct LatencyProber {
+    /// Probe timeout (default: 5s).
+    pub timeout: Duration,
+    /// Interval between probe rounds (default: 30s).
+    pub interval: Duration,
+}
 
+impl Default for LatencyProber {
+    fn default() -> Self {
+        Self {
+            timeout: Duration::from_secs(5),
+            interval: Duration::from_secs(30),
+        }
+    }
+}
+
+impl LatencyProber {
+    /// Create a prober with custom timeout and interval.
+    pub fn new(timeout: Duration, interval: Duration) -> Self {
+        Self { timeout, interval }
+    }
+
+    /// Probe a single relay endpoint via TCP connect. Returns RTT on success.
+    pub async fn probe_tcp(&self, addr: SocketAddr) -> Result<Duration, std::io::Error> {
+        let start = Instant::now();
+        match timeout(self.timeout, TcpStream::connect(addr)).await {
+            Ok(Ok(_stream)) => Ok(start.elapsed()),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "probe timed out",
+            )),
+        }
+    }
+
+    /// Probe multiple relays and update the tracker with results.
+    pub async fn probe_all(
+        &self,
+        tracker: &mut LatencyTracker,
+        endpoints: &[(String, SocketAddr)],
+    ) {
+        let timestamp_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        for (relay_id, addr) in endpoints {
+            match self.probe_tcp(*addr).await {
+                Ok(rtt) => {
+                    tracker.record(relay_id, rtt, timestamp_ms);
+                }
+                Err(_) => {
+                    tracker.record_failure(relay_id);
+                }
+            }
+        }
+    }
+
+    /// Run continuous probing loop until cancellation token fires.
+    /// Probes all endpoints every `self.interval`.
+    pub async fn run_loop(
+        &self,
+        tracker: &mut LatencyTracker,
+        endpoints: &[(String, SocketAddr)],
+        cancel: tokio::sync::watch::Receiver<bool>,
+    ) {
+        loop {
+            self.probe_all(tracker, endpoints).await;
+
+            tokio::select! {
+                _ = tokio::time::sleep(self.interval) => {}
+                _ = async {
+                    let mut rx = cancel.clone();
+                    while !*rx.borrow_and_update() {
+                        if rx.changed().await.is_err() {
+                            return;
+                        }
+                    }
+                } => {
+                    break;
+                }
+            }
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,5 +337,60 @@ mod tests {
 
         let p95 = stats.p95_rtt().unwrap();
         assert!(p95.as_millis() >= 94 && p95.as_millis() <= 96);
+    }
+
+    #[tokio::test]
+    async fn test_prober_tcp_success() {
+        // Start a TCP listener to probe
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        // Accept in background (just accept and drop)
+        tokio::spawn(async move {
+            let _ = listener.accept().await;
+        });
+
+        let prober = LatencyProber::default();
+        let rtt = prober.probe_tcp(addr).await.unwrap();
+        // Local connection should be fast
+        assert!(rtt < Duration::from_millis(100));
+    }
+
+    #[tokio::test]
+    async fn test_prober_tcp_timeout() {
+        // Use a non-routable address to trigger timeout
+        let prober = LatencyProber::new(Duration::from_millis(100), Duration::from_secs(30));
+        let addr: SocketAddr = "192.0.2.1:9999".parse().unwrap(); // TEST-NET, non-routable
+        let result = prober.probe_tcp(addr).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_prober_probe_all() {
+        // Start two TCP listeners
+        let listener1 = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr1 = listener1.local_addr().unwrap();
+        let listener2 = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr2 = listener2.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            let _ = listener1.accept().await;
+        });
+        tokio::spawn(async move {
+            let _ = listener2.accept().await;
+        });
+
+        let prober = LatencyProber::default();
+        let mut tracker = LatencyTracker::new(50);
+        let endpoints = vec![
+            ("relay-1".to_string(), addr1),
+            ("relay-2".to_string(), addr2),
+        ];
+
+        prober.probe_all(&mut tracker, &endpoints).await;
+
+        assert_eq!(tracker.relay_count(), 2);
+        assert!(tracker.stats("relay-1").unwrap().mean_rtt().is_some());
+        assert!(tracker.stats("relay-2").unwrap().mean_rtt().is_some());
     }
 }

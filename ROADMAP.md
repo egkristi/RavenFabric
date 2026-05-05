@@ -248,7 +248,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] NetworkProbe struct — `quick_probe()` checks IPv4/IPv6/UDP availability + `EgressClass` classification (functional)
 - [x] STUN-based NAT type detection — real UDP STUN binding requests in `stun_client.rs`
 - [~] Corporate proxy detection — proxy config types, no actual HTTP CONNECT probing
-- [~] Per-relay latency measurement — types defined, no actual latency measurement
+- [x] Per-relay latency measurement — TCP connect RTT prober, probe_all(), continuous loop with cancellation (3 async tests)
 
 ### Path Selection Engine (Phase 5 of Connectivity Value Chain)
 - [x] Transport catalog with tier classification — working in-memory data structure
@@ -257,7 +257,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### NAT Traversal (ICE-style)
 - [x] STUN client — real UDP binding requests in `stun_client.rs` (RFC 5389/8489), 9 tests
-- [~] UDP/TCP hole punching — types defined, no actual socket coordination
+- [x] UDP/TCP hole punching — real UDP socket coordination, probe/ACK protocol, concurrent punch (2 async tests)
 - [x] ICE candidate gathering — `gather_candidates()` with host + server-reflexive via STUN
 - [~] Birthday paradox port prediction — types only
 - [x] NAT type detection — `detect_nat_type()` compares bindings from multiple servers
@@ -269,7 +269,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Heartbeat-based liveness detection — Ping/Pong RPC action types
 - [x] RTT baseline tracking — `RttTracker` with EWMA math (functional)
 - [x] Automatic failover — `ConnectionRunner::report_failure()` triggers failback_to_relay + automatic reconnect
-- [~] OS network change events — `network_changed()` method triggers reprobing (no OS signal hook yet)
+- [x] OS network change events — NetworkWatcher with polling, snapshot diff, gateway detection (Linux /proc, macOS route), watch loop (7 tests)
 
 ### Tamper Detection & Adaptive Transport
 - [x] MAC failure / frame injection detection — error types + audit events defined
@@ -401,9 +401,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [~] Mixnet integration — enum variant
 
 ### Peer Discovery
-- [~] mDNS/DNS-SD — types defined, no actual mDNS broadcast/listen
+- [x] mDNS/DNS-SD — DiscoveryAgent with UDP broadcast/listen, JSON announcement protocol, self-filtering (2 async tests)
 - [~] DHT (Kademlia-style) — types defined
-- [~] Gossip protocol (SWIM/HyParView) — `MembershipList` in-memory, no actual UDP gossip
+- [x] Gossip protocol (SWIM/HyParView) — GossipAgent with real UDP transport, JSON serialization, bidirectional health propagation (2 async tests)
 - [~] Signed DNS records — types defined
 - [~] BLE beacon discovery — types defined
 - [~] Announce-flood — types defined

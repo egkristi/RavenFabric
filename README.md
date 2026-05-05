@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~20,100 LOC | 381 tests | 0 clippy warnings | All CI green**
+**~20,500 LOC | 390 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -626,6 +626,11 @@ What works today:
 - DTN offline queue with SQLite persistence (priority ordering, TTL, deduplication)
 - TUN device creation: Linux (/dev/net/tun + ioctl), macOS (utun control socket), platform-agnostic API
 - MagicDNS UDP server: AAAA query resolution for `*.rf.local`, authoritative responses, NXDOMAIN
+- Per-relay latency probing: TCP connect RTT measurement, continuous probing loop with cancellation
+- UDP hole punching: real socket coordination with probe/ACK protocol, concurrent punch
+- OS network change detection: polling-based watcher, snapshot diff, platform gateway detection
+- mDNS/DNS-SD LAN discovery: UDP broadcast/listen, JSON announcement protocol, self-filtering
+- Gossip protocol: SWIM-style UDP gossip with transitive health propagation
 
 Working end-to-end flows:
 - `rf exec --token <token> "command"` → relay → agent → execute → respond

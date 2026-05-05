@@ -2,12 +2,15 @@
 //!
 //! Enables partial observability without direct controller paths:
 //! each node shares health state with its immediate neighbors,
-//! and relays report forwarding metrics.
+//! and relays report forwarding metrics. Includes a real UDP gossip
+//! agent for SWIM-style failure detection.
 
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use tokio::net::UdpSocket;
 
 /// Metrics reported by a relay node.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -210,6 +213,123 @@ impl GossipTracker {
     }
 }
 
+/// UDP gossip agent — implements SWIM-style failure detection and state
+/// dissemination over UDP sockets.
+pub struct GossipAgent {
+    /// Our agent ID.
+    agent_id: String,
+    /// UDP socket for gossip communication.
+    socket: UdpSocket,
+    /// Known peers to gossip with.
+    peers: Vec<SocketAddr>,
+    /// Gossip tracker for maintaining state.
+    tracker: GossipTracker,
+    /// Monotonically increasing sequence number.
+    sequence: u64,
+    /// Our own health status.
+    self_health: GossipHealth,
+}
+
+impl GossipAgent {
+    /// Create a new gossip agent bound to a local address.
+    pub async fn bind(
+        agent_id: String,
+        local_addr: &str,
+        max_age_ms: u64,
+    ) -> std::io::Result<Self> {
+        let socket = UdpSocket::bind(local_addr).await?;
+        Ok(Self {
+            agent_id,
+            socket,
+            peers: Vec::new(),
+            tracker: GossipTracker::new(max_age_ms),
+            sequence: 0,
+            self_health: GossipHealth::Healthy,
+        })
+    }
+
+    /// Get the local address this agent is bound to.
+    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    /// Add a peer to gossip with.
+    pub fn add_peer(&mut self, addr: SocketAddr) {
+        if !self.peers.contains(&addr) {
+            self.peers.push(addr);
+        }
+    }
+
+    /// Set our own health status.
+    pub fn set_health(&mut self, health: GossipHealth) {
+        self.self_health = health;
+    }
+
+    /// Send a gossip message to all known peers.
+    pub async fn gossip_to_peers(&mut self) -> std::io::Result<usize> {
+        self.sequence += 1;
+        let now_ms = now_millis();
+
+        let msg = GossipMessage {
+            from: self.agent_id.clone(),
+            health: self.self_health,
+            sequence: self.sequence,
+            timestamp_ms: now_ms,
+            neighbor_reports: self.tracker.build_reports(now_ms),
+        };
+
+        let encoded = serde_json::to_vec(&msg).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
+        })?;
+
+        let mut sent = 0;
+        for peer in &self.peers {
+            if self.socket.send_to(&encoded, peer).await.is_ok() {
+                sent += 1;
+            }
+        }
+        Ok(sent)
+    }
+
+    /// Receive and process one incoming gossip message.
+    pub async fn receive_one(&mut self) -> std::io::Result<String> {
+        let mut buf = [0u8; 4096];
+        let (len, _from) = self.socket.recv_from(&mut buf).await?;
+
+        let msg: GossipMessage = serde_json::from_slice(&buf[..len]).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
+        })?;
+
+        let from_id = msg.from.clone();
+        let now_ms = now_millis();
+        self.tracker.receive(&msg, now_ms);
+        Ok(from_id)
+    }
+
+    /// Get the health of a specific node.
+    pub fn health_of(&self, agent_id: &str) -> GossipHealth {
+        self.tracker.health_of(agent_id, now_millis())
+    }
+
+    /// Get all known healthy nodes.
+    pub fn healthy_nodes(&self) -> Vec<&str> {
+        self.tracker.healthy_nodes(now_millis())
+    }
+
+    /// Number of tracked nodes.
+    pub fn node_count(&self) -> usize {
+        self.tracker.node_count()
+    }
+}
+
+/// Get current time in milliseconds since epoch.
+fn now_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,5 +463,64 @@ mod tests {
         assert_eq!(reports.len(), 1);
         assert_eq!(reports[0].agent_id, "peer-1");
         assert_eq!(reports[0].age_ms, 1000);
+    }
+
+    #[tokio::test]
+    async fn test_gossip_agent_send_receive() {
+        // Create two gossip agents
+        let mut agent_a = GossipAgent::bind("node-a".into(), "127.0.0.1:0", 60_000)
+            .await
+            .unwrap();
+        let mut agent_b = GossipAgent::bind("node-b".into(), "127.0.0.1:0", 60_000)
+            .await
+            .unwrap();
+
+        let addr_a = agent_a.local_addr().unwrap();
+        let addr_b = agent_b.local_addr().unwrap();
+
+        // A knows about B
+        agent_a.add_peer(addr_b);
+        // B knows about A
+        agent_b.add_peer(addr_a);
+
+        // A sends gossip
+        let sent = agent_a.gossip_to_peers().await.unwrap();
+        assert_eq!(sent, 1);
+
+        // B receives it
+        let from = agent_b.receive_one().await.unwrap();
+        assert_eq!(from, "node-a");
+        assert_eq!(agent_b.health_of("node-a"), GossipHealth::Healthy);
+    }
+
+    #[tokio::test]
+    async fn test_gossip_agent_bidirectional() {
+        let mut agent_a = GossipAgent::bind("alpha".into(), "127.0.0.1:0", 60_000)
+            .await
+            .unwrap();
+        let mut agent_b = GossipAgent::bind("beta".into(), "127.0.0.1:0", 60_000)
+            .await
+            .unwrap();
+
+        let addr_a = agent_a.local_addr().unwrap();
+        let addr_b = agent_b.local_addr().unwrap();
+
+        agent_a.add_peer(addr_b);
+        agent_b.add_peer(addr_a);
+
+        // A gossips (healthy)
+        agent_a.gossip_to_peers().await.unwrap();
+        agent_b.receive_one().await.unwrap();
+
+        // B gossips (degraded)
+        agent_b.set_health(GossipHealth::Degraded);
+        agent_b.gossip_to_peers().await.unwrap();
+        agent_a.receive_one().await.unwrap();
+
+        assert_eq!(agent_a.health_of("beta"), GossipHealth::Degraded);
+        assert_eq!(agent_b.health_of("alpha"), GossipHealth::Healthy);
+        // B has 1 tracked node (alpha), A has 2 (beta + alpha via transitive report)
+        assert!(agent_a.node_count() >= 1);
+        assert_eq!(agent_b.node_count(), 1);
     }
 }

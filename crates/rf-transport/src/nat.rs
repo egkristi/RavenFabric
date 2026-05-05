@@ -1,10 +1,11 @@
 //! NAT type detection and ICE candidate gathering.
 //!
 //! Implements types for STUN-based NAT detection (RFC 5780), ICE candidate
-//! collection, and coordinated hole punching.
+//! collection, and coordinated hole punching with real UDP sockets.
 
 use std::net::SocketAddr;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use tokio::net::UdpSocket;
 
 /// NAT type classification per RFC 3489/5780.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -182,6 +183,137 @@ pub enum HolePunchMessage {
     },
 }
 
+/// UDP hole puncher — performs actual connectivity checks between peers.
+///
+/// The protocol:
+/// 1. Both peers bind a UDP socket
+/// 2. Both start sending probe packets to each other's reflexive address
+/// 3. First peer to receive a probe responds with a confirmation
+/// 4. Once both sides have received a response, the hole is punched
+pub struct HolePuncher {
+    /// Local UDP socket for hole punching.
+    socket: UdpSocket,
+    /// Probe timeout.
+    timeout: Duration,
+    /// Maximum probe attempts.
+    max_attempts: u32,
+    /// Interval between probes.
+    probe_interval: Duration,
+}
+
+/// Result of a hole punch attempt.
+#[derive(Debug)]
+pub struct HolePunchResult {
+    /// Whether the hole punch succeeded.
+    pub success: bool,
+    /// Peer's confirmed address (the address we received their probe from).
+    pub peer_addr: Option<SocketAddr>,
+    /// Round-trip time of the successful probe.
+    pub rtt: Option<Duration>,
+    /// Number of probes sent before success.
+    pub probes_sent: u32,
+}
+
+/// Magic bytes for hole punch probes (4 bytes).
+const PUNCH_MAGIC: &[u8; 4] = b"RVHP"; // RavenFabric Hole Punch
+
+impl HolePuncher {
+    /// Create a hole puncher with a bound UDP socket.
+    pub async fn bind(local_addr: &str) -> std::io::Result<Self> {
+        let socket = UdpSocket::bind(local_addr).await?;
+        Ok(Self {
+            socket,
+            timeout: Duration::from_secs(10),
+            max_attempts: 20,
+            probe_interval: Duration::from_millis(200),
+        })
+    }
+
+    /// Create a hole puncher from an existing socket.
+    pub fn from_socket(socket: UdpSocket) -> Self {
+        Self {
+            socket,
+            timeout: Duration::from_secs(10),
+            max_attempts: 20,
+            probe_interval: Duration::from_millis(200),
+        }
+    }
+
+    /// Get the local address of the punch socket.
+    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    /// Attempt to punch a hole to the peer at `peer_addr`.
+    ///
+    /// Sends probe packets and listens for responses. Returns once a
+    /// bidirectional channel is established or timeout is reached.
+    pub async fn punch(&self, peer_addr: SocketAddr) -> HolePunchResult {
+        let start = Instant::now();
+        let deadline = start + self.timeout;
+        let mut probes_sent = 0u32;
+        let mut buf = [0u8; 64];
+
+        // Build probe packet: MAGIC(4) + "PROBE"
+        let probe = build_probe_packet();
+
+        loop {
+            if Instant::now() >= deadline || probes_sent >= self.max_attempts {
+                return HolePunchResult {
+                    success: false,
+                    peer_addr: None,
+                    rtt: None,
+                    probes_sent,
+                };
+            }
+
+            // Send a probe
+            let send_time = Instant::now();
+            let _ = self.socket.send_to(&probe, peer_addr).await;
+            probes_sent += 1;
+
+            // Wait for response with timeout
+            let recv_timeout = tokio::time::timeout(self.probe_interval, self.socket.recv_from(&mut buf));
+
+            match recv_timeout.await {
+                Ok(Ok((len, from_addr))) => {
+                    if len >= 4 && &buf[..4] == PUNCH_MAGIC {
+                        // Got a probe from peer — send response and declare success
+                        let response = build_response_packet();
+                        let _ = self.socket.send_to(&response, from_addr).await;
+
+                        return HolePunchResult {
+                            success: true,
+                            peer_addr: Some(from_addr),
+                            rtt: Some(send_time.elapsed()),
+                            probes_sent,
+                        };
+                    }
+                }
+                Ok(Err(_)) | Err(_) => {
+                    // Timeout or error — continue probing
+                }
+            }
+        }
+    }
+}
+
+/// Build a hole punch probe packet.
+fn build_probe_packet() -> Vec<u8> {
+    let mut pkt = Vec::with_capacity(9);
+    pkt.extend_from_slice(PUNCH_MAGIC);
+    pkt.extend_from_slice(b"PROBE");
+    pkt
+}
+
+/// Build a hole punch response packet.
+fn build_response_packet() -> Vec<u8> {
+    let mut pkt = Vec::with_capacity(7);
+    pkt.extend_from_slice(PUNCH_MAGIC);
+    pkt.extend_from_slice(b"ACK");
+    pkt
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -295,5 +427,42 @@ mod tests {
         };
         assert_eq!(pair.state, PairState::Frozen);
         assert!(pair.rtt.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_hole_punch_local() {
+        // Two local UDP sockets simulate two peers
+        let puncher_a = HolePuncher::bind("127.0.0.1:0").await.unwrap();
+        let puncher_b = HolePuncher::bind("127.0.0.1:0").await.unwrap();
+
+        let addr_a = puncher_a.local_addr().unwrap();
+        let addr_b = puncher_b.local_addr().unwrap();
+
+        // Punch from both sides concurrently
+        let (result_a, result_b) = tokio::join!(
+            puncher_a.punch(addr_b),
+            puncher_b.punch(addr_a),
+        );
+
+        // At least one should succeed (in local loopback, both will)
+        assert!(result_a.success || result_b.success);
+
+        // Verify the successful one has a valid peer addr
+        if result_a.success {
+            assert!(result_a.peer_addr.is_some());
+            assert!(result_a.rtt.is_some());
+            assert!(result_a.rtt.unwrap() < Duration::from_millis(500));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_hole_punch_timeout() {
+        let puncher = HolePuncher::bind("127.0.0.1:0").await.unwrap();
+
+        // Punch to a non-listening address should fail
+        let result = puncher.punch("127.0.0.1:1".parse().unwrap()).await;
+        assert!(!result.success);
+        assert!(result.peer_addr.is_none());
+        assert!(result.probes_sent > 0);
     }
 }

@@ -13,6 +13,7 @@ pub mod memory;
 pub mod mesh;
 pub mod migration;
 pub mod nat;
+pub mod netwatch;
 pub mod obfuscation;
 pub mod overlay;
 pub mod platform;

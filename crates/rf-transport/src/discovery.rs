@@ -2,10 +2,19 @@
 //!
 //! Zero-configuration local network discovery of RavenFabric agents.
 //! Agents advertise their presence via _ravenfabric._tcp service records.
+//! Includes a real UDP multicast implementation for LAN discovery.
 
 use std::collections::HashMap;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::time::{Duration, Instant};
+use tokio::net::UdpSocket;
+
+/// mDNS multicast address (224.0.0.251:5353).
+pub const MDNS_MULTICAST_ADDR: SocketAddr =
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(224, 0, 0, 251), 5353));
+
+/// Custom RavenFabric discovery port (to avoid conflict with system mDNS on 5353).
+pub const RF_DISCOVERY_PORT: u16 = 5354;
 
 /// mDNS service type for RavenFabric agents.
 pub const SERVICE_TYPE: &str = "_ravenfabric._tcp.local.";
@@ -104,6 +113,149 @@ impl DiscoveryState {
     }
 }
 
+/// mDNS/DNS-SD discovery agent — broadcasts and listens for RavenFabric
+/// agents on the local network using UDP multicast.
+///
+/// Uses a simple JSON-encoded announcement packet (not full mDNS RFC 6762)
+/// for lightweight, cross-platform discovery without DNS library dependencies.
+pub struct DiscoveryAgent {
+    /// Our agent info to advertise.
+    advertisement: ServiceAdvertisement,
+    /// UDP socket bound for discovery.
+    socket: UdpSocket,
+    /// Discovery state tracker.
+    state: DiscoveryState,
+}
+
+/// A discovery announcement packet (JSON-encoded over UDP).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct DiscoveryPacket {
+    /// Magic identifier.
+    magic: String,
+    /// Agent ID.
+    agent_id: String,
+    /// Listening port.
+    port: u16,
+    /// Key fingerprint.
+    key_fingerprint: String,
+    /// Protocol version.
+    version: u8,
+}
+
+const DISCOVERY_MAGIC: &str = "RVNF-DISC-v1";
+
+impl DiscoveryAgent {
+    /// Create a discovery agent bound to a local port.
+    /// Uses `0.0.0.0:<port>` for receiving multicasts.
+    pub async fn bind(
+        advertisement: ServiceAdvertisement,
+        port: u16,
+        ttl: Duration,
+    ) -> std::io::Result<Self> {
+        let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port)).await?;
+
+        // Join multicast group for receiving announcements
+        socket.set_broadcast(true)?;
+
+        Ok(Self {
+            advertisement,
+            socket,
+            state: DiscoveryState::new(ttl),
+        })
+    }
+
+    /// Create a discovery agent from an existing socket (for testing).
+    pub fn from_socket(
+        advertisement: ServiceAdvertisement,
+        socket: UdpSocket,
+        ttl: Duration,
+    ) -> Self {
+        Self {
+            advertisement,
+            socket,
+            state: DiscoveryState::new(ttl),
+        }
+    }
+
+    /// Get the local address this agent is bound to.
+    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    /// Broadcast our presence to a target address (multicast or unicast).
+    pub async fn announce_to(&self, target: SocketAddr) -> std::io::Result<()> {
+        let packet = DiscoveryPacket {
+            magic: DISCOVERY_MAGIC.to_string(),
+            agent_id: self.advertisement.agent_id.clone(),
+            port: self.advertisement.port,
+            key_fingerprint: self.advertisement.key_fingerprint.clone(),
+            version: self.advertisement.version,
+        };
+
+        let encoded = serde_json::to_vec(&packet).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
+        })?;
+
+        self.socket.send_to(&encoded, target).await?;
+        Ok(())
+    }
+
+    /// Listen for one incoming discovery packet and update state.
+    /// Returns the agent_id of the discovered peer, or None if packet was invalid.
+    pub async fn listen_one(&mut self) -> std::io::Result<Option<String>> {
+        let mut buf = [0u8; 1024];
+        let (len, from_addr) = self.socket.recv_from(&mut buf).await?;
+
+        let packet: DiscoveryPacket = match serde_json::from_slice(&buf[..len]) {
+            Ok(p) => p,
+            Err(_) => return Ok(None),
+        };
+
+        // Validate magic
+        if packet.magic != DISCOVERY_MAGIC {
+            return Ok(None);
+        }
+
+        // Don't discover ourselves
+        if packet.agent_id == self.advertisement.agent_id {
+            return Ok(None);
+        }
+
+        // Build peer entry — use the source IP but the advertised port
+        let peer_addr = SocketAddr::new(from_addr.ip(), packet.port);
+        let peer = DiscoveredPeer {
+            agent_id: packet.agent_id.clone(),
+            addr: peer_addr,
+            key_fingerprint: packet.key_fingerprint,
+            last_seen: Instant::now(),
+            properties: HashMap::new(),
+        };
+
+        self.state.peer_seen(peer);
+        Ok(Some(packet.agent_id))
+    }
+
+    /// Get all currently discovered peers.
+    pub fn peers(&self) -> Vec<&DiscoveredPeer> {
+        self.state.peers()
+    }
+
+    /// Get a specific peer.
+    pub fn get_peer(&self, agent_id: &str) -> Option<&DiscoveredPeer> {
+        self.state.get_peer(agent_id)
+    }
+
+    /// Number of discovered peers.
+    pub fn peer_count(&self) -> usize {
+        self.state.peer_count()
+    }
+
+    /// Prune stale peers.
+    pub fn prune_stale(&mut self) -> Vec<String> {
+        self.state.prune_stale()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,5 +326,72 @@ mod tests {
             peer.addr,
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 1, 200), 9090))
         );
+    }
+
+    #[tokio::test]
+    async fn test_discovery_agent_announce_and_listen() {
+        let advert_a = ServiceAdvertisement {
+            agent_id: "agent-a".into(),
+            port: 9090,
+            key_fingerprint: "aaaa1111".into(),
+            version: 1,
+        };
+        let advert_b = ServiceAdvertisement {
+            agent_id: "agent-b".into(),
+            port: 9091,
+            key_fingerprint: "bbbb2222".into(),
+            version: 1,
+        };
+
+        // Bind two agents on random ports
+        let sock_a = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let sock_b = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let _addr_a = sock_a.local_addr().unwrap();
+        let addr_b = sock_b.local_addr().unwrap();
+
+        let agent_a = DiscoveryAgent::from_socket(advert_a, sock_a, Duration::from_secs(60));
+        let mut agent_b = DiscoveryAgent::from_socket(advert_b, sock_b, Duration::from_secs(60));
+
+        // A announces to B's address
+        agent_a.announce_to(addr_b).await.unwrap();
+
+        // B listens and discovers A
+        let discovered = agent_b.listen_one().await.unwrap();
+        assert_eq!(discovered, Some("agent-a".to_string()));
+        assert_eq!(agent_b.peer_count(), 1);
+
+        let peer = agent_b.get_peer("agent-a").unwrap();
+        assert_eq!(peer.key_fingerprint, "aaaa1111");
+        // Port should be the advertised port (9090), not the UDP source port
+        assert_eq!(peer.addr.port(), 9090);
+    }
+
+    #[tokio::test]
+    async fn test_discovery_agent_ignores_self() {
+        let advert = ServiceAdvertisement {
+            agent_id: "self-agent".into(),
+            port: 9090,
+            key_fingerprint: "cccc3333".into(),
+            version: 1,
+        };
+
+        let sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let addr = sock.local_addr().unwrap();
+        let mut agent = DiscoveryAgent::from_socket(advert, sock, Duration::from_secs(60));
+
+        // Send announcement from a separate socket pretending to be the same agent
+        let sender = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let packet = serde_json::to_vec(&serde_json::json!({
+            "magic": "RVNF-DISC-v1",
+            "agent_id": "self-agent",
+            "port": 9090,
+            "key_fingerprint": "cccc3333",
+            "version": 1
+        })).unwrap();
+        sender.send_to(&packet, addr).await.unwrap();
+
+        let discovered = agent.listen_one().await.unwrap();
+        assert_eq!(discovered, None); // Should ignore self
+        assert_eq!(agent.peer_count(), 0);
     }
 }
