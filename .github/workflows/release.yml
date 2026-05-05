@@ -101,7 +101,7 @@ jobs:
             cp target/${{ matrix.target }}/release/rf dist/${{ matrix.artifact }}-cli
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: dist/
