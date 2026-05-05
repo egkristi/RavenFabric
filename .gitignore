@@ -1,0 +1,34 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keys (NEVER commit)
+*.key
+*.pem
+!deploy/**/*.pem.example
+
+# Logs
+*.log
+*.jsonl
+
+# Coverage
+*.profraw
+lcov.info
+coverage/
+cobertura.xml
+
+# Fuzz
+fuzz/artifacts/
+fuzz/corpus/
+

@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Pre-commit hook — mirrors CI pipeline checks to catch failures before push.
+# Install: git config core.hooksPath .githooks
+# Bypass: git commit --no-verify
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+fail() {
+    echo -e "${RED}FAILED:${NC} $1"
+    exit 1
+}
+
+echo "Running pre-commit checks..."
+
+# 1. Format check (fast)
+echo -n "  fmt ... "
+cargo fmt --all --check 2>/dev/null || fail "cargo fmt --all --check"
+echo -e "${GREEN}ok${NC}"
+
+# 2. Clippy (matches CI exactly)
+echo -n "  clippy ... "
+cargo clippy --all-targets -- -D warnings -A clippy::unwrap_used 2>/dev/null || fail "cargo clippy --all-targets -- -D warnings -A clippy::unwrap_used"
+echo -e "${GREEN}ok${NC}"
+
+# 3. Tests
+echo -n "  test ... "
+cargo test --all 2>/dev/null || fail "cargo test --all"
+echo -e "${GREEN}ok${NC}"
+
+echo -e "${GREEN}All pre-commit checks passed.${NC}"

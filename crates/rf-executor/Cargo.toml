@@ -1,0 +1,17 @@
+[package]
+name = "rf-executor"
+description = "RavenFabric — Command execution under policy control"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rf-policy = { path = "../rf-policy" }
+rf-rpc = { path = "../rf-rpc" }
+rf-audit = { path = "../rf-audit" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sysinfo = { workspace = true }
+serde_json = { workspace = true }

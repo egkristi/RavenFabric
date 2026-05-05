@@ -1,0 +1,19 @@
+[package]
+name = "rf-crypto"
+description = "RavenFabric — Noise XX handshake, SecureChannel, key management"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+snow = { workspace = true }
+rand = { workspace = true }
+tokio = { workspace = true }
+yamux = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+tempfile = { workspace = true }

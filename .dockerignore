@@ -1,0 +1,9 @@
+/target/
+*.rs.bk
+*.key
+*.pem
+*.log
+*.jsonl
+*.profraw
+lcov.info
+coverage/

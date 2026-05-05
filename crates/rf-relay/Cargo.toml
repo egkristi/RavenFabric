@@ -1,0 +1,18 @@
+[package]
+name = "rf-relay"
+description = "RavenFabric — Stateless encrypted relay broker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rf-transport = { path = "../rf-transport" }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+thiserror = { workspace = true }

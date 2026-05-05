@@ -1,0 +1,13 @@
+[package]
+name = "rf-audit"
+description = "RavenFabric — Structured audit logging"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }

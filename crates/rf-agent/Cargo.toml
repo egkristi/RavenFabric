@@ -1,0 +1,20 @@
+[package]
+name = "rf-agent"
+description = "RavenFabric — Agent binary"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rf-crypto = { path = "../rf-crypto" }
+rf-transport = { path = "../rf-transport" }
+rf-rpc = { path = "../rf-rpc" }
+rf-executor = { path = "../rf-executor" }
+rf-policy = { path = "../rf-policy" }
+rf-audit = { path = "../rf-audit" }
+rf-bootstrap = { path = "../rf-bootstrap" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+serde_yaml = { workspace = true }

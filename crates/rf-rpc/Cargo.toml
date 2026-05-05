@@ -1,0 +1,16 @@
+[package]
+name = "rf-rpc"
+description = "RavenFabric — RPC message types, multiplexer, codec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rf-crypto = { path = "../rf-crypto" }
+rf-transport = { path = "../rf-transport" }
+tokio = { workspace = true }
+serde = { workspace = true }
+rmp-serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
