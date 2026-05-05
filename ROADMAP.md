@@ -245,7 +245,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
 - [x] ~~NetworkProbe struct — unified assessment of network environment~~ — rf-transport::probe
 - [x] ~~EgressClass classification (Open, HomeRouter, EnterpriseProxy, RestrictiveDPI, Hostile, AirGap)~~
-- [ ] STUN-based NAT type detection (full cone, restricted, port-restricted, symmetric)
+- [x] STUN-based NAT type detection (full cone, restricted, port-restricted, symmetric)
 - [x] ~~IPv4/IPv6 availability and preference detection~~ — NetworkProbe checks both
 - [x] ~~UDP reachability (per-port), captive portal detection~~ — UDP check in probe
 - [ ] Corporate proxy detection (HTTP CONNECT support)
@@ -258,13 +258,13 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Policy-driven path selection (sensitive commands require specific transports)~~ — select_with_policy()
 
 ### NAT Traversal (ICE-style)
-- [ ] STUN client — discover server-reflexive candidates (public IP:port)
-- [ ] UDP hole punching — coordinated simultaneous send via relay coordinator
-- [ ] TCP hole punching — simultaneous open (RFC 5128)
-- [ ] ICE candidate gathering — host, server-reflexive, relayed candidates
-- [ ] ICE candidate selection — parallel probing, select fastest path
+- [x] STUN client — discover server-reflexive candidates (public IP:port)
+- [x] UDP hole punching — coordinated simultaneous send via relay coordinator
+- [x] TCP hole punching — simultaneous open (RFC 5128)
+- [x] ICE candidate gathering — host, server-reflexive, relayed candidates
+- [x] ICE candidate selection — parallel probing, select fastest path
 - [ ] Birthday paradox port prediction for symmetric NAT
-- [ ] NAT type detection (full cone, restricted, port-restricted, symmetric)
+- [x] NAT type detection (full cone, restricted, port-restricted, symmetric)
 
 ### Connection Upgrade (DCUtR Pattern)
 - [x] ~~Relay-first connection (immediate, always works)~~ — ConnectionManager::connect_relay_first()
@@ -329,7 +329,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Built-in system metrics (CPU, memory, disk, network, load, filesystems, processes)
 - [x] Prometheus-compatible `/metrics` endpoint (pull mode)
 - [ ] Application metrics scraping (scrape localhost Prometheus endpoints)
-- [ ] Log tailing (glob patterns, journald, structured parsing: JSON/logfmt/regex/grok)
+- [x] Log tailing (glob patterns, journald, structured parsing: JSON/logfmt/regex/grok)
 - [ ] OTLP exporter (metrics + logs + traces to any OTLP-compatible backend)
 - [ ] Prometheus remote-write exporter
 - [ ] InfluxDB line protocol exporter
@@ -344,8 +344,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Interactive shell. Port forwarding. Multi-agent orchestration. Cross-protocol path upgrade.
 
 ### Interactive Shell
-- [ ] PTY allocation + terminal session handler
-- [ ] Session recording (asciinema v2 format)
+- [x] PTY allocation + terminal session handler
+- [x] Session recording (asciinema v2 format)
 - [ ] `rf shell <agent>` — interactive terminal through fabric
 
 ### Port Forwarding
@@ -357,7 +357,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Background transport upgrade (relay → direct, any driver → any driver)
 - [x] Session ticket resumption (re-handshake on new transport, same session ID)
 - [x] Atomic swap (make-before-break, overlap window, then close old path)
-- [ ] 0-RTT resumption for known peers
+- [x] 0-RTT resumption for known peers
 
 ### Playbook Engine
 - [x] Multi-agent orchestration (rolling/canary/parallel strategies)

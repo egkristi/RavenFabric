@@ -8,6 +8,7 @@ pub mod fingerprint;
 pub mod latency;
 pub mod memory;
 pub mod migration;
+pub mod nat;
 pub mod obfuscation;
 pub mod probe;
 pub mod proxy;
