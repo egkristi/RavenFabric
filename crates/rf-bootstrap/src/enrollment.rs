@@ -64,8 +64,7 @@ impl TrustStore {
     pub fn with_file(path: &Path) -> std::io::Result<Self> {
         let agents = if path.exists() {
             let content = std::fs::read_to_string(path)?;
-            let file: TrustStoreFile =
-                serde_json::from_str(&content).unwrap_or_default();
+            let file: TrustStoreFile = serde_json::from_str(&content).unwrap_or_default();
             file.agents
                 .into_iter()
                 .map(|a| (a.public_key.clone(), a))
@@ -81,21 +80,14 @@ impl TrustStore {
     }
 
     /// Register a newly enrolled agent.
-    pub fn register(
-        &self,
-        agent_id: String,
-        public_key: String,
-    ) -> Result<(), std::io::Error> {
+    pub fn register(&self, agent_id: String, public_key: String) -> Result<(), std::io::Error> {
         let agent = TrustedAgent {
             agent_id,
             public_key: public_key.clone(),
             enrolled_at: chrono::Utc::now().to_rfc3339(),
         };
 
-        let mut agents = self
-            .agents
-            .write()
-            .unwrap_or_else(|p| p.into_inner());
+        let mut agents = self.agents.write().unwrap_or_else(|p| p.into_inner());
         agents.insert(public_key, agent);
 
         if let Some(path) = &self.path {
@@ -107,19 +99,13 @@ impl TrustStore {
 
     /// Check if a public key is trusted.
     pub fn is_trusted(&self, public_key: &str) -> bool {
-        let agents = self
-            .agents
-            .read()
-            .unwrap_or_else(|p| p.into_inner());
+        let agents = self.agents.read().unwrap_or_else(|p| p.into_inner());
         agents.contains_key(public_key)
     }
 
     /// Revoke a trusted agent by public key.
     pub fn revoke(&self, public_key: &str) -> Result<bool, std::io::Error> {
-        let mut agents = self
-            .agents
-            .write()
-            .unwrap_or_else(|p| p.into_inner());
+        let mut agents = self.agents.write().unwrap_or_else(|p| p.into_inner());
         let existed = agents.remove(public_key).is_some();
 
         if existed {
@@ -133,10 +119,7 @@ impl TrustStore {
 
     /// List all trusted agents.
     pub fn list(&self) -> Vec<TrustedAgent> {
-        let agents = self
-            .agents
-            .read()
-            .unwrap_or_else(|p| p.into_inner());
+        let agents = self.agents.read().unwrap_or_else(|p| p.into_inner());
         agents.values().cloned().collect()
     }
 
@@ -259,7 +242,10 @@ mod tests {
         .unwrap();
 
         match result {
-            EnrollmentResult::Success { agent_id, public_key } => {
+            EnrollmentResult::Success {
+                agent_id,
+                public_key,
+            } => {
                 assert_eq!(agent_id, "new-agent");
                 assert_eq!(public_key, "deadbeef1234");
             }

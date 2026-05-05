@@ -47,8 +47,7 @@ impl MuxClient {
         config.set_max_num_streams(256);
         let mut connection = Connection::new(compat, config, Mode::Client);
 
-        let (tx, mut rx) =
-            mpsc::channel::<oneshot::Sender<Result<Stream, RpcError>>>(16);
+        let (tx, mut rx) = mpsc::channel::<oneshot::Sender<Result<Stream, RpcError>>>(16);
 
         tokio::spawn(async move {
             loop {
