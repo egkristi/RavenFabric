@@ -148,9 +148,7 @@ mod wg_tunnel {
                 .get(peer_idx)
                 .ok_or_else(|| WgTunnelError::PeerNotFound(format!("index {}", peer_idx)))?;
 
-            let endpoint = peer
-                .endpoint
-                .ok_or(WgTunnelError::HandshakeIncomplete)?;
+            let endpoint = peer.endpoint.ok_or(WgTunnelError::HandshakeIncomplete)?;
 
             // In production, this would be: tunn.encapsulate(data, &mut dst_buf)
             // For now, send raw (actual boringtun integration requires the crate)

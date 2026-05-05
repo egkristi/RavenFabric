@@ -66,10 +66,7 @@ impl Default for StunClientConfig {
                     alt_addr: None,
                 },
                 StunServer {
-                    addr: SocketAddr::new(
-                        std::net::Ipv4Addr::new(64, 233, 163, 127).into(),
-                        19302,
-                    ),
+                    addr: SocketAddr::new(std::net::Ipv4Addr::new(64, 233, 163, 127).into(), 19302),
                     alt_addr: None,
                 },
             ],
@@ -114,7 +111,9 @@ fn parse_binding_response(
     // Check magic cookie
     let cookie = u32::from_be_bytes([data[4], data[5], data[6], data[7]]);
     if cookie != STUN_MAGIC_COOKIE {
-        return Err(StunError::InvalidResponse("invalid magic cookie".to_string()));
+        return Err(StunError::InvalidResponse(
+            "invalid magic cookie".to_string(),
+        ));
     }
 
     // Verify transaction ID
@@ -146,7 +145,9 @@ fn parse_binding_response(
 
         match attr_type {
             ATTR_XOR_MAPPED_ADDRESS => {
-                if let Some(addr) = parse_xor_mapped_address(&data[offset..offset + attr_len], expected_txn_id) {
+                if let Some(addr) =
+                    parse_xor_mapped_address(&data[offset..offset + attr_len], expected_txn_id)
+                {
                     return Ok(addr); // XOR-MAPPED-ADDRESS takes priority
                 }
             }
@@ -404,7 +405,10 @@ pub async fn gather_candidates(
                 break; // One srflx candidate is enough
             }
             Err(e) => {
-                debug!("STUN candidate gathering from {} failed: {}", server.addr, e);
+                debug!(
+                    "STUN candidate gathering from {} failed: {}",
+                    server.addr, e
+                );
                 continue;
             }
         }
@@ -498,7 +502,10 @@ mod tests {
         response.extend_from_slice(&xor_ip.to_be_bytes());
 
         let addr = parse_binding_response(&response, &txn_id).unwrap();
-        assert_eq!(addr, SocketAddr::new(std::net::Ipv4Addr::new(1, 2, 3, 4).into(), 9000));
+        assert_eq!(
+            addr,
+            SocketAddr::new(std::net::Ipv4Addr::new(1, 2, 3, 4).into(), 9000)
+        );
     }
 
     #[test]
@@ -537,8 +544,7 @@ mod tests {
         // Use a non-routable address to ensure timeout
         let fake_server: SocketAddr = "192.0.2.1:3478".parse().unwrap();
 
-        let result =
-            stun_binding_request(&socket, fake_server, Duration::from_millis(100)).await;
+        let result = stun_binding_request(&socket, fake_server, Duration::from_millis(100)).await;
         // May be Timeout or Io error depending on OS network stack
         assert!(result.is_err());
     }
@@ -589,9 +595,9 @@ mod tests {
             server_socket.send_to(&response, from).await.unwrap();
         });
 
-        let binding =
-            stun_binding_request(&client_socket, server_addr, Duration::from_secs(2)).await
-                .unwrap();
+        let binding = stun_binding_request(&client_socket, server_addr, Duration::from_secs(2))
+            .await
+            .unwrap();
 
         handle.await.unwrap();
 

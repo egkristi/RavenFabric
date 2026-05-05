@@ -7,7 +7,7 @@
 mod sqlite_impl {
     use std::path::Path;
 
-    use rusqlite::{params, Connection};
+    use rusqlite::{Connection, params};
 
     use crate::dtn::{Bundle, Priority};
 
@@ -178,9 +178,9 @@ mod sqlite_impl {
 
         /// Current number of bundles in the queue.
         pub fn len(&self) -> Result<usize, PersistentQueueError> {
-            let count: i64 =
-                self.conn
-                    .query_row("SELECT COUNT(*) FROM bundles", [], |row| row.get(0))?;
+            let count: i64 = self
+                .conn
+                .query_row("SELECT COUNT(*) FROM bundles", [], |row| row.get(0))?;
             Ok(count as usize)
         }
 
@@ -190,10 +190,7 @@ mod sqlite_impl {
         }
 
         /// Get all bundles destined for a specific agent.
-        pub fn bundles_for(
-            &self,
-            destination: &str,
-        ) -> Result<Vec<Bundle>, PersistentQueueError> {
+        pub fn bundles_for(&self, destination: &str) -> Result<Vec<Bundle>, PersistentQueueError> {
             let mut stmt = self.conn.prepare(
                 "SELECT id, source, destination, priority, ttl_secs, created_at_ms,
                         payload, custody_requested, idempotency_key, hop_count, max_hops

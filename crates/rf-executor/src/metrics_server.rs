@@ -38,9 +38,14 @@ pub async fn start_metrics_server(
     config: MetricsServerConfig,
 ) -> std::io::Result<tokio::task::JoinHandle<()>> {
     let listener = TcpListener::bind(&config.bind_addr).await?;
-    info!("prometheus metrics endpoint listening on {}", config.bind_addr);
+    info!(
+        "prometheus metrics endpoint listening on {}",
+        config.bind_addr
+    );
 
-    let collector = Arc::new(Mutex::new(SystemMetricsCollector::new(Duration::from_secs(15))));
+    let collector = Arc::new(Mutex::new(SystemMetricsCollector::new(
+        Duration::from_secs(15),
+    )));
 
     let handle = tokio::spawn(async move {
         loop {
@@ -74,7 +79,8 @@ pub async fn start_metrics_server(
                                 body
                             );
                             let _ = stream.write_all(response.as_bytes()).await;
-                        } else if request.starts_with("GET /health") || request.starts_with("GET /") {
+                        } else if request.starts_with("GET /health") || request.starts_with("GET /")
+                        {
                             let body = "ok\n";
                             let response = format!(
                                 "HTTP/1.1 200 OK\r\n\
