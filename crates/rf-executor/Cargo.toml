@@ -19,6 +19,7 @@ sysinfo = ["dep:sysinfo"]
 rf-policy = { path = "../rf-policy" }
 rf-rpc = { path = "../rf-rpc" }
 rf-audit = { path = "../rf-audit" }
+rf-crypto = { path = "../rf-crypto" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }

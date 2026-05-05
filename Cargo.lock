@@ -1614,6 +1614,7 @@ dependencies = [
  "chrono",
  "libc",
  "rf-audit",
+ "rf-crypto",
  "rf-policy",
  "rf-rpc",
  "serde",

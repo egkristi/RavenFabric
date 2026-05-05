@@ -6,6 +6,9 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
+use tokio::net::TcpStream;
+use tokio::time::{Instant, sleep, timeout};
+
 /// Configuration for Happy Eyeballs connection racing.
 #[derive(Debug, Clone)]
 pub struct HappyEyeballsConfig {
@@ -117,6 +120,158 @@ pub fn plan_race(
     Some((first, config.resolution_delay, second))
 }
 
+/// Race TCP connections per RFC 8305 Happy Eyeballs algorithm.
+///
+/// Starts a connection to the preferred address (typically IPv6).
+/// After `resolution_delay`, starts the fallback (typically IPv4).
+/// Returns the first successful `TcpStream` and its address,
+/// or an error if both fail.
+pub async fn race_connect(
+    candidates: &SortedCandidates,
+    config: &HappyEyeballsConfig,
+) -> Result<(TcpStream, RaceResult), String> {
+    let (first_addr, delay, second_addr) =
+        plan_race(candidates, config).ok_or_else(|| "no candidate addresses".to_string())?;
+
+    let start = Instant::now();
+    let total_timeout = config.connection_timeout;
+
+    match second_addr {
+        None => {
+            // Single address — no racing needed.
+            match timeout(total_timeout, TcpStream::connect(first_addr)).await {
+                Ok(Ok(stream)) => {
+                    let elapsed_ms = start.elapsed().as_millis() as u64;
+                    let result = if first_addr.is_ipv6() {
+                        RaceResult::Ipv6Won {
+                            addr: first_addr,
+                            elapsed_ms,
+                        }
+                    } else {
+                        RaceResult::Ipv4Won {
+                            addr: first_addr,
+                            elapsed_ms,
+                        }
+                    };
+                    Ok((stream, result))
+                }
+                Ok(Err(e)) => Err(format!("connect to {}: {}", first_addr, e)),
+                Err(_) => Err(format!("connect to {}: timeout", first_addr)),
+            }
+        }
+        Some(second_addr) => {
+            // Race both addresses with the preferred family getting a head start.
+            // Use mpsc channel to receive winner — avoids select! borrow issues.
+            let race_result = timeout(total_timeout, async {
+                let (tx, mut rx) = tokio::sync::mpsc::channel::<(TcpStream, SocketAddr)>(2);
+
+                // Start preferred connection immediately
+                let tx1 = tx.clone();
+                let h1 = tokio::spawn(async move {
+                    if let Ok(stream) = TcpStream::connect(first_addr).await {
+                        let _ = tx1.send((stream, first_addr)).await;
+                    }
+                });
+
+                // Start fallback after resolution_delay
+                let tx2 = tx;
+                let h2 = tokio::spawn(async move {
+                    sleep(delay).await;
+                    if let Ok(stream) = TcpStream::connect(second_addr).await {
+                        let _ = tx2.send((stream, second_addr)).await;
+                    }
+                });
+
+                // Wait for first successful connection
+                let winner = rx.recv().await;
+                h1.abort();
+                h2.abort();
+                winner
+            })
+            .await;
+
+            match race_result {
+                Ok(Some((stream, addr))) => {
+                    let elapsed_ms = start.elapsed().as_millis() as u64;
+                    let result = if addr.is_ipv6() {
+                        RaceResult::Ipv6Won { addr, elapsed_ms }
+                    } else {
+                        RaceResult::Ipv4Won { addr, elapsed_ms }
+                    };
+                    Ok((stream, result))
+                }
+                Ok(None) => Err(format!(
+                    "all connections failed: {} and {}",
+                    first_addr, second_addr
+                )),
+                Err(_) => Err("connection timeout".to_string()),
+            }
+        }
+    }
+}
+
+/// Race connections to multiple candidate addresses, attempting them in
+/// RFC 8305 order with staggered starts.
+///
+/// This is the full Happy Eyeballs implementation for when there are
+/// more than two candidate addresses.
+pub async fn race_connect_multi(
+    candidates: &SortedCandidates,
+    config: &HappyEyeballsConfig,
+) -> Result<(TcpStream, SocketAddr), String> {
+    if candidates.addresses.is_empty() {
+        return Err("no candidate addresses".to_string());
+    }
+
+    if candidates.addresses.len() <= 2 {
+        // Delegate to the simpler two-address racer
+        let (stream, result) = race_connect(candidates, config).await?;
+        let addr = match result {
+            RaceResult::Ipv6Won { addr, .. } => addr,
+            RaceResult::Ipv4Won { addr, .. } => addr,
+            RaceResult::BothFailed { .. } => unreachable!(),
+        };
+        return Ok((stream, addr));
+    }
+
+    // Stagger connection attempts per RFC 8305: start one every resolution_delay
+    let total_timeout = config.connection_timeout;
+    let delay = config.resolution_delay;
+
+    let result = timeout(total_timeout, async {
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<(TcpStream, SocketAddr)>(1);
+        let mut handles = Vec::new();
+
+        for (i, &addr) in candidates.addresses.iter().enumerate() {
+            let tx = tx.clone();
+            let stagger = delay * i as u32;
+
+            let handle = tokio::spawn(async move {
+                sleep(stagger).await;
+                if let Ok(stream) = TcpStream::connect(addr).await {
+                    let _ = tx.send((stream, addr)).await;
+                }
+            });
+            handles.push(handle);
+        }
+        drop(tx);
+
+        let winner = rx.recv().await;
+        // Abort remaining attempts
+        for h in &handles {
+            h.abort();
+        }
+        winner
+    })
+    .await;
+
+    match result {
+        Ok(Some((stream, addr))) => Ok((stream, addr)),
+        Ok(None) => Err("all connection attempts failed".to_string()),
+        Err(_) => Err("connection timeout".to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,5 +340,60 @@ mod tests {
         assert_eq!(config.resolution_delay, Duration::from_millis(250));
         assert_eq!(config.connection_timeout, Duration::from_secs(30));
         assert!(config.prefer_ipv6);
+    }
+
+    #[tokio::test]
+    async fn test_race_connect_single_addr_succeeds() {
+        // Bind a listener on localhost, then race_connect to it
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let candidates = SortedCandidates::new(&[addr], true);
+        let config = HappyEyeballsConfig {
+            connection_timeout: Duration::from_secs(5),
+            ..Default::default()
+        };
+
+        let (stream, result) = race_connect(&candidates, &config).await.unwrap();
+        assert!(stream.peer_addr().is_ok());
+        match result {
+            RaceResult::Ipv4Won { addr: won_addr, .. } => assert_eq!(won_addr, addr),
+            _ => panic!("expected Ipv4Won"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_race_connect_unreachable_fails() {
+        // Connect to a port that nobody is listening on
+        let addr: SocketAddr = "127.0.0.1:1".parse().unwrap();
+        let candidates = SortedCandidates::new(&[addr], true);
+        let config = HappyEyeballsConfig {
+            connection_timeout: Duration::from_secs(2),
+            ..Default::default()
+        };
+
+        let result = race_connect(&candidates, &config).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_race_connect_multi_first_wins() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        // One reachable, one unreachable
+        let unreachable: SocketAddr = "127.0.0.1:1".parse().unwrap();
+
+        let candidates = SortedCandidates {
+            addresses: vec![addr, unreachable],
+        };
+        let config = HappyEyeballsConfig {
+            resolution_delay: Duration::from_millis(50),
+            connection_timeout: Duration::from_secs(5),
+            prefer_ipv6: true,
+        };
+
+        let (stream, won_addr) = race_connect_multi(&candidates, &config).await.unwrap();
+        assert!(stream.peer_addr().is_ok());
+        assert_eq!(won_addr, addr);
     }
 }

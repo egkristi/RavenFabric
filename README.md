@@ -613,11 +613,16 @@ What works today:
 - Health check probes: TCP connect, HTTP GET, process alive, command exit code
 - Log file tailing with rotation detection, JSON/logfmt parsing, filters
 - Local TCP port forwarding (ssh -L equivalent) with bidirectional copy + RPC integration
+- Remote port forwarding (ssh -R equivalent) — agent-side listener, bidirectional relay
+- SOCKS5 dynamic forward proxy on agent — full protocol, policy-checked, bidirectional relay
 - `rf forward -L` CLI command (connect, request forward on agent, keep alive until Ctrl+C)
 - PTY allocation on Unix (real openpty, shell spawn, resize, signal) + RPC Shell actions
 - `rf shell` interactive terminal: raw mode, bidirectional stdin/stdout over encrypted channel
 - Multi-agent orchestration via `rf playbook` (rolling, canary, parallel strategies with rollback)
-- ConnectionManager with relay-first + background direct path upgrade (tested with 4 async tests)
+- Happy Eyeballs (RFC 8305) dual-stack connection racing with staggered starts
+- ConnectionManager with relay-first + background direct path upgrade (tested with 6 async tests)
+- Session migration (make-before-break) with peer key verification and automatic rollback
+- Sealed secret store (ChaCha20-Poly1305) with `{{ secrets.KEY }}` template resolution in commands
 - DTN offline queue with SQLite persistence (priority ordering, TTL, deduplication)
 
 Working end-to-end flows:

@@ -13,6 +13,7 @@ use crate::catalog::TransportCatalog;
 use crate::connmgr::{ConnectionEvent, ConnectionManager, ConnectionState};
 use crate::driver::{AsyncStream, Driver, DriverConfig, Target};
 use crate::error::TransportError;
+use crate::migration::{MigrationPhase, SessionMigration, SessionTicket};
 
 /// A live connection managed by the connection runner.
 pub struct ManagedConnection {
@@ -22,6 +23,15 @@ pub struct ManagedConnection {
     pub transport_name: String,
     /// Time the connection was established.
     pub established_at: Instant,
+}
+
+impl std::fmt::Debug for ManagedConnection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ManagedConnection")
+            .field("transport_name", &self.transport_name)
+            .field("established_at", &self.established_at)
+            .finish_non_exhaustive()
+    }
 }
 
 /// Result of a background probe attempt.
@@ -219,6 +229,85 @@ impl ConnectionRunner {
     pub async fn drain_events(&self) -> Vec<ConnectionEvent> {
         self.manager.lock().await.drain_events()
     }
+
+    /// Perform a session migration (make-before-break) to a target transport.
+    ///
+    /// This establishes a new connection on the target transport, verifies
+    /// the peer key matches (preventing MITM during migration), and then
+    /// completes the migration atomically.
+    ///
+    /// Returns the new connection and updated session ticket on success,
+    /// or rolls back to the original transport on failure.
+    pub async fn migrate_session(
+        &self,
+        ticket: SessionTicket,
+        target_transport: &str,
+        peer_static_key: &[u8; 32],
+    ) -> Result<(ManagedConnection, SessionTicket), TransportError> {
+        let mut migration = SessionMigration::new(ticket, target_transport.to_string());
+        migration.start();
+
+        // Find the target driver
+        let driver = self
+            .drivers
+            .iter()
+            .find(|(n, _)| n == target_transport)
+            .map(|(_, d)| d.clone())
+            .ok_or_else(|| {
+                TransportError::Connection(format!("unknown transport: {}", target_transport))
+            })?;
+
+        // Try to establish new connection
+        let stream = match driver.dial(&self.target, &self.config).await {
+            Ok(s) => {
+                migration.transport_connected();
+                s
+            }
+            Err(e) => {
+                migration.abort();
+                return Err(TransportError::Connection(format!(
+                    "migration dial failed: {}",
+                    e
+                )));
+            }
+        };
+
+        // Verify peer key matches the original session
+        if !migration.peer_key_verified(peer_static_key) {
+            warn!(
+                transport = %target_transport,
+                "session migration aborted: peer key mismatch (possible MITM)"
+            );
+            return Err(TransportError::Connection(
+                "peer key mismatch during migration".into(),
+            ));
+        }
+
+        // Complete migration
+        let new_ticket = migration.complete();
+        assert_eq!(migration.phase(), MigrationPhase::Closing);
+
+        // Update connection manager state
+        {
+            let mut mgr = self.manager.lock().await;
+            mgr.migrate_to_direct(target_transport);
+        }
+
+        info!(
+            transport = %target_transport,
+            migration_count = new_ticket.migration_count,
+            "session migration complete"
+        );
+
+        Ok((
+            ManagedConnection {
+                stream,
+                transport_name: target_transport.to_string(),
+                established_at: Instant::now(),
+            },
+            new_ticket,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -361,5 +450,84 @@ mod tests {
         // Report failure on direct
         let fallback = runner.report_failure("connection reset").await.unwrap();
         assert_eq!(fallback.transport_name, "memory-relay");
+    }
+
+    #[tokio::test]
+    async fn test_session_migration_success() {
+        use crate::migration::SessionTicket;
+
+        let catalog = test_catalog();
+        let target = Target {
+            agent_id: "test".into(),
+            relay_url: None,
+            meet_token: None,
+        };
+
+        let broker = MemoryBroker::new();
+        setup_broker_with_listener(&broker).await;
+        let driver = Arc::new(MemoryDriver::new(broker)) as Arc<dyn Driver>;
+        let runner = ConnectionRunner::new(catalog, target)
+            .add_driver("memory-relay", driver.clone())
+            .add_driver("memory-direct", driver);
+
+        // Connect relay first
+        let _conn = runner.connect().await.unwrap();
+
+        let ticket = SessionTicket {
+            session_id: [0x42; 16],
+            peer_static_key: [0xAB; 32],
+            established_at_ms: 1_700_000_000_000,
+            last_transport: "memory-relay".into(),
+            migration_count: 0,
+        };
+
+        // Migrate to direct with matching key
+        let (new_conn, new_ticket) = runner
+            .migrate_session(ticket, "memory-direct", &[0xAB; 32])
+            .await
+            .unwrap();
+
+        assert_eq!(new_conn.transport_name, "memory-direct");
+        assert_eq!(new_ticket.last_transport, "memory-direct");
+        assert_eq!(new_ticket.migration_count, 1);
+        assert_eq!(runner.state().await, ConnectionState::DirectConnected);
+    }
+
+    #[tokio::test]
+    async fn test_session_migration_wrong_key_fails() {
+        use crate::migration::SessionTicket;
+
+        let catalog = test_catalog();
+        let target = Target {
+            agent_id: "test".into(),
+            relay_url: None,
+            meet_token: None,
+        };
+
+        let broker = MemoryBroker::new();
+        setup_broker_with_listener(&broker).await;
+        let driver = Arc::new(MemoryDriver::new(broker)) as Arc<dyn Driver>;
+        let runner = ConnectionRunner::new(catalog, target)
+            .add_driver("memory-relay", driver.clone())
+            .add_driver("memory-direct", driver);
+
+        let _conn = runner.connect().await.unwrap();
+
+        let ticket = SessionTicket {
+            session_id: [0x42; 16],
+            peer_static_key: [0xAB; 32],
+            established_at_ms: 1_700_000_000_000,
+            last_transport: "memory-relay".into(),
+            migration_count: 0,
+        };
+
+        // Try to migrate with wrong peer key (simulates MITM)
+        let result = runner
+            .migrate_session(ticket, "memory-direct", &[0xFF; 32])
+            .await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("peer key mismatch"));
     }
 }

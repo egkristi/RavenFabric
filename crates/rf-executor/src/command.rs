@@ -14,6 +14,7 @@ use tokio::sync::Mutex;
 
 use rf_audit::logger::AuditLogger;
 use rf_audit::types::AuditEntry;
+use rf_crypto::secrets::SecretStore;
 use rf_policy::rpc_policy::RpcPolicy;
 use rf_rpc::types::{Action, Request, Response, RpcResult};
 
@@ -55,6 +56,8 @@ pub struct Executor {
     shells: Arc<tokio::sync::Mutex<HashMap<String, crate::pty::PtySession>>>,
     /// Active port forwards.
     forwards: Arc<tokio::sync::Mutex<HashMap<String, ActiveForward>>>,
+    /// Sealed secret store for `{{ secrets.KEY }}` resolution in commands.
+    secrets: Option<Arc<tokio::sync::Mutex<SecretStore>>>,
     /// Cached sysinfo System to avoid re-scanning on every metrics request.
     #[cfg(feature = "sysinfo")]
     sysinfo_cache: Arc<Mutex<sysinfo::System>>,
@@ -76,6 +79,7 @@ impl Executor {
             #[cfg(unix)]
             shells: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             forwards: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            secrets: None,
             #[cfg(feature = "sysinfo")]
             sysinfo_cache: Arc::new(Mutex::new(sysinfo::System::new_all())),
         }
@@ -91,6 +95,28 @@ impl Executor {
     pub fn with_start_time(mut self, start: Instant) -> Self {
         self.start_time = start;
         self
+    }
+
+    /// Set the sealed secret store for `{{ secrets.KEY }}` resolution.
+    pub fn with_secrets(mut self, secrets: Arc<tokio::sync::Mutex<SecretStore>>) -> Self {
+        self.secrets = Some(secrets);
+        self
+    }
+
+    /// Resolve `{{ secrets.KEY }}` patterns in a command string using the secret store.
+    async fn resolve_secrets(&self, command: &str) -> Result<String, String> {
+        if !command.contains("{{ secrets.") {
+            return Ok(command.to_string());
+        }
+        match &self.secrets {
+            Some(store) => {
+                let store = store.lock().await;
+                store
+                    .resolve_template(command)
+                    .map_err(|e| format!("secret resolution failed: {}", e))
+            }
+            None => Err("secrets not configured".to_string()),
+        }
     }
 
     /// Handle an incoming RPC request.
@@ -175,6 +201,12 @@ impl Executor {
             Action::PortForwardClose { forward_id } => {
                 self.handle_port_forward_close(forward_id).await
             }
+            Action::RemoteForward {
+                bind_addr,
+                target_addr,
+            } => self.handle_remote_forward(bind_addr, target_addr).await,
+            Action::Socks5Forward { bind_addr } => self.handle_socks5_forward(bind_addr).await,
+            Action::Socks5Close { forward_id } => self.handle_port_forward_close(forward_id).await,
             Action::HealthCheck {
                 probe_type,
                 target,
@@ -235,8 +267,16 @@ impl Executor {
         let max_output = policy.max_output_bytes as usize;
         drop(policy); // Release read lock before spawning
 
+        // Resolve {{ secrets.KEY }} patterns in the command
+        let resolved_command = match self.resolve_secrets(command).await {
+            Ok(cmd) => cmd,
+            Err(e) => {
+                return RpcResult::Error { message: e };
+            }
+        };
+
         let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(command);
+        cmd.arg("-c").arg(&resolved_command);
 
         if let Some(dir) = workdir {
             cmd.current_dir(dir);
@@ -805,6 +845,69 @@ impl Executor {
             }
             None => RpcResult::Error {
                 message: format!("forward not found: {forward_id}"),
+            },
+        }
+    }
+
+    async fn handle_remote_forward(&self, bind_addr: &str, target_addr: &str) -> RpcResult {
+        use rf_rpc::forward::start_remote_forward;
+
+        let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
+        match start_remote_forward(bind_addr, target_addr.to_string(), cancel_rx).await {
+            Ok((handle, bound)) => {
+                let forward_id = uuid::Uuid::new_v4().to_string();
+                let bound_str = bound.to_string();
+                let mut forwards = self.forwards.lock().await;
+                forwards.insert(
+                    forward_id.clone(),
+                    ActiveForward {
+                        _handle: handle,
+                        cancel: cancel_tx,
+                        bind_addr: bound_str.clone(),
+                    },
+                );
+                RpcResult::ForwardStarted {
+                    forward_id,
+                    bind_addr: bound_str,
+                }
+            }
+            Err(e) => RpcResult::Error {
+                message: format!("remote forward bind failed: {e}"),
+            },
+        }
+    }
+
+    async fn handle_socks5_forward(&self, bind_addr: &str) -> RpcResult {
+        use rf_rpc::socks5::{Socks5Config, Socks5Server};
+
+        let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
+        let config = Socks5Config {
+            bind_addr: bind_addr.to_string(),
+            ..Default::default()
+        };
+        let mut server = Socks5Server::new(config, cancel_rx);
+        match server.run().await {
+            Ok(bound) => {
+                let forward_id = uuid::Uuid::new_v4().to_string();
+                let bound_str = bound.to_string();
+                let mut forwards = self.forwards.lock().await;
+                // Use a no-op JoinHandle placeholder since Socks5Server spawns internally
+                let handle = tokio::spawn(async {});
+                forwards.insert(
+                    forward_id.clone(),
+                    ActiveForward {
+                        _handle: handle,
+                        cancel: cancel_tx,
+                        bind_addr: bound_str.clone(),
+                    },
+                );
+                RpcResult::ForwardStarted {
+                    forward_id,
+                    bind_addr: bound_str,
+                }
+            }
+            Err(e) => RpcResult::Error {
+                message: format!("SOCKS5 forward failed: {e}"),
             },
         }
     }

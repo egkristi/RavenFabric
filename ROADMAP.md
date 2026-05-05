@@ -241,7 +241,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~In-memory driver for testing~~
 - [x] ~~QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)~~
 - [x] WireGuard userspace — `WgTunnel` with UDP socket, key handling, peer management (9 tests)
-- [~] Happy Eyeballs (RFC 8305) — racer types defined, no actual dual-stack racing yet
+- [x] Happy Eyeballs (RFC 8305) — `race_connect()` and `race_connect_multi()` with real TCP racing, resolution delay, staggered starts (3 async tests)
 - [~] IPv6-first with NAT64/464XLAT awareness — types only
 
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
@@ -324,13 +324,13 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Port Forwarding
 - [x] Local port forward — `start_local_forward()` with real TCP listener + bidirectional copy + RPC PortForward/PortForwardClose actions
 - [x] `rf forward -L` CLI command — connect to agent, request forward, keep alive until Ctrl+C
-- [~] Remote port forward — types only
-- [~] SOCKS5 dynamic forward — protocol parser functional, not connected to sockets
+- [x] Remote port forward — `start_remote_forward()` with agent-side listener + bidirectional copy + RemoteForward RPC action
+- [x] SOCKS5 dynamic forward — full `Socks5Server` TCP proxy: method negotiation, CONNECT handling, policy check, bidirectional relay (1 async integration test)
 
 ### Cross-Protocol Path Upgrade (Phase 10 of Connectivity Value Chain)
-- [~] Background transport upgrade — `SessionMigration` types, not connected to real transports
-- [~] Session ticket resumption — types only
-- [~] Atomic swap (make-before-break) — types only
+- [x] Background transport upgrade — `SessionMigration` wired to `ConnectionRunner::migrate_session()` with peer key verification (2 async tests)
+- [x] Session ticket resumption — `SessionTicket` persists across migrations, transport recorded
+- [x] Atomic swap (make-before-break) — overlap window with peer verification before old path close
 - [~] 0-RTT resumption — types only
 
 ### Playbook Engine
@@ -351,8 +351,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Petname system — local name mapping (functional)
 
 ### Secrets
-- [ ] Sealed secret store (encrypted at rest)
-- [ ] `{{ secrets.KEY }}` resolution at execution time
+- [x] Sealed secret store (encrypted at rest) — `SecretStore` with ChaCha20-Poly1305, seal/unseal, key zeroize on drop (8 tests)
+- [x] `{{ secrets.KEY }}` resolution at execution time — integrated into Executor, commands resolved before `sh -c`
 
 ### Delay-Tolerant Networking
 - [x] Offline queue — in-memory `BinaryHeap` + SQLite persistence (`dtn_persistent.rs`, 8 tests)

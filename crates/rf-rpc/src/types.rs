@@ -89,6 +89,21 @@ pub enum Action {
     PortForwardClose {
         forward_id: String,
     },
+    /// Remote port forward (ssh -R equivalent): agent listens on bind_addr,
+    /// and for each accepted connection, data is forwarded back to the client
+    /// which connects to target_addr locally.
+    RemoteForward {
+        bind_addr: String,
+        target_addr: String,
+    },
+    /// Start a SOCKS5 dynamic forward proxy on the agent.
+    Socks5Forward {
+        bind_addr: String,
+    },
+    /// Stop a SOCKS5 forward by ID.
+    Socks5Close {
+        forward_id: String,
+    },
     /// Run a health check probe.
     HealthCheck {
         probe_type: String,
@@ -367,6 +382,16 @@ mod tests {
             },
             Action::PortForwardClose {
                 forward_id: "fwd-1".into(),
+            },
+            Action::RemoteForward {
+                bind_addr: "0.0.0.0:2222".into(),
+                target_addr: "127.0.0.1:22".into(),
+            },
+            Action::Socks5Forward {
+                bind_addr: "127.0.0.1:1080".into(),
+            },
+            Action::Socks5Close {
+                forward_id: "socks-1".into(),
             },
             Action::HealthCheck {
                 probe_type: "tcp".into(),

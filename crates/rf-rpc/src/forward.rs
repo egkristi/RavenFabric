@@ -212,6 +212,50 @@ async fn forward_connection(
     Ok(())
 }
 
+/// Start a remote TCP port forward (ssh -R equivalent): agent listens on
+/// `bind_addr` and for each accepted connection, forwards to `target_addr`
+/// which is resolved on the agent side (the remote end).
+///
+/// In RavenFabric context: the agent opens a listener, and when a client
+/// connects to it, the agent connects to the target and relays bidirectionally.
+/// This is useful for exposing a service through the agent.
+pub async fn start_remote_forward(
+    bind_addr: &str,
+    target_addr: String,
+    cancel: tokio::sync::watch::Receiver<bool>,
+) -> std::io::Result<(tokio::task::JoinHandle<()>, std::net::SocketAddr)> {
+    let listener = tokio::net::TcpListener::bind(bind_addr).await?;
+    let bound_addr = listener.local_addr()?;
+    let handle = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                result = listener.accept() => {
+                    match result {
+                        Ok((inbound, peer)) => {
+                            tracing::info!("remote forward: accepted from {peer}");
+                            let target = target_addr.clone();
+                            tokio::spawn(async move {
+                                if let Err(e) = forward_connection(inbound, &target).await {
+                                    tracing::warn!("remote forward to {target} failed: {e}");
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            tracing::error!("remote forward accept failed: {e}");
+                            break;
+                        }
+                    }
+                }
+                _ = cancel_wait(&cancel) => {
+                    tracing::info!("remote forward cancelled");
+                    break;
+                }
+            }
+        }
+    });
+    Ok((handle, bound_addr))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
