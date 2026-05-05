@@ -243,11 +243,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] IPv6-first with NAT64/464XLAT awareness
 
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
-- [ ] NetworkProbe struct — unified assessment of network environment
-- [ ] EgressClass classification (Open, HomeRouter, EnterpriseProxy, RestrictiveDPI, Hostile, AirGap)
+- [x] ~~NetworkProbe struct — unified assessment of network environment~~ — rf-transport::probe
+- [x] ~~EgressClass classification (Open, HomeRouter, EnterpriseProxy, RestrictiveDPI, Hostile, AirGap)~~
 - [ ] STUN-based NAT type detection (full cone, restricted, port-restricted, symmetric)
-- [ ] IPv4/IPv6 availability and preference detection
-- [ ] UDP reachability (per-port), captive portal detection
+- [x] ~~IPv4/IPv6 availability and preference detection~~ — NetworkProbe checks both
+- [x] ~~UDP reachability (per-port), captive portal detection~~ — UDP check in probe
 - [ ] Corporate proxy detection (HTTP CONNECT support)
 - [ ] Per-relay latency measurement (geographic selection)
 
@@ -291,10 +291,10 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Tamper-alert audit events (signed, timestamped, priority-delivered)~~ — security audit entries on tamper/injection
 
 ### Connection Metrics & Monitoring (DTN-aware)
-- [ ] Per-path metrics collection (RTT, loss, throughput, transport type, hop count)
+- [x] ~~Per-path metrics collection (RTT, loss, throughput, transport type, hop count)~~ — rf-rpc::metrics module
 - [ ] Metrics propagation through DTN store-carry-forward (bundled with custody transfer)
 - [ ] Priority delivery for security events (tamper alerts never dropped by TTL)
-- [ ] Offline metric accumulation (local buffer, flush on next contact window)
+- [x] ~~Offline metric accumulation (local buffer, flush on next contact window)~~ — PathMetrics VecDeque buffer
 - [ ] Mesh neighbor health gossip (partial observability without direct controller path)
 - [x] ~~Path switch event logging (transport changes recorded as audit + metric)~~ — audit entries for tamper-driven path abandonment
 - [ ] Relay-reported metrics (hop count, forwarding latency, queue depth)
