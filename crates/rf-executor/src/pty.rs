@@ -348,8 +348,13 @@ impl PtySession {
     /// This is a blocking call — use `tokio::task::spawn_blocking` if needed.
     pub fn read(&self, buf: &mut [u8]) -> std::io::Result<usize> {
         use std::os::unix::io::AsRawFd;
-        let n =
-            unsafe { libc::read(self.master_fd.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len()) };
+        let n = unsafe {
+            libc::read(
+                self.master_fd.as_raw_fd(),
+                buf.as_mut_ptr().cast(),
+                buf.len(),
+            )
+        };
         if n < 0 {
             let err = std::io::Error::last_os_error();
             if err.kind() == std::io::ErrorKind::WouldBlock {

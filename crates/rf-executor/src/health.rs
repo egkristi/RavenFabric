@@ -463,9 +463,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_command_probe_success() {
-        let probe = ProbeType::Command {
-            cmd: "true".into(),
-        };
+        let probe = ProbeType::Command { cmd: "true".into() };
         let result = execute_probe(&probe, Duration::from_secs(2)).await;
         assert!(result.success);
     }

@@ -697,7 +697,11 @@ mod tests {
         {
             let mut f = std::fs::File::create(&log_path).unwrap();
             writeln!(f, r#"{{"level":"info","msg":"hello"}}"#).unwrap();
-            writeln!(f, r#"{{"level":"error","msg":"failure","timestamp":"2024-01-15T10:30:00Z"}}"#).unwrap();
+            writeln!(
+                f,
+                r#"{{"level":"error","msg":"failure","timestamp":"2024-01-15T10:30:00Z"}}"#
+            )
+            .unwrap();
         }
 
         let mut tailer = FileTailer::from_beginning(log_path, config);

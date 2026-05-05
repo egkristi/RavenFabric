@@ -330,12 +330,8 @@ mod tests {
 
         // Start the port forwarder
         let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
-        let handle = start_local_forward(
-            "127.0.0.1:0",
-            format!("127.0.0.1:{echo_port}"),
-            cancel_rx,
-        )
-        .await;
+        let handle =
+            start_local_forward("127.0.0.1:0", format!("127.0.0.1:{echo_port}"), cancel_rx).await;
 
         // We need the actual port — re-bind to get it. Use a different approach:
         // Bind first, get port, then connect.
