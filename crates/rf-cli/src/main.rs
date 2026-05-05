@@ -194,6 +194,9 @@ async fn exec_command(
                 }
             }
         }
+        RpcResult::Pong { timestamp_ms } => {
+            println!("pong (timestamp: {}ms)", timestamp_ms);
+        }
     }
 
     Ok(())

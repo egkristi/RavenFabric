@@ -198,7 +198,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~"Why now" section (2026 context: cable sabotage, NIS2, ZTNA mandates, monoculture risk)~~
 - [x] ~~Use-case personas (public sector architects, MSPs, remote-first, edge/IoT)~~
 - [x] ~~FAQ section (vs Tailscale+Ansible, why Rust, why AGPLv3, production-ready?, who)~~
-- [ ] Terminal example tab-style rotation (reduce visual noise on desktop)
+- [x] ~~Terminal example tab-style rotation (reduce visual noise on desktop)~~ — CSS-only tabs at 1100px+
 
 ### Technical Improvements
 - [x] Skip-link for accessibility (`<a href="#main" class="skip-link">Skip to content</a>`)
@@ -213,7 +213,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Asciinema cast of `rf exec` demo (30s, embedded player)
 - [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no
 - [ ] First blog post ("Why Noise XX over TLS" or "Why air-gap support is first-class")
-- [ ] Status badge in header (build status, version, last release date)
+- [x] ~~Status badge in header (build status, version, last release date)~~ — shields.io badges
 
 ### Medium-Term
 - [ ] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
@@ -274,7 +274,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Connection migration on network change (WiFi ↔ cellular)
 
 ### Health Monitoring & Failover (Phase 11 of Connectivity Value Chain)
-- [ ] Heartbeat-based liveness detection (miss 3 = failed)
+- [x] ~~Heartbeat-based liveness detection (miss 3 = failed)~~ — Ping/Pong RPC action
 - [ ] RTT baseline tracking (> 2x baseline = degraded)
 - [ ] Automatic failover (promote secondary path or start race + relay bridge)
 - [ ] OS network change events (route table, default gateway) → re-probe all drivers
@@ -318,9 +318,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Atomic writes (temp + rename)~~ — implemented in Write handler
 
 ### Cross-Platform (Tier 1)
-- [ ] Windows binary + Windows Service installer
-- [ ] macOS binary + launchd plist
-- [ ] Linux static musl binaries (amd64 + arm64) with systemd units
+- [x] ~~Windows binary + Windows Service installer~~ — release.yml + deploy/install-windows-service.ps1
+- [x] ~~macOS binary + launchd plist~~ — release.yml + deploy/io.ravenfabric.agent.plist
+- [x] ~~Linux static musl binaries (amd64 + arm64) with systemd units~~ — release.yml + deploy/*.service
 - [x] ~~Feature flags: `full` (default, all transports) vs `minimal` (no TUN, no sysinfo, no QUIC)~~
 - [x] ~~`#[cfg()]` for all OS-specific code (no Unix-only paths without alternatives)~~ — all cfg(unix) has cfg(not(unix)) counterpart
 
@@ -504,8 +504,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Battle-tested. Fully documented. Packaged. The first system where "network" is fully abstracted from application and policy layers.
 
-- [ ] Fuzz testing (transport, policy, codec)
-- [ ] Performance benchmarks
+- [x] ~~Fuzz testing (transport, policy, codec)~~ — libfuzzer targets in fuzz/
+- [x] ~~Performance benchmarks~~ — criterion benches for crypto + codec
 - [ ] Kubernetes CRDs + operator
 - [ ] Homebrew formula, apt/rpm repos, AUR, Nix flake
 - [ ] Documentation site

@@ -718,6 +718,43 @@
             }
         }
 
+        /* Tab-style terminal rotation (single view on large screens) */
+        .terminal-tabs { display: none; }
+        .terminal-tabs input[type="radio"] { display: none; }
+        .terminal-tabs .tab-nav {
+            display: flex;
+            gap: 0;
+            margin-top: var(--space-12);
+            border-bottom: 1px solid var(--border-medium);
+        }
+        .terminal-tabs .tab-nav label {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.8125rem;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .terminal-tabs .tab-nav label:hover { color: var(--text-primary); }
+        .terminal-tabs .tab-panel { display: none; margin-top: var(--space-6); }
+        .terminal-tabs input#tab1:checked ~ .tab-nav label[for="tab1"],
+        .terminal-tabs input#tab2:checked ~ .tab-nav label[for="tab2"],
+        .terminal-tabs input#tab3:checked ~ .tab-nav label[for="tab3"],
+        .terminal-tabs input#tab4:checked ~ .tab-nav label[for="tab4"] {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .terminal-tabs input#tab1:checked ~ .tab-panel-1,
+        .terminal-tabs input#tab2:checked ~ .tab-panel-2,
+        .terminal-tabs input#tab3:checked ~ .tab-panel-3,
+        .terminal-tabs input#tab4:checked ~ .tab-panel-4 { display: block; }
+
+        @media (min-width: 1100px) {
+            .terminal-grid { display: none; }
+            .terminal-tabs { display: block; }
+        }
+
         .terminal {
             background: #0d0e11;
             border: 1px solid var(--border-medium);
@@ -1176,9 +1213,11 @@
             <div class="hero-badges">
                 <a href="https://github.com/egkristi/RavenFabric/actions"><img src="https://img.shields.io/github/actions/workflow/status/egkristi/RavenFabric/ci.yml?branch=main&style=flat-square&label=CI" alt="CI status"></a>
                 <img src="https://img.shields.io/github/last-commit/egkristi/RavenFabric?style=flat-square&label=last%20commit" alt="Last commit">
+                <img src="https://img.shields.io/github/v/tag/egkristi/RavenFabric?style=flat-square&label=version&color=green" alt="Version">
                 <img src="https://img.shields.io/github/languages/top/egkristi/RavenFabric?style=flat-square" alt="Language">
                 <img src="https://img.shields.io/badge/license-AGPLv3-blue?style=flat-square" alt="License">
                 <img src="https://img.shields.io/github/stars/egkristi/RavenFabric?style=flat-square" alt="Stars">
+                <img src="https://img.shields.io/github/release-date/egkristi/RavenFabric?style=flat-square&label=release" alt="Release date">
             </div>
 
             <div class="hero-spec">
@@ -1532,6 +1571,116 @@
 
                 <!-- Terminal 4: any transport -->
                 <div>
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <div class="terminal-dots"><span></span><span></span><span></span></div>
+                            <div class="terminal-title">transport-agnostic</div>
+                        </div>
+                        <div class="terminal-body">
+<pre><span class="comment"># Connection probes all transports in parallel</span>
+<span class="prompt">$</span> <span class="cmd">rf connect</span> <span class="arg">prod-1</span> <span class="arg">--strategy</span> <span class="str">race</span>
+<span class="dim">[probe] wireguard-direct (ipv6)..  </span><span class="ok">✓ 12ms</span>
+<span class="dim">[probe] quic-direct...............</span><span class="ok">✓ 18ms</span>
+<span class="dim">[probe] websocket-relay..........  </span><span class="ok">✓ 47ms</span>
+<span class="dim">[probe] reticulum-mesh..........   </span><span class="out">⋯ skipped</span>
+
+<span class="ok">✓</span> <span class="out">Selected: wireguard-direct (ipv6)</span>
+<span class="dim">  fallbacks held warm: quic, ws-relay
+  upgrade scan: every 30s
+  noise-xx handshake: complete</span><span class="cursor"></span></pre>
+                        </div>
+                    </div>
+                    <div class="terminal-caption">any network — direct, NAT-traversed, relayed, or air-gap</div>
+                </div>
+            </div>
+
+            <!-- Tabbed view (large screens only, reduces visual noise) -->
+            <div class="terminal-tabs">
+                <input type="radio" name="terminal-tab" id="tab1" checked>
+                <input type="radio" name="terminal-tab" id="tab2">
+                <input type="radio" name="terminal-tab" id="tab3">
+                <input type="radio" name="terminal-tab" id="tab4">
+                <div class="tab-nav">
+                    <label for="tab1">enroll &amp; exec</label>
+                    <label for="tab2">deny-by-default</label>
+                    <label for="tab3">desired-state</label>
+                    <label for="tab4">transports</label>
+                </div>
+                <div class="tab-panel tab-panel-1">
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <div class="terminal-dots"><span></span><span></span><span></span></div>
+                            <div class="terminal-title">enroll &amp; execute</div>
+                        </div>
+                        <div class="terminal-body">
+<pre><span class="comment"># Generate one-time enrollment token</span>
+<span class="prompt">$</span> <span class="cmd">rf token generate</span> <span class="arg">--agent</span> <span class="str">prod-1</span> <span class="arg">--ttl</span> <span class="str">1h</span>
+<span class="out">→ rf-otp-a3f9b2c1d4e5f6...</span>
+
+<span class="comment"># Agent enrolls, generates keypair locally</span>
+<span class="prompt">$</span> <span class="cmd">rf-agent</span> <span class="arg">--enroll</span> <span class="str">rf-otp-a3f9...</span>
+<span class="ok">✓</span> <span class="out">Identity registered. Bootstrap closed.</span>
+
+<span class="comment"># Run a policy-checked command, E2E encrypted</span>
+<span class="prompt">$</span> <span class="cmd">rf exec</span> <span class="arg">prod-1</span> <span class="str">"systemctl status nginx"</span>
+<span class="out">● nginx.service - high performance web server
+   Active: <span class="ok">active (running)</span></span>
+<span class="dim">  audited · 105ms · noise-xx · wireguard-direct</span><span class="cursor"></span></pre>
+                        </div>
+                    </div>
+                    <div class="terminal-caption">enrollment via OTP → cached identity → encrypted exec</div>
+                </div>
+                <div class="tab-panel tab-panel-2">
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <div class="terminal-dots"><span></span><span></span><span></span></div>
+                            <div class="terminal-title">deny-by-default</div>
+                        </div>
+                        <div class="terminal-body">
+<pre><span class="comment"># Even an admin cannot run unsanctioned commands</span>
+<span class="prompt">$</span> <span class="cmd">rf exec</span> <span class="arg">prod-1</span> <span class="str">"rm -rf /etc"</span>
+<span class="denied">✗ DENIED</span> <span class="out">by RPCPolicy</span>
+<span class="dim">  rule: commands.deny[2] - "^rm.*-rf"
+  decision: rejected before execution
+  audit: written to /var/log/ravenfabric/audit.jsonl</span>
+
+<span class="comment"># Immutable rules cannot be overridden</span>
+<span class="prompt">$</span> <span class="cmd">rf exec</span> <span class="arg">prod-1</span> <span class="str">"chmod 777 /etc/ssh/sshd_config"</span>
+<span class="denied">✗ DENIED</span> <span class="out">by SecurityPolicy.immutable</span>
+<span class="dim">  rule: neverAllowFileModify
+  this rule cannot be relaxed by tenant policy</span><span class="cursor"></span></pre>
+                        </div>
+                    </div>
+                    <div class="terminal-caption">policy enforced before execution, both sides</div>
+                </div>
+                <div class="tab-panel tab-panel-3">
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <div class="terminal-dots"><span></span><span></span><span></span></div>
+                            <div class="terminal-title">desired-state.yaml</div>
+                        </div>
+                        <div class="terminal-body">
+<pre><span class="yaml-key">apiVersion</span>: <span class="yaml-val">ravenfabric.io/v1alpha1</span>
+<span class="yaml-key">kind</span>: <span class="yaml-val">DesiredState</span>
+<span class="yaml-key">metadata</span>:
+  <span class="yaml-key">name</span>: <span class="yaml-val">web-baseline</span>
+<span class="yaml-key">spec</span>:
+  <span class="yaml-key">targets</span>:
+    <span class="yaml-key">selector</span>: { <span class="yaml-key">labels</span>: { <span class="yaml-key">role</span>: <span class="yaml-val">web</span> } }
+  <span class="yaml-key">state</span>:
+    <span class="yaml-key">packages</span>:
+      - { <span class="yaml-key">name</span>: <span class="yaml-val">nginx</span>, <span class="yaml-key">state</span>: <span class="yaml-val">installed</span> }
+      - { <span class="yaml-key">name</span>: <span class="yaml-val">telnet</span>, <span class="yaml-key">state</span>: <span class="yaml-val">absent</span> }
+    <span class="yaml-key">services</span>:
+      - { <span class="yaml-key">name</span>: <span class="yaml-val">nginx</span>, <span class="yaml-key">state</span>: <span class="yaml-val">running</span>, <span class="yaml-key">enabled</span>: <span class="yaml-val">true</span> }
+  <span class="yaml-key">convergence</span>:
+    <span class="yaml-key">mode</span>: <span class="yaml-val">remediate</span>
+    <span class="yaml-key">intervalSeconds</span>: <span class="yaml-val">300</span></pre>
+                        </div>
+                    </div>
+                    <div class="terminal-caption">declarative convergence + continuous drift detection</div>
+                </div>
+                <div class="tab-panel tab-panel-4">
                     <div class="terminal">
                         <div class="terminal-header">
                             <div class="terminal-dots"><span></span><span></span><span></span></div>

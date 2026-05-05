@@ -55,6 +55,9 @@ pub enum Action {
     JobWait {
         job_id: String,
     },
+    /// Lightweight heartbeat ping — agent responds with Pong immediately.
+    /// Used for liveness detection. No policy check required.
+    Ping,
 }
 
 /// Identifies which output stream a chunk belongs to.
@@ -115,6 +118,10 @@ pub enum RpcResult {
         exit_code: Option<i32>,
         stdout: Option<String>,
         stderr: Option<String>,
+    },
+    /// Response to a Ping action — heartbeat acknowledgment.
+    Pong {
+        timestamp_ms: u64,
     },
 }
 
@@ -259,6 +266,7 @@ mod tests {
             Action::JobWait {
                 job_id: "job-456".into(),
             },
+            Action::Ping,
         ];
         for action in actions {
             let req = Request {
@@ -296,6 +304,19 @@ mod tests {
                 exit_code: Some(0),
                 stdout: Some("output".into()),
                 stderr: Some(String::new()),
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_pong() {
+        let resp = Response {
+            id: "ping-1".into(),
+            result: RpcResult::Pong {
+                timestamp_ms: 1714900000000,
             },
         };
         let bytes = codec::encode(&resp).unwrap();

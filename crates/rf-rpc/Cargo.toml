@@ -17,3 +17,10 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 yamux = { workspace = true }
 futures-util = "0.3"
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "codec_bench"
+harness = false

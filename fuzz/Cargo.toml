@@ -1,0 +1,31 @@
+[package]
+name = "rf-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+rf-rpc = { path = "../crates/rf-rpc" }
+rf-policy = { path = "../crates/rf-policy" }
+rf-crypto = { path = "../crates/rf-crypto" }
+
+[[bin]]
+name = "fuzz_codec"
+path = "fuzz_targets/fuzz_codec.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_policy"
+path = "fuzz_targets/fuzz_policy.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_frame"
+path = "fuzz_targets/fuzz_frame.rs"
+doc = false
+
+[workspace]

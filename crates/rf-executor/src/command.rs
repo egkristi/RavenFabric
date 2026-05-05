@@ -108,6 +108,12 @@ impl Executor {
             } => self.handle_background_exec(command, env, workdir).await,
             Action::JobQuery { job_id } => self.handle_job_query(job_id).await,
             Action::JobWait { job_id } => self.handle_job_wait(job_id).await,
+            Action::Ping => RpcResult::Pong {
+                timestamp_ms: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64,
+            },
             _ => RpcResult::Error {
                 message: "action not yet implemented".into(),
             },
