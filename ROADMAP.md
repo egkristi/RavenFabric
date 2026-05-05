@@ -515,6 +515,70 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ---
 
+## Distribution & Packaging
+
+**Goal:** RavenFabric installs natively on every platform through the user's preferred package manager. One command to install, one command to update.
+
+### Windows
+
+| Method | Package / Artifact | Status |
+|--------|--------------------|--------|
+| winget | `RavenFabric.RavenFabric` | [ ] Planned |
+| Chocolatey | `ravenfabric` | [ ] Planned |
+| Scoop | `extras/ravenfabric` | [ ] Planned |
+| MSI installer | `ravenfabric-x64.msi` | [ ] Planned |
+| EXE installer | `ravenfabric-x64-setup.exe` | [ ] Planned |
+| Portable ZIP | `ravenfabric-windows-x64.zip` | [ ] Planned |
+
+### macOS
+
+| Method | Package / Artifact | Status |
+|--------|--------------------|--------|
+| Homebrew | `brew install ravenfabric` | [ ] Planned |
+| DMG | `RavenFabric.dmg` (universal binary) | [ ] Planned |
+| pkg installer | `RavenFabric.pkg` (signed) | [ ] Planned |
+
+### Linux
+
+| Method | Package / Artifact | Status |
+|--------|--------------------|--------|
+| apt (Debian/Ubuntu) | `ravenfabric.deb` + PPA | [ ] Planned |
+| dnf (Fedora/RHEL) | `ravenfabric.rpm` + Copr | [ ] Planned |
+| pacman (Arch) | AUR `ravenfabric` | [ ] Planned |
+| zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [ ] Planned |
+| apk (Alpine) | `ravenfabric` (aports) | [ ] Planned |
+| snap | `snap install ravenfabric` | [ ] Planned |
+| Flatpak | `io.ravenfabric.Agent` | [ ] Planned |
+| Nix | `nix profile install ravenfabric` | [ ] Planned |
+| AppImage | `RavenFabric-x86_64.AppImage` | [ ] Planned |
+| Static binary | `ravenfabric-linux-{amd64,arm64,armv7}-musl` | [ ] Planned |
+
+### Android
+
+| Method | Package / Artifact | Status |
+|--------|--------------------|--------|
+| APK (sideload) | `ravenfabric.apk` | [ ] Planned |
+| Termux (pkg) | `pkg install ravenfabric` | [ ] Planned |
+| F-Droid | `io.ravenfabric.agent` | [ ] Planned |
+
+### iOS / iPadOS
+
+| Method | Package / Artifact | Status |
+|--------|--------------------|--------|
+| App Store | RavenFabric (Network Extension) | [ ] Planned |
+| TestFlight | Beta builds | [ ] Planned |
+
+### Cross-Platform / Generic
+
+| Method | Package / Artifact | Status |
+|--------|--------------------|--------|
+| Cargo | `cargo install ravenfabric` | [ ] Planned |
+| Container (Docker/OCI) | `ghcr.io/egkristi/ravenfabric` | [ ] Planned |
+| Helm chart | `helm install ravenfabric` | [ ] Planned |
+| curl \| sh | `curl -fsSL https://get.ravenfabric.io \| sh` | [ ] Planned |
+
+---
+
 ## Testing Strategy
 
 ### Unit Tests
