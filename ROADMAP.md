@@ -106,8 +106,9 @@ rf exec test-agent "uname -a"
 - [x] `rf-transport/src/memory.rs` — In-memory driver (for tests, with unit tests)
 
 ### RPC Layer (Phase 3) — DONE
-- [x] `rf-rpc/src/types.rs` — Request/Response/Action/RpcResult types
+- [x] `rf-rpc/src/types.rs` — Request/Response/Action/RpcResult types (incl. streaming variants)
 - [x] `rf-rpc/src/mux.rs` — RPC session over SecureChannel (request/response semantics)
+- [x] `rf-rpc/src/yamux_mux.rs` — Yamux multiplexing for concurrent RPC (MuxClient/MuxServer)
 - [x] `rf-rpc/src/codec.rs` — msgpack frame codec (length-delimited, roundtrip tested)
 - [x] `rf-rpc/src/error.rs` — RpcError enum (typed errors)
 
@@ -128,12 +129,12 @@ rf exec test-agent "uname -a"
 - [x] `rf-executor/src/command.rs` — Policy-checked execution with timeout + output limiting
 - [x] Metrics action handler (sysinfo)
 - [x] **Done:** Unit tests (policy denial, successful exec, timeout, output limiting, env, metrics)
-- [ ] Streaming stdout/stderr via mux stream
+- [x] Streaming stdout/stderr via mux stream (`rf-executor/src/streaming.rs`)
 
 ### Bootstrap (Phase 7) — DONE
 - [x] `rf-bootstrap/src/otp.rs` — OTP generation, validation, single-use, TTL-enforced, hash-stored
 - [x] **Fix:** `RwLock::write()` uses `unwrap_or_else(|p| p.into_inner())` — handles poisoning gracefully
-- [ ] Agent enrollment flow (token → key exchange → registered)
+- [x] Agent enrollment flow (token → key exchange → registered) (`rf-bootstrap/src/enrollment.rs`)
 
 ### Relay (Phase 8) — DONE
 - [x] `rf-relay/src/main.rs` — Full relay broker binary
@@ -309,7 +310,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Execution Modes
 - [ ] Task mode (ordered steps, conditions, onFailure, workdir)
 - [ ] Background exec with ID tracking + signal + wait
-- [ ] Real-time stdout/stderr streaming via mux stream
+- [x] Real-time stdout/stderr streaming via mux stream (StreamExecute action + StreamChunk/StreamEnd)
 
 ### File Operations
 - [ ] Push file (orchestrator → agent)
@@ -587,7 +588,7 @@ Must be resolved before v0.1 is feature-complete.
 
 ### Minor (code hygiene)
 - [ ] Unused workspace deps: `proptest`, `base64`, `crc32fast`
-- [ ] `yamux` declared in `rf-crypto` Cargo.toml (should be in `rf-rpc`)
+- [x] ~~`yamux` declared in `rf-crypto` Cargo.toml (should be in `rf-rpc`)~~ — fixed, yamux now in rf-rpc
 - [ ] `Target` type in `rf-transport` missing `Debug`/`Clone` derives
 - [ ] `rf-rpc` types have no serialization roundtrip tests
 - [ ] `RpcPolicy` error types use `Box<dyn Error>` instead of typed error

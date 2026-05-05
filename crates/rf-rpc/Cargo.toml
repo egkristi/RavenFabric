@@ -9,8 +9,11 @@ license.workspace = true
 rf-crypto = { path = "../rf-crypto" }
 rf-transport = { path = "../rf-transport" }
 tokio = { workspace = true }
+tokio-util = { workspace = true, features = ["compat"] }
 serde = { workspace = true }
 rmp-serde = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
+yamux = { workspace = true }
+futures-util = "0.3"

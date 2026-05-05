@@ -17,6 +17,12 @@ pub enum Action {
         env: HashMap<String, String>,
         workdir: Option<String>,
     },
+    /// Like Execute, but streams stdout/stderr incrementally over the connection.
+    StreamExecute {
+        command: String,
+        env: HashMap<String, String>,
+        workdir: Option<String>,
+    },
     Read {
         path: String,
     },
@@ -35,6 +41,13 @@ pub enum Action {
     },
     /// Ping/status check — agent responds with its version and uptime.
     Status,
+}
+
+/// Identifies which output stream a chunk belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StreamType {
+    Stdout,
+    Stderr,
 }
 
 /// RPC response sent from agent back to client.
@@ -65,5 +78,15 @@ pub enum RpcResult {
         agent_id: String,
         version: String,
         uptime_seconds: u64,
+    },
+    /// Incremental output chunk from a streaming execution.
+    StreamChunk {
+        stream: StreamType,
+        data: Vec<u8>,
+    },
+    /// Final message from a streaming execution indicating process completion.
+    StreamEnd {
+        exit_code: i32,
+        duration_ms: u64,
     },
 }

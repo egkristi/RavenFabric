@@ -24,17 +24,17 @@ Cargo workspace with 10 crates:
 |---|---|---|
 | `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management | **Done** (~500 LOC, 7 tests) |
 | `rf-transport` | Driver trait, WebSocket + Memory backends | **Done** (~250 LOC, 2 tests) |
-| `rf-rpc` | Request/Response types, msgpack codec, RPC session | **Done** (~250 LOC, 4 tests) |
+| `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing | **Done** (~430 LOC, 5 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (53 LOC, 0 tests) |
 | `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default | **Done** (281 LOC, 4 tests) |
-| `rf-executor` | Command execution under policy control with timeout and output limiting | **Done** (~350 LOC, 9 tests) |
-| `rf-bootstrap` | OTP enrollment flow, relay pairing | **Done** (122 LOC, 4 tests) |
+| `rf-executor` | Command execution + streaming under policy control with timeout and output limiting | **Done** (~600 LOC, 12 tests) |
+| `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~380 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker (binary) | **Done** |
 | `rf-agent` | Agent binary (connects to relay, executes RPC) | **Done** |
 | `rf-cli` | CLI client `rf` (exec, dev, status, completions) | **Done** |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (2 tests) |
 
-**Total: ~3,000 LOC, 42 tests, 0 clippy warnings.**
+**Total: ~4,000 LOC, 53 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

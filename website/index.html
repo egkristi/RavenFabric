@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="dark">
 
     <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
@@ -60,10 +60,44 @@
     }
     </script>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Fonts (self-hosted, no external requests) -->
+    <style>
+        @font-face {
+            font-family: 'IBM Plex Sans';
+            font-style: normal;
+            font-weight: 300 600;
+            font-display: swap;
+            src: url(/assets/fonts/ibm-plex-sans-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'IBM Plex Serif';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/assets/fonts/ibm-plex-serif-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'IBM Plex Serif';
+            font-style: italic;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/assets/fonts/ibm-plex-serif-italic-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'IBM Plex Serif';
+            font-style: normal;
+            font-weight: 600;
+            font-display: swap;
+            src: url(/assets/fonts/ibm-plex-serif-600-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'JetBrains Mono';
+            font-style: normal;
+            font-weight: 400 700;
+            font-display: swap;
+            src: url(/assets/fonts/jetbrains-mono-latin.woff2) format('woff2');
+        }
+    </style>
 
     <style>
         :root {
@@ -1325,13 +1359,18 @@
                         <span class="item-version">v0.1</span>
                     </li>
                     <li>
-                        <span class="status-tag progress">In progress</span>
-                        <span class="item-text">RPC layer — yamux multiplexing, msgpack codec</span>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">RPC layer — msgpack codec, request/response types</span>
                         <span class="item-version">v0.1</span>
                     </li>
                     <li>
-                        <span class="status-tag progress">In progress</span>
-                        <span class="item-text">WebSocket transport driver, broker scaffolding</span>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">WebSocket transport, relay broker, rate limiting, HMAC auth</span>
+                        <span class="item-version">v0.1</span>
+                    </li>
+                    <li>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">Agent + CLI — exec, status, dev mode, shell completions</span>
                         <span class="item-version">v0.1</span>
                     </li>
                     <li>
@@ -1378,6 +1417,58 @@
                     </div>
                 </aside>
             </div>
+        </div>
+    </section>
+
+    <!-- ─── THREAT MODEL ────────────────────────────────────────── -->
+    <section class="content-section">
+        <div class="container">
+            <div class="section-eyebrow">Threat Model</div>
+            <h2 class="section-title">What the architecture <em>guarantees</em></h2>
+
+            <div class="features-grid" style="margin-top: var(--space-8);">
+                <div class="feature-card">
+                    <h3>Relay is content-blind</h3>
+                    <p>The relay broker forwards encrypted bytes. It never holds key material, never decrypts payloads, and cannot read commands or responses. Compromise the relay? The attacker sees ciphertext.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Agent compromise is bounded</h3>
+                    <p>Even with root on an agent, the attacker is limited to what that agent's policy allows. No lateral movement — each agent has its own key, policy, and audit trail. Revoke the key and the agent is dead.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Controller is constrained</h3>
+                    <p>A compromised controller can only issue commands already permitted by each agent's local policy. The policy engine is deny-by-default and evaluated locally — the controller cannot override it.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Immutable security invariants</h3>
+                    <p>Some rules are non-negotiable: no command without policy check, no connection without handshake, audit log is append-only, keys are zeroed on drop. These cannot be disabled by configuration.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Network adversary model</h3>
+                    <p>An attacker on the wire sees: Noise XX handshake (no identifying info), encrypted frames with 16-byte MACs, and relay-forwarded ciphertext. No metadata leaks, no cleartext, no session cookies.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Audit is tamper-evident</h3>
+                    <p>Every action (allowed or denied) produces a structured audit entry. The log is append-only with timestamps, caller keys, and matched rules. Deletion or modification is detectable.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── ABOUT ───────────────────────────────────────────────── -->
+    <section class="content-section" style="padding-bottom: var(--space-16);">
+        <div class="container" style="max-width: var(--content-max);">
+            <div class="section-eyebrow">Built by</div>
+            <p style="font-size: 1.05rem; color: var(--text-secondary); line-height: 1.7;">
+                RavenFabric is created by <strong style="color: var(--text-primary);">Erling Kristoffersen</strong>,
+                a security-focused systems engineer based in Norway. The project exists because secure remote execution
+                shouldn't require stitching together five different tools — and because air-gapped networks deserve
+                first-class support, not afterthoughts.
+            </p>
+            <p style="font-size: 0.9rem; color: var(--text-tertiary); margin-top: var(--space-4);">
+                Open source under AGPLv3. Commercial licensing available for enterprise use.
+                <a href="https://github.com/egkristi/RavenFabric" target="_blank" rel="noopener" style="color: var(--accent-gold);">View on GitHub</a>
+            </p>
         </div>
     </section>
 

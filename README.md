@@ -985,16 +985,17 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
-| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey management | Done (470 LOC, 5 tests) |
-| `rf-transport` | Driver trait, AsyncStream abstraction, WebSocket backend | Trait only (53 LOC) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec | Types only (63 LOC) |
+| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey management | Done (470 LOC, 7 tests) |
+| `rf-transport` | Driver trait, AsyncStream abstraction, WebSocket + Memory backends | Done (~250 LOC, 2 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux multiplexing | Done (~430 LOC, 5 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
 | `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) | Done (281 LOC, 4 tests) |
-| `rf-executor` | Command execution under policy control with timeout + output limiting | Done (170 LOC) |
-| `rf-bootstrap` | OTP enrollment (single-use, hash-stored, TTL-enforced) | Done (122 LOC, 4 tests) |
-| `rf-relay` | Stateless encrypted relay broker binary | Stub |
-| `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Stub |
-| `rf-cli` | `rf` CLI binary (exec, dev, status) | Skeleton |
+| `rf-executor` | Command execution + streaming under policy control with timeout + output limiting | Done (~600 LOC, 12 tests) |
+| `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~380 LOC, 11 tests) |
+| `rf-relay` | Stateless encrypted relay broker binary | Done |
+| `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done |
+| `rf-cli` | `rf` CLI binary (exec, status, completions) | Done |
+| `rf-integration-tests` | End-to-end integration tests | Done (2 tests) |
 
 ### Key Dependencies
 

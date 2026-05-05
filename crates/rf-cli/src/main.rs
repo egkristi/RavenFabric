@@ -164,6 +164,10 @@ async fn exec_command(
             error!("unexpected StatusInfo response for exec");
             std::process::exit(1);
         }
+        RpcResult::StreamChunk { .. } | RpcResult::StreamEnd { .. } => {
+            error!("unexpected streaming response for non-streaming exec");
+            std::process::exit(1);
+        }
     }
 
     Ok(())
