@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~16,700 LOC | 336 tests | 0 clippy warnings | All CI green**
+**~16,700 LOC | 337 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -1105,6 +1105,14 @@ RavenFabric is designed to run **anywhere**. The agent targets every platform th
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for the detailed roadmap with implementation checklist.
+
+---
+
+## Documentation
+
+- **Docs:** [ravenfabric.io/docs/](https://ravenfabric.io/docs/) — installation, architecture, configuration, reference
+- **Blog:** [ravenfabric.io/blog/](https://ravenfabric.io/blog/) — technical deep dives
+- **Website:** [ravenfabric.io](https://ravenfabric.io) — overview and architecture
 
 ---
 
