@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~3,000 LOC | 42 tests | 0 clippy warnings | All CI green**
+**~16,700 LOC | 336 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -985,12 +985,12 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
-| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption | Done (~1100 LOC, 23 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory, ConnectionManager, proxy, latency, NAT/ICE, mesh | Done (~3700 LOC, 87 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5 | Done (~2200 LOC, 49 tests) |
+| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM | Done (~1300 LOC, 25 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, platform targets | Done (~5300 LOC, 121 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s | Done (~2900 LOC, 61 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
-| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, telemetry exporters | Done (~780 LOC, 16 tests) |
-| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics | Done (~3100 LOC, 53 tests) |
+| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity | Done (~1500 LOC, 31 tests) |
+| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping | Done (~3600 LOC, 48 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~380 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done |
