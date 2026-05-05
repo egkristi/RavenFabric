@@ -247,7 +247,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
 - [x] NetworkProbe struct — `quick_probe()` checks IPv4/IPv6/UDP availability + `EgressClass` classification (functional)
 - [x] STUN-based NAT type detection — real UDP STUN binding requests in `stun_client.rs`
-- [~] Corporate proxy detection — proxy config types, no actual HTTP CONNECT probing
+- [x] Corporate proxy detection — HTTP CONNECT probing with TCP RTT measurement, auth detection (407), status parsing (3 async tests)
 - [x] Per-relay latency measurement — TCP connect RTT prober, probe_all(), continuous loop with cancellation (3 async tests)
 
 ### Path Selection Engine (Phase 5 of Connectivity Value Chain)
@@ -331,7 +331,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Background transport upgrade — `SessionMigration` wired to `ConnectionRunner::migrate_session()` with peer key verification (2 async tests)
 - [x] Session ticket resumption — `SessionTicket` persists across migrations, transport recorded
 - [x] Atomic swap (make-before-break) — overlap window with peer verification before old path close
-- [~] 0-RTT resumption — types only
+- [x] 0-RTT resumption — ZeroRttCache with ticket storage, try_resume, validate_incoming, eviction, use-count replay protection (6 tests)
 
 ### Playbook Engine
 - [x] Multi-agent orchestration — `Orchestrator` + `rf playbook` CLI command connected to real agent RPC sessions

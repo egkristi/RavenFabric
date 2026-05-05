@@ -2,10 +2,15 @@
 //!
 //! Detects HTTP/HTTPS/SOCKS proxy settings from environment variables
 //! and system configuration, producing connection parameters for
-//! upstream transport drivers.
+//! upstream transport drivers. Includes active probing to verify
+//! proxy connectivity.
 
 use std::collections::HashMap;
 use std::env;
+use std::net::SocketAddr;
+use std::time::{Duration, Instant};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 /// Proxy protocol.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,6 +208,136 @@ pub fn detect_from_env_map(env_vars: &HashMap<String, String>) -> ProxyDetection
     }
 }
 
+/// Result of probing a proxy for connectivity.
+#[derive(Debug)]
+pub struct ProbeResult {
+    /// Whether the proxy is reachable via TCP.
+    pub tcp_reachable: bool,
+    /// Whether HTTP CONNECT succeeded (tunnel establishment).
+    pub connect_supported: bool,
+    /// HTTP status code from CONNECT response (e.g., 200, 407).
+    pub status_code: Option<u16>,
+    /// RTT to establish TCP connection to proxy.
+    pub tcp_rtt: Option<Duration>,
+    /// Whether authentication is required (407 response).
+    pub auth_required: bool,
+    /// Error message if probe failed.
+    pub error: Option<String>,
+}
+
+/// Probe a proxy to verify it's functional.
+///
+/// Performs:
+/// 1. TCP connect to proxy address (verifies reachability)
+/// 2. HTTP CONNECT request to target through proxy (verifies tunnel support)
+pub async fn probe_proxy(
+    proxy_addr: SocketAddr,
+    target_host: &str,
+    target_port: u16,
+    timeout_dur: Duration,
+) -> ProbeResult {
+    // Step 1: TCP connect to proxy
+    let start = Instant::now();
+    let stream = match tokio::time::timeout(timeout_dur, TcpStream::connect(proxy_addr)).await {
+        Ok(Ok(s)) => s,
+        Ok(Err(e)) => {
+            return ProbeResult {
+                tcp_reachable: false,
+                connect_supported: false,
+                status_code: None,
+                tcp_rtt: None,
+                auth_required: false,
+                error: Some(format!("TCP connect failed: {e}")),
+            };
+        }
+        Err(_) => {
+            return ProbeResult {
+                tcp_reachable: false,
+                connect_supported: false,
+                status_code: None,
+                tcp_rtt: None,
+                auth_required: false,
+                error: Some("TCP connect timed out".to_string()),
+            };
+        }
+    };
+    let tcp_rtt = start.elapsed();
+
+    // Step 2: Send HTTP CONNECT request
+    let connect_req = format!(
+        "CONNECT {target_host}:{target_port} HTTP/1.1\r\nHost: {target_host}:{target_port}\r\n\r\n"
+    );
+
+    let mut stream = stream;
+    if let Err(e) = stream.write_all(connect_req.as_bytes()).await {
+        return ProbeResult {
+            tcp_reachable: true,
+            connect_supported: false,
+            status_code: None,
+            tcp_rtt: Some(tcp_rtt),
+            auth_required: false,
+            error: Some(format!("Write failed: {e}")),
+        };
+    }
+
+    // Read response (just the status line)
+    let mut buf = [0u8; 256];
+    let n = match tokio::time::timeout(timeout_dur, stream.read(&mut buf)).await {
+        Ok(Ok(n)) => n,
+        Ok(Err(e)) => {
+            return ProbeResult {
+                tcp_reachable: true,
+                connect_supported: false,
+                status_code: None,
+                tcp_rtt: Some(tcp_rtt),
+                auth_required: false,
+                error: Some(format!("Read failed: {e}")),
+            };
+        }
+        Err(_) => {
+            return ProbeResult {
+                tcp_reachable: true,
+                connect_supported: false,
+                status_code: None,
+                tcp_rtt: Some(tcp_rtt),
+                auth_required: false,
+                error: Some("Read timed out".to_string()),
+            };
+        }
+    };
+
+    // Parse HTTP status line: "HTTP/1.1 200 Connection Established\r\n"
+    let response = String::from_utf8_lossy(&buf[..n]);
+    let status_code = parse_http_status(&response);
+    let auth_required = status_code == Some(407);
+    let connect_supported = status_code == Some(200);
+
+    ProbeResult {
+        tcp_reachable: true,
+        connect_supported,
+        status_code,
+        tcp_rtt: Some(tcp_rtt),
+        auth_required,
+        error: if connect_supported {
+            None
+        } else {
+            Some(format!("CONNECT returned status: {:?}", status_code))
+        },
+    }
+}
+
+/// Parse HTTP status code from response first line.
+fn parse_http_status(response: &str) -> Option<u16> {
+    // "HTTP/1.1 200 Connection Established"
+    let first_line = response.lines().next()?;
+    let parts: Vec<&str> = first_line.splitn(3, ' ').collect();
+    if parts.len() >= 2 {
+        parts[1].parse().ok()
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -301,5 +436,69 @@ mod tests {
 
         let socks = parse_proxy_url("socks5://proxy.local").unwrap();
         assert_eq!(socks.port, 1080);
+    }
+
+    #[tokio::test]
+    async fn test_probe_proxy_tcp_reachable() {
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+
+        // Simulate a proxy that responds with 200
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            // Read the CONNECT request
+            let mut buf = [0u8; 256];
+            let _ = tokio::io::AsyncReadExt::read(&mut stream, &mut buf).await;
+            // Respond with 200
+            stream
+                .write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                .await
+                .unwrap();
+        });
+
+        let result = probe_proxy(addr, "example.com", 443, Duration::from_secs(5)).await;
+        assert!(result.tcp_reachable);
+        assert!(result.connect_supported);
+        assert_eq!(result.status_code, Some(200));
+        assert!(result.tcp_rtt.is_some());
+        assert!(!result.auth_required);
+    }
+
+    #[tokio::test]
+    async fn test_probe_proxy_auth_required() {
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 256];
+            let _ = tokio::io::AsyncReadExt::read(&mut stream, &mut buf).await;
+            stream
+                .write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n")
+                .await
+                .unwrap();
+        });
+
+        let result = probe_proxy(addr, "example.com", 443, Duration::from_secs(5)).await;
+        assert!(result.tcp_reachable);
+        assert!(!result.connect_supported);
+        assert_eq!(result.status_code, Some(407));
+        assert!(result.auth_required);
+    }
+
+    #[tokio::test]
+    async fn test_probe_proxy_unreachable() {
+        // Non-listening address
+        let addr: SocketAddr = "127.0.0.1:1".parse().unwrap();
+        let result = probe_proxy(addr, "example.com", 443, Duration::from_millis(100)).await;
+        assert!(!result.tcp_reachable);
+        assert!(!result.connect_supported);
+        assert!(result.error.is_some());
     }
 }
