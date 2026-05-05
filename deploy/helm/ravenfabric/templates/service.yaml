@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ravenfabric.fullname" . }}-relay
+  labels:
+    app.kubernetes.io/name: {{ include "ravenfabric.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: relay
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: relay
+      protocol: TCP
+      name: relay
+  selector:
+    app.kubernetes.io/name: {{ include "ravenfabric.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: relay

@@ -1,0 +1,52 @@
+# Maintainer: Erling Kristiansen <erling@ravenfabric.io>
+pkgname=ravenfabric
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Secure remote execution and mesh networking agent — zero-trust, cryptographically verified"
+arch=('x86_64' 'aarch64')
+url="https://ravenfabric.io"
+license=('AGPL-3.0-or-later')
+depends=()
+makedepends=('rust' 'cargo')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/egkristi/RavenFabric/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+backup=('etc/ravenfabric/policy.yaml')
+
+build() {
+    cd "RavenFabric-${pkgver}"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo build --release -p rf-agent -p rf-relay -p rf-cli
+}
+
+package() {
+    cd "RavenFabric-${pkgver}"
+
+    # Binaries
+    install -Dm755 target/release/rf-agent "$pkgdir/usr/bin/rf-agent"
+    install -Dm755 target/release/rf-relay "$pkgdir/usr/bin/rf-relay"
+    install -Dm755 target/release/rf       "$pkgdir/usr/bin/rf"
+
+    # systemd units
+    install -Dm644 deploy/rf-agent.service "$pkgdir/usr/lib/systemd/system/rf-agent.service"
+    install -Dm644 deploy/rf-relay.service "$pkgdir/usr/lib/systemd/system/rf-relay.service"
+
+    # Shell completions
+    install -dm755 "$pkgdir/usr/share/bash-completion/completions"
+    install -dm755 "$pkgdir/usr/share/zsh/site-functions"
+    install -dm755 "$pkgdir/usr/share/fish/vendor_completions.d"
+    target/release/rf completions bash > "$pkgdir/usr/share/bash-completion/completions/rf"
+    target/release/rf completions zsh  > "$pkgdir/usr/share/zsh/site-functions/_rf"
+    target/release/rf completions fish > "$pkgdir/usr/share/fish/vendor_completions.d/rf.fish"
+
+    # Config directory
+    install -dm750 "$pkgdir/etc/ravenfabric"
+
+    # Log directory
+    install -dm750 "$pkgdir/var/log/ravenfabric"
+
+    # License
+    install -Dm644 LICENSES/AGPLv3.txt "$pkgdir/usr/share/licenses/${pkgname}/AGPLv3.txt"
+
+    # Documentation
+    install -Dm644 README.md "$pkgdir/usr/share/doc/${pkgname}/README.md"
+}

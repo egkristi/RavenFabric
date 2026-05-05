@@ -19,3 +19,18 @@ anyhow = "1"
 hmac = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
+
+[package.metadata.deb]
+maintainer = "Erling Kristiansen <erling@ravenfabric.io>"
+section = "net"
+priority = "optional"
+assets = [
+    ["target/release/rf-relay", "usr/bin/", "755"],
+    ["../../deploy/rf-relay.service", "usr/lib/systemd/system/", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/rf-relay", dest = "/usr/bin/rf-relay", mode = "755" },
+    { source = "deploy/rf-relay.service", dest = "/usr/lib/systemd/system/rf-relay.service", mode = "644" },
+]

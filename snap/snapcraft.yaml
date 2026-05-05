@@ -1,0 +1,48 @@
+name: ravenfabric
+version: '0.1.0'
+summary: Secure remote execution and mesh networking agent
+description: |
+  RavenFabric is a security-first distributed execution engine. End-to-end
+  encrypted, network-agnostic, policy-driven, ZTNA. From full mesh VPN to
+  fire-and-forget commands — all within an airtight policy layer.
+
+  Built in Rust with Noise XX mutual authentication and deny-by-default policy.
+
+grade: stable
+confinement: classic
+base: core24
+license: AGPL-3.0-or-later
+website: https://ravenfabric.io
+source-code: https://github.com/egkristi/RavenFabric
+
+architectures:
+  - build-on: [amd64]
+    build-for: [amd64]
+  - build-on: [arm64]
+    build-for: [arm64]
+
+parts:
+  ravenfabric:
+    plugin: rust
+    source: .
+    rust-channel: "1.85"
+    build-packages:
+      - pkg-config
+    override-build: |
+      cargo build --release -p rf-agent -p rf-relay -p rf-cli
+      install -Dm755 target/release/rf-agent $CRAFT_PART_INSTALL/bin/rf-agent
+      install -Dm755 target/release/rf-relay $CRAFT_PART_INSTALL/bin/rf-relay
+      install -Dm755 target/release/rf       $CRAFT_PART_INSTALL/bin/rf
+
+apps:
+  rf:
+    command: bin/rf
+    plugs: [network, network-bind, home]
+  rf-agent:
+    command: bin/rf-agent
+    daemon: simple
+    plugs: [network, network-bind, home, system-observe, process-control]
+  rf-relay:
+    command: bin/rf-relay
+    daemon: simple
+    plugs: [network, network-bind]

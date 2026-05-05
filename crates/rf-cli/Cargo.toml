@@ -9,6 +9,19 @@ license.workspace = true
 name = "rf"
 path = "src/main.rs"
 
+[package.metadata.deb]
+maintainer = "Erling Kristiansen <erling@ravenfabric.io>"
+section = "net"
+priority = "optional"
+assets = [
+    ["target/release/rf", "usr/bin/", "755"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/rf", dest = "/usr/bin/rf", mode = "755" },
+]
+
 [dependencies]
 rf-crypto = { path = "../rf-crypto" }
 rf-transport = { path = "../rf-transport" }

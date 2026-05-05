@@ -129,3 +129,44 @@ jobs:
         with:
           files: release/*
           generate_release_notes: true
+
+  packages:
+    name: Build Linux packages
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install packaging tools
+        run: cargo install cargo-deb cargo-generate-rpm
+
+      - name: Build binaries
+        run: cargo build --release -p rf-agent -p rf-relay -p rf-cli
+
+      - name: Build .deb packages
+        run: |
+          cargo deb -p rf-agent --no-build
+          cargo deb -p rf-relay --no-build
+          cargo deb -p rf-cli --no-build
+
+      - name: Build .rpm packages
+        run: |
+          cargo generate-rpm -p crates/rf-agent
+          cargo generate-rpm -p crates/rf-relay
+          cargo generate-rpm -p crates/rf-cli
+
+      - name: Collect packages
+        run: |
+          mkdir -p packages
+          cp target/debian/*.deb packages/
+          cp target/generate-rpm/*.rpm packages/
+          ls -la packages/
+
+      - name: Upload packages to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: packages/*

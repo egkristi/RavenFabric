@@ -1,0 +1,62 @@
+# RavenFabric Helm chart default values
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/egkristi/ravenfabric-relay
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to chart appVersion
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 9090
+
+relay:
+  meetSecret: ""  # Set via --set or secret reference
+  logLevel: "info"
+
+agent:
+  enabled: false
+  image:
+    repository: ghcr.io/egkristi/ravenfabric-agent
+    pullPolicy: IfNotPresent
+    tag: ""
+  relayUrl: ""
+  policyPath: /etc/ravenfabric/policy.yaml
+
+resources:
+  relay:
+    limits:
+      memory: 256Mi
+      cpu: 500m
+    requests:
+      memory: 64Mi
+      cpu: 100m
+  agent:
+    limits:
+      memory: 128Mi
+      cpu: 250m
+    requests:
+      memory: 32Mi
+      cpu: 50m
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL

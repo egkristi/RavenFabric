@@ -24,3 +24,19 @@ serde_yaml = { workspace = true }
 toml = { workspace = true }
 rand = { workspace = true }
 chrono = { workspace = true }
+
+[package.metadata.deb]
+maintainer = "Erling Kristiansen <erling@ravenfabric.io>"
+section = "net"
+priority = "optional"
+assets = [
+    ["target/release/rf-agent", "usr/bin/", "755"],
+    ["../../deploy/rf-agent.service", "usr/lib/systemd/system/", "644"],
+]
+conf-files = ["/etc/ravenfabric/policy.yaml"]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/rf-agent", dest = "/usr/bin/rf-agent", mode = "755" },
+    { source = "deploy/rf-agent.service", dest = "/usr/lib/systemd/system/rf-agent.service", mode = "644" },
+]

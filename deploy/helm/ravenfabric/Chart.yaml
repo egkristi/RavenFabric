@@ -1,0 +1,20 @@
+apiVersion: v2
+name: ravenfabric
+description: RavenFabric — Security-first distributed execution engine
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+home: https://ravenfabric.io
+sources:
+  - https://github.com/egkristi/RavenFabric
+
+keywords:
+  - ravenfabric
+  - remote-execution
+  - zero-trust
+  - mesh-vpn
+  - ztna
+
+maintainers:
+  - Erling Kristiansen <erling@ravenfabric.io>
