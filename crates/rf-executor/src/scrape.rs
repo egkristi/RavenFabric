@@ -187,6 +187,120 @@ pub fn should_include(
         .any(|prefix| metric_name.starts_with(prefix.as_str()))
 }
 
+/// Scrape metrics from a target URL via plain HTTP GET.
+///
+/// Performs a minimal HTTP/1.1 GET request (no external HTTP library needed).
+/// Parses the Prometheus exposition format response and applies filters.
+pub async fn scrape_target(target: &ScrapeTarget) -> Result<Vec<ScrapedMetric>, String> {
+    use std::time::Instant;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::time::{Duration, timeout};
+
+    let start = Instant::now();
+    let timeout_dur = Duration::from_secs(target.timeout_secs);
+
+    // Parse URL to get host, port, and path
+    let url = &target.url;
+    let (host, port, path) = parse_http_url(url)?;
+
+    // Connect via TCP
+    let addr = format!("{}:{}", host, port);
+    let mut stream = timeout(timeout_dur, tokio::net::TcpStream::connect(&addr))
+        .await
+        .map_err(|_| format!("connect timeout to {}", addr))?
+        .map_err(|e| format!("connect to {}: {}", addr, e))?;
+
+    // Build HTTP GET request
+    let mut request = format!(
+        "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n",
+        path, host
+    );
+    for (key, value) in &target.headers {
+        request.push_str(&format!("{}: {}\r\n", key, value));
+    }
+    request.push_str("\r\n");
+
+    // Send request
+    stream
+        .write_all(request.as_bytes())
+        .await
+        .map_err(|e| format!("write request: {}", e))?;
+
+    // Read response (with timeout)
+    let mut response = Vec::new();
+    timeout(timeout_dur - start.elapsed(), async {
+        stream.read_to_end(&mut response).await
+    })
+    .await
+    .map_err(|_| "read timeout".to_string())?
+    .map_err(|e| format!("read response: {}", e))?;
+
+    // Parse HTTP response
+    let response_str = String::from_utf8_lossy(&response);
+    let body = extract_http_body(&response_str)?;
+
+    // Parse Prometheus metrics
+    let mut metrics = parse_prometheus(body);
+
+    // Apply prefix to metric names
+    if let Some(prefix) = &target.metric_prefix {
+        for m in &mut metrics {
+            m.name = format!("{}_{}", prefix, m.name);
+        }
+    }
+
+    // Apply extra labels
+    if !target.extra_labels.is_empty() {
+        for m in &mut metrics {
+            for label in &target.extra_labels {
+                m.labels.push(label.clone());
+            }
+        }
+    }
+
+    // Apply include/exclude filters
+    metrics.retain(|m| should_include(&m.name, &target.include_prefixes, &target.exclude_prefixes));
+
+    Ok(metrics)
+}
+
+/// Parse a simple HTTP URL into (host, port, path).
+fn parse_http_url(url: &str) -> Result<(String, u16, String), String> {
+    let url = url
+        .strip_prefix("http://")
+        .ok_or_else(|| "only http:// URLs supported (no TLS in core)".to_string())?;
+
+    let (host_port, path) = if let Some(slash_pos) = url.find('/') {
+        (&url[..slash_pos], &url[slash_pos..])
+    } else {
+        (url, "/")
+    };
+
+    let (host, port) = if let Some(colon_pos) = host_port.rfind(':') {
+        let h = &host_port[..colon_pos];
+        let p: u16 = host_port[colon_pos + 1..]
+            .parse()
+            .map_err(|_| "invalid port".to_string())?;
+        (h.to_string(), p)
+    } else {
+        (host_port.to_string(), 80)
+    };
+
+    Ok((host, port, path.to_string()))
+}
+
+/// Extract the body from an HTTP response (after the empty line).
+fn extract_http_body(response: &str) -> Result<&str, String> {
+    // HTTP response: headers\r\n\r\nbody
+    if let Some(pos) = response.find("\r\n\r\n") {
+        Ok(&response[pos + 4..])
+    } else if let Some(pos) = response.find("\n\n") {
+        Ok(&response[pos + 2..])
+    } else {
+        Err("malformed HTTP response (no body separator)".into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,5 +373,74 @@ mod tests {
         let exclude: Vec<String> = vec![];
 
         assert!(should_include("anything", &include, &exclude));
+    }
+
+    #[test]
+    fn test_parse_http_url() {
+        let (host, port, path) = parse_http_url("http://localhost:9090/metrics").unwrap();
+        assert_eq!(host, "localhost");
+        assert_eq!(port, 9090);
+        assert_eq!(path, "/metrics");
+
+        let (host, port, path) = parse_http_url("http://app.local/prom").unwrap();
+        assert_eq!(host, "app.local");
+        assert_eq!(port, 80);
+        assert_eq!(path, "/prom");
+    }
+
+    #[test]
+    fn test_extract_http_body() {
+        let resp = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nmetric_a 42\n";
+        let body = extract_http_body(resp).unwrap();
+        assert_eq!(body, "metric_a 42\n");
+    }
+
+    #[tokio::test]
+    async fn test_scrape_target_real_http() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        // Start a fake Prometheus metrics server
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        tokio::spawn(async move {
+            if let Ok((mut stream, _)) = listener.accept().await {
+                let mut buf = [0u8; 1024];
+                let _ = stream.read(&mut buf).await;
+                let body =
+                    "# HELP up Service liveness\nup 1\nhttp_requests_total{method=\"GET\"} 42\n";
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            }
+        });
+
+        let target = ScrapeTarget {
+            name: "test-app".into(),
+            url: format!("http://127.0.0.1:{}/metrics", port),
+            interval_secs: 15,
+            timeout_secs: 5,
+            headers: Vec::new(),
+            metric_prefix: None,
+            extra_labels: vec![("agent".into(), "test-01".into())],
+            include_prefixes: Vec::new(),
+            exclude_prefixes: Vec::new(),
+        };
+
+        let metrics = scrape_target(&target).await.unwrap();
+        assert_eq!(metrics.len(), 2);
+        assert_eq!(metrics[0].name, "up");
+        assert_eq!(metrics[0].value, 1.0);
+        // Extra labels added
+        assert!(
+            metrics[0]
+                .labels
+                .contains(&("agent".into(), "test-01".into()))
+        );
+        assert_eq!(metrics[1].name, "http_requests_total");
+        assert_eq!(metrics[1].value, 42.0);
     }
 }

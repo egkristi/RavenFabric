@@ -245,7 +245,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [~] IPv6-first with NAT64/464XLAT awareness — types only
 
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
-- [~] NetworkProbe struct — type + `EgressClass` enum defined, no actual network probing
+- [x] NetworkProbe struct — `quick_probe()` checks IPv4/IPv6/UDP availability + `EgressClass` classification (functional)
 - [x] STUN-based NAT type detection — real UDP STUN binding requests in `stun_client.rs`
 - [~] Corporate proxy detection — proxy config types, no actual HTTP CONNECT probing
 - [~] Per-relay latency measurement — types defined, no actual latency measurement
@@ -268,14 +268,14 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Health Monitoring & Failover (Phase 11 of Connectivity Value Chain)
 - [x] Heartbeat-based liveness detection — Ping/Pong RPC action types
 - [x] RTT baseline tracking — `RttTracker` with EWMA math (functional)
-- [~] Automatic failover — ConnectionManager types, not connected to real paths
-- [~] OS network change events — `network_changed()` method signature only
+- [x] Automatic failover — `ConnectionRunner::report_failure()` triggers failback_to_relay + automatic reconnect
+- [~] OS network change events — `network_changed()` method triggers reprobing (no OS signal hook yet)
 
 ### Tamper Detection & Adaptive Transport
 - [x] MAC failure / frame injection detection — error types + audit events defined
 - [x] Latency anomaly detection — `HeartbeatStatus::LatencyAnomaly` enum
 - [x] Compromised path blacklisting — `catalog.blacklist/unblacklist` (functional)
-- [~] Automatic session migration on tamper — types only, not connected
+- [x] Automatic session migration on tamper — `ConnectionRunner::report_tamper()` blacklists + migrates to alternative
 - [~] Escalation to censorship-resistant tier — types only
 
 ### Connection Metrics & Monitoring (DTN-aware)
@@ -303,7 +303,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Metrics collector framework — `SystemMetricsCollector` with real sysinfo (CPU, memory, load, disk)
 - [x] Built-in system metrics via `sysinfo` — working in executor `Action::Metrics` handler + standalone collector
 - [x] Prometheus `/metrics` endpoint — lightweight TCP HTTP server in `metrics_server.rs`, agent integration
-- [~] Application metrics scraping — Prometheus parser exists, no actual HTTP scraping
+- [x] Application metrics scraping — `scrape_target()` HTTP GET + Prometheus parser + filters + prefix/labels (1 async integration test)
 - [x] Log tailing — `FileTailer` with rotation detection, JSON/logfmt parsing, include/exclude filters
 - [~] OTLP/Prometheus-remote-write/InfluxDB exporters — types only
 - [x] Health check probes — `execute_probe()` with real TCP connect, HTTP GET, process check, command check
