@@ -325,9 +325,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~`#[cfg()]` for all OS-specific code (no Unix-only paths without alternatives)~~ — all cfg(unix) has cfg(not(unix)) counterpart
 
 ### Data Collection Agent
-- [ ] Metrics collector framework (plugin trait, scrape loop, push/pull modes)
-- [ ] Built-in system metrics (CPU, memory, disk, network, load, filesystems, processes)
-- [ ] Prometheus-compatible `/metrics` endpoint (pull mode)
+- [x] Metrics collector framework (plugin trait, scrape loop, push/pull modes)
+- [x] Built-in system metrics (CPU, memory, disk, network, load, filesystems, processes)
+- [x] Prometheus-compatible `/metrics` endpoint (pull mode)
 - [ ] Application metrics scraping (scrape localhost Prometheus endpoints)
 - [ ] Log tailing (glob patterns, journald, structured parsing: JSON/logfmt/regex/grok)
 - [ ] OTLP exporter (metrics + logs + traces to any OTLP-compatible backend)
@@ -335,7 +335,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] InfluxDB line protocol exporter
 - [x] Health check probes (HTTP/TCP/UDP endpoints, process alive, cert expiry)
 - [ ] Collection policy (what to collect governed by same deny-by-default policy)
-- [ ] Offline telemetry buffering (queue metrics/logs while disconnected, flush on reconnect)
+- [x] Offline telemetry buffering (queue metrics/logs while disconnected, flush on reconnect)
 
 ---
 

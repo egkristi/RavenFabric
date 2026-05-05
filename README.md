@@ -990,7 +990,7 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, path metrics | Done (~1100 LOC, 32 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
 | `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) | Done (281 LOC, 4 tests) |
-| `rf-executor` | Command execution, file ops, background jobs, streaming, policy control, orchestration | Done (~1600 LOC, 34 tests) |
+| `rf-executor` | Command execution, file ops, background jobs, streaming, policy control, orchestration | Done (~1900 LOC, 39 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~380 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done |
