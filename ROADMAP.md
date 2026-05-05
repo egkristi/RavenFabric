@@ -417,7 +417,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Radio Transports
 - [x] LoRa/Meshtastic driver (sub-GHz, 250bps–11kbps, 10+ km range, mesh routing)
 - [x] AX.25 packet radio driver (amateur radio, global coverage, no commercial infra)
-- [ ] HF radio / Winlink bridge (global reach via amateur radio e-mail gateways)
+- [x] HF radio / Winlink bridge (global reach via amateur radio e-mail gateways)
 - [x] Satellite link driver (Iridium/Starlink with DTN buffering for high-latency)
 
 ### Overlay Networks
@@ -430,7 +430,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] mDNS/DNS-SD — zero-config LAN discovery (first attempt before external)
 - [x] DHT (Kademlia-style) — decentralized global discovery, censorship-resistant
 - [x] Gossip protocol (SWIM/HyParView) — self-healing mesh topology
-- [ ] Signed DNS records (DNSSEC SRV) — verifiable rendezvous
+- [x] Signed DNS records (DNSSEC SRV) — verifiable rendezvous
 - [x] BLE beacon discovery — proximity without infrastructure
 - [x] Announce-flood (Reticulum-style) — path discovery without central coordination
 
@@ -459,33 +459,33 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Single-threaded async runtime mode (for constrained devices < 256KB RAM)
 
 ### Plugin System
-- [ ] Wasmtime-based plugin runtime
-- [ ] Custom resource types via WASM
-- [ ] Custom transport drivers via WASM (extend without recompiling)
+- [x] Wasmtime-based plugin runtime
+- [x] Custom resource types via WASM
+- [x] Custom transport drivers via WASM (extend without recompiling)
 
 ### Multi-Tenant & RBAC
-- [ ] Tenant isolation
-- [ ] RBAC (admin, operator, viewer, auditor)
-- [ ] SecurityPolicy with immutable rules
+- [x] Tenant isolation
+- [x] RBAC (admin, operator, viewer, auditor)
+- [x] SecurityPolicy with immutable rules
 
 ### Capability-Based Authorization
-- [ ] Biscuit token integration (commands carry their own signed permission)
-- [ ] Capability delegation (agent A grants agent B limited capabilities)
-- [ ] Attenuation (capabilities can be narrowed, never widened)
-- [ ] Offline-verifiable (no central authority needed at execution time)
+- [x] Biscuit token integration (commands carry their own signed permission)
+- [x] Capability delegation (agent A grants agent B limited capabilities)
+- [x] Attenuation (capabilities can be narrowed, never widened)
+- [x] Offline-verifiable (no central authority needed at execution time)
 
 ### Post-Quantum Cryptography
-- [ ] Post-quantum hybrid handshake (ML-KEM + X25519, Noise XX with hybrid KEM)
-- [ ] Signal PQXDH-inspired key exchange for long-lived sessions
-- [ ] Harvest-now-decrypt-later resistance for all stored data
+- [x] Post-quantum hybrid handshake (ML-KEM + X25519, Noise XX with hybrid KEM)
+- [x] Signal PQXDH-inspired key exchange for long-lived sessions
+- [x] Harvest-now-decrypt-later resistance for all stored data
 
 ### CRDT State Propagation
-- [ ] CRDT-based desired-state convergence (no master required)
-- [ ] Append-only signed policy logs (Scuttlebutt-inspired)
-- [ ] Opportunistic policy sync between neighboring agents
-- [ ] Conflict-free policy merging across disconnected clusters
-- [ ] Content-addressed policy distribution (request by hash, any node can serve)
-- [ ] SPIFFE-style workload identity (identity independent of network position)
+- [x] CRDT-based desired-state convergence (no master required)
+- [x] Append-only signed policy logs (Scuttlebutt-inspired)
+- [x] Opportunistic policy sync between neighboring agents
+- [x] Conflict-free policy merging across disconnected clusters
+- [x] Content-addressed policy distribution (request by hash, any node can serve)
+- [x] SPIFFE-style workload identity (identity independent of network position)
 
 ---
 
@@ -493,10 +493,10 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Web dashboard. REST/gRPC API. Observability.
 
-- [ ] Controller binary with web UI
-- [ ] REST + gRPC API
-- [ ] OpenTelemetry traces
-- [ ] Prometheus metrics endpoint
+- [x] Controller binary with web UI
+- [x] REST + gRPC API
+- [x] OpenTelemetry traces
+- [x] Prometheus metrics endpoint
 
 ---
 
@@ -506,12 +506,12 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 - [x] ~~Fuzz testing (transport, policy, codec)~~ — libfuzzer targets in fuzz/
 - [x] ~~Performance benchmarks~~ — criterion benches for crypto + codec
-- [ ] Kubernetes CRDs + operator
+- [x] Kubernetes CRDs + operator
 - [x] ~~Homebrew formula, apt/rpm repos, AUR, Nix flake~~ — Homebrew formula in deploy/ravenfabric.rb
-- [ ] Documentation site
-- [ ] Named Data Networking concepts for policy distribution (interest/data pattern)
-- [ ] Subsea-cable resilience (mesh fallback when physical links fail)
-- [ ] Full SPIFFE workload identity compliance
+- [x] Documentation site
+- [x] Named Data Networking concepts for policy distribution (interest/data pattern)
+- [x] Subsea-cable resilience (mesh fallback when physical links fail)
+- [x] Full SPIFFE workload identity compliance
 
 ---
 
