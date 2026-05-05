@@ -218,6 +218,25 @@ rf exec test-agent "uname -a"
 - [ ] OS network change events (route table, default gateway) → re-probe all drivers
 - [ ] Sticky/adaptive/hybrid path selection modes
 
+### Tamper Detection & Adaptive Transport
+- [ ] MAC failure detection (Noise ciphertext tampered) → immediate path abandon
+- [ ] Frame injection detection (unexpected bytes outside protocol framing)
+- [ ] Latency anomaly detection (sudden spikes consistent with MITM)
+- [ ] Protocol fingerprint verification (detect DPI/downgrade)
+- [ ] Automatic session migration to alternative transport on tamper detection
+- [ ] Compromised path blacklisting (no retry without operator acknowledgment)
+- [ ] Escalation to censorship-resistant transport tier when all standard paths fail
+- [ ] Tamper-alert audit events (signed, timestamped, priority-delivered)
+
+### Connection Metrics & Monitoring (DTN-aware)
+- [ ] Per-path metrics collection (RTT, loss, throughput, transport type, hop count)
+- [ ] Metrics propagation through DTN store-carry-forward (bundled with custody transfer)
+- [ ] Priority delivery for security events (tamper alerts never dropped by TTL)
+- [ ] Offline metric accumulation (local buffer, flush on next contact window)
+- [ ] Mesh neighbor health gossip (partial observability without direct controller path)
+- [ ] Path switch event logging (transport changes recorded as audit + metric)
+- [ ] Relay-reported metrics (hop count, forwarding latency, queue depth)
+
 ### Graceful Teardown (Phase 12 of Connectivity Value Chain)
 - [ ] Drain in-flight requests before disconnect (with timeout)
 - [ ] Flush audit log to durable storage before close

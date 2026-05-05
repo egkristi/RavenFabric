@@ -107,6 +107,8 @@ RavenFabric runs **everywhere**. The agent must compile and operate on any devic
 12. **Propagate errors, never swallow**: Audit writes, file I/O, lock acquisition — failures must be reported, not ignored
 13. **Run anywhere**: The agent compiles for any target that supports Rust. No platform is excluded by design. If it has a CPU, it can be a node
 14. **Reachable by any means**: Any byte-moving channel is a valid transport. Protocol diversity is a security and resilience property, not a luxury
+15. **Adaptive under attack**: If tampering, injection, or interference is detected on a transport, the agent autonomously migrates to an alternative path without dropping the session
+16. **Observable everywhere**: Connection health metrics and monitoring data propagate through the same fabric — including mesh hops and DTN store-carry-forward paths. No node is a monitoring blind spot
 
 ## Wire Protocol
 
@@ -138,6 +140,8 @@ RavenFabric runs **everywhere**. The agent must compile and operate on any devic
 10. Relay never decrypts payload (end-to-end between agent and client)
 11. Wire protocol magic (`RVNF`) and version byte validated on every connection
 12. `RwLock`/`Mutex` poisoning handled gracefully (no panics on poisoned locks)
+13. Tamper detection triggers automatic transport migration — compromised paths are abandoned immediately
+14. Connection metrics propagate even over DTN/mesh — no blind spots regardless of topology
 
 ## Known Technical Debt
 

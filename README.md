@@ -432,8 +432,59 @@ Active paths are continuously monitored:
 | Packet loss | > 1% sustained = degraded |
 | Heartbeat miss | 3 consecutive = failed |
 | Network change (OS event) | Re-probe all drivers |
+| MAC verification failure | 1 = tamper alert, immediate migration |
+| Unexpected frame injection | 1 = tamper alert, immediate migration |
+| Protocol fingerprint anomaly | Sustained = DPI/MITM suspected |
 
 Failover is automatic: if the active path degrades, a secondary path is promoted (or racing begins with relay as bridge). See [CONNECTIVITY.md](CONNECTIVITY.md) Phase 11.
+
+### Tamper Detection & Adaptive Transport
+
+If tampering or interference is detected on any connection, the agent **autonomously adapts**:
+
+```
+Detection triggers:
+  • Noise MAC verification failure (modified ciphertext)
+  • Unexpected bytes outside framing (injection attempt)
+  • Sudden latency spikes consistent with MITM interception
+  • TLS fingerprint mismatch (protocol downgrade attack)
+  • Repeated handshake failures on previously-working path
+
+Response (automatic, no operator intervention required):
+  1. Mark current path as COMPROMISED in path table
+  2. Immediately migrate session to next-best available transport
+  3. Emit tamper-alert audit event (signed, timestamped)
+  4. Begin racing alternative transports (escalate tier if needed)
+  5. If all internet paths compromised → fall back to mesh/DTN/physical
+  6. Optionally escalate to censorship-resistant transport (obfs4, MASQUE)
+  7. Never retry compromised path without operator acknowledgment
+```
+
+The session continues uninterrupted on the new path. The application layer never sees the migration — only the audit log records what happened.
+
+### Connection Metrics & Monitoring (DTN-aware)
+
+Connection health metrics are first-class data that propagates through the **same fabric** as commands — including mesh hops and DTN paths:
+
+| Metric | Collected at | Propagation |
+|--------|-------------|-------------|
+| RTT per path | Each agent | Real-time (connected) or batched (DTN) |
+| Packet loss rate | Each agent | Aggregated per reporting interval |
+| Transport type active | Each agent | Included in heartbeat |
+| Handshake success/failure count | Each agent | Audit event + metric |
+| Tamper events | Each agent | Priority DTN delivery (never dropped) |
+| Throughput (bytes/sec) | Each agent | Sampled, low-overhead |
+| Path switch events | Each agent | Audit event + metric |
+| Relay hop count | Relay | Forwarded with metadata |
+| DTN custody transfers | Each hop | Propagated with bundle |
+| Mesh neighbor table | Mesh nodes | Gossiped periodically |
+
+**DTN-specific monitoring:**
+- Metrics are bundled as DTN payloads with custody transfer — guaranteed delivery even over days
+- Priority: tamper alerts > health metrics > throughput stats
+- Offline agents accumulate metrics locally, flush on next contact window
+- Mesh nodes gossip neighbor health — partial observability even without direct path to controller
+- No node is ever a monitoring blind spot: if it can receive commands, it can emit telemetry
 
 ### Reconnect Strategy
 
