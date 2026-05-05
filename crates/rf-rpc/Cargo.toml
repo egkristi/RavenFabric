@@ -11,6 +11,7 @@ rf-transport = { path = "../rf-transport" }
 tokio = { workspace = true }
 tokio-util = { workspace = true, features = ["compat"] }
 serde = { workspace = true }
+serde_json = { workspace = true }
 rmp-serde = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

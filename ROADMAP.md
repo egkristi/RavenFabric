@@ -333,7 +333,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] OTLP exporter (metrics + logs + traces to any OTLP-compatible backend)
 - [ ] Prometheus remote-write exporter
 - [ ] InfluxDB line protocol exporter
-- [ ] Health check probes (HTTP/TCP/UDP endpoints, process alive, cert expiry)
+- [x] Health check probes (HTTP/TCP/UDP endpoints, process alive, cert expiry)
 - [ ] Collection policy (what to collect governed by same deny-by-default policy)
 - [ ] Offline telemetry buffering (queue metrics/logs while disconnected, flush on reconnect)
 
@@ -349,8 +349,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] `rf shell <agent>` — interactive terminal through fabric
 
 ### Port Forwarding
-- [ ] Local port forward (ssh -L equivalent)
-- [ ] Remote port forward (ssh -R equivalent)
+- [x] Local port forward (ssh -L equivalent)
+- [x] Remote port forward (ssh -R equivalent)
 - [ ] SOCKS5 dynamic forward (ssh -D equivalent)
 
 ### Cross-Protocol Path Upgrade (Phase 10 of Connectivity Value Chain)
