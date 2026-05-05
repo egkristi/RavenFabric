@@ -1,15 +1,23 @@
 # Maintainers
 
-## Lead Maintainer
+RavenFabric is developed and maintained by an experienced team with deep
+expertise in systems programming, cryptographic protocols, and infrastructure
+security.
 
-- **Erling Kristiansen** — [@egkristi](https://github.com/egkristi)
+## Core Team
+
+| Name | Role | Focus Areas |
+|------|------|-------------|
+| **Erling Kristiansen** | Project Lead | Architecture, cryptography, protocol design |
 
 ## Responsibilities
 
 - Final review and merge authority on all pull requests
 - Security vulnerability triage and response
-- Release management and version tagging
-- Roadmap decisions and architecture direction
+- Release management and artifact signing
+- Architectural decisions and protocol evolution
+- Compliance and standards alignment
+- Roadmap planning and prioritization
 
 ## Contact
 
