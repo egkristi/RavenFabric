@@ -52,6 +52,10 @@ struct Args {
     /// Path to audit log file (overrides config)
     #[arg(short, long)]
     audit_path: Option<PathBuf>,
+
+    /// Prometheus metrics endpoint address (e.g., 127.0.0.1:9100). Empty to disable.
+    #[arg(long)]
+    metrics_addr: Option<String>,
 }
 
 /// Configuration file format (raven.toml).
@@ -71,6 +75,7 @@ struct AgentConfig {
     key_path: Option<String>,
     policy_path: Option<String>,
     audit_path: Option<String>,
+    metrics_addr: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -98,6 +103,7 @@ struct ResolvedConfig {
     audit_path: PathBuf,
     reconnect_interval: u64,
     max_retries: u64,
+    metrics_addr: Option<String>,
 }
 
 fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
@@ -141,6 +147,7 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
             .unwrap_or_else(|| PathBuf::from("audit.jsonl")),
         reconnect_interval: config.transport.reconnect_interval.unwrap_or(5),
         max_retries: config.transport.max_retries.unwrap_or(0),
+        metrics_addr: args.metrics_addr.clone().or(config.agent.metrics_addr),
     })
 }
 
@@ -166,6 +173,18 @@ async fn main() -> anyhow::Result<()> {
     info!("audit log: {}", cfg.audit_path.display());
 
     info!("agent {} starting, relay: {}", cfg.id, cfg.relay);
+
+    // Start Prometheus metrics endpoint if configured
+    if let Some(ref addr) = cfg.metrics_addr {
+        use rf_executor::metrics_server::{MetricsServerConfig, start_metrics_server};
+        let config = MetricsServerConfig {
+            bind_addr: addr.clone(),
+        };
+        match start_metrics_server(config).await {
+            Ok(_handle) => info!("prometheus metrics endpoint on {}", addr),
+            Err(e) => warn!("failed to start metrics endpoint on {}: {}", addr, e),
+        }
+    }
 
     // Set up SIGHUP handler for policy hot-reload (Unix only)
     #[cfg(unix)]

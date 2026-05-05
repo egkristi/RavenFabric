@@ -2,6 +2,7 @@ pub mod command;
 pub mod health;
 pub mod logtail;
 pub mod metrics;
+pub mod metrics_server;
 pub mod orchestrator;
 pub mod plugin;
 pub mod pty;
