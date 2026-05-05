@@ -18,23 +18,23 @@ and structured audit logging are non-negotiable foundations.
 
 ## Architecture
 
-Cargo workspace with 10 crates:
+Cargo workspace with 11 crates:
 
 | Crate | Purpose | Status |
 |---|---|---|
-| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management | **Done** (~500 LOC, 7 tests) |
-| `rf-transport` | Driver trait, WebSocket + Memory backends | **Done** (~250 LOC, 2 tests) |
-| `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing | **Done** (~430 LOC, 5 tests) |
-| `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (53 LOC, 0 tests) |
-| `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default | **Done** (281 LOC, 4 tests) |
-| `rf-executor` | Command execution + streaming under policy control with timeout and output limiting | **Done** (~600 LOC, 12 tests) |
-| `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~380 LOC, 11 tests) |
-| `rf-relay` | Stateless encrypted relay broker (binary) | **Done** |
-| `rf-agent` | Agent binary (connects to relay, executes RPC) | **Done** |
-| `rf-cli` | CLI client `rf` (exec, dev, status, completions) | **Done** |
-| `rf-integration-tests` | End-to-end integration tests | **Done** (2 tests) |
+| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management | **Done** (~1,400 LOC, 29 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory backends, NAT traversal, path selection | **Done** (~5,300 LOC, 124 tests) |
+| `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing | **Done** (~3,000 LOC, 64 tests) |
+| `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (126 LOC, 3 tests) |
+| `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default | **Done** (~1,500 LOC, 31 tests) |
+| `rf-executor` | Command execution + streaming under policy control with timeout and output limiting | **Done** (~3,600 LOC, 66 tests) |
+| `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~430 LOC, 11 tests) |
+| `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~390 LOC, 7 tests) |
+| `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff) | **Done** (~350 LOC) |
+| `rf-cli` | CLI client `rf` (exec, dev, status, completions) | **Done** (~500 LOC) |
+| `rf-integration-tests` | End-to-end integration tests | **Done** (240 LOC, 2 tests) |
 
-**Total: ~4,000 LOC, 53 tests, 0 clippy warnings.**
+**Total: ~16,700 LOC, 337 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
@@ -146,17 +146,15 @@ RavenFabric runs **everywhere**. The agent must compile and operate on any devic
 
 ## Known Technical Debt
 
-The following issues are known and should be addressed:
+All previously tracked debt items have been resolved:
 
-| Priority | Issue | Location | Fix |
-|----------|-------|----------|-----|
-| Minor | Audit write errors silently swallowed | `rf-audit/src/logger.rs` | Return `Result` from `log()` or use `tracing::error!` |
-| Minor | `Box<dyn Error>` return type | `rf-policy/src/rpc_policy.rs` | Replace with typed `PolicyError` |
-| Minor | No reconnect loop | `rf-agent/src/main.rs` | Add exponential backoff + jitter reconnect |
-| Minor | No config file support | `rf-agent` | Implement raven.toml loading |
-| Minor | No rate limiting | `rf-relay/src/main.rs` | Add per-IP rate limiting |
-| Enhancement | No yamux multiplexing | `rf-rpc` | Add yamux for concurrent RPC requests |
-| Enhancement | No `rf dev` mode | `rf-cli` | Start relay + agent in one process |
+- ~~Audit write errors silently swallowed~~ — `log()` returns `Result<(), AuditError>`
+- ~~`Box<dyn Error>` return type~~ — replaced with typed `PolicyError`
+- ~~No reconnect loop~~ — exponential backoff + jitter implemented
+- ~~No config file support~~ — `raven.toml` loading implemented
+- ~~No rate limiting~~ — per-IP sliding window rate limiter (20 conn/min)
+- ~~No yamux multiplexing~~ — `MuxClient`/`MuxServer` in `rf-rpc`
+- ~~No `rf dev` mode~~ — relay + agent in one process
 
 ## Testing Requirements
 
