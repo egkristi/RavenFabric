@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~17,500 LOC | 352 tests | 0 clippy warnings | All CI green**
+**~19,900 LOC | 363 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -595,11 +595,15 @@ What works today:
 - RPC session over encrypted SecureChannel (full, tested end-to-end)
 - In-memory transport driver for testing (full, tested)
 - WebSocket transport driver with DuplexStream bridge (full)
+- QUIC transport driver (quinn, 0-RTT, connection migration, multiplexed streams)
+- WireGuard userspace tunnel (UDP socket, key handling, peer management)
+- Real STUN client (RFC 5389/8489 binding requests, NAT type detection, ICE candidate gathering)
 - Relay broker with meet-token pairing over WebSocket (full)
 - Per-IP rate limiting on relay (sliding window, 20 conn/min default)
 - HMAC-SHA256 meet token authentication (optional, via `--secret` / `RELAY_SECRET`)
 - Agent binary: connects to relay, performs handshake, runs RPC loop (full)
 - Agent reconnect with exponential backoff + jitter
+- Prometheus `/metrics` HTTP endpoint with `--metrics-addr` agent flag
 - CLI `rf exec` command: connect, handshake, send, display result (full)
 - CLI `rf status` command: connect to agent, display version/uptime (full)
 - CLI `rf dev` mode: local relay + agent in one process (full)
@@ -608,8 +612,9 @@ What works today:
 - System metrics collection via sysinfo (CPU, memory, load, disk)
 - Health check probes: TCP connect, HTTP GET, process alive, command exit code
 - Log file tailing with rotation detection, JSON/logfmt parsing, filters
-- Local TCP port forwarding (ssh -L equivalent) with bidirectional copy
-- PTY allocation on Unix (real openpty, shell spawn, resize, signal)
+- Local TCP port forwarding (ssh -L equivalent) with bidirectional copy + RPC integration
+- PTY allocation on Unix (real openpty, shell spawn, resize, signal) + RPC Shell actions
+- DTN offline queue with SQLite persistence (priority ordering, TTL, deduplication)
 
 Working end-to-end flow: `rf exec --token <token> "command"` → relay → agent → execute → respond
 

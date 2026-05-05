@@ -240,13 +240,13 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~WebSocket driver implementation (tokio-tungstenite)~~
 - [x] ~~In-memory driver for testing~~
 - [x] ~~QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)~~
-- [~] WireGuard userspace — config types defined, no `boringtun` integration yet
+- [x] WireGuard userspace — `WgTunnel` with UDP socket, key handling, peer management (9 tests)
 - [~] Happy Eyeballs (RFC 8305) — racer types defined, no actual dual-stack racing yet
 - [~] IPv6-first with NAT64/464XLAT awareness — types only
 
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
 - [~] NetworkProbe struct — type + `EgressClass` enum defined, no actual network probing
-- [~] STUN-based NAT type detection — types defined, no actual STUN UDP requests
+- [x] STUN-based NAT type detection — real UDP STUN binding requests in `stun_client.rs`
 - [~] Corporate proxy detection — proxy config types, no actual HTTP CONNECT probing
 - [~] Per-relay latency measurement — types defined, no actual latency measurement
 
@@ -256,11 +256,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Policy-driven path selection — `select_with_policy()` works on catalog data
 
 ### NAT Traversal (ICE-style)
-- [~] STUN client — candidate types defined, no actual STUN packets sent
+- [x] STUN client — real UDP binding requests in `stun_client.rs` (RFC 5389/8489), 9 tests
 - [~] UDP/TCP hole punching — types defined, no actual socket coordination
-- [~] ICE candidate gathering/selection — data structures only
+- [x] ICE candidate gathering — `gather_candidates()` with host + server-reflexive via STUN
 - [~] Birthday paradox port prediction — types only
-- [~] NAT type detection — enum defined, no actual detection
+- [x] NAT type detection — `detect_nat_type()` compares bindings from multiple servers
 
 ### Connection Upgrade (DCUtR Pattern)
 - [~] ConnectionManager with relay-first, background probe, migration — method signatures + type-level state machine, not connected to real transports
@@ -302,7 +302,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Data Collection Agent
 - [x] Metrics collector framework — `SystemMetricsCollector` with real sysinfo (CPU, memory, load, disk)
 - [x] Built-in system metrics via `sysinfo` — working in executor `Action::Metrics` handler + standalone collector
-- [~] Prometheus `/metrics` endpoint — formatter exists, no HTTP server
+- [x] Prometheus `/metrics` endpoint — lightweight TCP HTTP server in `metrics_server.rs`, agent integration
 - [~] Application metrics scraping — Prometheus parser exists, no actual HTTP scraping
 - [x] Log tailing — `FileTailer` with rotation detection, JSON/logfmt parsing, include/exclude filters
 - [~] OTLP/Prometheus-remote-write/InfluxDB exporters — types only
@@ -319,10 +319,10 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Interactive Shell
 - [x] PTY allocation — real `openpty` on Unix with `PtySession` (spawn, read, write, resize, signal)
 - [x] Session recording — `SessionRecorder` with asciicast v2 output (functional)
-- [~] `rf shell <agent>` — CLI stub sends command, not yet wired to PTY session over RPC
+- [x] `rf shell <agent>` — Shell/ShellInput/ShellResize/ShellClose RPC actions wired to PTY executor
 
 ### Port Forwarding
-- [x] Local port forward — `start_local_forward()` with real TCP listener + bidirectional copy
+- [x] Local port forward — `start_local_forward()` with real TCP listener + bidirectional copy + RPC PortForward/PortForwardClose actions
 - [~] Remote port forward — types only
 - [~] SOCKS5 dynamic forward — protocol parser functional, not connected to sockets
 
@@ -354,7 +354,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] `{{ secrets.KEY }}` resolution at execution time
 
 ### Delay-Tolerant Networking
-- [~] Offline queue — in-memory `BinaryHeap` priority queue, no SQLite persistence
+- [x] Offline queue — in-memory `BinaryHeap` + SQLite persistence (`dtn_persistent.rs`, 8 tests)
 - [~] Custody transfer protocol — types defined
 - [~] Schedule-aware routing — types defined
 - [~] Opportunistic sync — types defined
@@ -470,7 +470,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Web UI
 - [ ] REST + gRPC API
 - [ ] OpenTelemetry traces
-- [~] Prometheus metrics endpoint — formatter exists, no HTTP server
+- [x] Prometheus metrics endpoint — `metrics_server.rs` HTTP server + agent `--metrics-addr` flag
 
 ---
 
