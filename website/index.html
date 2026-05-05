@@ -142,6 +142,11 @@
             /* Layout */
             --container-max: 1200px;
             --content-max: 760px;
+
+            /* Aliases for shorthand usage */
+            --border: var(--border-subtle);
+            --accent: var(--accent-gold);
+            --text-muted: var(--text-tertiary);
         }
 
         * {
@@ -630,6 +635,69 @@
             }
             .replaces-table .category { font-size: 0.875rem; }
             .replaces-table .products { font-size: 0.75rem; }
+        }
+
+        /* === Section layouts === */
+        .content-section {
+            padding: var(--space-16) 0;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: var(--space-6);
+            margin-top: var(--space-8);
+        }
+
+        @media (min-width: 600px) {
+            .feature-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (min-width: 900px) {
+            .feature-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: var(--space-6);
+        }
+
+        @media (min-width: 600px) {
+            .features-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (min-width: 900px) {
+            .features-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+        .feature-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: var(--space-6);
+        }
+
+        .feature-card h3 {
+            font-family: var(--font-display);
+            font-size: 1.0625rem;
+            font-weight: 600;
+            margin-bottom: var(--space-3);
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
         }
 
         /* === Table responsive (comparison) === */
@@ -1753,22 +1821,22 @@
                         <span class="item-version">v0.1</span>
                     </li>
                     <li>
-                        <span class="status-tag planned">Planned</span>
+                        <span class="status-tag done">Done</span>
                         <span class="item-text">QUIC + WireGuard direct + STUN hole-punching</span>
                         <span class="item-version">v0.2</span>
                     </li>
                     <li>
-                        <span class="status-tag planned">Planned</span>
+                        <span class="status-tag done">Done</span>
                         <span class="item-text">Interactive shell, port-forwarding, playbooks</span>
                         <span class="item-version">v0.3</span>
                     </li>
                     <li>
-                        <span class="status-tag planned">Planned</span>
+                        <span class="status-tag done">Done</span>
                         <span class="item-text">Full mesh VPN, MagicDNS, sealed secrets</span>
                         <span class="item-version">v0.4</span>
                     </li>
                     <li>
-                        <span class="status-tag planned">Planned</span>
+                        <span class="status-tag done">Done</span>
                         <span class="item-text">Reticulum, Tor, serial drivers — air-gap support</span>
                         <span class="item-version">v0.5</span>
                     </li>
