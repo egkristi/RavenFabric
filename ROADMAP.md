@@ -239,8 +239,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~In-memory driver for testing~~
 - [x] ~~QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)~~
 - [ ] WireGuard userspace (boringtun, direct peers on open network)
-- [ ] Happy Eyeballs (RFC 8305) — race IPv4/IPv6, use first responder
-- [ ] IPv6-first with NAT64/464XLAT awareness
+- [x] Happy Eyeballs (RFC 8305) — race IPv4/IPv6, use first responder
+- [x] IPv6-first with NAT64/464XLAT awareness
 
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
 - [x] ~~NetworkProbe struct — unified assessment of network environment~~ — rf-transport::probe
@@ -284,10 +284,10 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~MAC failure detection (Noise ciphertext tampered) → immediate path abandon~~ — TamperDetected error + audit event
 - [x] ~~Frame injection detection (unexpected bytes outside protocol framing)~~ — FrameInjection error for <16 byte frames
 - [x] ~~Latency anomaly detection (sudden spikes consistent with MITM)~~ — HeartbeatStatus::LatencyAnomaly
-- [ ] Protocol fingerprint verification (detect DPI/downgrade)
+- [x] Protocol fingerprint verification (detect DPI/downgrade)
 - [x] Automatic session migration to alternative transport on tamper detection
 - [x] ~~Compromised path blacklisting (no retry without operator acknowledgment)~~ — catalog.blacklist/unblacklist
-- [ ] Escalation to censorship-resistant transport tier when all standard paths fail
+- [x] Escalation to censorship-resistant transport tier when all standard paths fail
 - [x] ~~Tamper-alert audit events (signed, timestamped, priority-delivered)~~ — security audit entries on tamper/injection
 
 ### Connection Metrics & Monitoring (DTN-aware)
@@ -354,9 +354,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] SOCKS5 dynamic forward (ssh -D equivalent)
 
 ### Cross-Protocol Path Upgrade (Phase 10 of Connectivity Value Chain)
-- [ ] Background transport upgrade (relay → direct, any driver → any driver)
-- [ ] Session ticket resumption (re-handshake on new transport, same session ID)
-- [ ] Atomic swap (make-before-break, overlap window, then close old path)
+- [x] Background transport upgrade (relay → direct, any driver → any driver)
+- [x] Session ticket resumption (re-handshake on new transport, same session ID)
+- [x] Atomic swap (make-before-break, overlap window, then close old path)
 - [ ] 0-RTT resumption for known peers
 
 ### Playbook Engine
