@@ -194,7 +194,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~"Why" section between hero and "What it is" (one binary, one policy, one trust root)~~
 - [x] ~~Live GitHub stats (shields.io badges for stars, last commit)~~
 - [x] ~~Concrete comparison table (RavenFabric vs Tailscale vs Ansible — E2E encryption, policy, air-gap)~~
-- [ ] Architecture diagram as SVG (from README's 6-layer ASCII diagram)
+- [x] ~~Architecture diagram as SVG (from README's 6-layer ASCII diagram)~~
 - [x] ~~"Why now" section (2026 context: cable sabotage, NIS2, ZTNA mandates, monoculture risk)~~
 - [ ] Use-case personas (public sector architects, MSPs, remote-first, edge/IoT)
 - [x] ~~FAQ section (vs Tailscale+Ansible, why Rust, why AGPLv3, production-ready?, who)~~

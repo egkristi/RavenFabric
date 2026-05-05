@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="grad-crypto" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4a9eff;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#4a9eff;stop-opacity:0.05"/>
+    </linearGradient>
+    <linearGradient id="grad-transport" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#7c4dff;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#7c4dff;stop-opacity:0.05"/>
+    </linearGradient>
+    <linearGradient id="grad-rpc" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00c853;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#00c853;stop-opacity:0.05"/>
+    </linearGradient>
+    <linearGradient id="grad-policy" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff6d00;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#ff6d00;stop-opacity:0.05"/>
+    </linearGradient>
+    <linearGradient id="grad-exec" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#d500f9;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#d500f9;stop-opacity:0.05"/>
+    </linearGradient>
+    <linearGradient id="grad-app" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff1744;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#ff1744;stop-opacity:0.05"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="520" fill="#0d1117" rx="8"/>
+
+  <!-- Title -->
+  <text x="400" y="35" text-anchor="middle" fill="#e6edf3" font-size="16" font-weight="600">RavenFabric Architecture</text>
+
+  <!-- Layer 1: Crypto (bottom) -->
+  <rect x="40" y="430" width="720" height="60" fill="url(#grad-crypto)" stroke="#4a9eff" stroke-width="1.5" rx="6"/>
+  <text x="60" y="455" fill="#4a9eff" font-size="11" font-weight="600">CRYPTO</text>
+  <text x="60" y="475" fill="#8b949e" font-size="10">rf-crypto · Noise XX · SecureChannel · Key management · Forward secrecy</text>
+
+  <!-- Layer 2: Transport -->
+  <rect x="40" y="355" width="720" height="60" fill="url(#grad-transport)" stroke="#7c4dff" stroke-width="1.5" rx="6"/>
+  <text x="60" y="380" fill="#7c4dff" font-size="11" font-weight="600">TRANSPORT</text>
+  <text x="60" y="400" fill="#8b949e" font-size="10">rf-transport · WebSocket · QUIC · Memory · Driver trait · Any byte-moving channel</text>
+
+  <!-- Layer 3: RPC + Mux -->
+  <rect x="40" y="280" width="720" height="60" fill="url(#grad-rpc)" stroke="#00c853" stroke-width="1.5" rx="6"/>
+  <text x="60" y="305" fill="#00c853" font-size="11" font-weight="600">RPC + MULTIPLEXING</text>
+  <text x="60" y="325" fill="#8b949e" font-size="10">rf-rpc · msgpack codec · yamux streams · Request/Response · Streaming</text>
+
+  <!-- Layer 4: Policy + Audit -->
+  <rect x="40" y="205" width="350" height="60" fill="url(#grad-policy)" stroke="#ff6d00" stroke-width="1.5" rx="6"/>
+  <text x="60" y="230" fill="#ff6d00" font-size="11" font-weight="600">POLICY</text>
+  <text x="60" y="250" fill="#8b949e" font-size="10">rf-policy · Deny-by-default · YAML rules</text>
+
+  <rect x="410" y="205" width="350" height="60" fill="url(#grad-policy)" stroke="#ff6d00" stroke-width="1.5" rx="6"/>
+  <text x="430" y="230" fill="#ff6d00" font-size="11" font-weight="600">AUDIT</text>
+  <text x="430" y="250" fill="#8b949e" font-size="10">rf-audit · JSON-lines · Append-only · Every action</text>
+
+  <!-- Layer 5: Executor -->
+  <rect x="40" y="130" width="720" height="60" fill="url(#grad-exec)" stroke="#d500f9" stroke-width="1.5" rx="6"/>
+  <text x="60" y="155" fill="#d500f9" font-size="11" font-weight="600">EXECUTOR</text>
+  <text x="60" y="175" fill="#8b949e" font-size="10">rf-executor · Commands · File ops · Background jobs · Streaming · Metrics · Signals</text>
+
+  <!-- Layer 6: Applications -->
+  <rect x="40" y="55" width="230" height="60" fill="url(#grad-app)" stroke="#ff1744" stroke-width="1.5" rx="6"/>
+  <text x="60" y="80" fill="#ff1744" font-size="11" font-weight="600">AGENT</text>
+  <text x="60" y="100" fill="#8b949e" font-size="10">rf-agent · Config · Reconnect</text>
+
+  <rect x="285" y="55" width="230" height="60" fill="url(#grad-app)" stroke="#ff1744" stroke-width="1.5" rx="6"/>
+  <text x="305" y="80" fill="#ff1744" font-size="11" font-weight="600">RELAY</text>
+  <text x="305" y="100" fill="#8b949e" font-size="10">rf-relay · Stateless · Rate-limited</text>
+
+  <rect x="530" y="55" width="230" height="60" fill="url(#grad-app)" stroke="#ff1744" stroke-width="1.5" rx="6"/>
+  <text x="550" y="80" fill="#ff1744" font-size="11" font-weight="600">CLI</text>
+  <text x="550" y="100" fill="#8b949e" font-size="10">rf-cli · exec · dev · status · shell</text>
+
+  <!-- Side annotation: Security invariant -->
+  <line x1="25" y1="60" x2="25" y2="485" stroke="#ff6d00" stroke-width="2" stroke-dasharray="4,4" opacity="0.5"/>
+  <text x="15" y="280" fill="#ff6d00" font-size="9" writing-mode="tb" opacity="0.7">DENY-BY-DEFAULT POLICY</text>
+</svg>

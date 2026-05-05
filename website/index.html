@@ -1140,6 +1140,7 @@
             </a>
             <nav class="topnav">
                 <a href="#what">What</a>
+                <a href="#architecture">Architecture</a>
                 <a href="#replaces">Replaces</a>
                 <a href="#examples">Examples</a>
                 <a href="#status">Status</a>
@@ -1269,6 +1270,19 @@
                     <p>Every decision — allowed or denied — written to structured JSON. Session recording for shell. Replay-grade traceability for compliance.</p>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- ─── ARCHITECTURE ──────────────────────────────────────────── -->
+    <section id="architecture" class="content-section">
+        <div class="container">
+            <div class="section-eyebrow">Architecture</div>
+            <h2 class="section-title">Six layers. <em>One binary</em>.</h2>
+            <p class="section-lead">
+                Every layer is a separate crate — testable, replaceable, auditable independently.
+                Policy and audit sit beside execution, not bolted on after the fact.
+            </p>
+            <img src="assets/architecture.svg" alt="RavenFabric 6-layer architecture diagram showing crypto, transport, RPC, policy, executor, and application layers" style="width:100%;max-width:800px;margin:2rem auto;display:block;border-radius:8px;">
         </div>
     </section>
 
