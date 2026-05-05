@@ -23,7 +23,7 @@
 
   <!-- Brand row -->
   <g transform="translate(80, 90)">
-    <path d="M5 18 Q5 10 13 8 L20 6 Q26 7 27 13 Q27 16 24 17 L24 19 Q26 20 26 22 L24 22 Q23 24 20 24 L18 24 L17 26 L14 26 L14 23 Q9 22 7 20 Z M22 12 A1 1 0 1 1 22 14 A1 1 0 1 1 22 12" fill="#c9a961" transform="scale(1.6)"/>
+    <path d="M12 4 C16 1 20 2 22 5 L25 7 C27 8 28 10 28 11 C28 13 27 14 25 13 L23 13 L21 15 L22 17 C21 20 20 23 18 25 L15 28 L7 28 C5 28 4 27 3 25 C4 22 6 19 7 16 C8 13 8 10 9 7 C10 5 11 4 12 4 Z M19 7 A1.5 1.5 0 0 0 19 10 A1.5 1.5 0 0 0 19 7" fill="#c9a961" transform="scale(1.6)"/>
     <text x="60" y="35" font-family="IBM Plex Serif, Georgia, serif" font-size="26" font-weight="500" fill="#e8e6e3">Raven<tspan font-style="italic" fill="#a8a39a">Fabric</tspan></text>
   </g>
 

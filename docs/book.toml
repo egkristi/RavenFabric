@@ -1,6 +1,6 @@
 [book]
 title = "RavenFabric Documentation"
-authors = ["RavenFabric Contributors"]
+authors = ["Erling Kristiansen"]
 description = "Security-first distributed execution engine documentation"
 language = "en"
 src = "src"
