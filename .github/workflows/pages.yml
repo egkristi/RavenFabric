@@ -1,19 +1,17 @@
-name: Deploy to GitHub Pages
+name: Deploy Website to GitHub Pages
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'website/**'
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run
-# in-progress and latest queued. However, do NOT cancel in-progress runs as we
-# want to allow these production deployments to complete.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -26,20 +24,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate HTML structure
+        working-directory: website
         run: |
-          # Basic sanity checks — fail fast if something obvious broke
           test -f index.html || { echo "index.html missing"; exit 1; }
           test -f CNAME || { echo "CNAME missing"; exit 1; }
           test -f assets/favicon.svg || { echo "favicon missing"; exit 1; }
           test -f assets/og-image.png || { echo "og-image missing"; exit 1; }
-          echo "✓ Required files present"
+          echo "Required files present"
 
-          # Ensure no accidental localhost references
           if grep -r "localhost\|127.0.0.1" --include="*.html" .; then
-            echo "✗ Found localhost references"
+            echo "Found localhost references"
             exit 1
           fi
-          echo "✓ No localhost references"
+          echo "No localhost references"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -47,7 +44,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: 'website'
 
   deploy:
     environment:
