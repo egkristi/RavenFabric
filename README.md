@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~21,000 LOC | 406 tests | 0 clippy warnings | All CI green**
+**~21,200 LOC | 411 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -633,6 +633,8 @@ What works today:
 - Gossip protocol: SWIM-style UDP gossip with transitive health propagation
 - 0-RTT session resumption: ZeroRttCache with ticket store, use-count replay protection, eviction
 - Corporate proxy detection: HTTP CONNECT probing, auth detection (407), TCP RTT measurement
+- Collection policy: include/exclude glob patterns, label filters, sampling rate, batch limiting
+- Offline telemetry buffering: MetricBuffer with overflow, batch flush, drop counter
 
 Working end-to-end flows:
 - `rf exec --token <token> "command"` → relay → agent → execute → respond

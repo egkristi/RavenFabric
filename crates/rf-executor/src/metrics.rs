@@ -283,6 +283,128 @@ pub fn to_prometheus(points: &[MetricPoint]) -> String {
     output
 }
 
+/// Collection policy — defines which metrics to collect, sampling rates,
+/// and filtering rules for the data collection agent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionPolicy {
+    /// Metric name patterns to include (regex-style glob).
+    pub include_patterns: Vec<String>,
+    /// Metric name patterns to exclude (overrides include).
+    pub exclude_patterns: Vec<String>,
+    /// Sampling rate (0.0-1.0). 1.0 = collect all, 0.5 = collect half.
+    pub sample_rate: f64,
+    /// Minimum collection interval (prevents over-collection).
+    pub min_interval: Duration,
+    /// Maximum batch size per flush.
+    pub max_batch_size: usize,
+    /// Label filters: only collect metrics with matching labels.
+    pub label_filters: HashMap<String, String>,
+    /// Whether to collect histogram metrics.
+    pub collect_histograms: bool,
+}
+
+impl Default for CollectionPolicy {
+    fn default() -> Self {
+        Self {
+            include_patterns: vec!["*".to_string()],
+            exclude_patterns: Vec::new(),
+            sample_rate: 1.0,
+            min_interval: Duration::from_secs(10),
+            max_batch_size: 1000,
+            label_filters: HashMap::new(),
+            collect_histograms: true,
+        }
+    }
+}
+
+impl CollectionPolicy {
+    /// Check if a metric should be collected based on the policy.
+    pub fn should_collect(&self, point: &MetricPoint) -> bool {
+        // Check histograms
+        if !self.collect_histograms && matches!(point.value, MetricValue::Histogram { .. }) {
+            return false;
+        }
+
+        // Check exclude patterns first (they override includes)
+        for pattern in &self.exclude_patterns {
+            if Self::matches_glob(pattern, &point.name) {
+                return false;
+            }
+        }
+
+        // Check include patterns
+        let included = self.include_patterns.is_empty()
+            || self
+                .include_patterns
+                .iter()
+                .any(|p| Self::matches_glob(p, &point.name));
+
+        if !included {
+            return false;
+        }
+
+        // Check label filters
+        for (key, expected_value) in &self.label_filters {
+            match point.labels.get(key) {
+                Some(actual) if actual == expected_value => {}
+                _ => return false,
+            }
+        }
+
+        // Sampling (deterministic based on metric name for consistency)
+        if self.sample_rate < 1.0 {
+            let hash = Self::simple_hash(&point.name);
+            let threshold = (self.sample_rate * u32::MAX as f64) as u32;
+            if hash > threshold {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Apply the policy to a batch of metrics.
+    pub fn filter_batch(&self, points: Vec<MetricPoint>) -> Vec<MetricPoint> {
+        let filtered: Vec<MetricPoint> = points
+            .into_iter()
+            .filter(|p| self.should_collect(p))
+            .collect();
+
+        if filtered.len() > self.max_batch_size {
+            filtered.into_iter().take(self.max_batch_size).collect()
+        } else {
+            filtered
+        }
+    }
+
+    /// Simple glob matching (supports * and ? wildcards).
+    fn matches_glob(pattern: &str, text: &str) -> bool {
+        if pattern == "*" {
+            return true;
+        }
+
+        // Simple prefix/suffix matching for common patterns
+        if let Some(prefix) = pattern.strip_suffix('*') {
+            return text.starts_with(prefix);
+        }
+        if let Some(suffix) = pattern.strip_prefix('*') {
+            return text.ends_with(suffix);
+        }
+
+        // Exact match
+        pattern == text
+    }
+
+    /// Simple deterministic hash for sampling.
+    fn simple_hash(s: &str) -> u32 {
+        let mut hash: u32 = 5381;
+        for byte in s.bytes() {
+            hash = hash.wrapping_mul(33).wrapping_add(u32::from(byte));
+        }
+        hash
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -373,5 +495,129 @@ mod tests {
         let json = serde_json::to_string(&gauge).unwrap();
         let parsed: MetricValue = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, gauge);
+    }
+
+    #[test]
+    fn test_collection_policy_default_allows_all() {
+        let policy = CollectionPolicy::default();
+        let point = MetricPoint {
+            name: "anything".into(),
+            value: MetricValue::Gauge(1.0),
+            labels: HashMap::new(),
+            timestamp_ms: 0,
+        };
+        assert!(policy.should_collect(&point));
+    }
+
+    #[test]
+    fn test_collection_policy_exclude() {
+        let policy = CollectionPolicy {
+            include_patterns: vec!["system_*".to_string()],
+            exclude_patterns: vec!["system_debug_*".to_string()],
+            ..CollectionPolicy::default()
+        };
+
+        let included = MetricPoint {
+            name: "system_cpu_usage".into(),
+            value: MetricValue::Gauge(50.0),
+            labels: HashMap::new(),
+            timestamp_ms: 0,
+        };
+        let excluded = MetricPoint {
+            name: "system_debug_internal".into(),
+            value: MetricValue::Gauge(1.0),
+            labels: HashMap::new(),
+            timestamp_ms: 0,
+        };
+        let not_matched = MetricPoint {
+            name: "app_requests".into(),
+            value: MetricValue::Counter(100),
+            labels: HashMap::new(),
+            timestamp_ms: 0,
+        };
+
+        assert!(policy.should_collect(&included));
+        assert!(!policy.should_collect(&excluded));
+        assert!(!policy.should_collect(&not_matched));
+    }
+
+    #[test]
+    fn test_collection_policy_label_filter() {
+        let mut label_filters = HashMap::new();
+        label_filters.insert("env".to_string(), "prod".to_string());
+
+        let policy = CollectionPolicy {
+            label_filters,
+            ..CollectionPolicy::default()
+        };
+
+        let prod = MetricPoint {
+            name: "requests".into(),
+            value: MetricValue::Counter(1),
+            labels: {
+                let mut m = HashMap::new();
+                m.insert("env".into(), "prod".into());
+                m
+            },
+            timestamp_ms: 0,
+        };
+        let dev = MetricPoint {
+            name: "requests".into(),
+            value: MetricValue::Counter(1),
+            labels: {
+                let mut m = HashMap::new();
+                m.insert("env".into(), "dev".into());
+                m
+            },
+            timestamp_ms: 0,
+        };
+
+        assert!(policy.should_collect(&prod));
+        assert!(!policy.should_collect(&dev));
+    }
+
+    #[test]
+    fn test_collection_policy_no_histograms() {
+        let policy = CollectionPolicy {
+            collect_histograms: false,
+            ..CollectionPolicy::default()
+        };
+
+        let gauge = MetricPoint {
+            name: "cpu".into(),
+            value: MetricValue::Gauge(50.0),
+            labels: HashMap::new(),
+            timestamp_ms: 0,
+        };
+        let histogram = MetricPoint {
+            name: "latency".into(),
+            value: MetricValue::Histogram { sum: 100.0, count: 10 },
+            labels: HashMap::new(),
+            timestamp_ms: 0,
+        };
+
+        assert!(policy.should_collect(&gauge));
+        assert!(!policy.should_collect(&histogram));
+    }
+
+    #[test]
+    fn test_collection_policy_filter_batch() {
+        let policy = CollectionPolicy {
+            include_patterns: vec!["system_*".to_string()],
+            max_batch_size: 2,
+            ..CollectionPolicy::default()
+        };
+
+        let points = vec![
+            MetricPoint { name: "system_cpu".into(), value: MetricValue::Gauge(1.0), labels: HashMap::new(), timestamp_ms: 0 },
+            MetricPoint { name: "app_req".into(), value: MetricValue::Counter(1), labels: HashMap::new(), timestamp_ms: 0 },
+            MetricPoint { name: "system_mem".into(), value: MetricValue::Gauge(2.0), labels: HashMap::new(), timestamp_ms: 0 },
+            MetricPoint { name: "system_disk".into(), value: MetricValue::Gauge(3.0), labels: HashMap::new(), timestamp_ms: 0 },
+        ];
+
+        let filtered = policy.filter_batch(points);
+        assert_eq!(filtered.len(), 2); // max_batch_size caps it
+        assert_eq!(filtered[0].name, "system_cpu");
+        assert_eq!(filtered[1].name, "system_mem");
     }
 }

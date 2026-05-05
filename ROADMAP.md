@@ -307,8 +307,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Log tailing — `FileTailer` with rotation detection, JSON/logfmt parsing, include/exclude filters
 - [~] OTLP/Prometheus-remote-write/InfluxDB exporters — types only
 - [x] Health check probes — `execute_probe()` with real TCP connect, HTTP GET, process check, command check
-- [~] Collection policy — types defined
-- [~] Offline telemetry buffering — types defined
+- [x] Collection policy — include/exclude patterns, label filters, sampling rate, histogram toggle, batch size limit (5 tests)
+- [x] Offline telemetry buffering — MetricBuffer with overflow handling, batch flush, drop counter (2 tests)
 
 ---
 
