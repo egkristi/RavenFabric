@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_prune_stale() {
-        let mut state = DiscoveryState::new(Duration::from_millis(0));
+        let mut state = DiscoveryState::new(Duration::from_secs(1));
         let mut old_peer = make_peer("old-agent");
         old_peer.last_seen = Instant::now() - Duration::from_secs(10);
         state.peer_seen(old_peer);

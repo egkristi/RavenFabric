@@ -280,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_metric_value_serialization() {
-        let gauge = MetricValue::Gauge(3.14);
+        let gauge = MetricValue::Gauge(std::f64::consts::PI);
         let json = serde_json::to_string(&gauge).unwrap();
         let parsed: MetricValue = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, gauge);

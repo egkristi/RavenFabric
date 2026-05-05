@@ -161,19 +161,19 @@ mod tests {
 
     #[test]
     fn test_issue_ticket() {
-        let mut store = TicketStore::new(3600_000); // 1 hour
+        let mut store = TicketStore::new(3_600_000); // 1 hour
         let ticket = store.issue("abcd1234", "web-01", "websocket", 1000, test_nonce());
 
         assert_eq!(ticket.peer_static_key, "abcd1234");
         assert_eq!(ticket.metadata.agent_id, "web-01");
         assert_eq!(ticket.established_at_ms, 1000);
-        assert_eq!(ticket.expires_at_ms, 3601_000);
+        assert_eq!(ticket.expires_at_ms, 3_601_000);
         assert_eq!(ticket.metadata.resumption_count, 0);
     }
 
     #[test]
     fn test_validate_valid() {
-        let mut store = TicketStore::new(3600_000);
+        let mut store = TicketStore::new(3_600_000);
         let ticket = store.issue("peer-key", "agent-1", "ws", 1000, test_nonce());
 
         let result = store.validate(&ticket, 2000);
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_validate_replay() {
-        let mut store = TicketStore::new(3600_000);
+        let mut store = TicketStore::new(3_600_000);
         let ticket = store.issue("peer-key", "agent-1", "ws", 1000, test_nonce());
 
         // First use: valid
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_validate_revoked() {
-        let mut store = TicketStore::new(3600_000);
+        let mut store = TicketStore::new(3_600_000);
         let nonce = test_nonce();
         let ticket = store.issue("peer-key", "agent-1", "ws", 1000, nonce);
 
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_resumption_count_increments() {
-        let mut store = TicketStore::new(3600_000);
+        let mut store = TicketStore::new(3_600_000);
         store.issue("peer-key", "agent", "ws", 1000, [1; 16]);
         let ticket2 = store.issue("peer-key", "agent", "ws", 2000, [2; 16]);
         assert_eq!(ticket2.metadata.resumption_count, 1);

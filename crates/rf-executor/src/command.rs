@@ -1020,10 +1020,7 @@ spec:
 
         let resp = exec.handle(req).await;
         let job_id = match &resp.result {
-            RpcResult::JobStarted { job_id, pid } => {
-                assert!(*pid > 0 || *pid == 0); // pid may be 0 on some systems
-                job_id.clone()
-            }
+            RpcResult::JobStarted { job_id, pid: _ } => job_id.clone(),
             _ => panic!("expected JobStarted, got {:?}", resp.result),
         };
 

@@ -112,10 +112,7 @@ impl Identity {
 
     /// Get all effective permissions for this identity.
     pub fn effective_permissions(&self) -> HashSet<Permission> {
-        self.roles
-            .iter()
-            .flat_map(|role| default_permissions(role))
-            .collect()
+        self.roles.iter().flat_map(default_permissions).collect()
     }
 }
 

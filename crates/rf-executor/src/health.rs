@@ -177,7 +177,6 @@ mod tests {
             timeout: Duration::from_secs(3),
             failure_threshold: 3,
             success_threshold: 2,
-            ..Default::default()
         }
     }
 

@@ -4,7 +4,7 @@ use rf_crypto::noise::handshake;
 
 fn bench_key_generation(c: &mut Criterion) {
     c.bench_function("StaticKey::generate", |b| {
-        b.iter(|| StaticKey::generate());
+        b.iter(StaticKey::generate);
     });
 }
 

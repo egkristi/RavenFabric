@@ -4,7 +4,7 @@
 //! through the RavenFabric mesh. Allows clients to use the agent as a
 //! SOCKS5 proxy for arbitrary TCP connections.
 
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::{Deserialize, Serialize};
 

@@ -132,7 +132,7 @@ impl Orchestrator {
             RolloutStrategy::Parallel => total,
             RolloutStrategy::Sequential => 1,
             RolloutStrategy::Rolling { batch_percent } => {
-                let pct = (*batch_percent).min(100).max(1) as usize;
+                let pct = (*batch_percent).clamp(1, 100) as usize;
                 (total * pct / 100).max(1)
             }
             RolloutStrategy::Canary { canary_count } => {
