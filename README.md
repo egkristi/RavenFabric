@@ -986,7 +986,7 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel (+ close-notify), StaticKey, sealed secrets | Done (~650 LOC, 16 tests) |
-| `rf-transport` | Driver trait, AsyncStream, WebSocket + QUIC + Memory, NetworkProbe, TransportCatalog, ConnectionManager | Done (~1900 LOC, 44 tests) |
+| `rf-transport` | Driver trait, AsyncStream, WebSocket + QUIC + Memory, NetworkProbe, TransportCatalog, ConnectionManager | Done (~2300 LOC, 56 tests) |
 | `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, path metrics | Done (~1100 LOC, 32 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
 | `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default) | Done (281 LOC, 4 tests) |

@@ -398,7 +398,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Censorship-Resistant Transports
 - [ ] HTTP/3 MASQUE driver (CONNECT-UDP/CONNECT-IP via HTTP/3, impossible to distinguish from browsing)
-- [ ] Traffic obfuscation layer (make Noise XX indistinguishable from random bytes, obfs4-inspired)
+- [x] Traffic obfuscation layer (make Noise XX indistinguishable from random bytes, obfs4-inspired)
 - [ ] Encrypted Client Hello (ECH) support for WebSocket TLS connections
 - [ ] Domain fronting transport (TLS SNI ≠ HTTP Host, CDN-routed)
 - [ ] DNS tunneling driver (encode frames in DNS queries, iodine/dnscat2-style)
@@ -427,7 +427,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Mixnet integration (Nym/Loopix — for high-paranoia mode, traffic analysis resistant)
 
 ### Peer Discovery
-- [ ] mDNS/DNS-SD — zero-config LAN discovery (first attempt before external)
+- [x] mDNS/DNS-SD — zero-config LAN discovery (first attempt before external)
 - [ ] DHT (Kademlia-style) — decentralized global discovery, censorship-resistant
 - [ ] Gossip protocol (SWIM/HyParView) — self-healing mesh topology
 - [ ] Signed DNS records (DNSSEC SRV) — verifiable rendezvous

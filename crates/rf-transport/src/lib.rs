@@ -1,11 +1,13 @@
 pub mod catalog;
 pub mod connmgr;
+pub mod discovery;
 pub mod driver;
 pub mod error;
 pub mod eyeballs;
 pub mod fingerprint;
 pub mod memory;
 pub mod migration;
+pub mod obfuscation;
 pub mod probe;
 #[cfg(feature = "quic")]
 pub mod quic;
