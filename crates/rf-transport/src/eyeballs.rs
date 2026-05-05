@@ -334,9 +334,7 @@ pub async fn detect_nat64() -> Nat64Status {
             let ip = *v6_addr.ip();
 
             // Skip if it's a well-known address without NAT64 prefix
-            if ip == Ipv6Addr::from(WKA_1.to_ipv6_mapped())
-                || ip == Ipv6Addr::from(WKA_2.to_ipv6_mapped())
-            {
+            if ip == WKA_1.to_ipv6_mapped() || ip == WKA_2.to_ipv6_mapped() {
                 continue;
             }
 

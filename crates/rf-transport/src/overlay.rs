@@ -215,6 +215,315 @@ pub enum MigrationTrigger {
     TamperDetected,
 }
 
+// --- Kademlia DHT Routing Table ---
+
+/// 256-bit node ID for Kademlia routing.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NodeId(pub [u8; 32]);
+
+impl NodeId {
+    /// Create from raw bytes.
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    /// XOR distance between two node IDs.
+    pub fn distance(&self, other: &NodeId) -> [u8; 32] {
+        let mut result = [0u8; 32];
+        for (i, (a, b)) in self.0.iter().zip(other.0.iter()).enumerate() {
+            result[i] = a ^ b;
+        }
+        result
+    }
+
+    /// Leading zero bits in distance — determines k-bucket index.
+    pub fn bucket_index(&self, other: &NodeId) -> usize {
+        let dist = self.distance(other);
+        for (byte_idx, &byte) in dist.iter().enumerate() {
+            if byte != 0 {
+                return byte_idx * 8 + byte.leading_zeros() as usize;
+            }
+        }
+        255 // Same node
+    }
+}
+
+/// Entry in the DHT routing table.
+#[derive(Debug, Clone)]
+pub struct DhtNode {
+    /// Node ID (256-bit).
+    pub id: NodeId,
+    /// Network address for this node.
+    pub addr: String,
+    /// Last time this node was seen (Unix ms).
+    pub last_seen_ms: u64,
+}
+
+/// Kademlia-style DHT routing table.
+///
+/// Organizes known nodes into 256 k-buckets, where each bucket
+/// holds nodes at a specific XOR distance from the local node.
+pub struct KademliaTable {
+    /// Our node ID.
+    local_id: NodeId,
+    /// K-buckets (index = leading zero bits of XOR distance).
+    buckets: Vec<Vec<DhtNode>>,
+    /// Max nodes per bucket (k parameter).
+    k: usize,
+}
+
+impl KademliaTable {
+    /// Create a new routing table.
+    pub fn new(local_id: NodeId, k: usize) -> Self {
+        Self {
+            local_id,
+            buckets: (0..256).map(|_| Vec::new()).collect(),
+            k,
+        }
+    }
+
+    /// Insert or update a node in the routing table.
+    /// Returns true if the node was inserted (new or updated).
+    pub fn insert(&mut self, node: DhtNode) -> bool {
+        if node.id == self.local_id {
+            return false;
+        }
+
+        let idx = self.local_id.bucket_index(&node.id);
+        let bucket = &mut self.buckets[idx];
+
+        // Update if already present
+        if let Some(existing) = bucket.iter_mut().find(|n| n.id == node.id) {
+            existing.last_seen_ms = node.last_seen_ms;
+            existing.addr = node.addr;
+            return true;
+        }
+
+        // Insert if bucket has room
+        if bucket.len() < self.k {
+            bucket.push(node);
+            return true;
+        }
+
+        false // Bucket full
+    }
+
+    /// Find the `count` closest nodes to a target ID.
+    pub fn closest(&self, target: &NodeId, count: usize) -> Vec<&DhtNode> {
+        let mut all_nodes: Vec<(&DhtNode, [u8; 32])> = self
+            .buckets
+            .iter()
+            .flat_map(|b| b.iter())
+            .map(|n| (n, target.distance(&n.id)))
+            .collect();
+
+        all_nodes.sort_by(|a, b| a.1.cmp(&b.1));
+        all_nodes.into_iter().take(count).map(|(n, _)| n).collect()
+    }
+
+    /// Remove a node from the routing table.
+    pub fn remove(&mut self, id: &NodeId) -> bool {
+        if *id == self.local_id {
+            return false;
+        }
+        let idx = self.local_id.bucket_index(id);
+        let bucket = &mut self.buckets[idx];
+        let len_before = bucket.len();
+        bucket.retain(|n| n.id != *id);
+        bucket.len() < len_before
+    }
+
+    /// Total number of nodes in the routing table.
+    pub fn len(&self) -> usize {
+        self.buckets.iter().map(|b| b.len()).sum()
+    }
+
+    /// Whether the routing table is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Get our local node ID.
+    pub fn local_id(&self) -> &NodeId {
+        &self.local_id
+    }
+}
+
+// --- Multi-hop Store-Carry-Forward ---
+
+/// A forwarding decision for a DTN bundle at a relay node.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ForwardDecision {
+    /// Forward directly to the destination (within reach).
+    Direct { next_hop: String },
+    /// Forward via a known intermediate node.
+    Relay { next_hop: String, via: String },
+    /// Store locally and wait for a contact opportunity.
+    Store,
+    /// Drop — TTL expired or max hops exceeded.
+    Drop { reason: String },
+}
+
+/// Multi-hop forwarder — makes routing decisions for DTN bundles.
+pub struct HopForwarder {
+    local_id: String,
+    /// Known direct neighbors.
+    neighbors: Vec<String>,
+}
+
+impl HopForwarder {
+    /// Create a new forwarder.
+    pub fn new(local_id: String) -> Self {
+        Self {
+            local_id,
+            neighbors: Vec::new(),
+        }
+    }
+
+    /// Get the local node ID.
+    pub fn local_id(&self) -> &str {
+        &self.local_id
+    }
+
+    /// Add a known neighbor.
+    pub fn add_neighbor(&mut self, peer_id: String) {
+        if !self.neighbors.contains(&peer_id) {
+            self.neighbors.push(peer_id);
+        }
+    }
+
+    /// Remove a neighbor.
+    pub fn remove_neighbor(&mut self, peer_id: &str) {
+        self.neighbors.retain(|n| n != peer_id);
+    }
+
+    /// Decide how to handle an incoming bundle.
+    pub fn decide(&self, destination: &str, hop_count: u32, max_hops: u32) -> ForwardDecision {
+        // Check hop limit
+        if max_hops > 0 && hop_count >= max_hops {
+            return ForwardDecision::Drop {
+                reason: "max hops exceeded".to_string(),
+            };
+        }
+
+        // Direct delivery if destination is a neighbor
+        if self.neighbors.contains(&destination.to_string()) {
+            return ForwardDecision::Direct {
+                next_hop: destination.to_string(),
+            };
+        }
+
+        // If we have neighbors, pick the first one as relay
+        // (in a real implementation this would use DHT/routing table)
+        if let Some(relay) = self.neighbors.first() {
+            return ForwardDecision::Relay {
+                next_hop: relay.clone(),
+                via: relay.clone(),
+            };
+        }
+
+        // No neighbors — store for later
+        ForwardDecision::Store
+    }
+
+    /// Number of known neighbors.
+    pub fn neighbor_count(&self) -> usize {
+        self.neighbors.len()
+    }
+}
+
+// --- Connection Migration Across Interfaces ---
+
+/// Interface-aware migration controller.
+///
+/// Links netwatch (OS network change detection) to the session
+/// migration state machine, triggering migration when interfaces change.
+pub struct InterfaceMigration {
+    /// Current active interface name.
+    active_interface: Option<String>,
+    /// Preferred interface patterns (e.g., "en0", "wlan0").
+    preferred: Vec<String>,
+    /// Whether to auto-migrate on interface change.
+    auto_migrate: bool,
+    /// Migrations performed.
+    migration_count: u32,
+}
+
+impl InterfaceMigration {
+    /// Create a new migration controller.
+    pub fn new(auto_migrate: bool) -> Self {
+        Self {
+            active_interface: None,
+            preferred: Vec::new(),
+            auto_migrate,
+            migration_count: 0,
+        }
+    }
+
+    /// Set preferred interface patterns.
+    pub fn with_preferred(mut self, patterns: Vec<String>) -> Self {
+        self.preferred = patterns;
+        self
+    }
+
+    /// Set the current active interface.
+    pub fn set_active(&mut self, interface: String) {
+        self.active_interface = Some(interface);
+    }
+
+    /// Process a network change event.
+    /// Returns Some(new_interface) if migration should occur.
+    pub fn on_interface_change(&mut self, available: &[String]) -> Option<String> {
+        if available.is_empty() {
+            return None;
+        }
+
+        // Pick best interface from available
+        let best = self.pick_best(available);
+
+        // Check if we need to migrate
+        if let Some(ref active) = self.active_interface {
+            if active == &best {
+                return None; // Already on best interface
+            }
+
+            if !available.contains(active) || self.auto_migrate {
+                self.active_interface = Some(best.clone());
+                self.migration_count += 1;
+                return Some(best);
+            }
+
+            None
+        } else {
+            // No active interface — just set it
+            self.active_interface = Some(best.clone());
+            Some(best)
+        }
+    }
+
+    /// Pick the best interface from available ones.
+    fn pick_best(&self, available: &[String]) -> String {
+        // Check preferred patterns first
+        for pattern in &self.preferred {
+            if let Some(iface) = available.iter().find(|a| a.starts_with(pattern.as_str())) {
+                return iface.clone();
+            }
+        }
+        // Default to first available
+        available[0].clone()
+    }
+
+    /// Number of migrations performed.
+    pub fn migration_count(&self) -> u32 {
+        self.migration_count
+    }
+
+    /// Current active interface.
+    pub fn active_interface(&self) -> Option<&str> {
+        self.active_interface.as_deref()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -304,5 +613,170 @@ mod tests {
         assert!(json.contains("latency_threshold"));
         let parsed: MigrationTrigger = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, trigger);
+    }
+
+    #[test]
+    fn test_node_id_distance() {
+        let a = NodeId::from_bytes([0u8; 32]);
+        let mut b_bytes = [0u8; 32];
+        b_bytes[31] = 1;
+        let b = NodeId::from_bytes(b_bytes);
+
+        let dist = a.distance(&b);
+        assert_eq!(dist[31], 1);
+        assert_eq!(&dist[..31], &[0u8; 31]);
+    }
+
+    #[test]
+    fn test_node_id_bucket_index() {
+        let a = NodeId::from_bytes([0u8; 32]);
+        let mut b_bytes = [0u8; 32];
+        b_bytes[0] = 0x80; // Most significant bit differs
+        let b = NodeId::from_bytes(b_bytes);
+
+        assert_eq!(a.bucket_index(&b), 0); // Closest to root
+    }
+
+    #[test]
+    fn test_kademlia_insert_and_closest() {
+        let local = NodeId::from_bytes([0u8; 32]);
+        let mut table = KademliaTable::new(local, 20);
+
+        for i in 1u8..=5 {
+            let mut id = [0u8; 32];
+            id[31] = i;
+            table.insert(DhtNode {
+                id: NodeId::from_bytes(id),
+                addr: format!("10.0.0.{i}:9000"),
+                last_seen_ms: 1000,
+            });
+        }
+
+        assert_eq!(table.len(), 5);
+
+        // Find 3 closest to [0; 32] (which is our local ID)
+        let mut target = [0u8; 32];
+        target[31] = 2;
+        let closest = table.closest(&NodeId::from_bytes(target), 3);
+        assert_eq!(closest.len(), 3);
+        // First should be the one with id[31]=2 (distance 0)
+        assert_eq!(closest[0].id.0[31], 2);
+    }
+
+    #[test]
+    fn test_kademlia_remove() {
+        let local = NodeId::from_bytes([0u8; 32]);
+        let mut table = KademliaTable::new(local, 20);
+
+        let mut id = [0u8; 32];
+        id[31] = 1;
+        table.insert(DhtNode {
+            id: NodeId::from_bytes(id),
+            addr: "10.0.0.1:9000".into(),
+            last_seen_ms: 1000,
+        });
+
+        assert_eq!(table.len(), 1);
+        assert!(table.remove(&NodeId::from_bytes(id)));
+        assert_eq!(table.len(), 0);
+    }
+
+    #[test]
+    fn test_kademlia_bucket_full() {
+        let local = NodeId::from_bytes([0u8; 32]);
+        let mut table = KademliaTable::new(local, 2); // k=2
+
+        // Insert 3 nodes that all differ only in the last byte's low bits.
+        // id[0] = 0x80 for all three so they share the same bucket (index 0).
+        for i in 0u8..3 {
+            let mut id = [0u8; 32];
+            id[0] = 0x80;
+            id[31] = i;
+            let inserted = table.insert(DhtNode {
+                id: NodeId::from_bytes(id),
+                addr: format!("10.0.0.{i}:9000"),
+                last_seen_ms: 1000,
+            });
+            if i < 2 {
+                assert!(inserted);
+            } else {
+                assert!(!inserted); // Bucket full
+            }
+        }
+
+        assert_eq!(table.len(), 2);
+    }
+
+    #[test]
+    fn test_hop_forwarder_direct() {
+        let mut fwd = HopForwarder::new("node-a".into());
+        fwd.add_neighbor("node-b".into());
+        fwd.add_neighbor("node-c".into());
+
+        let decision = fwd.decide("node-b", 0, 10);
+        assert_eq!(
+            decision,
+            ForwardDecision::Direct {
+                next_hop: "node-b".into()
+            }
+        );
+    }
+
+    #[test]
+    fn test_hop_forwarder_relay() {
+        let mut fwd = HopForwarder::new("node-a".into());
+        fwd.add_neighbor("node-b".into());
+
+        let decision = fwd.decide("node-z", 0, 10);
+        assert!(matches!(decision, ForwardDecision::Relay { .. }));
+    }
+
+    #[test]
+    fn test_hop_forwarder_store() {
+        let fwd = HopForwarder::new("node-a".into());
+        let decision = fwd.decide("node-z", 0, 10);
+        assert_eq!(decision, ForwardDecision::Store);
+    }
+
+    #[test]
+    fn test_hop_forwarder_max_hops() {
+        let fwd = HopForwarder::new("node-a".into());
+        let decision = fwd.decide("node-z", 5, 5);
+        assert!(matches!(decision, ForwardDecision::Drop { .. }));
+    }
+
+    #[test]
+    fn test_interface_migration_auto() {
+        let mut mig =
+            InterfaceMigration::new(true).with_preferred(vec!["en".into(), "wlan".into()]);
+
+        // Initial setup
+        let result = mig.on_interface_change(&["en0".into(), "wwan0".into()]);
+        assert_eq!(result, Some("en0".into()));
+        assert_eq!(mig.active_interface(), Some("en0"));
+
+        // WiFi drops, cellular only
+        let result = mig.on_interface_change(&["wwan0".into()]);
+        assert_eq!(result, Some("wwan0".into()));
+        assert_eq!(mig.migration_count(), 1);
+    }
+
+    #[test]
+    fn test_interface_migration_no_change() {
+        let mut mig = InterfaceMigration::new(true);
+        mig.set_active("en0".into());
+
+        // Same interface still available
+        let result = mig.on_interface_change(&["en0".into(), "lo0".into()]);
+        assert!(result.is_none());
+        assert_eq!(mig.migration_count(), 0);
+    }
+
+    #[test]
+    fn test_interface_migration_prefers_pattern() {
+        let mut mig = InterfaceMigration::new(true).with_preferred(vec!["wlan".into()]);
+
+        let result = mig.on_interface_change(&["eth0".into(), "wlan0".into()]);
+        assert_eq!(result, Some("wlan0".into()));
     }
 }

@@ -34,7 +34,7 @@ Cargo workspace with 11 crates:
 | `rf-cli` | CLI client `rf` (exec, dev, status, completions) | **Done** (~970 LOC) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (240 LOC, 2 tests) |
 
-**Total: ~25,100 LOC, 436 tests, 0 clippy warnings.**
+**Total: ~25,900 LOC, 453 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

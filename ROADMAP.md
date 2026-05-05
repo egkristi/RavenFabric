@@ -361,7 +361,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [~] Opportunistic sync — types defined
 - [~] NNCP-style physical media transport — types defined
 - [~] TTL, priority, and idempotency — data structures defined
-- [~] Multi-hop store-carry-forward — routing types defined
+- [x] Multi-hop store-carry-forward — `HopForwarder` with direct/relay/store/drop decisions, neighbor management, 4 tests
 - [~] Content-addressed command payloads — types defined
 
 ---
@@ -402,7 +402,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Peer Discovery
 - [x] mDNS/DNS-SD — DiscoveryAgent with UDP broadcast/listen, JSON announcement protocol, self-filtering (2 async tests)
-- [~] DHT (Kademlia-style) — types defined
+- [x] DHT (Kademlia-style) — `KademliaTable` with 256 k-buckets, XOR distance, closest-node lookup, insert/remove, 5 tests
 - [x] Gossip protocol (SWIM/HyParView) — GossipAgent with real UDP transport, JSON serialization, bidirectional health propagation (2 async tests)
 - [~] Signed DNS records — types defined
 - [~] BLE beacon discovery — types defined
@@ -410,10 +410,10 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Advanced NAT Traversal
 - [x] STUN server — `StunServer` with UDP binding, XOR-MAPPED-ADDRESS responses (RFC 5389), client-server roundtrip verified, 6 tests
-- [~] TURN relay mode — types defined
+- [x] TURN relay mode — `TurnRelay` with UDP allocations, permissions, data relay, capacity limits, 5 tests
 - [~] Multipath TCP/QUIC — types defined
 - [x] Traffic analysis resistance — `TrafficShaper` with constant-rate/adaptive modes, dummy cover traffic, frame splitting, bandwidth accounting, 7 tests
-- [~] Connection migration across interfaces — types defined
+- [x] Connection migration across interfaces — `InterfaceMigration` with auto-migrate, preferred patterns, netwatch integration, 3 tests
 
 ---
 

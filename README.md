@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~25,100 LOC | 436 tests | 0 clippy warnings | All CI green**
+**~25,900 LOC | 453 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
