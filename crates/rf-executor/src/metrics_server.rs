@@ -112,10 +112,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_metrics_server_responds() {
-        let config = MetricsServerConfig {
-            bind_addr: "127.0.0.1:0".into(),
-        };
-
         // Bind to port 0 to get a random available port
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
