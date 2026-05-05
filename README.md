@@ -613,10 +613,18 @@ What works today:
 - Health check probes: TCP connect, HTTP GET, process alive, command exit code
 - Log file tailing with rotation detection, JSON/logfmt parsing, filters
 - Local TCP port forwarding (ssh -L equivalent) with bidirectional copy + RPC integration
+- `rf forward -L` CLI command (connect, request forward on agent, keep alive until Ctrl+C)
 - PTY allocation on Unix (real openpty, shell spawn, resize, signal) + RPC Shell actions
+- `rf shell` interactive terminal: raw mode, bidirectional stdin/stdout over encrypted channel
+- Multi-agent orchestration via `rf playbook` (rolling, canary, parallel strategies with rollback)
+- ConnectionManager with relay-first + background direct path upgrade (tested with 4 async tests)
 - DTN offline queue with SQLite persistence (priority ordering, TTL, deduplication)
 
-Working end-to-end flow: `rf exec --token <token> "command"` → relay → agent → execute → respond
+Working end-to-end flows:
+- `rf exec --token <token> "command"` → relay → agent → execute → respond
+- `rf shell --token <token>` → relay → agent → PTY → interactive terminal
+- `rf forward --token <token> -L 8080 -R db:5432` → relay → agent → TCP forward
+- `rf playbook plan.yaml --token <token>` → multi-agent rolling deployment
 
 See [ROADMAP.md](ROADMAP.md) for the full plan.
 

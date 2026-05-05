@@ -57,6 +57,29 @@ enum Commands {
         #[arg(long, default_value = "24")]
         rows: u16,
     },
+    /// Port forward (local port → remote target via agent)
+    Forward {
+        /// Meet token (shared secret for relay pairing)
+        #[arg(short, long)]
+        token: String,
+
+        /// Local bind address (e.g., 127.0.0.1:8080)
+        #[arg(short = 'L', long)]
+        local: String,
+
+        /// Remote target address (e.g., db.internal:5432)
+        #[arg(short = 'R', long)]
+        remote: String,
+    },
+    /// Execute a playbook (multi-agent orchestration)
+    Playbook {
+        /// Path to playbook YAML file
+        file: PathBuf,
+
+        /// Meet token (shared secret for relay pairing)
+        #[arg(short, long)]
+        token: String,
+    },
     /// Start local development mode (relay + agent in one process, permissive policy)
     Dev {
         /// Listen port for the local relay
@@ -90,6 +113,16 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Shell { token, cols, rows } => {
             shell_command(&cli.relay, &cli.key_path, &token, cols, rows).await?;
+        }
+        Commands::Forward {
+            token,
+            local,
+            remote,
+        } => {
+            forward_command(&cli.relay, &cli.key_path, &token, &local, &remote).await?;
+        }
+        Commands::Playbook { file, token } => {
+            playbook_command(&cli.relay, &cli.key_path, &token, &file).await?;
         }
         Commands::Dev { port } => {
             dev_mode(port).await?;
@@ -325,14 +358,13 @@ async fn status_command(
     Ok(())
 }
 
-/// Interactive shell session through the fabric.
-/// Connects to agent, requests a PTY, and proxies stdin/stdout.
-async fn shell_command(
+/// Port forwarding: binds a local port and forwards connections through the agent.
+async fn forward_command(
     relay_url: &str,
     key_path: &std::path::Path,
     token: &str,
-    cols: u16,
-    rows: u16,
+    local_addr: &str,
+    remote_addr: &str,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
@@ -354,39 +386,47 @@ async fn shell_command(
     let (stream_read, stream_write) = tokio::io::split(stream);
     let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
 
-    // Request shell session
+    // Request port forward
     let request = Request {
         id: uuid::Uuid::new_v4().to_string(),
-        action: Action::Execute {
-            command: format!("__pty__:{}x{}", cols, rows),
-            env: Default::default(),
-            workdir: None,
+        action: Action::PortForward {
+            bind_addr: local_addr.to_string(),
+            target_addr: remote_addr.to_string(),
         },
-        timeout_ms: None, // No timeout for interactive sessions
+        timeout_ms: Some(10_000),
     };
 
     let req_data = codec::encode(&request)?;
     chan.send(&req_data).await?;
 
-    info!(
-        "shell session requested ({}x{}), waiting for response...",
-        cols, rows
-    );
-
-    // In a full implementation, this would:
-    // 1. Set terminal to raw mode
-    // 2. Forward stdin to chan.send() as PtyInput::Data
-    // 3. Forward chan.recv() to stdout as PtyOutput::Data
-    // 4. Handle resize events (SIGWINCH → PtyInput::Resize)
-    // 5. Restore terminal on exit
-    //
-    // For now, just receive the initial response:
     let resp_data = chan.recv().await?;
     let response: Response = codec::decode(&resp_data)?;
 
     match response.result {
-        RpcResult::Success { stdout, .. } => {
-            println!("{}", stdout);
+        RpcResult::ForwardStarted {
+            forward_id,
+            bind_addr,
+        } => {
+            println!(
+                "Port forward active: {} → {} (id: {})",
+                bind_addr, remote_addr, forward_id
+            );
+            println!("Press Ctrl+C to stop.");
+
+            // Keep connection alive until interrupted
+            tokio::signal::ctrl_c().await?;
+
+            // Close the forward
+            let close_req = Request {
+                id: uuid::Uuid::new_v4().to_string(),
+                action: Action::PortForwardClose {
+                    forward_id: forward_id.clone(),
+                },
+                timeout_ms: Some(5_000),
+            };
+            let close_data = codec::encode(&close_req)?;
+            chan.send(&close_data).await?;
+            println!("\nForward stopped.");
         }
         RpcResult::Denied { reason, rule } => {
             error!("DENIED: {} (rule: {})", reason, rule);
@@ -403,6 +443,391 @@ async fn shell_command(
     }
 
     Ok(())
+}
+
+/// Execute a playbook — multi-agent orchestrated execution.
+async fn playbook_command(
+    relay_url: &str,
+    key_path: &std::path::Path,
+    token: &str,
+    file: &std::path::Path,
+) -> anyhow::Result<()> {
+    use rf_executor::orchestrator::{AgentResult, OrchestrationPlan, Orchestrator, TargetGrain};
+    use std::time::Instant;
+
+    // Load playbook from YAML file
+    let yaml_content = std::fs::read_to_string(file)
+        .map_err(|e| anyhow::anyhow!("failed to read playbook {}: {}", file.display(), e))?;
+
+    let plan: OrchestrationPlan = serde_yaml::from_str(&yaml_content)
+        .map_err(|e| anyhow::anyhow!("failed to parse playbook YAML: {}", e))?;
+
+    // Resolve target agents
+    let agents = match &plan.target {
+        TargetGrain::Agents(ids) => ids.clone(),
+        _ => {
+            // For non-explicit targeting, we need a known-agents registry.
+            // For now, require explicit agent list.
+            anyhow::bail!("playbook target must use 'agents: [...]' for CLI execution");
+        }
+    };
+
+    println!("Playbook: {}", file.display());
+    println!("Command:  {}", plan.command);
+    println!("Strategy: {:?}", plan.strategy);
+    println!("Agents:   {:?}", agents);
+    println!("---");
+
+    let key = StaticKey::load_or_generate(key_path)?;
+    let start = Instant::now();
+    let mut orch = Orchestrator::new(plan.clone(), agents);
+
+    while let Some(batch) = orch.next_batch() {
+        println!("Executing batch: {:?}", batch);
+
+        let mut batch_results = Vec::new();
+
+        for agent_id in &batch {
+            let agent_start = Instant::now();
+            // Connect to agent via relay (each agent uses the same token for pairing)
+            let result =
+                execute_on_agent(relay_url, &key, token, &plan.command, plan.timeout_secs).await;
+
+            let agent_result = match result {
+                Ok((stdout, stderr, exit_code)) => {
+                    let success = exit_code == 0;
+                    let symbol = if success { "✓" } else { "✗" };
+                    println!("  {} {} (exit {})", symbol, agent_id, exit_code);
+                    AgentResult {
+                        agent_id: agent_id.clone(),
+                        success,
+                        exit_code: Some(exit_code),
+                        stdout,
+                        stderr,
+                        duration_ms: agent_start.elapsed().as_millis() as u64,
+                    }
+                }
+                Err(e) => {
+                    println!("  ✗ {} (error: {})", agent_id, e);
+                    AgentResult {
+                        agent_id: agent_id.clone(),
+                        success: false,
+                        exit_code: None,
+                        stdout: String::new(),
+                        stderr: e.to_string(),
+                        duration_ms: agent_start.elapsed().as_millis() as u64,
+                    }
+                }
+            };
+            batch_results.push(agent_result);
+        }
+
+        let should_continue = orch.record_batch(batch_results);
+        if !should_continue {
+            println!("--- Batch failed, stopping rollout ---");
+
+            // Execute rollback if configured
+            if let Some(rollback_cmd) = orch.rollback_command() {
+                let agents_to_rollback = orch.agents_needing_rollback();
+                if !agents_to_rollback.is_empty() {
+                    println!(
+                        "Rolling back {} agents: {}",
+                        agents_to_rollback.len(),
+                        rollback_cmd
+                    );
+                    for agent_id in agents_to_rollback {
+                        let rb_result = execute_on_agent(
+                            relay_url,
+                            &key,
+                            token,
+                            rollback_cmd,
+                            plan.timeout_secs,
+                        )
+                        .await;
+                        let symbol = if rb_result.is_ok() { "↩" } else { "!" };
+                        println!("  {} {} rollback", symbol, agent_id);
+                    }
+                }
+            }
+            break;
+        }
+    }
+
+    let result = orch.finalize(start.elapsed().as_millis() as u64);
+    println!("---");
+    println!(
+        "Result: {} ({}/{} agents succeeded, {}ms)",
+        if result.success { "SUCCESS" } else { "FAILED" },
+        result.results.iter().filter(|r| r.success).count(),
+        result.results.len(),
+        result.total_duration_ms,
+    );
+    if result.rollback_triggered {
+        println!("Rollback was triggered.");
+    }
+
+    if !result.success {
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+/// Execute a single command on one agent via relay.
+async fn execute_on_agent(
+    relay_url: &str,
+    key: &StaticKey,
+    token: &str,
+    command: &str,
+    timeout_secs: u64,
+) -> anyhow::Result<(String, String, i32)> {
+    let driver = WebSocketDriver::new();
+    let target = Target {
+        agent_id: String::new(),
+        relay_url: Some(relay_url.to_string()),
+        meet_token: Some(token.to_string()),
+    };
+
+    let mut stream = driver.dial(&target, &Default::default()).await?;
+    let (state, peer_key) = handshake(&mut stream, true, key).await?;
+
+    let (stream_read, stream_write) = tokio::io::split(stream);
+    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+
+    let request = Request {
+        id: uuid::Uuid::new_v4().to_string(),
+        action: Action::Execute {
+            command: command.to_string(),
+            env: Default::default(),
+            workdir: None,
+        },
+        timeout_ms: Some(timeout_secs * 1000),
+    };
+
+    let req_data = codec::encode(&request)?;
+    chan.send(&req_data).await?;
+
+    let resp_data = chan.recv().await?;
+    let response: Response = codec::decode(&resp_data)?;
+
+    match response.result {
+        RpcResult::Success {
+            stdout,
+            stderr,
+            exit_code,
+            ..
+        } => Ok((stdout, stderr, exit_code)),
+        RpcResult::Denied { reason, .. } => {
+            anyhow::bail!("denied: {}", reason);
+        }
+        RpcResult::Error { message } => {
+            anyhow::bail!("{}", message);
+        }
+        _ => anyhow::bail!("unexpected response"),
+    }
+}
+
+/// Interactive shell session through the fabric.
+/// Connects to agent, requests a PTY, and proxies stdin/stdout bidirectionally.
+#[cfg(unix)]
+async fn shell_command(
+    relay_url: &str,
+    key_path: &std::path::Path,
+    token: &str,
+    cols: u16,
+    rows: u16,
+) -> anyhow::Result<()> {
+    use std::os::unix::io::AsRawFd;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let key = StaticKey::load_or_generate(key_path)?;
+    info!("client public key: {}", key.public_hex());
+
+    let driver = WebSocketDriver::new();
+    let target = Target {
+        agent_id: String::new(),
+        relay_url: Some(relay_url.to_string()),
+        meet_token: Some(token.to_string()),
+    };
+
+    info!("connecting to relay: {}", relay_url);
+    let mut stream = driver.dial(&target, &Default::default()).await?;
+
+    // Noise handshake (client is initiator)
+    let (state, peer_key) = handshake(&mut stream, true, &key).await?;
+    info!("connected to agent: {}", hex::encode(peer_key));
+
+    let (stream_read, stream_write) = tokio::io::split(stream);
+    let chan = Arc::new(SecureChannel::new(
+        stream_read,
+        stream_write,
+        state,
+        peer_key,
+    ));
+
+    // Request shell session with proper Action::Shell
+    let request = Request {
+        id: uuid::Uuid::new_v4().to_string(),
+        action: Action::Shell {
+            shell: None, // Use agent's default shell
+            rows,
+            cols,
+            env: Default::default(),
+        },
+        timeout_ms: None,
+    };
+
+    let req_data = codec::encode(&request)?;
+    chan.send(&req_data).await?;
+
+    // Wait for ShellOpened response
+    let resp_data = chan.recv().await?;
+    let response: Response = codec::decode(&resp_data)?;
+
+    let session_id = match response.result {
+        RpcResult::ShellOpened { session_id } => session_id,
+        RpcResult::Denied { reason, rule } => {
+            error!("DENIED: {} (rule: {})", reason, rule);
+            std::process::exit(1);
+        }
+        RpcResult::Error { message } => {
+            error!("ERROR: {}", message);
+            std::process::exit(1);
+        }
+        _ => {
+            error!("unexpected response");
+            std::process::exit(1);
+        }
+    };
+
+    info!("shell session opened: {}", session_id);
+
+    // Set terminal to raw mode
+    let stdin_fd = std::io::stdin().as_raw_fd();
+    let orig_termios = unsafe {
+        let mut termios = std::mem::zeroed::<libc::termios>();
+        libc::tcgetattr(stdin_fd, &mut termios);
+        let orig = termios;
+        libc::cfmakeraw(&mut termios);
+        libc::tcsetattr(stdin_fd, libc::TCSANOW, &termios);
+        orig
+    };
+
+    // Ensure we restore terminal on exit
+    struct RawModeGuard {
+        fd: i32,
+        termios: libc::termios,
+    }
+    impl Drop for RawModeGuard {
+        fn drop(&mut self) {
+            unsafe {
+                libc::tcsetattr(self.fd, libc::TCSANOW, &self.termios);
+            }
+        }
+    }
+    let _guard = RawModeGuard {
+        fd: stdin_fd,
+        termios: orig_termios,
+    };
+
+    let cancel = CancellationToken::new();
+    let session_id_clone = session_id.clone();
+
+    // Spawn stdin reader task: reads from stdin and sends ShellInput
+    let chan_write = chan.clone();
+    let cancel_stdin = cancel.clone();
+    let sid_write = session_id.clone();
+    let stdin_task = tokio::spawn(async move {
+        let mut stdin = tokio::io::stdin();
+        let mut buf = [0u8; 1024];
+        loop {
+            tokio::select! {
+                () = cancel_stdin.cancelled() => break,
+                result = stdin.read(&mut buf) => {
+                    match result {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            let req = Request {
+                                id: uuid::Uuid::new_v4().to_string(),
+                                action: Action::ShellInput {
+                                    session_id: sid_write.clone(),
+                                    data: buf[..n].to_vec(),
+                                },
+                                timeout_ms: None,
+                            };
+                            if let Ok(data) = codec::encode(&req) {
+                                if chan_write.send(&data).await.is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            }
+        }
+    });
+
+    // Main loop: read responses from agent and write to stdout
+    let mut stdout = tokio::io::stdout();
+    loop {
+        tokio::select! {
+            () = cancel.cancelled() => break,
+            result = chan.recv() => {
+                match result {
+                    Ok(data) => {
+                        let response: Response = match codec::decode(&data) {
+                            Ok(r) => r,
+                            Err(_) => continue,
+                        };
+                        match response.result {
+                            RpcResult::ShellOutput { data, .. } => {
+                                if !data.is_empty() {
+                                    let _ = stdout.write_all(&data).await;
+                                    let _ = stdout.flush().await;
+                                }
+                            }
+                            RpcResult::ShellExited { exit_code, .. } => {
+                                cancel.cancel();
+                                drop(_guard);
+                                std::process::exit(exit_code);
+                            }
+                            _ => {}
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        }
+    }
+
+    // Clean up: close the shell session
+    let close_req = Request {
+        id: uuid::Uuid::new_v4().to_string(),
+        action: Action::ShellClose {
+            session_id: session_id_clone,
+        },
+        timeout_ms: Some(5_000),
+    };
+    if let Ok(data) = codec::encode(&close_req) {
+        let _ = chan.send(&data).await;
+    }
+
+    stdin_task.abort();
+
+    Ok(())
+}
+
+/// Interactive shell session — not supported on non-Unix platforms.
+#[cfg(not(unix))]
+async fn shell_command(
+    _relay_url: &str,
+    _key_path: &std::path::Path,
+    _token: &str,
+    _cols: u16,
+    _rows: u16,
+) -> anyhow::Result<()> {
+    anyhow::bail!("interactive shell is not supported on this platform");
 }
 
 /// Development mode: starts a relay and agent in a single process with permissive policy.

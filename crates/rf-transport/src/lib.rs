@@ -1,4 +1,5 @@
 pub mod catalog;
+pub mod conn_runner;
 pub mod connmgr;
 pub mod discovery;
 pub mod driver;

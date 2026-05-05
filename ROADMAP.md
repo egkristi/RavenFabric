@@ -263,7 +263,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] NAT type detection — `detect_nat_type()` compares bindings from multiple servers
 
 ### Connection Upgrade (DCUtR Pattern)
-- [~] ConnectionManager with relay-first, background probe, migration — method signatures + type-level state machine, not connected to real transports
+- [x] ConnectionManager with relay-first, background probe, migration — `ConnectionRunner` async wrapper wired to real `Driver::dial()` with 4 tests
 
 ### Health Monitoring & Failover (Phase 11 of Connectivity Value Chain)
 - [x] Heartbeat-based liveness detection — Ping/Pong RPC action types
@@ -319,10 +319,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Interactive Shell
 - [x] PTY allocation — real `openpty` on Unix with `PtySession` (spawn, read, write, resize, signal)
 - [x] Session recording — `SessionRecorder` with asciicast v2 output (functional)
-- [x] `rf shell <agent>` — Shell/ShellInput/ShellResize/ShellClose RPC actions wired to PTY executor
+- [x] `rf shell <agent>` — Full interactive shell via RPC: raw mode terminal, bidirectional stdin/stdout, Shell/ShellInput/ShellResize/ShellClose actions
 
 ### Port Forwarding
 - [x] Local port forward — `start_local_forward()` with real TCP listener + bidirectional copy + RPC PortForward/PortForwardClose actions
+- [x] `rf forward -L` CLI command — connect to agent, request forward, keep alive until Ctrl+C
 - [~] Remote port forward — types only
 - [~] SOCKS5 dynamic forward — protocol parser functional, not connected to sockets
 
@@ -333,9 +334,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [~] 0-RTT resumption — types only
 
 ### Playbook Engine
-- [~] Multi-agent orchestration — `Orchestrator` + `RolloutStrategy` types, not connected to real agent connections
-- [~] Rollback on failure — types only
-- [~] Grain-based targeting — `TargetGrain` types defined
+- [x] Multi-agent orchestration — `Orchestrator` + `rf playbook` CLI command connected to real agent RPC sessions
+- [x] Rollback on failure — automatic rollback command execution on agents that succeeded before failure
+- [x] Grain-based targeting — `TargetGrain` with agent-list targeting for CLI
 
 ---
 
