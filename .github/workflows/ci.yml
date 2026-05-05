@@ -89,7 +89,7 @@ jobs:
           # Fail if coverage drops below 60%
           awk "BEGIN {exit ($COVERAGE < 60.0) ? 1 : 0}"
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           files: cobertura.xml
           fail_ci_if_error: false
