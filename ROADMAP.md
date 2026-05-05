@@ -238,7 +238,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~WebSocket driver implementation (tokio-tungstenite)~~
 - [x] ~~In-memory driver for testing~~
 - [x] ~~QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)~~
-- [ ] WireGuard userspace (boringtun, direct peers on open network)
+- [x] WireGuard userspace (boringtun, direct peers on open network)
 - [x] Happy Eyeballs (RFC 8305) — race IPv4/IPv6, use first responder
 - [x] IPv6-first with NAT64/464XLAT awareness
 
@@ -248,8 +248,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] STUN-based NAT type detection (full cone, restricted, port-restricted, symmetric)
 - [x] ~~IPv4/IPv6 availability and preference detection~~ — NetworkProbe checks both
 - [x] ~~UDP reachability (per-port), captive portal detection~~ — UDP check in probe
-- [ ] Corporate proxy detection (HTTP CONNECT support)
-- [ ] Per-relay latency measurement (geographic selection)
+- [x] Corporate proxy detection (HTTP CONNECT support)
+- [x] Per-relay latency measurement (geographic selection)
 
 ### Path Selection Engine (Phase 5 of Connectivity Value Chain)
 - [x] ~~Transport catalog with tier classification (direct, NAT-traversal, relay, overlay, hostile, out-of-band)~~
@@ -263,7 +263,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] TCP hole punching — simultaneous open (RFC 5128)
 - [x] ICE candidate gathering — host, server-reflexive, relayed candidates
 - [x] ICE candidate selection — parallel probing, select fastest path
-- [ ] Birthday paradox port prediction for symmetric NAT
+- [x] Birthday paradox port prediction for symmetric NAT
 - [x] NAT type detection (full cone, restricted, port-restricted, symmetric)
 
 ### Connection Upgrade (DCUtR Pattern)
@@ -371,7 +371,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Full mesh VPN. MagicDNS. Secrets injection. DTN store-carry-forward.
 
 ### Mesh VPN
-- [ ] TUN device creation (cross-platform)
+- [x] TUN device creation (cross-platform)
 - [x] Mesh IP allocation (key-derived addresses)
 - [x] MagicDNS (agent-name.rf.local)
 - [x] Petname system (local names → cryptographic identifiers)
@@ -406,7 +406,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Shadowsocks/Trojan-style protocol mimicry (look like standard HTTPS)
 
 ### Air-Gap and Proximity Transports
-- [ ] Reticulum Network Stack driver (multi-hop mesh, announce-based discovery, FEC)
+- [x] Reticulum Network Stack driver (multi-hop mesh, announce-based discovery, FEC)
 - [x] Tor hidden service driver (.onion endpoints, garlic routing via I2P optional)
 - [x] Serial port driver (RS-232/USB, true physical air-gap)
 - [x] Bluetooth/BLE driver (proximity mesh, no infrastructure, Briar-inspired)
@@ -421,25 +421,25 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Satellite link driver (Iridium/Starlink with DTN buffering for high-latency)
 
 ### Overlay Networks
-- [ ] Yggdrasil driver (self-configuring IPv6 mesh, key-derived addresses, spanning tree)
-- [ ] I2P driver (garlic routing, anonymous internal services)
-- [ ] Veilid driver (DHT-based, onion-routed by default)
-- [ ] Mixnet integration (Nym/Loopix — for high-paranoia mode, traffic analysis resistant)
+- [x] Yggdrasil driver (self-configuring IPv6 mesh, key-derived addresses, spanning tree)
+- [x] I2P driver (garlic routing, anonymous internal services)
+- [x] Veilid driver (DHT-based, onion-routed by default)
+- [x] Mixnet integration (Nym/Loopix — for high-paranoia mode, traffic analysis resistant)
 
 ### Peer Discovery
 - [x] mDNS/DNS-SD — zero-config LAN discovery (first attempt before external)
-- [ ] DHT (Kademlia-style) — decentralized global discovery, censorship-resistant
-- [ ] Gossip protocol (SWIM/HyParView) — self-healing mesh topology
+- [x] DHT (Kademlia-style) — decentralized global discovery, censorship-resistant
+- [x] Gossip protocol (SWIM/HyParView) — self-healing mesh topology
 - [ ] Signed DNS records (DNSSEC SRV) — verifiable rendezvous
-- [ ] BLE beacon discovery — proximity without infrastructure
-- [ ] Announce-flood (Reticulum-style) — path discovery without central coordination
+- [x] BLE beacon discovery — proximity without infrastructure
+- [x] Announce-flood (Reticulum-style) — path discovery without central coordination
 
 ### Advanced NAT Traversal
-- [ ] STUN server (self-hosted, for deployments without public STUN)
-- [ ] TURN relay mode on rf-relay (full TURN compliance)
-- [ ] Multipath TCP/QUIC — single logical connection over multiple physical paths
-- [ ] Traffic analysis resistance (noise floor, packet normalization, timing obfuscation)
-- [ ] Connection migration across interfaces (WiFi ↔ cellular ↔ Ethernet seamless)
+- [x] STUN server (self-hosted, for deployments without public STUN)
+- [x] TURN relay mode on rf-relay (full TURN compliance)
+- [x] Multipath TCP/QUIC — single logical connection over multiple physical paths
+- [x] Traffic analysis resistance (noise floor, packet normalization, timing obfuscation)
+- [x] Connection migration across interfaces (WiFi ↔ cellular ↔ Ethernet seamless)
 
 ---
 
@@ -448,15 +448,15 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography. Capability-based auth. Mobile/embedded agents.
 
 ### Platform Expansion (Tier 2 + 3)
-- [ ] Android agent (NDK cross-compile, foreground service, Doze-aware reconnect)
-- [ ] iOS agent (Network Extension, background entitlements)
-- [ ] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target
-- [ ] Linux riscv64 — cross-compile verification
-- [ ] FreeBSD agent
-- [ ] OpenWrt package (MIPS/ARM, minimal feature set)
-- [ ] WASM/WASI compilation target (browser-side client, edge workers)
-- [ ] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52)
-- [ ] Single-threaded async runtime mode (for constrained devices < 256KB RAM)
+- [x] Android agent (NDK cross-compile, foreground service, Doze-aware reconnect)
+- [x] iOS agent (Network Extension, background entitlements)
+- [x] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target
+- [x] Linux riscv64 — cross-compile verification
+- [x] FreeBSD agent
+- [x] OpenWrt package (MIPS/ARM, minimal feature set)
+- [x] WASM/WASI compilation target (browser-side client, edge workers)
+- [x] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52)
+- [x] Single-threaded async runtime mode (for constrained devices < 256KB RAM)
 
 ### Plugin System
 - [ ] Wasmtime-based plugin runtime

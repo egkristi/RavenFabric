@@ -13,9 +13,12 @@ pub mod mesh;
 pub mod migration;
 pub mod nat;
 pub mod obfuscation;
+pub mod overlay;
+pub mod platform;
 pub mod probe;
 pub mod proxy;
 #[cfg(feature = "quic")]
 pub mod quic;
 #[cfg(feature = "websocket")]
 pub mod websocket;
+pub mod wireguard;
