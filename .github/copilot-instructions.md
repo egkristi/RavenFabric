@@ -111,13 +111,15 @@ cargo fmt --check        # Format check
 
 ## Git Workflow
 
-- **Push to git for each completed working feature or resolved issue**
+- **Commit and push for each completed feature or resolved issue** — do not batch unrelated changes
 - All planned changes tracked as GitHub Issues before work begins
 - Commit messages: `feat: <description>`, `fix: <description>`, `refactor: <description>`
 - Reference GitHub Issues in commits (e.g. `feat: add QUIC transport driver #5`)
 - Always run `cargo test` and `cargo clippy` before pushing
 - Format: `git add -A && git commit -m "<message>" && git push`
-- **After every push**: Check GitHub Actions for pipeline failures. If any workflow fails, diagnose and fix immediately.
+- **After every push**: Check GitHub Actions for pipeline failures. If any workflow fails, diagnose and fix immediately
+- **If pipeline fails**: Create a GitHub Issue for each distinct problem so nothing is forgotten, then fix it
+- **Issue tracking**: When you discover work that should be done but is out of scope for the current task, create a GitHub Issue for it rather than ignoring it
 
 ## Policy YAML Format
 
