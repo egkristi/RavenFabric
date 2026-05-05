@@ -1,7 +1,10 @@
-//! Traffic obfuscation — make RavenFabric protocol indistinguishable from random bytes.
+//! Traffic obfuscation and analysis resistance.
 //!
 //! Inspired by obfs4: adds padding, randomizes frame sizes, and removes
-//! any recognizable patterns from the wire format.
+//! any recognizable patterns from the wire format. Includes constant-rate
+//! traffic shaping to defeat timing/volume analysis.
+
+use std::time::Duration;
 
 use rand::RngCore;
 
@@ -122,6 +125,170 @@ pub fn randomness_score(data: &[u8]) -> f64 {
     (1.0 - normalized.min(1.0)).max(0.0)
 }
 
+// --- Traffic Analysis Resistance ---
+
+/// Traffic shaping mode for defeating traffic analysis.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TrafficShapingMode {
+    /// No shaping — send frames as they are produced.
+    None,
+    /// Constant-rate: send frames at a fixed interval, padding with dummy
+    /// traffic when idle. Defeats timing and volume analysis.
+    ConstantRate {
+        /// Interval between frames.
+        interval: Duration,
+        /// Target frame size (real data + padding).
+        frame_size: usize,
+    },
+    /// Adaptive: adjust sending rate to match a target bandwidth, adding
+    /// dummy traffic to fill gaps. Less overhead than constant-rate.
+    Adaptive {
+        /// Target bandwidth in bytes per second.
+        target_bps: u64,
+        /// Measurement window for rate calculation.
+        window: Duration,
+    },
+}
+
+/// A frame that may be real data or dummy traffic (cover traffic).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ShapedFrame {
+    /// Real data frame.
+    Data(Vec<u8>),
+    /// Dummy frame (cover traffic) — discard on receive.
+    Dummy(Vec<u8>),
+}
+
+/// Traffic shaper — buffers real data and produces a constant stream
+/// of fixed-size frames, mixing in dummy traffic when idle.
+pub struct TrafficShaper {
+    mode: TrafficShapingMode,
+    /// Queued real data waiting to be sent.
+    pending: Vec<Vec<u8>>,
+    /// Total real bytes sent in current window.
+    real_bytes_sent: u64,
+    /// Total dummy bytes sent in current window.
+    dummy_bytes_sent: u64,
+}
+
+impl TrafficShaper {
+    /// Create a new traffic shaper.
+    pub fn new(mode: TrafficShapingMode) -> Self {
+        Self {
+            mode,
+            pending: Vec::new(),
+            real_bytes_sent: 0,
+            dummy_bytes_sent: 0,
+        }
+    }
+
+    /// Queue real data for shaped sending.
+    pub fn enqueue(&mut self, data: Vec<u8>) {
+        self.pending.push(data);
+    }
+
+    /// Produce the next frame to send.
+    ///
+    /// In constant-rate mode, returns a fixed-size frame containing either
+    /// real data or dummy traffic. In no-shaping mode, returns real data
+    /// or None if nothing is queued.
+    pub fn next_frame(&mut self) -> Option<ShapedFrame> {
+        match &self.mode {
+            TrafficShapingMode::None => {
+                if self.pending.is_empty() {
+                    None
+                } else {
+                    let data = self.pending.remove(0);
+                    self.real_bytes_sent += data.len() as u64;
+                    Some(ShapedFrame::Data(data))
+                }
+            }
+            TrafficShapingMode::ConstantRate { frame_size, .. } => {
+                let target = *frame_size;
+                if let Some(data) = self.pending.first() {
+                    if data.len() <= target {
+                        let mut frame = self.pending.remove(0);
+                        // Pad to target size
+                        let pad_len = target.saturating_sub(frame.len());
+                        if pad_len > 0 {
+                            let mut padding = vec![0u8; pad_len];
+                            rand::rng().fill_bytes(&mut padding);
+                            frame.extend_from_slice(&padding);
+                        }
+                        self.real_bytes_sent += frame.len() as u64;
+                        Some(ShapedFrame::Data(frame))
+                    } else {
+                        // Split large data across multiple frames
+                        let chunk: Vec<u8> = self.pending[0].drain(..target).collect();
+                        if self.pending[0].is_empty() {
+                            self.pending.remove(0);
+                        }
+                        self.real_bytes_sent += chunk.len() as u64;
+                        Some(ShapedFrame::Data(chunk))
+                    }
+                } else {
+                    // No real data — send dummy
+                    let mut dummy = vec![0u8; target];
+                    rand::rng().fill_bytes(&mut dummy);
+                    self.dummy_bytes_sent += dummy.len() as u64;
+                    Some(ShapedFrame::Dummy(dummy))
+                }
+            }
+            TrafficShapingMode::Adaptive { .. } => {
+                // For adaptive mode, behave like no-shaping for real data,
+                // but report when dummy traffic should be injected.
+                if self.pending.is_empty() {
+                    None
+                } else {
+                    let data = self.pending.remove(0);
+                    self.real_bytes_sent += data.len() as u64;
+                    Some(ShapedFrame::Data(data))
+                }
+            }
+        }
+    }
+
+    /// Check if the shaper should send a dummy frame based on adaptive mode.
+    /// Returns the number of dummy bytes needed to maintain the target rate.
+    pub fn dummy_bytes_needed(&self, elapsed: Duration) -> u64 {
+        match &self.mode {
+            TrafficShapingMode::Adaptive {
+                target_bps, window, ..
+            } => {
+                let window_secs = window.as_secs_f64();
+                let elapsed_secs = elapsed.as_secs_f64().min(window_secs);
+                let expected_bytes = (*target_bps as f64 * elapsed_secs) as u64;
+                expected_bytes.saturating_sub(self.real_bytes_sent + self.dummy_bytes_sent)
+            }
+            _ => 0,
+        }
+    }
+
+    /// Generate a dummy frame of the specified size.
+    pub fn generate_dummy(&mut self, size: usize) -> ShapedFrame {
+        let mut data = vec![0u8; size];
+        rand::rng().fill_bytes(&mut data);
+        self.dummy_bytes_sent += size as u64;
+        ShapedFrame::Dummy(data)
+    }
+
+    /// Reset counters for a new measurement window.
+    pub fn reset_counters(&mut self) {
+        self.real_bytes_sent = 0;
+        self.dummy_bytes_sent = 0;
+    }
+
+    /// Get statistics.
+    pub fn stats(&self) -> (u64, u64) {
+        (self.real_bytes_sent, self.dummy_bytes_sent)
+    }
+
+    /// Number of queued real data frames.
+    pub fn pending_count(&self) -> usize {
+        self.pending.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,5 +388,99 @@ mod tests {
 
         let recovered = deobfuscate(&obfuscated).unwrap();
         assert_eq!(recovered, original);
+    }
+
+    #[test]
+    fn test_traffic_shaper_no_shaping() {
+        let mut shaper = TrafficShaper::new(TrafficShapingMode::None);
+        assert!(shaper.next_frame().is_none()); // Nothing queued
+
+        shaper.enqueue(b"hello".to_vec());
+        let frame = shaper.next_frame().unwrap();
+        assert_eq!(frame, ShapedFrame::Data(b"hello".to_vec()));
+        assert!(shaper.next_frame().is_none());
+    }
+
+    #[test]
+    fn test_traffic_shaper_constant_rate_with_data() {
+        let mut shaper = TrafficShaper::new(TrafficShapingMode::ConstantRate {
+            interval: Duration::from_millis(50),
+            frame_size: 64,
+        });
+
+        shaper.enqueue(b"real data".to_vec());
+        let frame = shaper.next_frame().unwrap();
+
+        match frame {
+            ShapedFrame::Data(data) => {
+                assert_eq!(data.len(), 64); // Padded to frame_size
+                assert_eq!(&data[..9], b"real data");
+            }
+            ShapedFrame::Dummy(_) => panic!("expected data frame"),
+        }
+    }
+
+    #[test]
+    fn test_traffic_shaper_constant_rate_dummy() {
+        let mut shaper = TrafficShaper::new(TrafficShapingMode::ConstantRate {
+            interval: Duration::from_millis(50),
+            frame_size: 32,
+        });
+
+        // No real data — should produce dummy
+        let frame = shaper.next_frame().unwrap();
+        match frame {
+            ShapedFrame::Dummy(data) => assert_eq!(data.len(), 32),
+            ShapedFrame::Data(_) => panic!("expected dummy frame"),
+        }
+    }
+
+    #[test]
+    fn test_traffic_shaper_constant_rate_splits_large() {
+        let mut shaper = TrafficShaper::new(TrafficShapingMode::ConstantRate {
+            interval: Duration::from_millis(50),
+            frame_size: 4,
+        });
+
+        shaper.enqueue(b"abcdefgh".to_vec()); // 8 bytes, frame_size=4
+
+        let f1 = shaper.next_frame().unwrap();
+        assert_eq!(f1, ShapedFrame::Data(b"abcd".to_vec()));
+
+        let f2 = shaper.next_frame().unwrap();
+        assert_eq!(f2, ShapedFrame::Data(b"efgh".to_vec()));
+    }
+
+    #[test]
+    fn test_traffic_shaper_adaptive_dummy_needed() {
+        let shaper = TrafficShaper::new(TrafficShapingMode::Adaptive {
+            target_bps: 1000,
+            window: Duration::from_secs(1),
+        });
+
+        // After 500ms with no data sent, we need ~500 bytes of dummy
+        let needed = shaper.dummy_bytes_needed(Duration::from_millis(500));
+        assert_eq!(needed, 500);
+    }
+
+    #[test]
+    fn test_traffic_shaper_stats() {
+        let mut shaper = TrafficShaper::new(TrafficShapingMode::ConstantRate {
+            interval: Duration::from_millis(10),
+            frame_size: 16,
+        });
+
+        shaper.enqueue(b"data".to_vec());
+        shaper.next_frame(); // Data frame (padded to 16)
+        shaper.next_frame(); // Dummy frame (16 bytes)
+
+        let (real, dummy) = shaper.stats();
+        assert_eq!(real, 16);
+        assert_eq!(dummy, 16);
+
+        shaper.reset_counters();
+        let (r, d) = shaper.stats();
+        assert_eq!(r, 0);
+        assert_eq!(d, 0);
     }
 }

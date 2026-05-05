@@ -1,7 +1,10 @@
-//! Metrics collector framework — plugin trait, system metrics, offline buffering.
+//! Metrics collector framework — plugin trait, system metrics, offline buffering,
+//! and DTN metrics propagation.
 //!
 //! Provides a trait for metric collectors and a built-in system metrics collector
 //! that gathers CPU, memory, disk, and network statistics.
+//! Metrics can be propagated over DTN (store-carry-forward) paths for
+//! disconnected or mesh-networked nodes.
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -405,6 +408,109 @@ impl CollectionPolicy {
     }
 }
 
+// --- DTN Metrics Propagation ---
+
+/// DTN metrics propagator — wraps collected metrics into DTN bundles for
+/// store-carry-forward delivery across disconnected mesh paths.
+///
+/// Ensures monitoring data reaches the controller even when nodes are
+/// intermittently connected, via the DTN queue infrastructure.
+pub struct MetricsPropagator {
+    /// This node's agent ID.
+    agent_id: String,
+    /// Destination for metrics (typically "controller" or a group label).
+    destination: String,
+    /// Buffer for metrics awaiting bundling.
+    pending: Vec<MetricPoint>,
+    /// Maximum metrics per bundle (controls bundle size).
+    max_per_bundle: usize,
+    /// TTL for metric bundles (seconds).
+    bundle_ttl_secs: u64,
+    /// Monotonic bundle sequence number.
+    sequence: u64,
+}
+
+impl MetricsPropagator {
+    /// Create a new propagator.
+    pub fn new(agent_id: String, destination: String) -> Self {
+        Self {
+            agent_id,
+            destination,
+            pending: Vec::new(),
+            max_per_bundle: 100,
+            bundle_ttl_secs: 3600, // 1 hour default
+            sequence: 0,
+        }
+    }
+
+    /// Set max metrics per bundle.
+    pub fn with_max_per_bundle(mut self, max: usize) -> Self {
+        self.max_per_bundle = max;
+        self
+    }
+
+    /// Set bundle TTL.
+    pub fn with_ttl_secs(mut self, ttl: u64) -> Self {
+        self.bundle_ttl_secs = ttl;
+        self
+    }
+
+    /// Add metrics for propagation.
+    pub fn add_metrics(&mut self, points: Vec<MetricPoint>) {
+        self.pending.extend(points);
+    }
+
+    /// Create DTN bundles from pending metrics.
+    /// Returns bundles ready to be enqueued into a `DtnQueue`.
+    pub fn create_bundles(&mut self, now_ms: u64) -> Vec<rf_rpc::dtn::Bundle> {
+        if self.pending.is_empty() {
+            return Vec::new();
+        }
+
+        let mut bundles = Vec::new();
+
+        // Drain pending into chunks
+        while !self.pending.is_empty() {
+            let chunk_end = self.pending.len().min(self.max_per_bundle);
+            let chunk: Vec<MetricPoint> = self.pending.drain(..chunk_end).collect();
+
+            // Serialize the chunk as JSON payload
+            let payload = match serde_json::to_vec(&chunk) {
+                Ok(data) => data,
+                Err(_) => continue,
+            };
+
+            self.sequence += 1;
+
+            bundles.push(rf_rpc::dtn::Bundle {
+                id: format!("{}-metrics-{}", self.agent_id, self.sequence),
+                source: self.agent_id.clone(),
+                destination: self.destination.clone(),
+                priority: rf_rpc::dtn::Priority::Low,
+                ttl_secs: self.bundle_ttl_secs,
+                created_at_ms: now_ms,
+                payload,
+                custody_requested: false,
+                idempotency_key: Some(format!("{}-metrics-{}", self.agent_id, self.sequence)),
+                hop_count: 0,
+                max_hops: 10,
+            });
+        }
+
+        bundles
+    }
+
+    /// Decode metric points from a received DTN bundle payload.
+    pub fn decode_bundle(payload: &[u8]) -> Result<Vec<MetricPoint>, serde_json::Error> {
+        serde_json::from_slice(payload)
+    }
+
+    /// Number of pending (unbundled) metrics.
+    pub fn pending_count(&self) -> usize {
+        self.pending.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -642,5 +748,76 @@ mod tests {
         assert_eq!(filtered.len(), 2); // max_batch_size caps it
         assert_eq!(filtered[0].name, "system_cpu");
         assert_eq!(filtered[1].name, "system_mem");
+    }
+
+    #[test]
+    fn test_metrics_propagator_create_bundles() {
+        let mut prop = MetricsPropagator::new("node-1".into(), "controller".into());
+        prop.add_metrics(vec![
+            MetricPoint {
+                name: "cpu".into(),
+                value: MetricValue::Gauge(75.0),
+                labels: HashMap::new(),
+                timestamp_ms: 1000,
+            },
+            MetricPoint {
+                name: "mem".into(),
+                value: MetricValue::Gauge(1024.0),
+                labels: HashMap::new(),
+                timestamp_ms: 1000,
+            },
+        ]);
+
+        let bundles = prop.create_bundles(2000);
+        assert_eq!(bundles.len(), 1);
+        assert_eq!(bundles[0].source, "node-1");
+        assert_eq!(bundles[0].destination, "controller");
+        assert_eq!(bundles[0].priority, rf_rpc::dtn::Priority::Low);
+        assert!(bundles[0].idempotency_key.is_some());
+        assert_eq!(prop.pending_count(), 0);
+    }
+
+    #[test]
+    fn test_metrics_propagator_chunking() {
+        let mut prop =
+            MetricsPropagator::new("node-1".into(), "controller".into()).with_max_per_bundle(2);
+
+        let points: Vec<MetricPoint> = (0..5)
+            .map(|i| MetricPoint {
+                name: format!("metric_{i}"),
+                value: MetricValue::Counter(i),
+                labels: HashMap::new(),
+                timestamp_ms: 1000,
+            })
+            .collect();
+        prop.add_metrics(points);
+
+        let bundles = prop.create_bundles(2000);
+        assert_eq!(bundles.len(), 3); // 5 metrics / 2 per bundle = 3 bundles
+        assert_eq!(prop.pending_count(), 0);
+    }
+
+    #[test]
+    fn test_metrics_propagator_decode_bundle() {
+        let mut prop = MetricsPropagator::new("node-1".into(), "ctrl".into());
+        prop.add_metrics(vec![MetricPoint {
+            name: "test".into(),
+            value: MetricValue::Gauge(42.0),
+            labels: HashMap::new(),
+            timestamp_ms: 1000,
+        }]);
+
+        let bundles = prop.create_bundles(2000);
+        let decoded = MetricsPropagator::decode_bundle(&bundles[0].payload).unwrap();
+        assert_eq!(decoded.len(), 1);
+        assert_eq!(decoded[0].name, "test");
+        assert_eq!(decoded[0].value, MetricValue::Gauge(42.0));
+    }
+
+    #[test]
+    fn test_metrics_propagator_empty() {
+        let mut prop = MetricsPropagator::new("node-1".into(), "ctrl".into());
+        let bundles = prop.create_bundles(1000);
+        assert!(bundles.is_empty());
     }
 }

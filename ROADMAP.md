@@ -242,7 +242,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)~~
 - [x] WireGuard userspace — `WgTunnel` with UDP socket, key handling, peer management (9 tests)
 - [x] Happy Eyeballs (RFC 8305) — `race_connect()` and `race_connect_multi()` with real TCP racing, resolution delay, staggered starts (3 async tests)
-- [~] IPv6-first with NAT64/464XLAT awareness — types only
+- [x] IPv6-first with NAT64/464XLAT awareness — NAT64 prefix detection (RFC 7050), IPv6 synthesis, `detect_nat64()` with 4 tests
 
 ### Network Environment Probing (Phase 4 of Connectivity Value Chain)
 - [x] NetworkProbe struct — `quick_probe()` checks IPv4/IPv6/UDP availability + `EgressClass` classification (functional)
@@ -280,7 +280,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Connection Metrics & Monitoring (DTN-aware)
 - [x] Per-path metrics types — `PathMetrics` with VecDeque buffer (functional in-memory)
-- [~] DTN metrics propagation, priority delivery, mesh gossip — types only
+- [x] DTN metrics propagation, priority delivery, mesh gossip — `MetricsPropagator` bundles metrics into DTN store-carry-forward, chunked delivery, decode on receive, 4 tests
 - [x] Path switch event logging — audit entries defined
 
 ### Graceful Teardown (Phase 12 of Connectivity Value Chain)
@@ -356,7 +356,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Delay-Tolerant Networking
 - [x] Offline queue — in-memory `BinaryHeap` + SQLite persistence (`dtn_persistent.rs`, 8 tests)
-- [~] Custody transfer protocol — types defined
+- [x] Custody transfer protocol — `CustodyAgent` with initiate/ack/timeout state machine, retry logic, event notifications, 5 tests
 - [~] Schedule-aware routing — types defined
 - [~] Opportunistic sync — types defined
 - [~] NNCP-style physical media transport — types defined
@@ -409,10 +409,10 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [~] Announce-flood — types defined
 
 ### Advanced NAT Traversal
-- [~] STUN server — types defined
+- [x] STUN server — `StunServer` with UDP binding, XOR-MAPPED-ADDRESS responses (RFC 5389), client-server roundtrip verified, 6 tests
 - [~] TURN relay mode — types defined
 - [~] Multipath TCP/QUIC — types defined
-- [~] Traffic analysis resistance — types defined
+- [x] Traffic analysis resistance — `TrafficShaper` with constant-rate/adaptive modes, dummy cover traffic, frame splitting, bandwidth accounting, 7 tests
 - [~] Connection migration across interfaces — types defined
 
 ---

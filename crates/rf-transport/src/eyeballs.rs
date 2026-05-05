@@ -1,9 +1,10 @@
-//! Happy Eyeballs (RFC 8305) implementation.
+//! Happy Eyeballs (RFC 8305) implementation with NAT64 awareness.
 //!
 //! Races IPv4 and IPv6 connections in parallel, selecting the first
 //! successful connection. Provides fairness by giving IPv6 a head start.
+//! Detects NAT64/464XLAT environments for IPv6-only networks.
 
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 
 use tokio::net::TcpStream;
@@ -272,6 +273,109 @@ pub async fn race_connect_multi(
     }
 }
 
+// --- NAT64/464XLAT Detection (RFC 7050) ---
+
+/// Well-known IPv4 addresses for `ipv4only.arpa` (RFC 7050).
+const WKA_1: Ipv4Addr = Ipv4Addr::new(192, 0, 0, 170);
+const WKA_2: Ipv4Addr = Ipv4Addr::new(192, 0, 0, 171);
+
+/// Result of NAT64 prefix detection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Nat64Status {
+    /// NAT64 detected with the given prefix (96 bits from synthesized AAAA).
+    Detected { prefix: Ipv6Addr, prefix_len: u8 },
+    /// No NAT64 — network has native IPv4 or dual-stack.
+    NotDetected,
+    /// Detection failed (DNS resolution error).
+    Error(String),
+}
+
+/// Extract the NAT64 prefix from a synthesized IPv6 address.
+///
+/// Per RFC 6052, for a /96 prefix (most common):
+/// The IPv4 address occupies the last 32 bits of the IPv6 address.
+/// The prefix is the first 96 bits.
+fn extract_nat64_prefix(synthesized: Ipv6Addr, expected_v4: Ipv4Addr) -> Option<Ipv6Addr> {
+    let v6_octets = synthesized.octets();
+    let v4_octets = expected_v4.octets();
+
+    // Check if IPv4 address is embedded at bits 96-127 (most common /96 prefix)
+    if v6_octets[12] == v4_octets[0]
+        && v6_octets[13] == v4_octets[1]
+        && v6_octets[14] == v4_octets[2]
+        && v6_octets[15] == v4_octets[3]
+    {
+        // Prefix is the first 96 bits, zero-padded to 128
+        let mut prefix = [0u8; 16];
+        prefix[..12].copy_from_slice(&v6_octets[..12]);
+        return Some(Ipv6Addr::from(prefix));
+    }
+
+    None
+}
+
+/// Detect NAT64 prefix by resolving `ipv4only.arpa` (RFC 7050).
+///
+/// On an IPv6-only network with NAT64, the DNS64 resolver synthesizes
+/// AAAA records for `ipv4only.arpa` by embedding the well-known IPv4
+/// addresses (192.0.0.170/171) in the NAT64 prefix.
+///
+/// Returns the detected NAT64 prefix or `NotDetected` if we have native IPv4.
+pub async fn detect_nat64() -> Nat64Status {
+    // Resolve ipv4only.arpa for AAAA records
+    let addrs = match tokio::net::lookup_host("ipv4only.arpa:80").await {
+        Ok(addrs) => addrs.collect::<Vec<_>>(),
+        Err(e) => return Nat64Status::Error(format!("DNS lookup failed: {}", e)),
+    };
+
+    // Look for synthesized IPv6 addresses
+    for addr in &addrs {
+        if let SocketAddr::V6(v6_addr) = addr {
+            let ip = *v6_addr.ip();
+
+            // Skip if it's a well-known address without NAT64 prefix
+            if ip == Ipv6Addr::from(WKA_1.to_ipv6_mapped())
+                || ip == Ipv6Addr::from(WKA_2.to_ipv6_mapped())
+            {
+                continue;
+            }
+
+            // Try to extract NAT64 prefix from synthesized address
+            if let Some(prefix) = extract_nat64_prefix(ip, WKA_1) {
+                return Nat64Status::Detected {
+                    prefix,
+                    prefix_len: 96,
+                };
+            }
+            if let Some(prefix) = extract_nat64_prefix(ip, WKA_2) {
+                return Nat64Status::Detected {
+                    prefix,
+                    prefix_len: 96,
+                };
+            }
+        }
+    }
+
+    Nat64Status::NotDetected
+}
+
+/// Synthesize an IPv6 address from an IPv4 address using a NAT64 prefix.
+///
+/// Given a NAT64 /96 prefix and an IPv4 address, produces the corresponding
+/// synthesized IPv6 address that the NAT64 gateway will translate.
+pub fn synthesize_ipv6(prefix: Ipv6Addr, prefix_len: u8, ipv4: Ipv4Addr) -> Option<Ipv6Addr> {
+    if prefix_len != 96 {
+        return None; // Only /96 supported for now
+    }
+    let mut octets = prefix.octets();
+    let v4 = ipv4.octets();
+    octets[12] = v4[0];
+    octets[13] = v4[1];
+    octets[14] = v4[2];
+    octets[15] = v4[3];
+    Some(Ipv6Addr::from(octets))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -395,5 +499,50 @@ mod tests {
         let (stream, won_addr) = race_connect_multi(&candidates, &config).await.unwrap();
         assert!(stream.peer_addr().is_ok());
         assert_eq!(won_addr, addr);
+    }
+
+    #[test]
+    fn test_extract_nat64_prefix_96() {
+        // NAT64 prefix 64:ff9b::/96 with embedded 192.0.0.170
+        let prefix_bytes: [u8; 16] = [
+            0x00, 0x64, 0xff, 0x9b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00,
+            0x00, 0xaa,
+        ];
+        let synthesized = Ipv6Addr::from(prefix_bytes);
+        let result = extract_nat64_prefix(synthesized, WKA_1);
+        assert!(result.is_some());
+        let prefix = result.unwrap();
+        let octets = prefix.octets();
+        // First 12 bytes should match, last 4 should be zero
+        assert_eq!(&octets[..4], &[0x00, 0x64, 0xff, 0x9b]);
+        assert_eq!(&octets[12..], &[0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn test_extract_nat64_no_match() {
+        // Random IPv6 address — not a synthesized NAT64 address
+        let random = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1);
+        let result = extract_nat64_prefix(random, WKA_1);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_synthesize_ipv6() {
+        let prefix = Ipv6Addr::new(0x0064, 0xff9b, 0, 0, 0, 0, 0, 0);
+        let ipv4 = Ipv4Addr::new(10, 0, 0, 1);
+        let result = synthesize_ipv6(prefix, 96, ipv4).unwrap();
+        let octets = result.octets();
+        // Last 4 bytes should be the IPv4 address
+        assert_eq!(&octets[12..], &[10, 0, 0, 1]);
+        // First 12 bytes should be the prefix
+        assert_eq!(&octets[..4], &[0x00, 0x64, 0xff, 0x9b]);
+    }
+
+    #[test]
+    fn test_synthesize_ipv6_unsupported_prefix_len() {
+        let prefix = Ipv6Addr::new(0x0064, 0xff9b, 0, 0, 0, 0, 0, 0);
+        let ipv4 = Ipv4Addr::new(10, 0, 0, 1);
+        // Only /96 supported
+        assert!(synthesize_ipv6(prefix, 64, ipv4).is_none());
     }
 }
