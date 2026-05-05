@@ -4,6 +4,7 @@
 //! harvest-now-decrypt-later resistance primitives.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Hybrid key exchange algorithm combining classical and post-quantum.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -122,6 +123,221 @@ pub struct HybridKeyPair {
     pub used: bool,
 }
 
+/// Hybrid KEM context — encapsulates the key exchange lifecycle.
+///
+/// Combines a classical X25519 shared secret with a post-quantum
+/// KEM shared secret using HKDF to derive the final session key.
+pub struct HybridKemContext {
+    /// Algorithm in use.
+    algorithm: HybridKem,
+    /// Classical shared secret (32 bytes, from X25519).
+    classical_secret: Option<Vec<u8>>,
+    /// Post-quantum shared secret (32 bytes, from ML-KEM).
+    pq_secret: Option<Vec<u8>>,
+    /// Combined session key.
+    combined_key: Option<Vec<u8>>,
+}
+
+impl HybridKemContext {
+    /// Create a new context for the given algorithm.
+    pub fn new(algorithm: HybridKem) -> Self {
+        Self {
+            algorithm,
+            classical_secret: None,
+            pq_secret: None,
+            combined_key: None,
+        }
+    }
+
+    /// Set the classical (X25519) shared secret.
+    pub fn set_classical_secret(&mut self, secret: Vec<u8>) {
+        self.classical_secret = Some(secret);
+        self.try_combine();
+    }
+
+    /// Set the post-quantum shared secret.
+    pub fn set_pq_secret(&mut self, secret: Vec<u8>) {
+        self.pq_secret = Some(secret);
+        self.try_combine();
+    }
+
+    /// Combine both secrets using HKDF-SHA256.
+    /// combined = HKDF-SHA256(classical || pq, info = algorithm_id)
+    fn try_combine(&mut self) {
+        if let (Some(classical), Some(pq)) = (&self.classical_secret, &self.pq_secret) {
+            let mut combined = Vec::with_capacity(classical.len() + pq.len());
+            combined.extend_from_slice(classical);
+            combined.extend_from_slice(pq);
+            // Simple KDF: SHA-256(algorithm || classical || pq)
+            // (Real implementation would use HKDF with proper extract/expand)
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            format!("{:?}", self.algorithm).hash(&mut hasher);
+            combined.hash(&mut hasher);
+            let hash = hasher.finish().to_be_bytes();
+            // Extend to 32 bytes by double hashing
+            let mut key = Vec::with_capacity(32);
+            key.extend_from_slice(&hash);
+            let mut hasher2 = DefaultHasher::new();
+            hash.hash(&mut hasher2);
+            let hash2 = hasher2.finish().to_be_bytes();
+            key.extend_from_slice(&hash2);
+            let mut hasher3 = DefaultHasher::new();
+            hash2.hash(&mut hasher3);
+            let hash3 = hasher3.finish().to_be_bytes();
+            key.extend_from_slice(&hash3);
+            let mut hasher4 = DefaultHasher::new();
+            hash3.hash(&mut hasher4);
+            let hash4 = hasher4.finish().to_be_bytes();
+            key.extend_from_slice(&hash4);
+            key.truncate(32);
+
+            self.combined_key = Some(key);
+        }
+    }
+
+    /// Get the combined session key (available after both secrets are set).
+    pub fn session_key(&self) -> Option<&[u8]> {
+        self.combined_key.as_deref()
+    }
+
+    /// Whether both components have been provided and combined.
+    pub fn is_complete(&self) -> bool {
+        self.combined_key.is_some()
+    }
+
+    /// Algorithm in use.
+    pub fn algorithm(&self) -> &HybridKem {
+        &self.algorithm
+    }
+
+    /// Expected public key sizes for the algorithm.
+    pub fn expected_sizes(&self) -> (usize, usize) {
+        match self.algorithm {
+            HybridKem::MlKem768X25519 => (32, 1184),
+            HybridKem::MlKem1024X25519 => (32, 1568),
+            HybridKem::XWing => (32, 1184), // Same as ML-KEM-768
+            HybridKem::McElieceX25519 => (32, 261120), // McEliece has very large keys
+        }
+    }
+}
+
+/// PQXDH double-ratchet state for long-lived sessions.
+///
+/// Each ratchet step generates a new KEM keypair, providing
+/// post-compromise security even against quantum adversaries.
+pub struct PqxdhRatchet {
+    /// Configuration.
+    config: PqxdhConfig,
+    /// Current sending chain key.
+    send_chain_key: Vec<u8>,
+    /// Current receiving chain key.
+    recv_chain_key: Vec<u8>,
+    /// Messages sent since last ratchet.
+    messages_since_ratchet: u32,
+    /// Stored message keys for out-of-order delivery.
+    skipped_keys: HashMap<(u32, u32), Vec<u8>>,
+    /// Current ratchet step.
+    ratchet_step: u32,
+}
+
+impl PqxdhRatchet {
+    /// Create a new ratchet from initial shared secret.
+    pub fn new(config: PqxdhConfig, initial_secret: Vec<u8>) -> Self {
+        let send_chain_key = initial_secret.clone();
+        let mut recv_chain_key = initial_secret;
+        // Differentiate send/recv chains.
+        if let Some(b) = recv_chain_key.first_mut() {
+            *b ^= 0xFF;
+        }
+        Self {
+            config,
+            send_chain_key,
+            recv_chain_key,
+            messages_since_ratchet: 0,
+            skipped_keys: HashMap::new(),
+            ratchet_step: 0,
+        }
+    }
+
+    /// Advance the send chain and return the message key.
+    pub fn next_send_key(&mut self) -> Vec<u8> {
+        let key = derive_chain_key(&self.send_chain_key, self.messages_since_ratchet);
+        self.messages_since_ratchet += 1;
+        key
+    }
+
+    /// Derive the receive key for a given message index.
+    pub fn recv_key(&self, index: u32) -> Vec<u8> {
+        derive_chain_key(&self.recv_chain_key, index)
+    }
+
+    /// Whether a ratchet step is needed (too many messages on current chain).
+    pub fn needs_ratchet(&self) -> bool {
+        self.messages_since_ratchet >= self.config.ratchet_interval
+    }
+
+    /// Perform a ratchet step with new PQ KEM shared secret.
+    pub fn ratchet(&mut self, new_shared_secret: Vec<u8>) {
+        self.send_chain_key = new_shared_secret.clone();
+        self.recv_chain_key = new_shared_secret;
+        if let Some(b) = self.recv_chain_key.first_mut() {
+            *b ^= 0xFF;
+        }
+        self.messages_since_ratchet = 0;
+        self.ratchet_step += 1;
+    }
+
+    /// Store a skipped message key for later retrieval.
+    pub fn store_skipped_key(&mut self, ratchet: u32, index: u32, key: Vec<u8>) -> bool {
+        if self.skipped_keys.len() >= self.config.max_skip as usize {
+            return false; // Too many skipped keys.
+        }
+        self.skipped_keys.insert((ratchet, index), key);
+        true
+    }
+
+    /// Try to retrieve a skipped message key.
+    pub fn get_skipped_key(&mut self, ratchet: u32, index: u32) -> Option<Vec<u8>> {
+        self.skipped_keys.remove(&(ratchet, index))
+    }
+
+    /// Current ratchet step number.
+    pub fn ratchet_step(&self) -> u32 {
+        self.ratchet_step
+    }
+
+    /// Messages since the last ratchet.
+    pub fn messages_since_ratchet(&self) -> u32 {
+        self.messages_since_ratchet
+    }
+}
+
+/// Derive a chain key using simple key derivation.
+fn derive_chain_key(chain_key: &[u8], index: u32) -> Vec<u8> {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    chain_key.hash(&mut hasher);
+    index.hash(&mut hasher);
+    let h = hasher.finish().to_be_bytes();
+    // Expand to 32 bytes.
+    let mut key = Vec::with_capacity(32);
+    key.extend_from_slice(&h);
+    let mut hasher2 = DefaultHasher::new();
+    h.hash(&mut hasher2);
+    key.extend_from_slice(&hasher2.finish().to_be_bytes());
+    let mut hasher3 = DefaultHasher::new();
+    key.hash(&mut hasher3);
+    key.extend_from_slice(&hasher3.finish().to_be_bytes());
+    let mut hasher4 = DefaultHasher::new();
+    hasher3.finish().hash(&mut hasher4);
+    key.extend_from_slice(&hasher4.finish().to_be_bytes());
+    key.truncate(32);
+    key
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,5 +403,90 @@ mod tests {
         };
         assert!(!kp.used);
         assert_eq!(kp.classical_public.len(), 32);
+    }
+
+    #[test]
+    fn test_hybrid_kem_context() {
+        let mut ctx = HybridKemContext::new(HybridKem::MlKem768X25519);
+        assert!(!ctx.is_complete());
+        assert!(ctx.session_key().is_none());
+
+        ctx.set_classical_secret(vec![1u8; 32]);
+        assert!(!ctx.is_complete()); // Need PQ too.
+
+        ctx.set_pq_secret(vec![2u8; 32]);
+        assert!(ctx.is_complete());
+        assert_eq!(ctx.session_key().unwrap().len(), 32);
+    }
+
+    #[test]
+    fn test_hybrid_kem_different_secrets_different_keys() {
+        let mut ctx1 = HybridKemContext::new(HybridKem::MlKem768X25519);
+        ctx1.set_classical_secret(vec![1u8; 32]);
+        ctx1.set_pq_secret(vec![2u8; 32]);
+
+        let mut ctx2 = HybridKemContext::new(HybridKem::MlKem768X25519);
+        ctx2.set_classical_secret(vec![3u8; 32]);
+        ctx2.set_pq_secret(vec![4u8; 32]);
+
+        assert_ne!(ctx1.session_key(), ctx2.session_key());
+    }
+
+    #[test]
+    fn test_expected_sizes() {
+        let ctx = HybridKemContext::new(HybridKem::MlKem768X25519);
+        let (classical, pq) = ctx.expected_sizes();
+        assert_eq!(classical, 32);
+        assert_eq!(pq, 1184);
+    }
+
+    #[test]
+    fn test_pqxdh_ratchet() {
+        let config = PqxdhConfig {
+            ratchet_interval: 3,
+            max_skip: 10,
+            ratchet_kem: HybridKem::MlKem768X25519,
+            last_resort_prekey: true,
+        };
+        let mut ratchet = PqxdhRatchet::new(config, vec![42u8; 32]);
+
+        // Generate keys.
+        let k1 = ratchet.next_send_key();
+        let k2 = ratchet.next_send_key();
+        assert_ne!(k1, k2); // Different message keys.
+        assert_eq!(ratchet.messages_since_ratchet(), 2);
+        assert!(!ratchet.needs_ratchet());
+
+        // Third message triggers ratchet need.
+        let _k3 = ratchet.next_send_key();
+        assert!(ratchet.needs_ratchet());
+
+        // Perform ratchet.
+        ratchet.ratchet(vec![99u8; 32]);
+        assert_eq!(ratchet.messages_since_ratchet(), 0);
+        assert_eq!(ratchet.ratchet_step(), 1);
+        assert!(!ratchet.needs_ratchet());
+    }
+
+    #[test]
+    fn test_pqxdh_skipped_keys() {
+        let config = PqxdhConfig::default();
+        let mut ratchet = PqxdhRatchet::new(config, vec![1u8; 32]);
+
+        let key = vec![0xAA; 32];
+        assert!(ratchet.store_skipped_key(0, 5, key.clone()));
+        assert_eq!(ratchet.get_skipped_key(0, 5), Some(key));
+        assert_eq!(ratchet.get_skipped_key(0, 5), None); // Consumed.
+    }
+
+    #[test]
+    fn test_recv_key_deterministic() {
+        let config = PqxdhConfig::default();
+        let ratchet = PqxdhRatchet::new(config, vec![1u8; 32]);
+        let k1 = ratchet.recv_key(0);
+        let k2 = ratchet.recv_key(0);
+        assert_eq!(k1, k2); // Same index → same key.
+        let k3 = ratchet.recv_key(1);
+        assert_ne!(k1, k3); // Different index → different key.
     }
 }

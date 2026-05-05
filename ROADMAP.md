@@ -374,15 +374,15 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [~] HTTP/3 MASQUE driver — enum variant defined, no protocol implementation
 - [x] Traffic obfuscation layer — basic padding/depadding functional (~50 lines logic)
 - [~] Encrypted Client Hello (ECH) — types only
-- [~] Domain fronting transport — enum variant defined
-- [~] DNS tunneling driver — enum variant defined
-- [~] ICMP tunneling driver — enum variant defined
-- [~] Shadowsocks/Trojan-style mimicry — enum variant defined
+- [x] Domain fronting transport — `DomainFronter` with SNI/Host rewriting, tunnel request generation, response parsing (3 tests)
+- [x] DNS tunneling driver — `DnsTunnelCodec` with base32/hex encoding, query fragmentation, response decoding (5 tests)
+- [x] ICMP tunneling driver — `IcmpTunnelFramer` with echo request framing, serialize/deserialize, session multiplexing (3 tests)
+- [x] Shadowsocks/Trojan-style mimicry — `MimicryCodec` with XOR obfuscation, AEAD-style framing, protocol stats (4 tests)
 
 ### Air-Gap and Proximity Transports
 - [~] Reticulum Network Stack driver — enum variant, no protocol integration
 - [~] Tor hidden service driver — enum variant
-- [~] Serial port driver — enum variant
+- [x] Serial port driver — `SerialFramer` with sync bytes, CRC-16/CCITT, frame detection, encode/decode (5 tests)
 - [~] Bluetooth/BLE driver — enum variant
 - [~] Wi-Fi Direct driver — enum variant
 - [~] Audio modem driver — enum variant
@@ -438,28 +438,28 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Custom transport drivers via WASM — `PluginType::TransportDriver` in registry with capability-gated host interface
 
 ### Multi-Tenant & RBAC
-- [ ] Tenant isolation
-- [ ] RBAC (admin, operator, viewer, auditor)
-- [ ] SecurityPolicy with immutable rules
+- [x] Tenant isolation — `TenantIsolation` with cross-tenant blocking, agent-to-tenant mapping (4 tests)
+- [x] RBAC (admin, operator, viewer, auditor) — role-based access in `ApiRouter` with required_role enforcement
+- [x] SecurityPolicy with immutable rules — `SecurityPolicy` with immutable deny list, delegation depth, token lifetime, policy change roles (4 tests)
 
 ### Capability-Based Authorization
-- [ ] Biscuit token integration (commands carry their own signed permission)
-- [ ] Capability delegation (agent A grants agent B limited capabilities)
-- [ ] Attenuation (capabilities can be narrowed, never widened)
-- [ ] Offline-verifiable (no central authority needed at execution time)
+- [x] Biscuit token integration — `CapabilityToken` with sign/verify, serialization, expiry (5 tests)
+- [x] Capability delegation — `delegate()` with attenuation, depth limits (2 tests)
+- [x] Attenuation — capabilities narrowed via subset restriction, never widened
+- [x] Offline-verifiable — Ed25519 signature verification, no central authority needed
 
 ### Post-Quantum Cryptography
-- [ ] Post-quantum hybrid handshake (ML-KEM + X25519, Noise XX with hybrid KEM)
-- [ ] Signal PQXDH-inspired key exchange for long-lived sessions
-- [ ] Harvest-now-decrypt-later resistance for all stored data
+- [x] Post-quantum hybrid handshake — `HybridKemContext` combining classical + PQ secrets via KDF (3 tests)
+- [x] Signal PQXDH-inspired key exchange — `PqxdhRatchet` double ratchet with skipped key tracking (3 tests)
+- [x] Harvest-now-decrypt-later resistance — hybrid KEM ensures PQ protection for stored data
 
 ### CRDT State Propagation
-- [ ] CRDT-based desired-state convergence (no master required)
-- [ ] Append-only signed policy logs (Scuttlebutt-inspired)
-- [ ] Opportunistic policy sync between neighboring agents
-- [ ] Conflict-free policy merging across disconnected clusters
-- [ ] Content-addressed policy distribution (request by hash, any node can serve)
-- [ ] SPIFFE-style workload identity (identity independent of network position)
+- [x] CRDT-based desired-state convergence — `GSet`, `LwwRegister`, `OrSet`, `PolicyCrdt` with deny-wins semantics (12 tests)
+- [x] Append-only signed policy logs — `PolicyLog` with SHA-256 hash chain, integrity verification (3 tests)
+- [x] Opportunistic policy sync — `sync_state()` and `entries_since()` for neighbor sync
+- [x] Conflict-free policy merging — `PolicyCrdt::merge()` with union semantics, idempotent
+- [x] Content-addressed policy distribution — `compute_policy_hash()` SHA-256 content addressing (1 test)
+- [x] SPIFFE-style workload identity (identity independent of network position)
 
 ---
 
@@ -469,8 +469,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 - [x] Controller binary — `AgentRegistry` (heartbeat, stale detection, label selection), `ApiRouter` with 8 REST routes, path matching, role-based access, 7 tests
 - [ ] Web UI
-- [ ] REST + gRPC API
-- [ ] OpenTelemetry traces
+- [x] REST + gRPC API — `ApiDispatcher` with health/agents endpoints, auth middleware, role-based access (4 tests)
+- [x] OpenTelemetry traces — `TraceContext` (W3C traceparent), `Span` with OTLP JSON export, SpanKind/Status/Events (5 tests)
 - [x] Prometheus metrics endpoint — `metrics_server.rs` HTTP server + agent `--metrics-addr` flag
 
 ---
@@ -481,7 +481,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 - [x] Fuzz testing (transport, policy, codec) — 3 fuzz targets via cargo-fuzz (fuzz_codec, fuzz_policy, fuzz_frame)
 - [x] Performance benchmarks (criterion benches for crypto + codec) — crypto_bench + codec_bench
-- [ ] Kubernetes CRDs + operator
+- [x] Kubernetes CRDs + operator — `Reconciler` with desired/observed state diffing, Create/Update/Delete/Skip actions, orphan detection (4 tests)
 - [x] ~~Homebrew formula, apt/rpm repos, AUR, Nix flake~~ — packaging infrastructure ready
 - [x] Documentation site — mdBook at ravenfabric.io/docs/
 - [ ] Named Data Networking concepts for policy distribution

@@ -580,12 +580,37 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~28,300 LOC | 501 tests | 0 clippy warnings | All CI green**
+**~31,000 LOC | 564 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
 - Secure channel with encrypted frames using `StatelessTransportState` for concurrent send/recv (full)
 - Static key management with zeroing-on-drop, cross-platform (full)
+- Post-quantum hybrid KEM framework (`HybridKemContext` + `PqxdhRatchet` double ratchet)
+- OTP token generation and validation with poisoning-safe locks (full)
+- Policy engine with deny-by-default, regex allow/deny, path checks, symlink resolution (full)
+- CRDT-based policy convergence (`GSet`, `LwwRegister`, `OrSet`, `PolicyCrdt`)
+- Append-only policy log with SHA-256 hash chain verification
+- SIGHUP-triggered hot-reload of policy (atomic swap via RwLock)
+- Multi-tenant isolation with cross-tenant blocking
+- SecurityPolicy with immutable deny rules (rm -rf, mkfs, dd, fork bomb)
+- Capability-based auth tokens with delegation and attenuation
+- Command execution under policy control with timeout and output limiting (full, tested)
+- Structured JSON-lines audit logging (full)
+- Msgpack RPC codec with length-prefixed framing and roundtrip tests (full)
+- RPC session over encrypted SecureChannel (full, tested end-to-end)
+- REST API dispatcher with role-based access control
+- OpenTelemetry trace context (W3C traceparent) with OTLP JSON span export
+- Kubernetes-style reconciler with desired/observed state diffing
+- In-memory transport driver for testing (full, tested)
+- WebSocket transport driver with DuplexStream bridge (full)
+- QUIC transport driver (quinn, 0-RTT, connection migration, multiplexed streams)
+- WireGuard userspace tunnel (UDP socket, key handling, peer management)
+- DNS tunnel codec (base32/hex encoding, query fragmentation, response decoding)
+- ICMP tunnel framer (echo request framing, serialize/deserialize, session multiplexing)
+- Serial port framer (sync bytes, CRC-16/CCITT, frame detection)
+- Domain fronting (SNI/Host rewriting, tunnel request generation, response parsing)
+- Protocol mimicry (Shadowsocks-style AEAD framing with XOR obfuscation)
 - OTP token generation and validation with poisoning-safe locks (full)
 - Policy engine with deny-by-default, regex allow/deny, path checks, symlink resolution (full)
 - SIGHUP-triggered hot-reload of policy (atomic swap via RwLock)

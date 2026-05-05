@@ -492,6 +492,543 @@ impl Default for ApiRouter {
     }
 }
 
+// --- OpenTelemetry Trace Context ---
+
+/// W3C Trace Context for distributed tracing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceContext {
+    /// Trace ID (128-bit, hex-encoded).
+    pub trace_id: String,
+    /// Span ID (64-bit, hex-encoded).
+    pub span_id: String,
+    /// Parent span ID (if any).
+    pub parent_span_id: Option<String>,
+    /// Trace flags (sampled = 0x01).
+    pub trace_flags: u8,
+}
+
+impl TraceContext {
+    /// Create a new root trace context with random IDs.
+    pub fn new_root() -> Self {
+        // Deterministic for now — real impl would use random.
+        let trace_id = format!(
+            "{:032x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+        let span_id = format!(
+            "{:016x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        );
+        Self {
+            trace_id,
+            span_id,
+            parent_span_id: None,
+            trace_flags: 0x01, // Sampled.
+        }
+    }
+
+    /// Create a child span context.
+    pub fn child(&self) -> Self {
+        let span_id = format!(
+            "{:016x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+                & 0xFFFFFFFFFFFFFFFF
+        );
+        Self {
+            trace_id: self.trace_id.clone(),
+            span_id,
+            parent_span_id: Some(self.span_id.clone()),
+            trace_flags: self.trace_flags,
+        }
+    }
+
+    /// Parse W3C traceparent header (version-trace_id-span_id-flags).
+    pub fn from_traceparent(header: &str) -> Option<Self> {
+        let parts: Vec<&str> = header.split('-').collect();
+        if parts.len() != 4 {
+            return None;
+        }
+        if parts[0] != "00" {
+            return None; // Only version 00 supported.
+        }
+        if parts[1].len() != 32 || parts[2].len() != 16 || parts[3].len() != 2 {
+            return None;
+        }
+        let flags = u8::from_str_radix(parts[3], 16).ok()?;
+        Some(Self {
+            trace_id: parts[1].to_string(),
+            span_id: parts[2].to_string(),
+            parent_span_id: None,
+            trace_flags: flags,
+        })
+    }
+
+    /// Serialize to W3C traceparent header.
+    pub fn to_traceparent(&self) -> String {
+        format!(
+            "00-{}-{}-{:02x}",
+            self.trace_id, self.span_id, self.trace_flags
+        )
+    }
+
+    /// Whether this trace is sampled.
+    pub fn is_sampled(&self) -> bool {
+        self.trace_flags & 0x01 != 0
+    }
+}
+
+/// A span in a distributed trace.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Span {
+    /// Span name (operation).
+    pub name: String,
+    /// Trace context.
+    pub context: TraceContext,
+    /// Start time (Unix ms).
+    pub start_ms: u64,
+    /// End time (Unix ms, 0 if still running).
+    pub end_ms: u64,
+    /// Span kind.
+    pub kind: SpanKind,
+    /// Attributes (key-value pairs).
+    pub attributes: HashMap<String, String>,
+    /// Events (timestamped annotations).
+    pub events: Vec<SpanEvent>,
+    /// Status.
+    pub status: SpanStatus,
+}
+
+/// Span kind.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpanKind {
+    Internal,
+    Server,
+    Client,
+    Producer,
+    Consumer,
+}
+
+/// Span event (annotation at a point in time).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpanEvent {
+    /// Event name.
+    pub name: String,
+    /// Timestamp (Unix ms).
+    pub timestamp_ms: u64,
+    /// Attributes.
+    pub attributes: HashMap<String, String>,
+}
+
+/// Span completion status.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpanStatus {
+    Unset,
+    Ok,
+    Error { message: String },
+}
+
+impl Span {
+    /// Create a new span.
+    pub fn new(name: String, context: TraceContext, kind: SpanKind, start_ms: u64) -> Self {
+        Self {
+            name,
+            context,
+            start_ms,
+            end_ms: 0,
+            kind,
+            attributes: HashMap::new(),
+            events: Vec::new(),
+            status: SpanStatus::Unset,
+        }
+    }
+
+    /// Set an attribute.
+    pub fn set_attribute(&mut self, key: String, value: String) {
+        self.attributes.insert(key, value);
+    }
+
+    /// Add an event.
+    pub fn add_event(&mut self, name: String, timestamp_ms: u64) {
+        self.events.push(SpanEvent {
+            name,
+            timestamp_ms,
+            attributes: HashMap::new(),
+        });
+    }
+
+    /// End the span.
+    pub fn end(&mut self, end_ms: u64) {
+        self.end_ms = end_ms;
+    }
+
+    /// Set status to OK.
+    pub fn set_ok(&mut self) {
+        self.status = SpanStatus::Ok;
+    }
+
+    /// Set status to Error.
+    pub fn set_error(&mut self, message: String) {
+        self.status = SpanStatus::Error { message };
+    }
+
+    /// Duration in ms (0 if not ended).
+    pub fn duration_ms(&self) -> u64 {
+        if self.end_ms > 0 {
+            self.end_ms.saturating_sub(self.start_ms)
+        } else {
+            0
+        }
+    }
+
+    /// Export span as OTLP-compatible JSON.
+    pub fn to_otlp_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "traceId": self.context.trace_id,
+            "spanId": self.context.span_id,
+            "parentSpanId": self.context.parent_span_id,
+            "name": self.name,
+            "kind": format!("{:?}", self.kind),
+            "startTimeUnixNano": self.start_ms * 1_000_000,
+            "endTimeUnixNano": self.end_ms * 1_000_000,
+            "attributes": self.attributes.iter().map(|(k, v)| {
+                serde_json::json!({"key": k, "value": {"stringValue": v}})
+            }).collect::<Vec<_>>(),
+            "events": self.events.iter().map(|e| {
+                serde_json::json!({
+                    "name": e.name,
+                    "timeUnixNano": e.timestamp_ms * 1_000_000,
+                })
+            }).collect::<Vec<_>>(),
+            "status": match &self.status {
+                SpanStatus::Unset => serde_json::json!({"code": 0}),
+                SpanStatus::Ok => serde_json::json!({"code": 1}),
+                SpanStatus::Error { message } => serde_json::json!({"code": 2, "message": message}),
+            },
+        })
+    }
+}
+
+// --- REST API Request/Response ---
+
+/// API request representation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiRequest {
+    /// HTTP method.
+    pub method: HttpMethod,
+    /// Request path.
+    pub path: String,
+    /// Request body (JSON).
+    pub body: Option<serde_json::Value>,
+    /// Authentication token.
+    pub auth_token: Option<String>,
+    /// Trace context (from traceparent header).
+    pub trace_context: Option<TraceContext>,
+}
+
+/// API response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiResponse {
+    /// HTTP status code.
+    pub status_code: u16,
+    /// Response body.
+    pub body: serde_json::Value,
+    /// Trace context (for traceparent response header).
+    pub trace_context: Option<TraceContext>,
+}
+
+impl ApiResponse {
+    /// Create a 200 OK response.
+    pub fn ok(body: serde_json::Value) -> Self {
+        Self {
+            status_code: 200,
+            body,
+            trace_context: None,
+        }
+    }
+
+    /// Create a 201 Created response.
+    pub fn created(body: serde_json::Value) -> Self {
+        Self {
+            status_code: 201,
+            body,
+            trace_context: None,
+        }
+    }
+
+    /// Create a 400 Bad Request response.
+    pub fn bad_request(message: &str) -> Self {
+        Self {
+            status_code: 400,
+            body: serde_json::json!({"error": message}),
+            trace_context: None,
+        }
+    }
+
+    /// Create a 401 Unauthorized response.
+    pub fn unauthorized() -> Self {
+        Self {
+            status_code: 401,
+            body: serde_json::json!({"error": "unauthorized"}),
+            trace_context: None,
+        }
+    }
+
+    /// Create a 403 Forbidden response.
+    pub fn forbidden() -> Self {
+        Self {
+            status_code: 403,
+            body: serde_json::json!({"error": "forbidden"}),
+            trace_context: None,
+        }
+    }
+
+    /// Create a 404 Not Found response.
+    pub fn not_found() -> Self {
+        Self {
+            status_code: 404,
+            body: serde_json::json!({"error": "not found"}),
+            trace_context: None,
+        }
+    }
+
+    /// Create a 500 Internal Server Error.
+    pub fn internal_error(message: &str) -> Self {
+        Self {
+            status_code: 500,
+            body: serde_json::json!({"error": message}),
+            trace_context: None,
+        }
+    }
+
+    /// Attach trace context.
+    pub fn with_trace(mut self, ctx: TraceContext) -> Self {
+        self.trace_context = Some(ctx);
+        self
+    }
+}
+
+/// API request dispatcher — routes requests to handlers.
+pub struct ApiDispatcher {
+    router: ApiRouter,
+    registry: AgentRegistry,
+}
+
+impl ApiDispatcher {
+    /// Create a new dispatcher.
+    pub fn new(registry: AgentRegistry) -> Self {
+        Self {
+            router: ApiRouter::new(),
+            registry,
+        }
+    }
+
+    /// Dispatch a request and return a response.
+    pub fn dispatch(&self, request: &ApiRequest) -> ApiResponse {
+        let route = match self.router.match_route(&request.method, &request.path) {
+            Some(r) => r,
+            None => return ApiResponse::not_found(),
+        };
+
+        // Check authentication.
+        if !route.required_role.is_empty() && request.auth_token.is_none() {
+            return ApiResponse::unauthorized();
+        }
+
+        // Dispatch to handler.
+        match route.handler.as_str() {
+            "list_agents" => {
+                let agents: Vec<_> = self
+                    .registry
+                    .list()
+                    .iter()
+                    .map(|a| {
+                        serde_json::json!({
+                            "id": a.id,
+                            "status": a.status,
+                            "version": a.version,
+                            "labels": a.labels,
+                        })
+                    })
+                    .collect();
+                ApiResponse::ok(serde_json::json!({"agents": agents, "total": agents.len()}))
+            }
+            "get_agent" => {
+                let id = request.path.strip_prefix("/api/v1/agents/").unwrap_or("");
+                match self.registry.get(id) {
+                    Some(agent) => ApiResponse::ok(serde_json::to_value(agent).unwrap_or_default()),
+                    None => ApiResponse::not_found(),
+                }
+            }
+            "health_check" => ApiResponse::ok(serde_json::json!({
+                "status": "healthy",
+                "agents_online": self.registry.online_count(),
+                "agents_total": self.registry.count(),
+            })),
+            _ => ApiResponse::ok(serde_json::json!({"handler": route.handler})),
+        }
+    }
+}
+
+// --- Kubernetes Reconciler ---
+
+/// Action to take during reconciliation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReconcileAction {
+    /// Create a new resource.
+    Create { kind: String, name: String },
+    /// Update an existing resource.
+    Update {
+        kind: String,
+        name: String,
+        diff: String,
+    },
+    /// Delete a resource.
+    Delete { kind: String, name: String },
+    /// No action needed.
+    Skip {
+        kind: String,
+        name: String,
+        reason: String,
+    },
+}
+
+/// Desired state for a resource.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesiredState {
+    /// Resource kind.
+    pub kind: String,
+    /// Resource name.
+    pub name: String,
+    /// Resource spec (JSON).
+    pub spec: serde_json::Value,
+}
+
+/// Current observed state of a resource.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ObservedState {
+    /// Resource kind.
+    pub kind: String,
+    /// Resource name.
+    pub name: String,
+    /// Resource spec (JSON).
+    pub spec: serde_json::Value,
+    /// Reconcile state.
+    pub state: ReconcileState,
+}
+
+/// Reconciler — compares desired and observed state, produces actions.
+pub struct Reconciler {
+    /// Desired state.
+    desired: Vec<DesiredState>,
+    /// Observed state.
+    observed: Vec<ObservedState>,
+}
+
+impl Reconciler {
+    /// Create a new reconciler.
+    pub fn new() -> Self {
+        Self {
+            desired: Vec::new(),
+            observed: Vec::new(),
+        }
+    }
+
+    /// Set the desired state.
+    pub fn set_desired(&mut self, states: Vec<DesiredState>) {
+        self.desired = states;
+    }
+
+    /// Set the observed state.
+    pub fn set_observed(&mut self, states: Vec<ObservedState>) {
+        self.observed = states;
+    }
+
+    /// Compute the diff and produce reconciliation actions.
+    pub fn plan(&self) -> Vec<ReconcileAction> {
+        let mut actions = Vec::new();
+
+        // Build lookup of observed resources.
+        let observed_map: HashMap<(&str, &str), &ObservedState> = self
+            .observed
+            .iter()
+            .map(|o| ((o.kind.as_str(), o.name.as_str()), o))
+            .collect();
+
+        // Check each desired resource.
+        for d in &self.desired {
+            match observed_map.get(&(d.kind.as_str(), d.name.as_str())) {
+                Some(obs) => {
+                    if obs.spec != d.spec {
+                        actions.push(ReconcileAction::Update {
+                            kind: d.kind.clone(),
+                            name: d.name.clone(),
+                            diff: "spec changed".to_string(),
+                        });
+                    } else {
+                        actions.push(ReconcileAction::Skip {
+                            kind: d.kind.clone(),
+                            name: d.name.clone(),
+                            reason: "already in desired state".into(),
+                        });
+                    }
+                }
+                None => {
+                    actions.push(ReconcileAction::Create {
+                        kind: d.kind.clone(),
+                        name: d.name.clone(),
+                    });
+                }
+            }
+        }
+
+        // Check for resources that exist but aren't desired (orphans).
+        let desired_map: HashMap<(&str, &str), &DesiredState> = self
+            .desired
+            .iter()
+            .map(|d| ((d.kind.as_str(), d.name.as_str()), d))
+            .collect();
+
+        for o in &self.observed {
+            if !desired_map.contains_key(&(o.kind.as_str(), o.name.as_str())) {
+                actions.push(ReconcileAction::Delete {
+                    kind: o.kind.clone(),
+                    name: o.name.clone(),
+                });
+            }
+        }
+
+        actions
+    }
+
+    /// Number of desired resources.
+    pub fn desired_count(&self) -> usize {
+        self.desired.len()
+    }
+
+    /// Number of observed resources.
+    pub fn observed_count(&self) -> usize {
+        self.observed.len()
+    }
+}
+
+impl Default for Reconciler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -737,5 +1274,218 @@ mod tests {
                 .match_route(&HttpMethod::Delete, "/api/v1/nonexistent")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn test_trace_context_traceparent() {
+        let ctx = TraceContext::from_traceparent(
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        )
+        .unwrap();
+        assert_eq!(ctx.trace_id, "4bf92f3577b34da6a3ce929d0e0e4736");
+        assert_eq!(ctx.span_id, "00f067aa0ba902b7");
+        assert!(ctx.is_sampled());
+
+        let header = ctx.to_traceparent();
+        assert!(header.starts_with("00-"));
+        assert!(header.ends_with("-01"));
+    }
+
+    #[test]
+    fn test_trace_context_invalid() {
+        assert!(TraceContext::from_traceparent("invalid").is_none());
+        assert!(TraceContext::from_traceparent("01-abc-def-00").is_none()); // Wrong version.
+    }
+
+    #[test]
+    fn test_trace_context_child() {
+        let root = TraceContext::from_traceparent(
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        )
+        .unwrap();
+        let child = root.child();
+        assert_eq!(child.trace_id, root.trace_id); // Same trace.
+        assert_ne!(child.span_id, root.span_id); // Different span.
+        assert_eq!(child.parent_span_id, Some(root.span_id));
+    }
+
+    #[test]
+    fn test_span_lifecycle() {
+        let ctx = TraceContext::from_traceparent(
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        )
+        .unwrap();
+        let mut span = Span::new("test_op".into(), ctx, SpanKind::Server, 1000);
+        span.set_attribute("http.method".into(), "GET".into());
+        span.add_event("started".into(), 1000);
+        span.set_ok();
+        span.end(2000);
+
+        assert_eq!(span.duration_ms(), 1000);
+        assert_eq!(span.status, SpanStatus::Ok);
+        assert_eq!(span.attributes.get("http.method").unwrap(), "GET");
+        assert_eq!(span.events.len(), 1);
+    }
+
+    #[test]
+    fn test_span_otlp_json() {
+        let ctx = TraceContext::from_traceparent(
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        )
+        .unwrap();
+        let mut span = Span::new("rpc.exec".into(), ctx, SpanKind::Server, 1000);
+        span.end(2000);
+        span.set_ok();
+
+        let json = span.to_otlp_json();
+        assert_eq!(json["name"], "rpc.exec");
+        assert_eq!(json["traceId"], "4bf92f3577b34da6a3ce929d0e0e4736");
+    }
+
+    #[test]
+    fn test_api_response_helpers() {
+        let ok = ApiResponse::ok(serde_json::json!({"data": 1}));
+        assert_eq!(ok.status_code, 200);
+
+        let not_found = ApiResponse::not_found();
+        assert_eq!(not_found.status_code, 404);
+
+        let unauth = ApiResponse::unauthorized();
+        assert_eq!(unauth.status_code, 401);
+
+        let forbidden = ApiResponse::forbidden();
+        assert_eq!(forbidden.status_code, 403);
+
+        let err = ApiResponse::internal_error("boom");
+        assert_eq!(err.status_code, 500);
+    }
+
+    #[test]
+    fn test_api_dispatcher_health() {
+        let reg = AgentRegistry::new(100, 30_000);
+        let dispatcher = ApiDispatcher::new(reg);
+        let req = ApiRequest {
+            method: HttpMethod::Get,
+            path: "/healthz".into(),
+            body: None,
+            auth_token: None,
+            trace_context: None,
+        };
+        let resp = dispatcher.dispatch(&req);
+        assert_eq!(resp.status_code, 200);
+        assert_eq!(resp.body["status"], "healthy");
+    }
+
+    #[test]
+    fn test_api_dispatcher_list_agents() {
+        let mut reg = AgentRegistry::new(100, 30_000);
+        reg.upsert(AgentInfo {
+            id: "web-01".into(),
+            key_hash: "h".into(),
+            last_heartbeat_ms: 0,
+            status: AgentStatus::Online,
+            version: "0.1.0".into(),
+            labels: HashMap::new(),
+        });
+        let dispatcher = ApiDispatcher::new(reg);
+        let req = ApiRequest {
+            method: HttpMethod::Get,
+            path: "/api/v1/agents".into(),
+            body: None,
+            auth_token: Some("token".into()),
+            trace_context: None,
+        };
+        let resp = dispatcher.dispatch(&req);
+        assert_eq!(resp.status_code, 200);
+        assert_eq!(resp.body["total"], 1);
+    }
+
+    #[test]
+    fn test_api_dispatcher_unauthorized() {
+        let reg = AgentRegistry::new(100, 30_000);
+        let dispatcher = ApiDispatcher::new(reg);
+        let req = ApiRequest {
+            method: HttpMethod::Get,
+            path: "/api/v1/agents".into(),
+            body: None,
+            auth_token: None, // No auth.
+            trace_context: None,
+        };
+        let resp = dispatcher.dispatch(&req);
+        assert_eq!(resp.status_code, 401);
+    }
+
+    #[test]
+    fn test_reconciler_create() {
+        let mut rec = Reconciler::new();
+        rec.set_desired(vec![DesiredState {
+            kind: "RavenAgent".into(),
+            name: "web-01".into(),
+            spec: serde_json::json!({"replicas": 1}),
+        }]);
+        rec.set_observed(vec![]);
+
+        let actions = rec.plan();
+        assert_eq!(actions.len(), 1);
+        assert!(
+            matches!(&actions[0], ReconcileAction::Create { kind, name } if kind == "RavenAgent" && name == "web-01")
+        );
+    }
+
+    #[test]
+    fn test_reconciler_update() {
+        let mut rec = Reconciler::new();
+        rec.set_desired(vec![DesiredState {
+            kind: "RavenAgent".into(),
+            name: "web-01".into(),
+            spec: serde_json::json!({"replicas": 2}),
+        }]);
+        rec.set_observed(vec![ObservedState {
+            kind: "RavenAgent".into(),
+            name: "web-01".into(),
+            spec: serde_json::json!({"replicas": 1}),
+            state: ReconcileState::Synced,
+        }]);
+
+        let actions = rec.plan();
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(&actions[0], ReconcileAction::Update { .. }));
+    }
+
+    #[test]
+    fn test_reconciler_delete_orphan() {
+        let mut rec = Reconciler::new();
+        rec.set_desired(vec![]);
+        rec.set_observed(vec![ObservedState {
+            kind: "RavenAgent".into(),
+            name: "orphan".into(),
+            spec: serde_json::json!({}),
+            state: ReconcileState::Synced,
+        }]);
+
+        let actions = rec.plan();
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(&actions[0], ReconcileAction::Delete { name, .. } if name == "orphan"));
+    }
+
+    #[test]
+    fn test_reconciler_skip_synced() {
+        let spec = serde_json::json!({"replicas": 1});
+        let mut rec = Reconciler::new();
+        rec.set_desired(vec![DesiredState {
+            kind: "RavenAgent".into(),
+            name: "web-01".into(),
+            spec: spec.clone(),
+        }]);
+        rec.set_observed(vec![ObservedState {
+            kind: "RavenAgent".into(),
+            name: "web-01".into(),
+            spec,
+            state: ReconcileState::Synced,
+        }]);
+
+        let actions = rec.plan();
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(&actions[0], ReconcileAction::Skip { .. }));
     }
 }

@@ -5,6 +5,7 @@
 //! use unconventional physical channels.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// A steganographic or censorship-resistant transport type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -422,6 +423,529 @@ impl BleDiscovery {
     }
 }
 
+// --- DNS Tunnel Encoding ---
+
+/// DNS tunnel encoder/decoder.
+///
+/// Encodes binary data into DNS-safe labels (base32) and
+/// decodes response TXT record payloads.
+pub struct DnsTunnelCodec {
+    /// Domain suffix for queries.
+    domain: String,
+    /// Encoding scheme.
+    encoding: DnsTunnelEncoding,
+    /// Max data per DNS label (63 bytes max, encoding overhead).
+    max_label_data: usize,
+}
+
+/// DNS tunnel encoding scheme.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DnsTunnelEncoding {
+    /// Base32 (RFC 4648, no padding, case-insensitive).
+    Base32,
+    /// Hex encoding (lowercase).
+    Hex,
+}
+
+impl DnsTunnelCodec {
+    /// Create a new DNS tunnel codec.
+    pub fn new(domain: String, encoding: DnsTunnelEncoding) -> Self {
+        let max_label_data = match encoding {
+            // 63 char label limit. base32: 5 bits per char → 63 chars = 39 bytes.
+            DnsTunnelEncoding::Base32 => 39,
+            // hex: 4 bits per char → 63 chars = 31 bytes.
+            DnsTunnelEncoding::Hex => 31,
+        };
+        Self {
+            domain,
+            encoding,
+            max_label_data,
+        }
+    }
+
+    /// Encode binary data into a DNS query name.
+    /// Returns a list of DNS query names (one per fragment).
+    pub fn encode_queries(&self, data: &[u8], query_id: u16) -> Vec<String> {
+        let mut queries = Vec::new();
+        for (i, chunk) in data.chunks(self.max_label_data).enumerate() {
+            let encoded = match self.encoding {
+                DnsTunnelEncoding::Base32 => base32_encode(chunk),
+                DnsTunnelEncoding::Hex => hex_encode(chunk),
+            };
+            // Format: <encoded>.<seq>.<query_id>.<domain>
+            queries.push(format!("{}.{}.{}.{}", encoded, i, query_id, self.domain));
+        }
+        queries
+    }
+
+    /// Decode a DNS TXT record response payload.
+    pub fn decode_response(&self, txt_data: &str) -> Option<Vec<u8>> {
+        match self.encoding {
+            DnsTunnelEncoding::Base32 => base32_decode(txt_data),
+            DnsTunnelEncoding::Hex => hex_decode(txt_data),
+        }
+    }
+
+    /// Number of fragments needed for a payload.
+    pub fn fragment_count(&self, data_len: usize) -> usize {
+        if data_len == 0 {
+            return 0;
+        }
+        data_len.div_ceil(self.max_label_data)
+    }
+
+    /// Max data per fragment.
+    pub fn max_fragment_size(&self) -> usize {
+        self.max_label_data
+    }
+}
+
+/// Simple base32 encoder (RFC 4648, no padding, lowercase).
+fn base32_encode(data: &[u8]) -> String {
+    const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz234567";
+    let mut result = String::new();
+    let mut buffer: u64 = 0;
+    let mut bits = 0;
+
+    for &byte in data {
+        buffer = (buffer << 8) | byte as u64;
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            result.push(ALPHABET[((buffer >> bits) & 0x1F) as usize] as char);
+        }
+    }
+    if bits > 0 {
+        buffer <<= 5 - bits;
+        result.push(ALPHABET[(buffer & 0x1F) as usize] as char);
+    }
+    result
+}
+
+/// Simple base32 decoder (RFC 4648, no padding, case-insensitive).
+fn base32_decode(encoded: &str) -> Option<Vec<u8>> {
+    let mut result = Vec::new();
+    let mut buffer: u64 = 0;
+    let mut bits = 0;
+
+    for c in encoded.chars() {
+        let val = match c {
+            'a'..='z' => c as u64 - 'a' as u64,
+            'A'..='Z' => c as u64 - 'A' as u64,
+            '2'..='7' => c as u64 - '2' as u64 + 26,
+            _ => return None,
+        };
+        buffer = (buffer << 5) | val;
+        bits += 5;
+        if bits >= 8 {
+            bits -= 8;
+            result.push((buffer >> bits) as u8);
+        }
+    }
+    Some(result)
+}
+
+/// Simple hex encoder.
+fn hex_encode(data: &[u8]) -> String {
+    use std::fmt::Write;
+    data.iter()
+        .fold(String::with_capacity(data.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
+}
+
+/// Simple hex decoder.
+fn hex_decode(encoded: &str) -> Option<Vec<u8>> {
+    if encoded.len() % 2 != 0 {
+        return None;
+    }
+    (0..encoded.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&encoded[i..i + 2], 16).ok())
+        .collect()
+}
+
+// --- ICMP Tunnel Framing ---
+
+/// ICMP tunnel frame for embedding data in echo request/reply payloads.
+#[derive(Debug, Clone)]
+pub struct IcmpFrame {
+    /// ICMP type (8 = echo request, 0 = echo reply).
+    pub icmp_type: u8,
+    /// Identifier (for session multiplexing).
+    pub identifier: u16,
+    /// Sequence number.
+    pub sequence: u16,
+    /// Payload data.
+    pub payload: Vec<u8>,
+}
+
+/// ICMP tunnel framer.
+pub struct IcmpTunnelFramer {
+    /// Session identifier.
+    identifier: u16,
+    /// Next sequence number.
+    next_seq: u16,
+    /// Max payload per ICMP packet (typically limited to ~1400 bytes).
+    max_payload: usize,
+}
+
+impl IcmpTunnelFramer {
+    /// Create a new ICMP tunnel framer.
+    pub fn new(identifier: u16, max_payload: usize) -> Self {
+        Self {
+            identifier,
+            next_seq: 0,
+            max_payload,
+        }
+    }
+
+    /// Wrap data into ICMP echo request frames.
+    pub fn encode_request(&mut self, data: &[u8]) -> Vec<IcmpFrame> {
+        let mut frames = Vec::new();
+        for chunk in data.chunks(self.max_payload) {
+            frames.push(IcmpFrame {
+                icmp_type: 8, // Echo request.
+                identifier: self.identifier,
+                sequence: self.next_seq,
+                payload: chunk.to_vec(),
+            });
+            self.next_seq = self.next_seq.wrapping_add(1);
+        }
+        frames
+    }
+
+    /// Check if a frame belongs to this session.
+    pub fn is_our_frame(&self, frame: &IcmpFrame) -> bool {
+        frame.identifier == self.identifier
+    }
+
+    /// Serialize an ICMP frame to bytes (simplified — real ICMP has checksum).
+    pub fn serialize_frame(frame: &IcmpFrame) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(8 + frame.payload.len());
+        buf.push(frame.icmp_type);
+        buf.push(0); // Code.
+        buf.extend_from_slice(&[0, 0]); // Checksum placeholder.
+        buf.extend_from_slice(&frame.identifier.to_be_bytes());
+        buf.extend_from_slice(&frame.sequence.to_be_bytes());
+        buf.extend_from_slice(&frame.payload);
+        buf
+    }
+
+    /// Deserialize bytes to an ICMP frame.
+    pub fn deserialize_frame(data: &[u8]) -> Option<IcmpFrame> {
+        if data.len() < 8 {
+            return None;
+        }
+        Some(IcmpFrame {
+            icmp_type: data[0],
+            identifier: u16::from_be_bytes([data[4], data[5]]),
+            sequence: u16::from_be_bytes([data[6], data[7]]),
+            payload: data[8..].to_vec(),
+        })
+    }
+}
+
+// --- Serial Port Framing ---
+
+/// Serial port frame with sync bytes, length, CRC, and escape handling.
+///
+/// Frame format: [SYNC: 2] [LENGTH: 2] [PAYLOAD: N] [CRC16: 2]
+/// SYNC = 0x7E 0x7E
+/// LENGTH = big-endian u16 (payload length)
+/// CRC16 = CRC-CCITT of payload
+#[derive(Debug, Clone)]
+pub struct SerialFrame {
+    /// Frame payload.
+    pub payload: Vec<u8>,
+}
+
+/// Serial port framer.
+pub struct SerialFramer {
+    /// Maximum frame payload size.
+    max_payload: usize,
+}
+
+impl SerialFramer {
+    /// Sync byte pattern.
+    pub const SYNC: [u8; 2] = [0x7E, 0x7E];
+
+    /// Create a new serial framer.
+    pub fn new(max_payload: usize) -> Self {
+        Self { max_payload }
+    }
+
+    /// Encode a payload into a serial frame (with sync, length, CRC).
+    pub fn encode(&self, payload: &[u8]) -> Option<Vec<u8>> {
+        if payload.len() > self.max_payload {
+            return None;
+        }
+        let len = payload.len() as u16;
+        let crc = crc16_ccitt(payload);
+
+        let mut frame = Vec::with_capacity(6 + payload.len());
+        frame.extend_from_slice(&Self::SYNC);
+        frame.extend_from_slice(&len.to_be_bytes());
+        frame.extend_from_slice(payload);
+        frame.extend_from_slice(&crc.to_be_bytes());
+        Some(frame)
+    }
+
+    /// Decode a serial frame. Returns the payload if valid.
+    pub fn decode(&self, data: &[u8]) -> Option<SerialFrame> {
+        if data.len() < 6 {
+            return None;
+        }
+        if data[0..2] != Self::SYNC {
+            return None;
+        }
+        let len = u16::from_be_bytes([data[2], data[3]]) as usize;
+        if data.len() < 4 + len + 2 {
+            return None;
+        }
+        let payload = &data[4..4 + len];
+        let expected_crc = u16::from_be_bytes([data[4 + len], data[4 + len + 1]]);
+        let actual_crc = crc16_ccitt(payload);
+        if expected_crc != actual_crc {
+            return None; // CRC mismatch.
+        }
+        Some(SerialFrame {
+            payload: payload.to_vec(),
+        })
+    }
+
+    /// Find frame boundaries in a byte stream (sync word scanning).
+    pub fn find_frame_start(data: &[u8]) -> Option<usize> {
+        data.windows(2).position(|w| w == Self::SYNC)
+    }
+}
+
+/// CRC-16/CCITT (polynomial 0x1021, init 0xFFFF).
+fn crc16_ccitt(data: &[u8]) -> u16 {
+    let mut crc: u16 = 0xFFFF;
+    for &byte in data {
+        crc ^= (byte as u16) << 8;
+        for _ in 0..8 {
+            if crc & 0x8000 != 0 {
+                crc = (crc << 1) ^ 0x1021;
+            } else {
+                crc <<= 1;
+            }
+        }
+    }
+    crc
+}
+
+// --- Domain Fronting ---
+
+/// Domain fronting request rewriter.
+///
+/// Rewrites TLS SNI to the CDN domain while setting the HTTP Host
+/// header to the real target, bypassing SNI-based censorship.
+pub struct DomainFronter {
+    /// CDN domain for TLS SNI.
+    sni_domain: String,
+    /// Real target domain for HTTP Host header.
+    target_domain: String,
+    /// CDN provider.
+    cdn: CdnProvider,
+}
+
+impl DomainFronter {
+    /// Create a new domain fronter.
+    pub fn new(sni_domain: String, target_domain: String, cdn: CdnProvider) -> Self {
+        Self {
+            sni_domain,
+            target_domain,
+            cdn,
+        }
+    }
+
+    /// Rewrite an HTTP request for domain fronting.
+    /// Returns (tls_sni, http_host, http_path).
+    pub fn rewrite_request(&self, path: &str) -> (String, String, String) {
+        (
+            self.sni_domain.clone(),
+            self.target_domain.clone(),
+            path.to_string(),
+        )
+    }
+
+    /// Generate HTTP CONNECT-style tunneling request.
+    pub fn tunnel_request(&self, data: &[u8]) -> Vec<u8> {
+        let mut request = format!(
+            "POST / HTTP/1.1\r\n\
+             Host: {}\r\n\
+             Content-Length: {}\r\n\
+             Content-Type: application/octet-stream\r\n\
+             X-Forwarded-Host: {}\r\n\
+             \r\n",
+            self.target_domain,
+            data.len(),
+            self.sni_domain,
+        )
+        .into_bytes();
+        request.extend_from_slice(data);
+        request
+    }
+
+    /// Parse a tunnel response (extract body from HTTP response).
+    pub fn parse_response(data: &[u8]) -> Option<Vec<u8>> {
+        let s = std::str::from_utf8(data).ok()?;
+        let body_start = s.find("\r\n\r\n")? + 4;
+        Some(data[body_start..].to_vec())
+    }
+
+    /// SNI domain.
+    pub fn sni_domain(&self) -> &str {
+        &self.sni_domain
+    }
+
+    /// Target domain.
+    pub fn target_domain(&self) -> &str {
+        &self.target_domain
+    }
+
+    /// CDN provider.
+    pub fn cdn(&self) -> &CdnProvider {
+        &self.cdn
+    }
+}
+
+// --- Protocol Mimicry (Shadowsocks-style) ---
+
+/// Obfuscated protocol frame.
+///
+/// Mimics Shadowsocks AEAD framing:
+/// [encrypted_length: 2 + 16 tag] [encrypted_payload: N + 16 tag]
+///
+/// Without actual crypto, this provides the framing structure
+/// that real protocol integration would fill with AEAD ciphertext.
+#[derive(Debug, Clone)]
+pub struct MimicryFrame {
+    /// Obfuscated length field (2 bytes + 16 byte tag).
+    pub length_block: Vec<u8>,
+    /// Obfuscated payload (N bytes + 16 byte tag).
+    pub payload_block: Vec<u8>,
+}
+
+/// Protocol mimicry encoder/decoder.
+pub struct MimicryCodec {
+    /// Pre-shared key (for XOR obfuscation in stub; real impl uses AEAD).
+    psk: Vec<u8>,
+    /// Protocol being mimicked.
+    protocol: MimicProtocol,
+    /// Counter for nonce derivation.
+    counter: u64,
+}
+
+impl MimicryCodec {
+    /// Tag size for AEAD (16 bytes for Poly1305/GCM).
+    const TAG_SIZE: usize = 16;
+
+    /// Create a new mimicry codec.
+    pub fn new(psk: Vec<u8>, protocol: MimicProtocol) -> Self {
+        Self {
+            psk,
+            protocol,
+            counter: 0,
+        }
+    }
+
+    /// Encode a payload into an obfuscated frame.
+    pub fn encode(&mut self, payload: &[u8]) -> MimicryFrame {
+        let len_bytes = (payload.len() as u16).to_be_bytes();
+        let mut length_block = Vec::with_capacity(2 + Self::TAG_SIZE);
+        // XOR with PSK for length (stub — real impl uses AEAD).
+        for (i, &b) in len_bytes.iter().enumerate() {
+            length_block.push(b ^ self.psk[i % self.psk.len()]);
+        }
+        // Fake tag (deterministic from counter).
+        for i in 0..Self::TAG_SIZE {
+            length_block.push(
+                self.psk[(i + 2) % self.psk.len()] ^ (self.counter as u8).wrapping_add(i as u8),
+            );
+        }
+
+        let mut payload_block = Vec::with_capacity(payload.len() + Self::TAG_SIZE);
+        // XOR with PSK for payload (stub).
+        for (i, &b) in payload.iter().enumerate() {
+            payload_block.push(b ^ self.psk[(i + 4) % self.psk.len()]);
+        }
+        // Fake tag.
+        for i in 0..Self::TAG_SIZE {
+            payload_block.push(
+                self.psk[(i + 6) % self.psk.len()]
+                    ^ (self.counter as u8).wrapping_add(i as u8 + 16),
+            );
+        }
+
+        self.counter += 1;
+
+        MimicryFrame {
+            length_block,
+            payload_block,
+        }
+    }
+
+    /// Decode an obfuscated frame back to plaintext.
+    pub fn decode(&self, frame: &MimicryFrame) -> Option<Vec<u8>> {
+        if frame.length_block.len() < 2 + Self::TAG_SIZE {
+            return None;
+        }
+        // Decode length.
+        let len_bytes: Vec<u8> = frame.length_block[..2]
+            .iter()
+            .enumerate()
+            .map(|(i, &b)| b ^ self.psk[i % self.psk.len()])
+            .collect();
+        let len = u16::from_be_bytes([len_bytes[0], len_bytes[1]]) as usize;
+
+        if frame.payload_block.len() < len + Self::TAG_SIZE {
+            return None;
+        }
+
+        // Decode payload.
+        let payload: Vec<u8> = frame.payload_block[..len]
+            .iter()
+            .enumerate()
+            .map(|(i, &b)| b ^ self.psk[(i + 4) % self.psk.len()])
+            .collect();
+
+        Some(payload)
+    }
+
+    /// Serialize a frame to bytes (wire format).
+    pub fn serialize(frame: &MimicryFrame) -> Vec<u8> {
+        let mut out = Vec::with_capacity(frame.length_block.len() + frame.payload_block.len());
+        out.extend_from_slice(&frame.length_block);
+        out.extend_from_slice(&frame.payload_block);
+        out
+    }
+
+    /// Protocol being mimicked.
+    pub fn protocol(&self) -> &MimicProtocol {
+        &self.protocol
+    }
+
+    /// Traffic statistics for fingerprint resistance.
+    pub fn stats(&self) -> HashMap<String, u64> {
+        let mut m = HashMap::new();
+        m.insert("frames_sent".into(), self.counter);
+        m.insert(
+            "protocol".into(),
+            match self.protocol {
+                MimicProtocol::Https => 1,
+                MimicProtocol::Shadowsocks => 2,
+                MimicProtocol::Trojan => 3,
+                MimicProtocol::Webrtc => 4,
+            },
+        );
+        m
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -648,5 +1172,207 @@ mod tests {
             capabilities: 0,
         };
         assert!(!disc.on_beacon(beacon));
+    }
+
+    // --- DNS Tunnel Tests ---
+
+    #[test]
+    fn test_dns_tunnel_base32_roundtrip() {
+        let data = b"Hello, RavenFabric!";
+        let encoded = base32_encode(data);
+        let decoded = base32_decode(&encoded).unwrap();
+        assert_eq!(&decoded[..data.len()], data);
+    }
+
+    #[test]
+    fn test_dns_tunnel_hex_roundtrip() {
+        let data = b"\x00\xFF\x42\xAB";
+        let encoded = hex_encode(data);
+        assert_eq!(encoded, "00ff42ab");
+        let decoded = hex_decode(&encoded).unwrap();
+        assert_eq!(decoded, data);
+    }
+
+    #[test]
+    fn test_dns_tunnel_encode_queries() {
+        let codec = DnsTunnelCodec::new("t.example.com".into(), DnsTunnelEncoding::Hex);
+        let data = vec![0xAA; 10];
+        let queries = codec.encode_queries(&data, 42);
+        assert_eq!(queries.len(), 1); // 10 bytes < 31 max.
+        assert!(queries[0].ends_with(".t.example.com"));
+        assert!(queries[0].contains(".0.42.")); // seq.query_id
+    }
+
+    #[test]
+    fn test_dns_tunnel_fragmentation() {
+        let codec = DnsTunnelCodec::new("t.example.com".into(), DnsTunnelEncoding::Hex);
+        let data = vec![0xFF; 100];
+        let count = codec.fragment_count(100);
+        assert_eq!(count, 4); // ceil(100/31) = 4
+        let queries = codec.encode_queries(&data, 1);
+        assert_eq!(queries.len(), 4);
+    }
+
+    #[test]
+    fn test_dns_tunnel_decode_response() {
+        let codec = DnsTunnelCodec::new("t.example.com".into(), DnsTunnelEncoding::Hex);
+        let decoded = codec.decode_response("48656c6c6f").unwrap();
+        assert_eq!(decoded, b"Hello");
+    }
+
+    // --- ICMP Tunnel Tests ---
+
+    #[test]
+    fn test_icmp_frame_encode_decode() {
+        let mut framer = IcmpTunnelFramer::new(0x1234, 1400);
+        let data = b"test payload";
+        let frames = framer.encode_request(data);
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].identifier, 0x1234);
+        assert_eq!(frames[0].sequence, 0);
+        assert_eq!(frames[0].payload, data);
+        assert!(framer.is_our_frame(&frames[0]));
+    }
+
+    #[test]
+    fn test_icmp_serialize_deserialize() {
+        let frame = IcmpFrame {
+            icmp_type: 8,
+            identifier: 0xABCD,
+            sequence: 42,
+            payload: vec![1, 2, 3, 4],
+        };
+        let bytes = IcmpTunnelFramer::serialize_frame(&frame);
+        let decoded = IcmpTunnelFramer::deserialize_frame(&bytes).unwrap();
+        assert_eq!(decoded.icmp_type, 8);
+        assert_eq!(decoded.identifier, 0xABCD);
+        assert_eq!(decoded.sequence, 42);
+        assert_eq!(decoded.payload, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_icmp_fragmentation() {
+        let mut framer = IcmpTunnelFramer::new(1, 10);
+        let data = vec![0u8; 25];
+        let frames = framer.encode_request(&data);
+        assert_eq!(frames.len(), 3); // 10 + 10 + 5
+        assert_eq!(frames[0].sequence, 0);
+        assert_eq!(frames[1].sequence, 1);
+        assert_eq!(frames[2].sequence, 2);
+    }
+
+    // --- Serial Frame Tests ---
+
+    #[test]
+    fn test_serial_frame_roundtrip() {
+        let framer = SerialFramer::new(1024);
+        let payload = b"RavenFabric serial data";
+        let encoded = framer.encode(payload).unwrap();
+        let decoded = framer.decode(&encoded).unwrap();
+        assert_eq!(decoded.payload, payload);
+    }
+
+    #[test]
+    fn test_serial_frame_crc_check() {
+        let framer = SerialFramer::new(1024);
+        let mut encoded = framer.encode(b"data").unwrap();
+        // Corrupt the payload.
+        encoded[4] ^= 0xFF;
+        assert!(framer.decode(&encoded).is_none()); // CRC mismatch.
+    }
+
+    #[test]
+    fn test_serial_frame_too_large() {
+        let framer = SerialFramer::new(10);
+        assert!(framer.encode(&[0u8; 11]).is_none());
+    }
+
+    #[test]
+    fn test_serial_find_frame_start() {
+        let data = [0x00, 0x00, 0x7E, 0x7E, 0x01, 0x02];
+        assert_eq!(SerialFramer::find_frame_start(&data), Some(2));
+    }
+
+    #[test]
+    fn test_crc16_ccitt() {
+        let crc = crc16_ccitt(b"123456789");
+        assert_eq!(crc, 0x29B1); // Known CRC-CCITT for "123456789".
+    }
+
+    // --- Domain Fronting Tests ---
+
+    #[test]
+    fn test_domain_fronting_rewrite() {
+        let fronter = DomainFronter::new(
+            "cdn.googleapis.com".into(),
+            "secret.example.com".into(),
+            CdnProvider::Gcp,
+        );
+        let (sni, host, path) = fronter.rewrite_request("/api/v1/data");
+        assert_eq!(sni, "cdn.googleapis.com");
+        assert_eq!(host, "secret.example.com");
+        assert_eq!(path, "/api/v1/data");
+    }
+
+    #[test]
+    fn test_domain_fronting_tunnel_request() {
+        let fronter = DomainFronter::new(
+            "cdn.example.com".into(),
+            "target.example.com".into(),
+            CdnProvider::Cloudflare,
+        );
+        let request = fronter.tunnel_request(b"payload");
+        let s = String::from_utf8_lossy(&request);
+        assert!(s.contains("Host: target.example.com"));
+        assert!(s.contains("Content-Length: 7"));
+        assert!(s.contains("payload"));
+    }
+
+    #[test]
+    fn test_domain_fronting_parse_response() {
+        let response = b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello";
+        let body = DomainFronter::parse_response(response).unwrap();
+        assert_eq!(body, b"hello");
+    }
+
+    // --- Protocol Mimicry Tests ---
+
+    #[test]
+    fn test_mimicry_encode_decode() {
+        let psk = vec![0x42u8; 32];
+        let mut codec = MimicryCodec::new(psk.clone(), MimicProtocol::Shadowsocks);
+        let plaintext = b"secret message";
+        let frame = codec.encode(plaintext);
+
+        let codec2 = MimicryCodec::new(psk, MimicProtocol::Shadowsocks);
+        let decoded = codec2.decode(&frame).unwrap();
+        assert_eq!(decoded, plaintext);
+    }
+
+    #[test]
+    fn test_mimicry_frame_structure() {
+        let mut codec = MimicryCodec::new(vec![0x01; 32], MimicProtocol::Https);
+        let frame = codec.encode(b"data");
+        // Length block: 2 bytes + 16 tag = 18.
+        assert_eq!(frame.length_block.len(), 18);
+        // Payload block: 4 bytes + 16 tag = 20.
+        assert_eq!(frame.payload_block.len(), 20);
+    }
+
+    #[test]
+    fn test_mimicry_stats() {
+        let mut codec = MimicryCodec::new(vec![0x01; 32], MimicProtocol::Shadowsocks);
+        codec.encode(b"a");
+        codec.encode(b"b");
+        let stats = codec.stats();
+        assert_eq!(stats["frames_sent"], 2);
+    }
+
+    #[test]
+    fn test_mimicry_serialize() {
+        let mut codec = MimicryCodec::new(vec![0xFF; 32], MimicProtocol::Trojan);
+        let frame = codec.encode(b"test");
+        let bytes = MimicryCodec::serialize(&frame);
+        assert_eq!(bytes.len(), 18 + 20); // length_block + payload_block
     }
 }
