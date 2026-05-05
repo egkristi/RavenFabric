@@ -7,6 +7,7 @@ pub mod eyeballs;
 pub mod fingerprint;
 pub mod latency;
 pub mod memory;
+pub mod mesh;
 pub mod migration;
 pub mod nat;
 pub mod obfuscation;

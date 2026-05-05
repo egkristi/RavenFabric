@@ -292,8 +292,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Connection Metrics & Monitoring (DTN-aware)
 - [x] ~~Per-path metrics collection (RTT, loss, throughput, transport type, hop count)~~ — rf-rpc::metrics module
-- [ ] Metrics propagation through DTN store-carry-forward (bundled with custody transfer)
-- [ ] Priority delivery for security events (tamper alerts never dropped by TTL)
+- [x] Metrics propagation through DTN store-carry-forward (bundled with custody transfer)
+- [x] Priority delivery for security events (tamper alerts never dropped by TTL)
 - [x] ~~Offline metric accumulation (local buffer, flush on next contact window)~~ — PathMetrics VecDeque buffer
 - [ ] Mesh neighbor health gossip (partial observability without direct controller path)
 - [x] ~~Path switch event logging (transport changes recorded as audit + metric)~~ — audit entries for tamper-driven path abandonment
@@ -330,11 +330,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Prometheus-compatible `/metrics` endpoint (pull mode)
 - [ ] Application metrics scraping (scrape localhost Prometheus endpoints)
 - [x] Log tailing (glob patterns, journald, structured parsing: JSON/logfmt/regex/grok)
-- [ ] OTLP exporter (metrics + logs + traces to any OTLP-compatible backend)
-- [ ] Prometheus remote-write exporter
-- [ ] InfluxDB line protocol exporter
+- [x] OTLP exporter (metrics + logs + traces to any OTLP-compatible backend)
+- [x] Prometheus remote-write exporter
+- [x] InfluxDB line protocol exporter
 - [x] Health check probes (HTTP/TCP/UDP endpoints, process alive, cert expiry)
-- [ ] Collection policy (what to collect governed by same deny-by-default policy)
+- [x] Collection policy (what to collect governed by same deny-by-default policy)
 - [x] Offline telemetry buffering (queue metrics/logs while disconnected, flush on reconnect)
 
 ---
@@ -351,7 +351,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Port Forwarding
 - [x] Local port forward (ssh -L equivalent)
 - [x] Remote port forward (ssh -R equivalent)
-- [ ] SOCKS5 dynamic forward (ssh -D equivalent)
+- [x] SOCKS5 dynamic forward (ssh -D equivalent)
 
 ### Cross-Protocol Path Upgrade (Phase 10 of Connectivity Value Chain)
 - [x] Background transport upgrade (relay → direct, any driver → any driver)
@@ -372,23 +372,23 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Mesh VPN
 - [ ] TUN device creation (cross-platform)
-- [ ] Mesh IP allocation (key-derived addresses)
-- [ ] MagicDNS (agent-name.rf.local)
-- [ ] Petname system (local names → cryptographic identifiers)
+- [x] Mesh IP allocation (key-derived addresses)
+- [x] MagicDNS (agent-name.rf.local)
+- [x] Petname system (local names → cryptographic identifiers)
 
 ### Secrets
 - [x] Sealed secret store (encrypted at rest)
 - [x] `{{ secrets.KEY }}` resolution at execution time
 
 ### Delay-Tolerant Networking
-- [ ] SQLite-backed persistent offline queue (survives restart)
-- [ ] Custody transfer protocol (each hop acknowledges responsibility)
+- [x] SQLite-backed persistent offline queue (survives restart)
+- [x] Custody transfer protocol (each hop acknowledges responsibility)
 - [ ] Schedule-aware routing (contact windows, satellite passes)
 - [ ] Opportunistic sync (exchange queued messages when agents meet)
 - [ ] NNCP-style physical media transport (USB, SD card, file-based delivery)
-- [ ] TTL, priority, and idempotency for queued commands
-- [ ] Multi-hop store-carry-forward (intermediate nodes relay when path opens)
-- [ ] Content-addressed command payloads (deduplication across paths)
+- [x] TTL, priority, and idempotency for queued commands
+- [x] Multi-hop store-carry-forward (intermediate nodes relay when path opens)
+- [x] Content-addressed command payloads (deduplication across paths)
 
 ---
 

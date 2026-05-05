@@ -1,3 +1,4 @@
+pub mod collection;
 pub mod decision;
 pub mod error;
 pub mod rbac;

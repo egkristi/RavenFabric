@@ -1,8 +1,10 @@
 pub mod codec;
+pub mod dtn;
 pub mod error;
 pub mod forward;
 pub mod heartbeat;
 pub mod metrics;
 pub mod mux;
+pub mod socks5;
 pub mod types;
 pub mod yamux_mux;

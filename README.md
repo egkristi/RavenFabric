@@ -986,10 +986,10 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption | Done (~1100 LOC, 23 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory, ConnectionManager, proxy, latency, NAT/ICE | Done (~3400 LOC, 79 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, path metrics | Done (~1100 LOC, 32 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory, ConnectionManager, proxy, latency, NAT/ICE, mesh | Done (~3700 LOC, 87 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5 | Done (~2200 LOC, 49 tests) |
 | `rf-audit` | Structured JSON-lines audit logging | Done (53 LOC) |
-| `rf-policy` | RPCPolicy enforcement (allow/deny regex, path rules, deny-by-default), RBAC | Done (~530 LOC, 11 tests) |
+| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, telemetry exporters | Done (~780 LOC, 16 tests) |
 | `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics | Done (~3100 LOC, 53 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~380 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done |
