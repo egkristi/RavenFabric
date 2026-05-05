@@ -247,22 +247,55 @@ meet_secret = "env:RELAY_SECRET"
 ## Implementation Priority (What to Build Next)
 
 The critical path to a working demo (`rf exec --token <token> "cmd"`) is **COMPLETE**.
-
-All v0.1 foundation items are done:
-1. ~~Fix `TransportState` split~~ — uses `StatelessTransportState` for concurrent send/recv
-2. ~~Wire protocol magic/version exchange~~ — sent and validated in every handshake
-3. ~~In-memory transport driver~~ — enables all testing without network
-4. ~~RPC session + msgpack codec~~ — frame encode/decode with roundtrip tests
-5. ~~WebSocket driver~~ — bridge pattern with DuplexStream
-6. ~~Relay implementation~~ — meet-token pairing, bidirectional forwarding
-7. ~~Agent RPC loop~~ — receive requests, dispatch to executor
-8. ~~CLI exec command~~ — connect, handshake, send, display
-9. ~~Executor tests~~ — 9 tests covering all security-critical paths
+v0.1 foundation is done: all crates implemented, 35 tests passing, integration tests working.
 
 **Next priorities (v0.2):**
-1. Integration test: spawn relay + agent + cli in-process
-2. `rf dev` mode (relay + agent in one process)
-3. Reconnect loop with exponential backoff
-4. Config file support (raven.toml)
-5. QUIC transport driver
-6. yamux multiplexing for concurrent RPC
+1. QUIC transport driver
+2. yamux multiplexing for concurrent RPC
+3. Hot-reload policy via SIGHUP
+4. Streaming stdout/stderr via mux stream
+5. Agent enrollment flow (OTP → key exchange)
+6. Per-IP rate limiting on relay
+
+## Website (ravenfabric.io)
+
+The project landing page is at [ravenfabric.io](https://ravenfabric.io), served via GitHub Pages.
+
+### Stack
+
+- **Static HTML/CSS** — single `index.html` with inlined CSS, zero JS dependencies
+- **GitHub Pages** — hosting via `.github/workflows/pages.yml`
+- **Custom domain** — `ravenfabric.io` (CNAME file in `website/`)
+
+### Structure
+
+```
+website/
+├── index.html              # Single-page landing (all CSS inlined)
+├── CNAME                   # Custom domain for GitHub Pages
+├── robots.txt              # SEO crawler directives
+├── sitemap.xml             # Sitemap for search engines
+├── .well-known/
+│   └── security.txt        # RFC 9116 security contact
+└── assets/
+    ├── favicon.svg         # SVG favicon
+    ├── og-image.svg        # Open Graph source
+    └── og-image.png        # Open Graph rendered (1200×630)
+```
+
+### Deployment
+
+Auto-deploys on push to `main` when files under `website/` change:
+```
+git push origin main → GitHub Actions → live at ravenfabric.io (~1-2 min)
+```
+
+### Maintenance Rules
+
+- **No build step** — edit `website/index.html` directly, no bundlers or frameworks
+- **No JavaScript** — keep the site static HTML/CSS only
+- **No localhost references** — CI validates no `localhost` or `127.0.0.1` in HTML
+- **Required files** — `index.html`, `CNAME`, `assets/favicon.svg`, `assets/og-image.png` must exist (CI validates)
+- **CNAME must stay** — removing it breaks the custom domain
+- **Test locally** with `python3 -m http.server 8000` in the `website/` directory
+- **og-image.png** must be 1200×630 for proper Open Graph social card rendering
