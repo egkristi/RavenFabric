@@ -1,6 +1,6 @@
 # Production Deployment
 
-This guide covers deploying RavenFabric in production environments with proper key management, service configuration, and monitoring.
+This guide covers deploying RavenFabric in production with proper key management, service configuration, and monitoring.
 
 ## Prerequisites
 
@@ -13,24 +13,9 @@ This guide covers deploying RavenFabric in production environments with proper k
 ### Generate relay secret
 
 ```bash
-# Generate a strong meet secret
 RELAY_SECRET=$(openssl rand -hex 32)
-echo "RELAY_SECRET=$RELAY_SECRET" >> /etc/ravenfabric/relay.env
+echo "RELAY_SECRET=$RELAY_SECRET" > /etc/ravenfabric/relay.env
 chmod 600 /etc/ravenfabric/relay.env
-```
-
-### Configuration
-
-```toml
-# /etc/ravenfabric/relay.toml
-[relay]
-listen = "0.0.0.0:9090"
-meet_secret = "env:RELAY_SECRET"
-
-[rate_limit]
-requests_per_second = 100
-burst = 200
-per_ip = true
 ```
 
 ### systemd service
@@ -44,7 +29,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/rf-relay --config /etc/ravenfabric/relay.toml
+ExecStart=/usr/local/bin/rf-relay --listen 0.0.0.0:9090
 EnvironmentFile=/etc/ravenfabric/relay.env
 Restart=always
 RestartSec=5
@@ -53,7 +38,6 @@ Group=ravenfabric
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/log/ravenfabric
 
 [Install]
 WantedBy=multi-user.target
@@ -73,7 +57,7 @@ sudo systemctl status rf-relay
 
 ### TLS termination (recommended)
 
-The relay itself speaks WebSocket without TLS. In production, place it behind a reverse proxy:
+The relay speaks plain WebSocket. In production, front it with a TLS-terminating reverse proxy:
 
 ```nginx
 # /etc/nginx/sites-available/relay
@@ -90,42 +74,30 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
-        proxy_read_timeout 86400;  # Keep WebSocket alive
+        proxy_read_timeout 86400;
     }
 }
 ```
 
+> **Note:** Even without TLS, the RavenFabric wire protocol provides end-to-end encryption (Noise XX). TLS adds defense-in-depth and protects metadata.
+
 ## 2. Agent Deployment
 
-### Generate agent key
-
-```bash
-sudo mkdir -p /etc/ravenfabric
-rf-agent --generate-key /etc/ravenfabric/agent.key
-sudo chmod 600 /etc/ravenfabric/agent.key
-sudo chown ravenfabric:ravenfabric /etc/ravenfabric/agent.key
-```
-
-### Agent configuration
+### Configuration
 
 ```toml
 # /etc/ravenfabric/raven.toml
 [agent]
 id = "prod-web-01"
 relay = "wss://relay.example.com/meet"
+token = "your-meet-token"
 key_path = "/etc/ravenfabric/agent.key"
 policy_path = "/etc/ravenfabric/policy.yaml"
 audit_path = "/var/log/ravenfabric/audit.jsonl"
 
 [transport]
-driver = "websocket"
 reconnect_interval = 5
-max_retries = 0  # Infinite reconnect
-
-[resources]
-max_output_bytes = 10485760  # 10 MB
-timeout_seconds = 300
-max_concurrent = 10
+max_retries = 0
 ```
 
 ### Policy file
@@ -167,79 +139,77 @@ User=ravenfabric
 Group=ravenfabric
 NoNewPrivileges=true
 ProtectSystem=strict
+ProtectHome=true
 ReadWritePaths=/var/log/ravenfabric
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-### Enable
+### File permissions
+
+```bash
+sudo chown ravenfabric:ravenfabric /etc/ravenfabric/agent.key
+sudo chmod 600 /etc/ravenfabric/agent.key
+sudo chmod 644 /etc/ravenfabric/raven.toml
+sudo chmod 644 /etc/ravenfabric/policy.yaml
+```
+
+### Enable and start
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now rf-agent
-sudo journalctl -u rf-agent -f  # Watch logs
+sudo journalctl -u rf-agent -f
 ```
 
-## 3. Key Rotation
+## 3. Monitoring
 
-Rotate agent keys periodically:
+### Audit log
+
+The audit log (`audit.jsonl`) records every action:
 
 ```bash
-# Generate new key
-rf-agent --generate-key /etc/ravenfabric/agent.key.new
-
-# Swap keys (atomic)
-sudo mv /etc/ravenfabric/agent.key.new /etc/ravenfabric/agent.key
-sudo chmod 600 /etc/ravenfabric/agent.key
-sudo chown ravenfabric:ravenfabric /etc/ravenfabric/agent.key
-
-# Restart agent to pick up new key
-sudo systemctl restart rf-agent
+# Watch audit log in real-time
+tail -f /var/log/ravenfabric/audit.jsonl | jq .
 ```
 
-## 4. Monitoring
+### Prometheus metrics
 
-### Health check
-
-```bash
-# Check agent is running and connected
-rf status prod-web-01
-
-# Prometheus metrics endpoint (if enabled)
-curl http://localhost:9100/metrics
-```
-
-### Agent configuration for metrics
+Enable the metrics endpoint:
 
 ```toml
 [agent]
 metrics_addr = "127.0.0.1:9100"
 ```
 
-### Log rotation
+Or via CLI flag:
 
-```
-# /etc/logrotate.d/ravenfabric
-/var/log/ravenfabric/audit.jsonl {
-    daily
-    rotate 90
-    compress
-    delaycompress
-    missingok
-    notifempty
-    copytruncate
-}
+```bash
+rf-agent --config /etc/ravenfabric/raven.toml --metrics-addr 127.0.0.1:9100
 ```
 
-## 5. Security Hardening
+### Health checks
 
-| Control | Implementation |
-|---------|----------------|
-| Minimal permissions | `User=ravenfabric`, no root |
-| System protection | `ProtectSystem=strict`, `NoNewPrivileges=true` |
-| Key file permissions | `chmod 600`, owned by service user |
-| Relay secret | Environment variable, not in config file |
-| Audit log integrity | Append-only, separate partition recommended |
-| Network exposure | Agent: outbound only. Relay: single port behind TLS proxy |
-| Policy reload | SIGHUP for hot-reload without restart |
+```bash
+# Check agent connectivity
+rf status --relay wss://relay.example.com/meet --token <token>
+```
+
+## 4. Security Hardening
+
+| Measure | Implementation |
+|---------|---------------|
+| File permissions | Key files 0600, owned by service user |
+| systemd sandboxing | `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome` |
+| Network isolation | Agent only needs outbound to relay (no inbound ports) |
+| Audit retention | Rotate with `logrotate`, ship to SIEM |
+| Policy minimization | Allow only exact commands needed for each agent's role |
+| TLS termination | Nginx/Caddy reverse proxy with Let's Encrypt |
+| Rate limiting | Relay has built-in per-IP rate limiting (20 conn/min) |
+
+## See Also
+
+- [Configuration Reference](../reference/config.md) — Full config schema
+- [Policy YAML Reference](../reference/policy-yaml.md) — Policy file syntax
+- [Troubleshooting](troubleshooting.md) — Common issues and solutions

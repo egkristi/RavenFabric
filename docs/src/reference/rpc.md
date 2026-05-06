@@ -1,38 +1,28 @@
-# RPC Protocol Reference
+# RPC Protocol
 
-## Overview
-
-RavenFabric RPC uses msgpack encoding over yamux-multiplexed Noise XX secure channels. All communication is end-to-end encrypted — the relay never sees plaintext.
+RavenFabric uses a custom RPC protocol over encrypted channels. All communication is E2E encrypted — the relay never sees message content.
 
 ## Transport Stack
 
 ```
-┌─────────────────────────────────┐
-│ RPC Messages (msgpack)          │
-├─────────────────────────────────┤
-│ yamux Multiplexing              │  Multiple concurrent streams
-├─────────────────────────────────┤
-│ SecureChannel (Noise XX)        │  E2E encryption + authentication
-├─────────────────────────────────┤
-│ Transport Driver                │  WebSocket / QUIC / Memory / ...
-└─────────────────────────────────┘
+┌──────────────────────────────┐
+│ RPC (Request / Response)     │  ← msgpack-encoded
+├──────────────────────────────┤
+│ yamux (multiplexing)         │  ← concurrent streams
+├──────────────────────────────┤
+│ SecureChannel (Noise XX)     │  ← E2E encrypted frames
+├──────────────────────────────┤
+│ Transport Driver             │  ← WebSocket / QUIC / etc.
+└──────────────────────────────┘
 ```
 
-## Request Format
+## Request
 
 ```rust
-struct Request {
-    id: u64,              // Unique request ID (monotonically increasing)
-    action: Action,       // What to do
-}
-```
-
-## Response Format
-
-```rust
-struct Response {
-    id: u64,              // Matches the request ID
-    result: RpcResult,    // Outcome
+pub struct Request {
+    pub id: String,
+    pub action: Action,
+    pub timeout_ms: Option<u64>,
 }
 ```
 
@@ -40,125 +30,102 @@ struct Response {
 
 | Action | Description | Fields |
 |--------|-------------|--------|
-| `Exec` | Execute a command | `command: String` |
-| `ExecBackground` | Execute without waiting | `command: String` → returns `job_id` |
-| `FileRead` | Read a file | `path: String` |
-| `FileWrite` | Write a file | `path: String, data: Vec<u8>` |
-| `FileList` | List directory | `path: String` |
-| `Status` | Query agent status | — |
+| `Execute` | Run a command | `command`, `env`, `workdir` |
+| `StreamExecute` | Run with streaming output | `command`, `env`, `workdir` |
+| `BackgroundExec` | Run in background | `command`, `env`, `workdir` |
+| `JobQuery` | Query background job status | `job_id` |
+| `JobWait` | Wait for background job | `job_id` |
+| `Read` | Read a file | `path` |
+| `Write` | Write a file | `path`, `data`, `mode` |
+| `List` | List directory | `path` |
 | `Metrics` | Collect system metrics | — |
-| `Heartbeat` | Keep-alive ping | — |
-| `Shell` | Open PTY session | `cols: u16, rows: u16` |
-| `ShellInput` | Send input to PTY | `data: Vec<u8>` |
-| `ShellResize` | Resize PTY | `cols: u16, rows: u16` |
-| `ShellClose` | Close PTY session | — |
-| `PortForward` | Start port forward | `remote_addr: String, remote_port: u16` |
-| `PortForwardClose` | Stop port forward | `id: u64` |
-| `RemoteForward` | Agent-side listener | `bind_addr: String, bind_port: u16` |
+| `Status` | Agent status/version | — |
+| `Ping` | Liveness check | — |
+| `Signal` | Send signal to process | `pid`, `signal` |
+| `Shell` | Open PTY shell session | `shell`, `rows`, `cols`, `env` |
+| `ShellInput` | Send input to shell | `session_id`, `data` |
+| `ShellResize` | Resize shell terminal | `session_id`, `rows`, `cols` |
+| `ShellClose` | Close shell session | `session_id` |
+| `PortForward` | Start local forward | `bind_addr`, `target_addr` |
+| `PortForwardClose` | Stop forward | `forward_id` |
+| `RemoteForward` | Start remote forward | `bind_addr`, `target_addr` |
+| `Socks5Forward` | Start SOCKS5 proxy | `bind_addr` |
+| `Socks5Close` | Stop SOCKS5 proxy | `forward_id` |
+| `HealthCheck` | Run health probe | `probe_type`, `target`, `timeout_ms` |
+| `TailLog` | Tail a log file | `path`, `lines` |
 
-## Response Types
+## Response
 
-| Type | Description | Fields |
-|------|-------------|--------|
-| `ExecResult` | Command output | `exit_code: i32, stdout: Vec<u8>, stderr: Vec<u8>` |
-| `FileData` | File contents | `data: Vec<u8>` |
-| `FileWritten` | Write confirmation | `bytes: u64` |
-| `FileEntries` | Directory listing | `entries: Vec<FileEntry>` |
-| `StatusInfo` | Agent status | `id: String, uptime_secs: u64, version: String` |
-| `MetricsData` | System metrics | `cpu: f64, memory_used: u64, ...` |
-| `Pong` | Heartbeat response | — |
-| `JobStarted` | Background job ID | `job_id: u64` |
-| `Error` | Error response | `code: u16, message: String` |
+```rust
+pub struct Response {
+    pub id: String,
+    pub result: RpcResult,
+}
+```
 
-## Error Codes
+## Result Types
 
-| Code | Meaning |
-|------|---------|
-| 1000 | Policy denied |
-| 1001 | Command not found |
-| 1002 | Execution timeout |
-| 1003 | Output limit exceeded |
-| 2000 | File not found |
-| 2001 | Permission denied (filesystem) |
-| 2002 | Path outside allowed scope |
-| 3000 | Internal error |
-| 3001 | Agent busy (max concurrent reached) |
+| Result | When | Fields |
+|--------|------|--------|
+| `Success` | Command completed | `stdout`, `stderr`, `exit_code`, `duration_ms` |
+| `Denied` | Policy rejected | `reason`, `rule` |
+| `Error` | Runtime error | `message` |
+| `StatusInfo` | Status response | `agent_id`, `version`, `uptime_seconds` |
+| `StreamChunk` | Streaming output | `stream` (Stdout/Stderr), `data` |
+| `StreamEnd` | Stream complete | `exit_code`, `duration_ms` |
+| `JobStarted` | Background job began | `job_id`, `pid` |
+| `JobStatus` | Job query result | `job_id`, `running`, `exit_code`, `stdout`, `stderr` |
+| `Pong` | Ping response | `timestamp_ms` |
+| `ShellOpened` | Shell ready | `session_id` |
+| `ShellOutput` | Shell output data | `session_id`, `data` |
+| `ShellExited` | Shell closed | `session_id`, `exit_code` |
+| `ForwardStarted` | Forward active | `forward_id`, `bind_addr` |
+| `ForwardStopped` | Forward closed | `forward_id` |
+| `HealthCheckResult` | Probe result | `success`, `latency_ms`, `error` |
+| `TailOutput` | Log lines | `lines`, `path` |
 
 ## Encoding
 
-All messages use MessagePack (msgpack) via `rmp-serde`:
+All messages use **msgpack** (via `rmp-serde`):
+- Compact binary encoding (smaller than JSON)
+- Schema-flexible (fields can be added without breaking)
+- Length-delimited frames: `[4 bytes BE length][msgpack payload]`
 
-```rust
-// Serialize request
-let bytes = rmp_serde::to_vec(&request)?;
+## Multiplexing
 
-// Frame: [length: 4 bytes BE][msgpack payload]
-stream.write_all(&(bytes.len() as u32).to_be_bytes()).await?;
-stream.write_all(&bytes).await?;
+**yamux** provides multiplexed streams over a single SecureChannel:
+- Multiple concurrent RPC requests without head-of-line blocking
+- Stream-level flow control
+- Lightweight — minimal overhead per stream
 
-// Deserialize response
-let response: Response = rmp_serde::from_slice(&payload)?;
-```
+## Streaming Protocol
 
-## Multiplexing (yamux)
+For `StreamExecute`, the response is a sequence of messages:
+1. Multiple `StreamChunk` results (stdout/stderr as they arrive)
+2. Final `StreamEnd` with exit code
 
-Multiple RPC requests run concurrently over a single SecureChannel using [yamux](https://github.com/hashicorp/yamux/blob/master/spec.md):
-
-- Each RPC request opens a new yamux stream
-- Streams are lightweight (minimal overhead per stream)
-- Backpressure via yamux flow control
-- Server-initiated streams for push notifications
-
-## Streaming Output
-
-For `Exec` with `mode: streaming`, stdout/stderr are sent as incremental frames:
-
-```
-StreamChunk {
-    request_id: u64,      // Matches original exec request
-    channel: Channel,     // Stdout or Stderr
-    data: Vec<u8>,        // Chunk of output
-    final: bool,          // True on last chunk
-}
-```
-
-The client receives output in real-time without waiting for command completion.
+This enables real-time output display without buffering.
 
 ## DTN (Delay-Tolerant Networking)
 
-For air-gapped or intermittent connectivity, requests are wrapped as DTN bundles:
+For disconnected/intermittent agents, requests can be wrapped in DTN bundles:
 
 ```rust
-struct DtnBundle {
-    id: Uuid,                    // Unique bundle ID
-    destination: String,         // Target agent ID
-    priority: Priority,          // Low, Normal, High, Critical
-    ttl: Duration,               // Time-to-live (expires after)
-    payload: Vec<u8>,            // Encrypted RPC request
-    content_hash: [u8; 32],      // SHA-256 for integrity
-    idempotency_key: Option<String>,  // Deduplication
+pub struct DtnBundle {
+    pub id: String,
+    pub source: String,
+    pub destination: String,
+    pub payload: Vec<u8>,
+    pub priority: Priority,
+    pub ttl_seconds: u64,
+    pub hop_limit: u8,
+    pub content_hash: Option<String>,
 }
 ```
 
-Properties:
-- **Priority ordering** — Critical bundles delivered first
-- **TTL expiration** — Stale bundles discarded automatically
-- **Custody transfer** — Reliable hop-by-hop delivery with acknowledgments
-- **Content-addressed** — Tamper detection via SHA-256
-- **Idempotent** — Duplicate delivery is safe (dedup by key)
-
-## Wire Format Summary
-
-```
-Connection establishment:
-  1. TCP/WebSocket/QUIC connect to relay
-  2. Magic bytes: RVNF (4 bytes) + version (1 byte)
-  3. Noise XX handshake (3 messages)
-  4. SecureChannel established
-
-Encrypted frame:
-  [length: 4 bytes BE][ciphertext + 16-byte Poly1305 MAC]
-
-Inside SecureChannel:
-  yamux frames → individual streams → msgpack RPC messages
-```
+Bundles support:
+- Priority ordering (Critical > High > Normal > Low > Bulk)
+- TTL expiration (except Critical which never expires)
+- Content-addressed integrity verification
+- Hop-limited forwarding
+- Store-carry-forward delivery

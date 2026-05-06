@@ -1,50 +1,60 @@
 # Contributing
 
-Thank you for your interest in contributing to RavenFabric.
-
 ## Getting Started
 
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USER/RavenFabric.git`
-3. Create a feature branch: `git checkout -b feat/my-feature`
-4. Make your changes
-5. Run tests: `cargo test`
-6. Run linter: `cargo clippy`
-7. Format code: `cargo fmt`
-8. Push and open a Pull Request
+1. Fork the repository on GitHub
+2. Clone your fork: `git clone https://github.com/YOUR_NAME/RavenFabric.git`
+3. Create a branch: `git checkout -b feat/my-feature`
+4. Make changes, ensuring tests pass
+5. Submit a pull request
+
+## Requirements
+
+- Rust 1.88+ (Edition 2024)
+- All changes must pass: `cargo test --all && cargo clippy --all-targets -- -D warnings && cargo fmt --all --check`
+- Commit before creating a PR — the CI will validate your code
 
 ## Code Standards
 
-- **Language**: All code, comments, and documentation in English
 - **Edition**: Rust 2024, MSRV 1.88
 - **Error handling**: `thiserror` in libraries, `anyhow` only in binaries
-- **Async**: Use `async-trait` for async trait methods
-- **Logging**: `tracing` crate only — never `println!` in libraries
-- **Tests**: Every public function must have at least one test
-- **Security**: Every policy check, key validation, and crypto operation must have tests
+- **Async**: Tokio runtime, `async-trait` for async trait methods
+- **Logging**: `tracing` crate (`info!`, `warn!`, `error!`) — never `println!` in libraries
+- **Serialization**: msgpack (wire), YAML (config/policy), JSON (audit)
+- **No `unwrap()`** in library code — use `?` or `expect()` with justification
+- **Platform portability**: use `#[cfg(target_os)]` for OS-specific code
 
-## Commit Messages
-
-Use conventional commits:
+## Commit Conventions
 
 ```
-feat: add QUIC transport driver
-fix: resolve symlink before path policy check
-refactor: extract connection manager from driver
-docs: add relay setup guide
-test: add roundtrip test for DTN bundle
+feat: add QUIC transport driver #5
+fix: prevent symlink traversal in path policy
+refactor: extract codec into separate module
+docs: update architecture overview
+test: add negative tests for OTP validation
 ```
 
-Reference issues: `feat: add QUIC transport #5`
+Reference GitHub Issues in commits where applicable.
+
+## Issue Tracking
+
+- All planned changes are tracked as GitHub Issues before work begins
+- If you discover work that should be done but is out of scope, create an Issue
+- After every push, check GitHub Actions for pipeline failures
 
 ## Security
 
-- Security is always the top priority
-- Never trade security for convenience
-- No `unwrap()` in library code — use `?` and proper error types
-- All types must be `Send + Sync`
-- Deny-by-default — if unsure, deny
+Security is the top priority. Every contribution must:
 
-## Reporting Security Issues
+- Respect deny-by-default policy engine
+- Not introduce `unsafe` code (workspace-level `forbid(unsafe_code)` — exceptions require discussion)
+- Include tests for security-critical paths (positive AND negative)
+- Not bypass validation, authentication, or authorization
 
-See [SECURITY.md](https://github.com/egkristi/RavenFabric/blob/main/SECURITY.md) for responsible disclosure guidelines.
+## License
+
+RavenFabric is licensed under AGPLv3. By contributing, you agree that your contributions will be licensed under the same terms.
+
+## Reporting Vulnerabilities
+
+See [SECURITY.md](https://github.com/egkristi/RavenFabric/blob/main/SECURITY.md) for responsible disclosure process.

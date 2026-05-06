@@ -4,77 +4,93 @@
 
 - Rust 1.88+ (Edition 2024)
 - Git
+- C compiler (for `ring` crate — `cc`, `gcc`, or `clang`)
 
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Verify version
-rustc --version  # Must be 1.88.0 or later
-```
-
-## Clone and Build
+## Build
 
 ```bash
 git clone https://github.com/egkristi/RavenFabric.git
 cd RavenFabric
-
-# Debug build
-cargo build
-
-# Release build (optimized, LTO, stripped)
 cargo build --release
+```
+
+Binaries are in `target/release/`:
+- `rf` — CLI client
+- `rf-agent` — Agent daemon
+- `rf-relay` — Relay broker
+
+## Feature Flags
+
+The `rf-agent` binary supports feature flags:
+
+| Feature | Description | Default |
+|---------|-------------|---------|
+| `full` | All transports + sysinfo metrics | Yes |
+| `minimal` | Core only (no QUIC, no sysinfo) | No |
+| `quic` | QUIC transport via quinn | Included in `full` |
+| `sysinfo` | System metrics collection | Included in `full` |
+
+```bash
+# Minimal build (smaller binary, fewer dependencies)
+cargo build --release -p rf-agent --no-default-features --features minimal
 ```
 
 ## Cross-Compilation
 
-### Linux Static Binary (musl)
+### Static Linux Binary (musl)
 
 ```bash
 rustup target add x86_64-unknown-linux-musl
 cargo build --release --target x86_64-unknown-linux-musl
 ```
 
-### Linux ARM64
+### ARM (Raspberry Pi)
 
 ```bash
-rustup target add aarch64-unknown-linux-musl
-cargo build --release --target aarch64-unknown-linux-musl
+# Using cross (Docker-based cross-compilation)
+cargo install cross --git https://github.com/cross-rs/cross
+cross check --target armv7-unknown-linux-musleabihf -p rf-agent
 ```
 
-### Linux ARMv7 (Raspberry Pi)
+### CI Cross-Compile Targets
+
+The following targets are verified in CI:
+
+| Target | Status |
+|--------|--------|
+| `x86_64-unknown-linux-gnu` | Tier 1 |
+| `x86_64-unknown-linux-musl` | Tier 1 |
+| `aarch64-unknown-linux-gnu` | Tier 1 |
+| `aarch64-unknown-linux-musl` | Tier 1 |
+| `x86_64-apple-darwin` | Tier 1 |
+| `aarch64-apple-darwin` | Tier 1 |
+| `x86_64-pc-windows-msvc` | Tier 1 |
+| `armv7-unknown-linux-musleabihf` | Tier 2 (cross-check) |
+| `riscv64gc-unknown-linux-gnu` | Tier 2 (cross-check) |
+| `x86_64-unknown-freebsd` | Tier 2 (cross-check) |
+
+## Docker
 
 ```bash
-rustup target add armv7-unknown-linux-musleabihf
-cargo build --release --target armv7-unknown-linux-musleabihf
+# Multi-stage build
+docker build --target agent -t ravenfabric-agent .
+docker build --target relay -t ravenfabric-relay .
 ```
 
-## Feature Flags
-
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `full` | Yes | All features enabled |
-| `minimal` | No | No TUN, no sysinfo, no QUIC |
-| `websocket` | Yes | WebSocket transport |
-| `quic` | No | QUIC transport |
+## Verification
 
 ```bash
-# Minimal build (smaller binary)
-cargo build --release --no-default-features --features minimal
-
-# With QUIC
-cargo build --release --features quic
-```
-
-## Verify Build
-
-```bash
-# Run all tests
-cargo test
-
 # Lint
-cargo clippy
+cargo clippy --all-targets -- -D warnings
 
 # Format check
-cargo fmt --check
+cargo fmt --all --check
+
+# Run all tests
+cargo test --all
+
+# Fuzz testing (requires nightly)
+cd crates/rf-rpc && cargo +nightly fuzz run fuzz_codec
+cd crates/rf-policy && cargo +nightly fuzz run fuzz_policy
+cd crates/rf-transport && cargo +nightly fuzz run fuzz_frame
 ```

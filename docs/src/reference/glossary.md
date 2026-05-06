@@ -46,4 +46,16 @@ Technical terms used throughout RavenFabric documentation.
 |------|-----------|
 | **raven.toml** | The agent/CLI configuration file. Specifies relay address, key paths, transport settings. |
 | **policy.yaml** | The policy specification file. Defines allowed/denied commands, filesystem paths, resource limits, and RBAC roles. |
+| **audit.jsonl** | The structured audit log file. JSON-lines format, one entry per action (append-only). |
+
+## Architecture
+
+| Term | Definition |
+|------|-----------|
+| **Controller** | The management plane binary that maintains an agent registry, serves the REST API, and provides the Web UI dashboard. |
+| **Playbook** | A YAML file defining ordered steps to execute across multiple agents, with optional rollback commands on failure. |
+| **Store-carry-forward** | A DTN delivery pattern where messages are stored locally, physically carried to another location, and forwarded — supporting fully air-gapped transfers. |
+| **Meet token** | A shared secret used for relay pairing. The CLI and agent both present the same token to the relay, which bridges their connections. |
+| **Mesh overlay** | A virtual network topology where agents can communicate via multiple relay hops or direct peer-to-peer connections. |
+| **Happy Eyeballs** | RFC 8305 connection racing. Multiple transport paths attempted in parallel; first to succeed wins. |
 | **audit.jsonl** | The append-only audit log. One JSON object per line, one entry per action. |

@@ -9,16 +9,27 @@ All transports implement the `Driver` trait:
 ```rust
 #[async_trait]
 pub trait Driver: Send + Sync {
-    async fn connect(&self, addr: &str) -> Result<Connection>;
-    async fn listen(&self, addr: &str) -> Result<Listener>;
+    /// Establish a connection to a target.
+    async fn dial(&self, target: &Target, config: &DriverConfig) -> Result<Box<dyn AsyncStream>, TransportError>;
+    /// Listen for incoming connections.
+    async fn listen(&self, config: &DriverConfig) -> Result<Box<dyn Listener>, TransportError>;
 }
 ```
 
+The `AsyncStream` trait combines `AsyncRead + AsyncWrite + Send + Unpin`, making every transport interchangeable.
+
 ## Built-in Transports
+
+| Transport | Protocol | Use Case | Feature Flag |
+|-----------|----------|----------|--------------|
+| **WebSocket** | TCP/TLS | Relay connections, firewall traversal | default |
+| **QUIC** | UDP | Low-latency, multiplexed, 0-RTT | `quic` |
+| **WireGuard** | UDP | Direct peer-to-peer on open networks | `wireguard` |
+| **Memory** | In-process | Testing (uses `tokio::io::duplex`) | default |
 
 ### WebSocket (Primary)
 
-Default transport for relay connections. Works through firewalls, proxies, and CDNs.
+Default transport for relay connections. Works through firewalls, HTTP proxies, and CDNs.
 
 ```toml
 [transport]
@@ -27,66 +38,82 @@ driver = "websocket"
 
 ### QUIC
 
-UDP-based transport with built-in encryption. Faster connection establishment.
+UDP-based transport with built-in multiplexing and 0-RTT connection resumption.
 
 ```toml
 [transport]
 driver = "quic"
 ```
 
-### Memory
-
-In-process transport for testing. Uses `tokio::io::duplex`.
-
 ### WireGuard
 
-Userspace WireGuard for direct peer-to-peer connections on open networks.
+Userspace WireGuard for direct peer-to-peer connections. Full `WgTunnel` with UDP socket, key handling, and peer management.
 
-## Exotic Transports
+### Memory
 
-RavenFabric supports steganographic and physical transports for censorship resistance and air-gapped environments:
+In-process transport for testing. Uses `tokio::io::duplex` — no real network required.
 
-### Steganographic
-- DNS tunneling
-- ICMP tunneling
-- Domain fronting (via CDN)
-- MASQUE (HTTP/3 proxy)
-- Protocol mimicry (looks like normal HTTPS/SSH)
-- Tor hidden service
-- Encrypted Client Hello (ECH)
+## Censorship-Resistant Transports
 
-### Physical
-- Serial port (RS-232/USB)
-- Bluetooth/BLE
-- Wi-Fi Direct
-- LoRa/Meshtastic (10+ km range)
-- AX.25 packet radio
-- Audio modem (data over sound)
-- QR-stream (animated QR codes)
-- Satellite (Iridium/Starlink)
-- Physical media (USB/SD card, NNCP-style)
+Implemented codecs and framers for hostile network traversal:
 
-## Overlay Networks
+| Transport | Implementation | Tests |
+|-----------|---------------|-------|
+| DNS tunneling | `DnsTunnelCodec` — base32 encoding, query fragmentation | 5 tests |
+| ICMP tunneling | `IcmpTunnelFramer` — echo request framing, session mux | 3 tests |
+| Domain fronting | `DomainFronter` — SNI/Host rewriting | 3 tests |
+| Serial port | `SerialFramer` — sync bytes, CRC-16/CCITT | 5 tests |
+| Protocol mimicry | `MimicryCodec` — ChaCha20-Poly1305 AEAD envelope | 4 tests |
+| Traffic obfuscation | Padding/depadding layer | Functional |
 
+## Overlay Networks (Planned)
+
+Transport driver enum variants are defined for:
 - Reticulum Network Stack
 - Yggdrasil (self-configuring IPv6 mesh)
 - I2P (garlic routing)
 - Veilid (DHT-based, onion-routed)
-- Mixnet (Nym/Loopix)
+- Tor hidden service
+
+These are scaffolded as enum variants but do not yet implement protocol integration.
 
 ## Connection Management
 
-The `ConnectionManager` handles:
-- Happy Eyeballs (parallel connection attempts)
-- Automatic reconnection with exponential backoff
-- Multipath scheduling (round-robin, latency-weighted)
-- Transport migration on tampering detection
-- Proxy detection and CONNECT tunneling
+The `ConnectionRunner` orchestrates:
+- **Happy Eyeballs** (RFC 8305) — parallel connection attempts with staggered starts
+- **Automatic reconnection** — exponential backoff with jitter
+- **Multipath scheduling** — 5 algorithms (RoundRobin, LowestLatency, LatencyWeighted, Redundant, BandwidthWeighted)
+- **Transport migration** — automatic path switching on tamper detection
+- **Proxy detection** — HTTP CONNECT probing with auth detection
+- **Interface migration** — auto-migrate on network change events (Wi-Fi → cellular)
 
 ## NAT Traversal
 
-ICE-style hole punching with:
-- STUN binding discovery
-- Candidate gathering (host, server-reflexive, relay)
-- Birthday paradox port prediction for symmetric NAT
-- TURN relay fallback
+ICE-style connectivity establishment:
+- **STUN client** — real UDP binding requests (RFC 5389/8489)
+- **STUN server** — XOR-MAPPED-ADDRESS responses for self-hosted infrastructure
+- **TURN relay** — UDP allocations with permissions and capacity limits
+- **UDP/TCP hole punching** — probe/ACK protocol with concurrent punch
+- **Birthday paradox port prediction** — deterministic PRNG candidate generation
+- **NAT type detection** — comparison across multiple STUN servers
+
+## Peer Discovery
+
+Multiple discovery mechanisms for finding agents without central registries:
+- **mDNS/DNS-SD** — LAN discovery via UDP broadcast
+- **DHT (Kademlia-style)** — 256 k-buckets with XOR distance routing
+- **Gossip (SWIM/HyParView)** — UDP health propagation
+- **BLE beacon** — RSSI-based proximity discovery
+- **Announce-flood** — gossip with dedup and rate limiting
+
+## Censorship Escalation
+
+The `CensorshipEscalation` state machine automatically escalates through transport tiers when interference is detected:
+
+1. **Standard** — WebSocket/QUIC (normal connectivity)
+2. **Obfuscated** — Traffic shaping, padding
+3. **Domain-fronted** — CDN-routed connections
+4. **Tunneled** — DNS/ICMP/serial encapsulation
+5. **Physical** — Store-carry-forward, NNCP-style media transport
+
+Tamper detection triggers immediate escalation. De-escalation is blocked after confirmed tampering.
