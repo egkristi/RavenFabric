@@ -359,7 +359,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Tool: `rf_list_my_capabilities` — dynamic capability discovery filtered by agent policy
 - [x] Tool: `rf_audit_query` — self-audit (agent queries its own recent actions)
 - [x] Tool: `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
+- [x] API token authentication — `--api-token` / `RF_API_TOKEN` env, constant-time validation, reject unauthenticated requests
 - [ ] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
+- [ ] Token rotation — automatic token refresh with configurable TTL, old tokens grace period
+- [ ] RBAC per caller — map API tokens to policy profiles (different callers get different permissions)
+- [ ] Rate limiting per session — sliding window request throttle (configurable max requests/minute)
 - [x] Agent reasoning capture — optional `reason` parameter recorded in audit log
 - [ ] Claude Desktop integration — `claude_desktop_config.json` reference setup
 - [ ] Claude Code integration — `claude mcp add` reference setup

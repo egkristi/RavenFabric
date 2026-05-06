@@ -27,6 +27,10 @@ pub struct McpServer {
     session_log: Arc<tokio::sync::Mutex<Vec<AuditEntry>>>,
     /// Pending approval requests.
     approvals: Arc<tokio::sync::Mutex<HashMap<String, ApprovalRequest>>>,
+    /// Optional API token for authentication. If set, `initialize` must include it.
+    api_token: Option<String>,
+    /// Whether the session has been authenticated.
+    authenticated: Arc<tokio::sync::Mutex<bool>>,
 }
 
 /// A pending human approval request.
@@ -42,10 +46,15 @@ struct ApprovalRequest {
 
 impl McpServer {
     /// Create a new MCP server with the given policy and audit logger.
+    ///
+    /// If `api_token` is `Some`, the client must provide a matching token
+    /// in the `initialize` request params (`{"apiToken": "..."}`) before
+    /// any tool calls are accepted.
     pub fn new(
         policy_path: Option<&Path>,
         audit_path: Option<&Path>,
         caller_key: &str,
+        api_token: Option<String>,
     ) -> anyhow::Result<Self> {
         let policy = if let Some(path) = policy_path {
             RpcPolicy::load(path)?
@@ -77,6 +86,9 @@ impl McpServer {
 
         let executor = Executor::new(executor_policy, audit.clone(), caller_key.to_string());
 
+        // If no token is configured, session starts authenticated
+        let authenticated = Arc::new(tokio::sync::Mutex::new(api_token.is_none()));
+
         Ok(Self {
             executor: Arc::new(executor),
             policy,
@@ -84,6 +96,8 @@ impl McpServer {
             session_id,
             session_log,
             approvals: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            api_token,
+            authenticated,
         })
     }
 
@@ -171,8 +185,22 @@ impl McpServer {
     async fn handle_request(&self, request: &JsonRpcRequest) -> JsonRpcResponse {
         let id = request.id.clone();
 
+        // `initialize` is always allowed (it's where auth happens)
+        if request.method == "initialize" {
+            return self.handle_initialize(id, &request.params).await;
+        }
+
+        // All other methods require authentication
+        if !*self.authenticated.lock().await {
+            warn!(method = %request.method, "rejected unauthenticated request");
+            return JsonRpcResponse::error(
+                id,
+                INTERNAL_ERROR,
+                "Authentication required. Provide apiToken in initialize params.",
+            );
+        }
+
         match request.method.as_str() {
-            "initialize" => self.handle_initialize(id, &request.params),
             "tools/list" => self.handle_tools_list(id),
             "tools/call" => self.handle_tools_call(id, &request.params).await,
             "resources/list" => self.handle_resources_list(id),
@@ -181,9 +209,31 @@ impl McpServer {
         }
     }
 
-    /// Handle MCP `initialize` — return server capabilities.
-    #[allow(clippy::unused_self)]
-    fn handle_initialize(&self, id: Option<Value>, _params: &Value) -> JsonRpcResponse {
+    /// Handle MCP `initialize` — return server capabilities and validate API token.
+    async fn handle_initialize(&self, id: Option<Value>, params: &Value) -> JsonRpcResponse {
+        // Validate API token if one is configured
+        if let Some(ref expected_token) = self.api_token {
+            let provided = params.get("apiToken").and_then(|t| t.as_str());
+            match provided {
+                Some(token) if constant_time_eq(token.as_bytes(), expected_token.as_bytes()) => {
+                    *self.authenticated.lock().await = true;
+                    info!(session_id = %self.session_id, "API token validated");
+                }
+                Some(_) => {
+                    warn!(session_id = %self.session_id, "invalid API token provided");
+                    return JsonRpcResponse::error(id, INTERNAL_ERROR, "Invalid API token");
+                }
+                None => {
+                    warn!(session_id = %self.session_id, "API token required but not provided");
+                    return JsonRpcResponse::error(
+                        id,
+                        INTERNAL_ERROR,
+                        "API token required. Include \"apiToken\" in initialize params.",
+                    );
+                }
+            }
+        }
+
         JsonRpcResponse::success(
             id,
             json!({
@@ -515,6 +565,18 @@ impl McpServer {
     }
 }
 
+/// Constant-time byte comparison to prevent timing attacks on token validation.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
@@ -549,14 +611,14 @@ mod tests {
     #[tokio::test]
     async fn test_server_creation() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller");
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None);
         assert!(server.is_ok());
     }
 
     #[tokio::test]
     async fn test_handle_initialize() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller").unwrap();
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -575,7 +637,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_tools_list() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller").unwrap();
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -593,7 +655,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_query_policy_allowed() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller").unwrap();
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
 
         let result = server
             .tool_query_policy(&json!({"command": "echo hello"}))
@@ -607,7 +669,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_query_policy_denied() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller").unwrap();
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
 
         let result = server
             .tool_query_policy(&json!({"command": "rm -rf /"}))
@@ -621,7 +683,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_exec_denied_command() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller").unwrap();
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
 
         let result = server
             .tool_exec(&json!({"command": "rm -rf /tmp/important"}))
@@ -635,7 +697,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_audit_query_empty() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller").unwrap();
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
 
         let result = server.tool_audit_query(&json!({})).await;
         assert!(result.is_ok());
@@ -647,7 +709,7 @@ mod tests {
     #[tokio::test]
     async fn test_unknown_method() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller").unwrap();
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -659,5 +721,112 @@ mod tests {
         let response = server.handle_request(&request).await;
         assert!(response.error.is_some());
         assert_eq!(response.error.unwrap().code, -32601);
+    }
+
+    #[tokio::test]
+    async fn test_api_token_valid() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            Some("secret-token-123".into()),
+        )
+        .unwrap();
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "secret-token-123"}),
+        };
+
+        let response = server.handle_request(&request).await;
+        assert!(response.result.is_some());
+        assert!(response.error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_api_token_invalid() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            Some("secret-token-123".into()),
+        )
+        .unwrap();
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "wrong-token"}),
+        };
+
+        let response = server.handle_request(&request).await;
+        assert!(response.error.is_some());
+        assert!(response.error.unwrap().message.contains("Invalid"));
+    }
+
+    #[tokio::test]
+    async fn test_api_token_missing() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            Some("secret-token-123".into()),
+        )
+        .unwrap();
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({}),
+        };
+
+        let response = server.handle_request(&request).await;
+        assert!(response.error.is_some());
+        assert!(response.error.unwrap().message.contains("required"));
+    }
+
+    #[tokio::test]
+    async fn test_unauthenticated_tool_call_rejected() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            Some("secret-token-123".into()),
+        )
+        .unwrap();
+
+        // Try to call a tool without initializing first
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(2)),
+            method: "tools/list".into(),
+            params: json!({}),
+        };
+
+        let response = server.handle_request(&request).await;
+        assert!(response.error.is_some());
+        assert!(
+            response
+                .error
+                .unwrap()
+                .message
+                .contains("Authentication required")
+        );
+    }
+
+    #[test]
+    fn test_constant_time_eq() {
+        assert!(constant_time_eq(b"hello", b"hello"));
+        assert!(!constant_time_eq(b"hello", b"world"));
+        assert!(!constant_time_eq(b"hello", b"hell"));
+        assert!(constant_time_eq(b"", b""));
     }
 }

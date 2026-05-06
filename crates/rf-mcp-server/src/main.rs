@@ -42,6 +42,11 @@ struct Cli {
     #[arg(long, default_value = "mcp-session")]
     caller_key: String,
 
+    /// API token for authentication. If set, clients must include it in initialize params.
+    /// Can also be set via RF_API_TOKEN environment variable.
+    #[arg(long, env = "RF_API_TOKEN")]
+    api_token: Option<String>,
+
     /// Log level for stderr diagnostics.
     #[arg(long, default_value = "info", env = "RF_LOG_LEVEL")]
     log_level: String,
@@ -63,7 +68,12 @@ async fn main() -> anyhow::Result<()> {
         "rf-mcp-server starting"
     );
 
-    let server = McpServer::new(cli.policy.as_deref(), cli.audit.as_deref(), &cli.caller_key)?;
+    let server = McpServer::new(
+        cli.policy.as_deref(),
+        cli.audit.as_deref(),
+        &cli.caller_key,
+        cli.api_token,
+    )?;
 
     server.run_stdio().await?;
 
