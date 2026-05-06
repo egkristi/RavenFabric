@@ -511,7 +511,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| Homebrew | `brew install ravenfabric` | [x] Formula ready (`deploy/ravenfabric.rb`) — #45 |
+| Homebrew | `brew install egkristi/tap/ravenfabric` | [x] Formula ready (`deploy/ravenfabric.rb`) — tap: [egkristi/homebrew-tap](https://github.com/egkristi/homebrew-tap) — #45 |
 | DMG | `RavenFabric.dmg` (universal binary) | [ ] Planned — #49 |
 | pkg installer | `RavenFabric.pkg` (signed) | [ ] Planned — #49 |
 

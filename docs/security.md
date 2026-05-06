@@ -23,6 +23,10 @@ These must hold at all times. Any violation is a critical bug:
 8. **Execution timeout enforced** — Executor wraps commands in `tokio::time::timeout`
 9. **No shell injection** — Commands are policy-checked strings, not user-interpolated
 10. **Relay never decrypts** — Relay forwards opaque bytes between paired connections
+11. **Wire protocol magic and version validated** — `RVNF` magic bytes and version byte checked on every connection
+12. **Lock poisoning handled gracefully** — `RwLock`/`Mutex` poisoning uses `unwrap_or_else(|p| p.into_inner())`, never panics
+13. **Tamper detection triggers transport migration** — Compromised paths are abandoned immediately
+14. **Connection metrics propagate over DTN/mesh** — No monitoring blind spots regardless of topology
 
 ## Hardening
 

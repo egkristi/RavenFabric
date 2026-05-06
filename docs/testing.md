@@ -1,16 +1,18 @@
 # Testing
 
+RavenFabric has **564 tests** across 11 crates, with zero tolerance for clippy warnings.
+
 ## Running Tests
 
 ```bash
 # All tests
-cargo test --all
+cargo test
 
 # Specific crate
 cargo test -p rf-crypto
 
 # With output
-cargo test --all -- --nocapture
+cargo test -- --nocapture
 
 # Single test
 cargo test -p rf-policy test_allowed_command
@@ -28,29 +30,23 @@ Each crate contains unit tests in `#[cfg(test)]` modules. Tests use:
 
 ### Integration Tests
 
-Integration tests verify end-to-end behavior:
+Integration tests in `rf-integration-tests` verify end-to-end behavior:
 
 - Full Noise XX handshake over duplex streams
 - Policy enforcement with various command patterns
 - OTP generation, validation, and expiry
 - SecureChannel send/recv with encryption verification
-
-### Property Tests
-
-`proptest` for invariant verification:
-
-- Any command not matching allow rules is denied
-- Encrypted frames decrypt to original plaintext
-- OTP tokens are never reusable
+- Complete relay → agent → execute → respond flows
 
 ## Coverage
 
 ```bash
 cargo install cargo-tarpaulin
-cargo tarpaulin --out html --skip-clean --exclude-files "crates/rf-cli/*" "crates/rf-agent/*" "crates/rf-relay/*"
+cargo tarpaulin --out html --skip-clean \
+    --exclude-files "crates/rf-cli/*" "crates/rf-agent/*" "crates/rf-relay/*"
 ```
 
-Coverage threshold: 60% (enforced in CI).
+Coverage threshold: 60% (enforced in CI for library crates).
 
 ## Benchmarks
 

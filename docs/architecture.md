@@ -2,7 +2,7 @@
 
 ## Overview
 
-RavenFabric is a Cargo workspace with 10 crates organized in a strict dependency hierarchy.
+RavenFabric is a Cargo workspace with 11 crates organized in a strict dependency hierarchy.
 Each crate has a single responsibility and minimal coupling.
 
 ## Crate Map
@@ -21,6 +21,11 @@ Each crate has a single responsibility and minimal coupling.
 ┌────────┴─────────┴────────┴──────────┴─────────────────┐
 │                   Foundation                           │
 │  rf-crypto      rf-transport      rf-audit            │
+└────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────┐
+│                   Testing                              │
+│  rf-integration-tests (end-to-end validation)         │
 └────────────────────────────────────────────────────────┘
 ```
 

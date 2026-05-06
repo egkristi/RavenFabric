@@ -618,7 +618,9 @@ RavenFabric's design principles in production-relevant detail.
 ## See Also
 
 - [README.md](../README.md) — RavenFabric overview
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — System design
 - [CONNECTIVITY.md](../CONNECTIVITY.md) — Transport and connectivity model
-- [ROADMAP.md](../ROADMAP.md) — Implementation timeline
+- [usecase-edge-iot-fleet.md](usecase-edge-iot-fleet.md) — Edge & IoT fleet management
+- [usecase-multi-cluster-kubernetes.md](usecase-multi-cluster-kubernetes.md) — Multi-cluster Kubernetes
+- [usecase-airgapped-ics.md](usecase-airgapped-ics.md) — Air-gapped industrial systems
+- [usecase-msp-multitenant.md](usecase-msp-multitenant.md) — MSP multi-tenant operations
 - [CloudNativePG documentation](https://cloudnative-pg.io/documentation/) — CNPG project

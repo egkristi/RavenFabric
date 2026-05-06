@@ -1184,7 +1184,7 @@ See [ROADMAP.md](ROADMAP.md) for the detailed roadmap with implementation checkl
 curl -fsSL https://raw.githubusercontent.com/egkristi/RavenFabric/main/deploy/install.sh | sh
 
 # Homebrew (macOS/Linux)
-brew install egkristi/ravenfabric/ravenfabric
+brew install egkristi/tap/ravenfabric
 
 # Nix
 nix profile install github:egkristi/RavenFabric

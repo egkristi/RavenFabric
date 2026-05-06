@@ -17,7 +17,6 @@ This documentation covers three levels:
 |-------|------|-----------|
 | **Technical Standards** | Cryptographic and protocol standards RavenFabric implements | `standards/` |
 | **Security Frameworks** | Security control frameworks mapped to RavenFabric capabilities | `frameworks/` |
-| **Attestations** | Supply chain security and build provenance | `attestations/` |
 
 ---
 
@@ -103,8 +102,7 @@ If you are evaluating RavenFabric for a regulated environment:
 
 1. Start with the framework most relevant to your jurisdiction
 2. Cross-reference with [standards/cryptographic-standards.md](standards/cryptographic-standards.md) for crypto details
-3. Review [attestations/supply-chain.md](attestations/supply-chain.md) for build integrity
-4. File questions via [GitHub Security Advisories](https://github.com/egkristi/RavenFabric/security/advisories) (private reporting enabled)
+3. File questions via [GitHub Security Advisories](https://github.com/egkristi/RavenFabric/security/advisories) (private reporting enabled)
 
 ---
 
@@ -114,4 +112,4 @@ These compliance documents track the `main` branch. Each document notes the
 RavenFabric version it was written against. As features are added, mappings are
 updated to reflect new capabilities.
 
-Current version: **v0.2-dev** (~19,900 LOC, 363 tests, 0 clippy warnings)
+Current version: **v0.5-dev** (~31,000 LOC, 564 tests, 0 clippy warnings)

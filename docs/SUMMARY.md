@@ -7,4 +7,9 @@
 - [Security](security.md) — Threat model, invariants, hardening
 - [Wire Protocol](wire-protocol.md) — Frame format, handshake, multiplexing
 - [Testing](testing.md) — Running tests, coverage, benchmarks
+- [Use Case: CloudNativePG](usecase-cloudnativepg.md) — Database admin access
+- [Use Case: Edge & IoT Fleet](usecase-edge-iot-fleet.md) — Intermittent connectivity fleet management
+- [Use Case: Multi-Cluster Kubernetes](usecase-multi-cluster-kubernetes.md) — Cross-provider K8s operations
+- [Use Case: Air-Gapped ICS](usecase-airgapped-ics.md) — Industrial control systems with physical isolation
+- [Use Case: MSP Multi-Tenant](usecase-msp-multitenant.md) — Managed service provider operations
 - [Contributing](../CONTRIBUTING.md) — Development workflow

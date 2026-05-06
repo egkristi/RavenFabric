@@ -6,11 +6,11 @@ Pre-built binaries are available for every release on the [GitHub Releases](http
 
 | Platform | Binary |
 |----------|--------|
-| Linux x86_64 | `ravenfabric-linux-amd64-agent` |
-| Linux x86_64 (static) | `ravenfabric-linux-amd64-musl-agent` |
-| Linux ARM64 | `ravenfabric-linux-arm64-agent` |
+| Linux x86_64 (static musl) | `ravenfabric-linux-amd64-musl-agent` |
+| Linux ARM64 (static musl) | `ravenfabric-linux-arm64-musl-agent` |
 | macOS x86_64 | `ravenfabric-darwin-amd64-agent` |
 | macOS ARM64 (Apple Silicon) | `ravenfabric-darwin-arm64-agent` |
+| Windows x86_64 | `ravenfabric-windows-amd64-agent.exe` |
 
 Each platform provides three binaries: `-agent`, `-relay`, `-cli`.
 
@@ -56,6 +56,6 @@ docker run -d -p 9090:9090 ravenfabric-relay
 
 ## Requirements
 
-- Rust 1.85+ (build only)
-- No runtime dependencies (static binary)
-- ~5MB stripped binary size target
+- Rust 1.85+ (MSRV — build only)
+- No runtime dependencies (fully static binary)
+- Binary size: < 15 MB stripped (typically 8-12 MB)
