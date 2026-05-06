@@ -665,7 +665,7 @@ What works today:
 - Corporate proxy detection: HTTP CONNECT probing, auth detection (407), TCP RTT measurement
 - Collection policy: include/exclude glob patterns, label filters, sampling rate, batch limiting
 - Offline telemetry buffering: MetricBuffer with overflow, batch flush, drop counter
-- MCP server (`rf-mcp-server`): 8 tools (exec, query policy, file read/write, capabilities, audit query, approval request/check), API token auth, rate limiting, anomaly detection
+- MCP server (`rf-mcp-server`): 8 tools (exec, query policy, file read/write, capabilities, audit query, approval request/check), API token auth, rate limiting, anomaly detection, RBAC per caller
 - Named pipe transport driver for Windows IPC (`\\.\pipe\ravenfabric`)
 - Vsock transport driver for VM-to-hypervisor communication (Firecracker, QEMU)
 - Abstract namespace socket driver (Linux-only, no filesystem cleanup)

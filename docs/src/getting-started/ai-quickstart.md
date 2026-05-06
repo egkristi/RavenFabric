@@ -127,6 +127,30 @@ Then try:
 - **Rate limiting** — prevents runaway AI loops (default: 60 calls/minute)
 - **Session isolation** — each AI session is a separate sandboxed process
 - **API token auth** — constant-time validated, reject unauthorized sessions
+- **RBAC per caller** — different tokens get different policy profiles
+
+## RBAC: Per-Caller Policies
+
+Give different AI agents different permissions via a callers config:
+
+```toml
+# callers.toml
+[[callers]]
+name = "ci-agent"
+token = "ci-token-secret"
+policy = "/etc/ravenfabric/ci-policy.yaml"
+
+[[callers]]
+name = "dev-agent"
+token = "dev-token-secret"
+policy = "/etc/ravenfabric/dev-policy.yaml"
+```
+
+```bash
+rf-mcp-server --callers callers.toml
+```
+
+Each caller authenticates with their token and automatically gets their assigned policy.
 
 ## Next Steps
 

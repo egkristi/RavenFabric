@@ -1,7 +1,7 @@
 //! MCP server core — handles JSON-RPC messages and dispatches to tools.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use chrono::Timelike;
@@ -12,6 +12,7 @@ use rf_executor::command::Executor;
 use rf_policy::anomaly::{AnomalyConfig, AnomalyResponse, IdentityBaseline};
 use rf_policy::rpc_policy::RpcPolicy;
 use rf_rpc::types::{Action, Request, Response, RpcResult};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
@@ -76,6 +77,34 @@ impl RateLimiter {
     }
 }
 
+/// RBAC caller profile configuration file format.
+#[derive(Debug, Deserialize)]
+pub struct CallersConfig {
+    /// List of caller profiles.
+    #[serde(default)]
+    pub callers: Vec<CallerProfile>,
+}
+
+/// A single caller profile mapping a token to a policy.
+#[derive(Debug, Deserialize, Clone)]
+pub struct CallerProfile {
+    /// Display name for this caller (used in audit logs).
+    pub name: String,
+    /// The API token for this caller.
+    pub token: String,
+    /// Path to the policy file for this caller.
+    pub policy: PathBuf,
+}
+
+impl CallersConfig {
+    /// Load callers config from a TOML file.
+    pub fn load(path: &Path) -> anyhow::Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let config: Self = toml::from_str(&content)?;
+        Ok(config)
+    }
+}
+
 /// The MCP server instance.
 pub struct McpServer {
     executor: Arc<Executor>,
@@ -96,6 +125,8 @@ pub struct McpServer {
     anomaly_tracker: Arc<tokio::sync::Mutex<IdentityBaseline>>,
     /// Optional webhook URL for anomaly/security alerts.
     alert_webhook: Option<String>,
+    /// RBAC caller profiles (token → policy mapping).
+    caller_profiles: Vec<CallerProfile>,
 }
 
 /// Status of an approval request.
@@ -131,6 +162,7 @@ impl McpServer {
         api_token: Option<String>,
         max_requests_per_minute: Option<u32>,
         alert_webhook: Option<String>,
+        caller_profiles: Vec<CallerProfile>,
     ) -> anyhow::Result<Self> {
         let policy = if let Some(path) = policy_path {
             RpcPolicy::load(path)?
@@ -162,8 +194,10 @@ impl McpServer {
 
         let executor = Executor::new(executor_policy, audit.clone(), caller_key.to_string());
 
-        // If no token is configured, session starts authenticated
-        let authenticated = Arc::new(tokio::sync::Mutex::new(api_token.is_none()));
+        // If no token is configured AND no caller profiles exist, session starts authenticated
+        let authenticated = Arc::new(tokio::sync::Mutex::new(
+            api_token.is_none() && caller_profiles.is_empty(),
+        ));
 
         let rate_limit = max_requests_per_minute.unwrap_or(DEFAULT_MAX_REQUESTS_PER_MINUTE);
         let rate_limiter = Arc::new(tokio::sync::Mutex::new(RateLimiter::new(rate_limit)));
@@ -185,6 +219,7 @@ impl McpServer {
             rate_limiter,
             anomaly_tracker,
             alert_webhook,
+            caller_profiles,
         })
     }
 
@@ -326,10 +361,18 @@ impl McpServer {
                 Some(token) if self.validate_token(token, expected_token) => {
                     *self.authenticated.lock().await = true;
                     info!(session_id = %self.session_id, "API token validated");
+
+                    // Check if this token matches a caller profile (RBAC)
+                    self.apply_caller_profile(token).await;
                 }
-                Some(_) => {
-                    warn!(session_id = %self.session_id, "invalid API token provided");
-                    return JsonRpcResponse::error(id, INTERNAL_ERROR, "Invalid API token");
+                Some(token) => {
+                    // Check caller profiles directly (token not in default api_token)
+                    if self.authenticate_via_profile(token).await {
+                        *self.authenticated.lock().await = true;
+                    } else {
+                        warn!(session_id = %self.session_id, "invalid API token provided");
+                        return JsonRpcResponse::error(id, INTERNAL_ERROR, "Invalid API token");
+                    }
                 }
                 None => {
                     warn!(session_id = %self.session_id, "API token required but not provided");
@@ -339,6 +382,24 @@ impl McpServer {
                         "API token required. Include \"apiToken\" in initialize params.",
                     );
                 }
+            }
+        } else if !self.caller_profiles.is_empty() {
+            // No default api_token but caller profiles are configured — require a profile token
+            let provided = params.get("apiToken").and_then(|t| t.as_str());
+            if let Some(token) = provided {
+                if self.authenticate_via_profile(token).await {
+                    *self.authenticated.lock().await = true;
+                } else {
+                    warn!(session_id = %self.session_id, "token does not match any caller profile");
+                    return JsonRpcResponse::error(id, INTERNAL_ERROR, "Invalid API token");
+                }
+            } else {
+                warn!(session_id = %self.session_id, "API token required (caller profiles configured)");
+                return JsonRpcResponse::error(
+                    id,
+                    INTERNAL_ERROR,
+                    "API token required. Include \"apiToken\" in initialize params.",
+                );
             }
         }
 
@@ -715,6 +776,65 @@ impl McpServer {
         false
     }
 
+    /// Check if a token matches a caller profile and apply its policy.
+    /// Returns true if a matching profile was found.
+    async fn authenticate_via_profile(&self, token: &str) -> bool {
+        for profile in &self.caller_profiles {
+            if constant_time_eq(token.as_bytes(), profile.token.as_bytes()) {
+                info!(
+                    session_id = %self.session_id,
+                    caller = %profile.name,
+                    policy = %profile.policy.display(),
+                    "authenticated via caller profile (RBAC)"
+                );
+                // Load the caller-specific policy
+                match RpcPolicy::load(&profile.policy) {
+                    Ok(new_policy) => {
+                        *self.policy.write().await = new_policy;
+                    }
+                    Err(e) => {
+                        error!(
+                            caller = %profile.name,
+                            policy = %profile.policy.display(),
+                            error = %e,
+                            "failed to load caller policy — using default"
+                        );
+                    }
+                }
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Apply caller profile policy if the token matches one of the profiles.
+    async fn apply_caller_profile(&self, token: &str) {
+        for profile in &self.caller_profiles {
+            if constant_time_eq(token.as_bytes(), profile.token.as_bytes()) {
+                info!(
+                    session_id = %self.session_id,
+                    caller = %profile.name,
+                    policy = %profile.policy.display(),
+                    "applying caller profile policy (RBAC)"
+                );
+                match RpcPolicy::load(&profile.policy) {
+                    Ok(new_policy) => {
+                        *self.policy.write().await = new_policy;
+                    }
+                    Err(e) => {
+                        error!(
+                            caller = %profile.name,
+                            policy = %profile.policy.display(),
+                            error = %e,
+                            "failed to load caller policy — keeping default"
+                        );
+                    }
+                }
+                return;
+            }
+        }
+    }
+
     /// Record an audit entry for this session.
     async fn record_audit(&self, command: &str, response: &Response, reason: Option<&str>) {
         let (decision, matched_rule, exit_code) = match &response.result {
@@ -900,6 +1020,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         );
         assert!(server.is_ok());
     }
@@ -914,6 +1035,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -941,6 +1063,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -967,6 +1090,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -989,6 +1113,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1011,6 +1136,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1033,6 +1159,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1053,6 +1180,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1078,6 +1206,7 @@ mod tests {
             Some("secret-token-123".into()),
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1104,6 +1233,7 @@ mod tests {
             Some("new-token-456,old-token-123".into()),
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1129,6 +1259,7 @@ mod tests {
             Some("new-token-456,old-token-123".into()),
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1154,6 +1285,7 @@ mod tests {
             Some("secret-token-123".into()),
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1179,6 +1311,7 @@ mod tests {
             Some("secret-token-123".into()),
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1204,6 +1337,7 @@ mod tests {
             Some("secret-token-123".into()),
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1266,6 +1400,7 @@ mod tests {
             None,
             Some(2),
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1316,6 +1451,7 @@ mod tests {
             None,
             Some(1),
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1352,6 +1488,7 @@ mod tests {
             None,
             None,
             None,
+            Vec::new(),
         )
         .unwrap();
 
@@ -1421,5 +1558,107 @@ mod tests {
         let result = response.result.unwrap();
         let text = result["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("APPROVED"));
+    }
+
+    #[tokio::test]
+    async fn test_rbac_caller_profile_auth() {
+        // Create a restrictive policy (deny all)
+        let mut restricted = NamedTempFile::new().unwrap();
+        writeln!(
+            restricted,
+            r#"spec:
+  commands:
+    allow: []
+    deny:
+      - pattern: ".*"
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30"#
+        )
+        .unwrap();
+
+        let profiles = vec![CallerProfile {
+            name: "restricted-agent".into(),
+            token: "restricted-token-abc".into(),
+            policy: restricted.path().to_path_buf(),
+        }];
+
+        // No default api_token — only caller profiles
+        let server = McpServer::new(None, None, "test-caller", None, None, None, profiles).unwrap();
+
+        // Authenticate with profile token
+        let init = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "restricted-token-abc"}),
+        };
+        let response = server.handle_request(&init).await;
+        assert!(response.result.is_some());
+        assert!(response.error.is_none());
+
+        // Should be authenticated
+        assert!(*server.authenticated.lock().await);
+    }
+
+    #[tokio::test]
+    async fn test_rbac_invalid_profile_token() {
+        let mut policy = NamedTempFile::new().unwrap();
+        writeln!(
+            policy,
+            r#"spec:
+  commands:
+    allow:
+      - pattern: "^echo .*"
+    deny: []
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30"#
+        )
+        .unwrap();
+
+        let profiles = vec![CallerProfile {
+            name: "agent-one".into(),
+            token: "valid-token".into(),
+            policy: policy.path().to_path_buf(),
+        }];
+
+        let server = McpServer::new(None, None, "test-caller", None, None, None, profiles).unwrap();
+
+        // Try with wrong token
+        let init = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "wrong-token"}),
+        };
+        let response = server.handle_request(&init).await;
+        assert!(response.error.is_some());
+        assert!(!*server.authenticated.lock().await);
+    }
+
+    #[tokio::test]
+    async fn test_rbac_callers_config_parse() {
+        let mut config_file = NamedTempFile::new().unwrap();
+        writeln!(
+            config_file,
+            r#"[[callers]]
+name = "ci-agent"
+token = "ci-token-123"
+policy = "/etc/rf/ci-policy.yaml"
+
+[[callers]]
+name = "dev-agent"
+token = "dev-token-456"
+policy = "/etc/rf/dev-policy.yaml"
+"#
+        )
+        .unwrap();
+
+        let config = CallersConfig::load(config_file.path()).unwrap();
+        assert_eq!(config.callers.len(), 2);
+        assert_eq!(config.callers[0].name, "ci-agent");
+        assert_eq!(config.callers[0].token, "ci-token-123");
+        assert_eq!(config.callers[1].name, "dev-agent");
     }
 }

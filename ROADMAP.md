@@ -362,7 +362,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] API token authentication — `--api-token` / `RF_API_TOKEN` env, constant-time validation, reject unauthenticated requests
 - [ ] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
 - [x] Token rotation — comma-separated tokens for grace period, --api-token-file for external rotation
-- [ ] RBAC per caller — map API tokens to policy profiles (different callers get different permissions)
+- [x] RBAC per caller — map API tokens to policy profiles (different callers get different permissions)
 - [x] Rate limiting per session — sliding window request throttle (configurable max requests/minute)
 - [x] Agent reasoning capture — optional `reason` parameter recorded in audit log
 - [x] Claude Desktop integration — `claude_desktop_config.json` reference setup, docs/src/integrations/claude-desktop.md

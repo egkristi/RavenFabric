@@ -58,6 +58,11 @@ struct Cli {
     #[arg(long, env = "RF_ALERT_WEBHOOK")]
     alert_webhook: Option<String>,
 
+    /// Path to callers config (TOML) for RBAC per-caller policy profiles.
+    /// Maps API tokens to different policy files for fine-grained access control.
+    #[arg(long, env = "RF_CALLERS")]
+    callers: Option<std::path::PathBuf>,
+
     /// Maximum tool calls per minute (rate limiting). Default: 60.
     #[arg(long, env = "RF_RATE_LIMIT")]
     rate_limit: Option<u32>,
@@ -93,6 +98,15 @@ async fn main() -> anyhow::Result<()> {
         cli.api_token
     };
 
+    // Load RBAC caller profiles if configured
+    let caller_profiles = if let Some(ref callers_path) = cli.callers {
+        let config = rf_mcp_server::CallersConfig::load(callers_path)?;
+        info!(count = config.callers.len(), "loaded caller profiles");
+        config.callers
+    } else {
+        Vec::new()
+    };
+
     let server = McpServer::new(
         cli.policy.as_deref(),
         cli.audit.as_deref(),
@@ -100,6 +114,7 @@ async fn main() -> anyhow::Result<()> {
         api_token,
         cli.rate_limit,
         cli.alert_webhook,
+        caller_profiles,
     )?;
 
     server.run_stdio().await?;

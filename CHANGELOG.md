@@ -45,3 +45,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP Server**: `approve()` / `deny()` API for operator approval control
 - **MCP Server**: Token rotation — comma-separated tokens for grace period, `--api-token-file` for external rotation
 - **MCP Server**: Alert routing — `--alert-webhook` / `RF_ALERT_WEBHOOK` sends anomaly events to HTTP endpoint
+- **MCP Server**: RBAC per caller — `--callers` TOML config maps tokens to per-caller policy profiles

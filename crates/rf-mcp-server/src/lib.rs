@@ -16,4 +16,4 @@ mod server;
 mod tools;
 
 pub use protocol::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, MCP_VERSION};
-pub use server::McpServer;
+pub use server::{CallerProfile, CallersConfig, McpServer};
