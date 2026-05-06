@@ -19,8 +19,10 @@ version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/egkristi/RavenFabric"
-homepage = "https://github.com/egkristi/RavenFabric"
+homepage = "https://ravenfabric.io"
 authors = ["Erling Kristiansen"]
+keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
+categories = ["command-line-utilities", "network-programming"]
 description = "Secure remote execution and mesh networking agent — zero-trust, cryptographically verified"
 rust-version = "1.88"
 

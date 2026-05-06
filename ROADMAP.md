@@ -581,7 +581,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - `cargo clippy --all-targets -- -D warnings` — lints
 - `cargo test --all` — all unit + integration tests
 - Coverage threshold: 60%
-- Cross-compile: Linux (amd64, arm64, musl), macOS (amd64, arm64)
+- Cross-compile: Linux (amd64, arm64, armv7, riscv64, musl), macOS (amd64, arm64), FreeBSD
 - MSRV check: Rust 1.88
 
 ---

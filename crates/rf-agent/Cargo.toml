@@ -17,13 +17,13 @@ full = ["rf-transport/quic", "rf-executor/sysinfo"]
 minimal = []
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto" }
-rf-transport = { path = "../rf-transport" }
-rf-rpc = { path = "../rf-rpc" }
-rf-executor = { path = "../rf-executor" }
-rf-policy = { path = "../rf-policy" }
-rf-audit = { path = "../rf-audit" }
-rf-bootstrap = { path = "../rf-bootstrap" }
+rf-crypto = { path = "../rf-crypto", version = "0.1.0" }
+rf-transport = { path = "../rf-transport", version = "0.1.0" }
+rf-rpc = { path = "../rf-rpc", version = "0.1.0" }
+rf-executor = { path = "../rf-executor", version = "0.1.0" }
+rf-policy = { path = "../rf-policy", version = "0.1.0" }
+rf-audit = { path = "../rf-audit", version = "0.1.0" }
+rf-bootstrap = { path = "../rf-bootstrap", version = "0.1.0" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
