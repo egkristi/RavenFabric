@@ -744,6 +744,11 @@ AI Agent (Claude Code, Cursor, Aider, custom)
 | **AI compliance reporting** | Done | EU AI Act + NIST AI RMF compliance reports with human oversight tracking |
 | **Embedded Web UI** | Done | Real-time agent dashboard (metrics, activity, connected agents) |
 | **Integration guides** | Done | Claude Desktop, Claude Code, Cursor, Aider setup guides |
+| **RBAC per caller** | Done | `--callers` TOML maps tokens to per-caller policy profiles |
+| **Per-session crypto identity** | Done | Short-lived Curve25519 keypair per session for cryptographic correlation |
+| **Token rotation** | Done | Comma-separated tokens for grace period, `--api-token-file` for external rotation |
+| **Alert routing** | Done | `--alert-webhook` sends anomaly alerts to HTTP endpoint |
+| **HTTP+SSE transport** | Done | `--http-listen` for multi-user server deployment (feature: `http-sse`) |
 
 ### Policy Templates for AI Agents
 
@@ -1213,7 +1218,7 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | `rf-relay` | Stateless encrypted relay broker binary | Done |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done |
 | `rf-cli` | `rf` CLI binary (exec, status, completions) | Done |
-| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor) | Done (~650 LOC, 15 tests) |
+| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor) | Done (~2,500 LOC, 34 tests) |
 | `rf-integration-tests` | End-to-end integration tests | Done (2 tests) |
 
 ### Key Dependencies
