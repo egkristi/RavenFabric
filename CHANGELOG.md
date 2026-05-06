@@ -32,3 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Policy**: Behavioral anomaly detection — velocity, novelty, timing, and escalation scoring per identity with automatic capability reduction
 - **Audit**: AI compliance reporting — EU AI Act risk classification, NIST AI RMF mapping, human oversight tracking, report generation (JSON/CSV export)
 - **RPC**: Embedded Web UI dashboard — real-time agent metrics, connected agents table, activity feed (self-contained HTML/CSS/JS, no external dependencies)
+- **MCP Server**: API token authentication — `--api-token` / `RF_API_TOKEN`, constant-time validation
+- **MCP Server**: Per-session rate limiting — sliding window throttle (`--rate-limit` / `RF_RATE_LIMIT`, default 60/min)
+- **MCP Server**: Session isolation — unique session ID, process-level sandbox, session ID exposed in initialize response
+- **Docs**: Claude Code integration guide (`docs/src/integrations/claude-code.md`)
+- **Docs**: Cursor integration guide (`docs/src/integrations/cursor.md`)
+- **Docs**: Aider integration guide (`docs/src/integrations/aider.md`)
+- **Docs**: AI Agent Quick Start tutorial (`docs/src/getting-started/ai-quickstart.md`)

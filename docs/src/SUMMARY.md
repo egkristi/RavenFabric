@@ -8,6 +8,7 @@
 
 - [Installation](getting-started/installation.md)
 - [Quick Start](getting-started/quickstart.md)
+- [AI Agent Quick Start](getting-started/ai-quickstart.md)
 - [Configuration](getting-started/configuration.md)
 
 # Architecture
@@ -47,6 +48,13 @@
 - [Audit Log Format](reference/audit-log-format.md)
 - [AI Agent Skill](reference/ai-agent-skill.md)
 - [Glossary](reference/glossary.md)
+
+# Integrations
+
+- [Claude Desktop](integrations/claude-desktop.md)
+- [Claude Code](integrations/claude-code.md)
+- [Cursor](integrations/cursor.md)
+- [Aider](integrations/aider.md)
 
 # Development
 

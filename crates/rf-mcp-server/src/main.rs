@@ -47,6 +47,10 @@ struct Cli {
     #[arg(long, env = "RF_API_TOKEN")]
     api_token: Option<String>,
 
+    /// Maximum tool calls per minute (rate limiting). Default: 60.
+    #[arg(long, env = "RF_RATE_LIMIT")]
+    rate_limit: Option<u32>,
+
     /// Log level for stderr diagnostics.
     #[arg(long, default_value = "info", env = "RF_LOG_LEVEL")]
     log_level: String,
@@ -73,6 +77,7 @@ async fn main() -> anyhow::Result<()> {
         cli.audit.as_deref(),
         &cli.caller_key,
         cli.api_token,
+        cli.rate_limit,
     )?;
 
     server.run_stdio().await?;

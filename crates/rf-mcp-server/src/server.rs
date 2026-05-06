@@ -4,9 +4,12 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use chrono::Timelike;
+
 use rf_audit::logger::{AuditLogger, FileAuditLogger};
 use rf_audit::types::AuditEntry;
 use rf_executor::command::Executor;
+use rf_policy::anomaly::{AnomalyConfig, AnomalyResponse, IdentityBaseline};
 use rf_policy::rpc_policy::RpcPolicy;
 use rf_rpc::types::{Action, Request, Response, RpcResult};
 use serde_json::{Value, json};
@@ -16,6 +19,62 @@ use tracing::{debug, error, info, warn};
 
 use crate::protocol::{INTERNAL_ERROR, JsonRpcRequest, JsonRpcResponse, MCP_VERSION};
 use crate::tools;
+
+/// Default maximum requests per minute for rate limiting.
+const DEFAULT_MAX_REQUESTS_PER_MINUTE: u32 = 60;
+
+/// Session rate limiter using a sliding window.
+struct RateLimiter {
+    /// Maximum requests allowed per window.
+    max_per_window: u32,
+    /// Window duration.
+    window: std::time::Duration,
+    /// Timestamps of recent requests.
+    timestamps: std::collections::VecDeque<std::time::Instant>,
+}
+
+impl RateLimiter {
+    fn new(max_per_minute: u32) -> Self {
+        Self {
+            max_per_window: max_per_minute,
+            window: std::time::Duration::from_secs(60),
+            timestamps: std::collections::VecDeque::new(),
+        }
+    }
+
+    /// Check if a request is allowed. Returns Ok(()) or Err with remaining wait time.
+    fn check(&mut self) -> Result<(), std::time::Duration> {
+        let now = std::time::Instant::now();
+
+        // Remove expired timestamps
+        while let Some(front) = self.timestamps.front() {
+            if now.duration_since(*front) > self.window {
+                self.timestamps.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        if self.timestamps.len() >= self.max_per_window as usize {
+            // Rate limited — calculate how long until the oldest entry expires
+            // Safety: timestamps is non-empty since len >= max_per_window > 0
+            let oldest = self
+                .timestamps
+                .front()
+                .expect("timestamps non-empty when len >= max_per_window");
+            let wait = self.window - now.duration_since(*oldest);
+            Err(wait)
+        } else {
+            self.timestamps.push_back(now);
+            Ok(())
+        }
+    }
+
+    /// Get current request count in the window.
+    fn current_count(&self) -> u32 {
+        self.timestamps.len() as u32
+    }
+}
 
 /// The MCP server instance.
 pub struct McpServer {
@@ -31,6 +90,10 @@ pub struct McpServer {
     api_token: Option<String>,
     /// Whether the session has been authenticated.
     authenticated: Arc<tokio::sync::Mutex<bool>>,
+    /// Per-session rate limiter.
+    rate_limiter: Arc<tokio::sync::Mutex<RateLimiter>>,
+    /// Per-session behavioral anomaly tracker.
+    anomaly_tracker: Arc<tokio::sync::Mutex<IdentityBaseline>>,
 }
 
 /// A pending human approval request.
@@ -55,6 +118,7 @@ impl McpServer {
         audit_path: Option<&Path>,
         caller_key: &str,
         api_token: Option<String>,
+        max_requests_per_minute: Option<u32>,
     ) -> anyhow::Result<Self> {
         let policy = if let Some(path) = policy_path {
             RpcPolicy::load(path)?
@@ -89,6 +153,14 @@ impl McpServer {
         // If no token is configured, session starts authenticated
         let authenticated = Arc::new(tokio::sync::Mutex::new(api_token.is_none()));
 
+        let rate_limit = max_requests_per_minute.unwrap_or(DEFAULT_MAX_REQUESTS_PER_MINUTE);
+        let rate_limiter = Arc::new(tokio::sync::Mutex::new(RateLimiter::new(rate_limit)));
+
+        let anomaly_tracker = Arc::new(tokio::sync::Mutex::new(IdentityBaseline::new(
+            caller_key,
+            AnomalyConfig::default(),
+        )));
+
         Ok(Self {
             executor: Arc::new(executor),
             policy,
@@ -98,6 +170,8 @@ impl McpServer {
             approvals: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             api_token,
             authenticated,
+            rate_limiter,
+            anomaly_tracker,
         })
     }
 
@@ -200,6 +274,27 @@ impl McpServer {
             );
         }
 
+        // Rate limit tool calls (not metadata queries like tools/list)
+        if request.method == "tools/call" {
+            let mut limiter = self.rate_limiter.lock().await;
+            if let Err(wait) = limiter.check() {
+                warn!(
+                    method = %request.method,
+                    wait_secs = wait.as_secs(),
+                    count = limiter.current_count(),
+                    "rate limited"
+                );
+                return JsonRpcResponse::error(
+                    id,
+                    INTERNAL_ERROR,
+                    format!(
+                        "Rate limited. Too many requests. Try again in {} seconds.",
+                        wait.as_secs() + 1
+                    ),
+                );
+            }
+        }
+
         match request.method.as_str() {
             "tools/list" => self.handle_tools_list(id),
             "tools/call" => self.handle_tools_call(id, &request.params).await,
@@ -246,7 +341,8 @@ impl McpServer {
                 "serverInfo": {
                     "name": "rf-mcp-server",
                     "version": env!("CARGO_PKG_VERSION")
-                }
+                },
+                "sessionId": self.session_id
             }),
         )
     }
@@ -547,7 +643,7 @@ impl McpServer {
             request_id: response.id.clone(),
             action: "mcp_tool_call".to_string(),
             command: Some(command.to_string()),
-            decision,
+            decision: decision.clone(),
             matched_rule,
             exit_code,
             duration_ms: 0,
@@ -561,6 +657,44 @@ impl McpServer {
         // Write to persistent audit
         if let Err(e) = self.audit.log(entry) {
             error!(error = %e, "failed to write audit entry");
+        }
+
+        // Feed anomaly tracker — record command with denied status
+        let denied = decision.starts_with("denied");
+        let hour = chrono::Utc::now().hour() as u8;
+        let anomalies = self
+            .anomaly_tracker
+            .lock()
+            .await
+            .record_command(command, denied, hour);
+
+        // Write anomaly events as audit entries
+        for event in &anomalies {
+            let anomaly_entry = AuditEntry {
+                timestamp: chrono::Utc::now(),
+                request_id: uuid::Uuid::new_v4().to_string(),
+                action: "anomaly_detected".to_string(),
+                command: Some(command.to_string()),
+                decision: format!("{:?}", event.anomaly_type),
+                matched_rule: format!("score={:.2}", event.score),
+                exit_code: None,
+                duration_ms: 0,
+                caller_key: self.session_id.clone(),
+                reason: Some(event.description.clone()),
+            };
+            self.session_log.lock().await.push(anomaly_entry.clone());
+            if let Err(e) = self.audit.log(anomaly_entry) {
+                error!(error = %e, "failed to write anomaly audit entry");
+            }
+        }
+
+        // Check if anomaly score warrants session termination
+        let response_action = self.anomaly_tracker.lock().await.recommended_response();
+        if response_action == AnomalyResponse::TerminateSession {
+            warn!(
+                session_id = %self.session_id,
+                "anomaly score exceeded termination threshold — session should be terminated"
+            );
         }
     }
 }
@@ -611,14 +745,15 @@ mod tests {
     #[tokio::test]
     async fn test_server_creation() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None);
+        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None, None);
         assert!(server.is_ok());
     }
 
     #[tokio::test]
     async fn test_handle_initialize() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -637,7 +772,8 @@ mod tests {
     #[tokio::test]
     async fn test_handle_tools_list() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -655,7 +791,8 @@ mod tests {
     #[tokio::test]
     async fn test_tool_query_policy_allowed() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
 
         let result = server
             .tool_query_policy(&json!({"command": "echo hello"}))
@@ -669,7 +806,8 @@ mod tests {
     #[tokio::test]
     async fn test_tool_query_policy_denied() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
 
         let result = server
             .tool_query_policy(&json!({"command": "rm -rf /"}))
@@ -683,7 +821,8 @@ mod tests {
     #[tokio::test]
     async fn test_tool_exec_denied_command() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
 
         let result = server
             .tool_exec(&json!({"command": "rm -rf /tmp/important"}))
@@ -697,7 +836,8 @@ mod tests {
     #[tokio::test]
     async fn test_tool_audit_query_empty() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
 
         let result = server.tool_audit_query(&json!({})).await;
         assert!(result.is_ok());
@@ -709,7 +849,8 @@ mod tests {
     #[tokio::test]
     async fn test_unknown_method() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None).unwrap();
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -731,6 +872,7 @@ mod tests {
             None,
             "test-caller",
             Some("secret-token-123".into()),
+            None,
         )
         .unwrap();
 
@@ -754,6 +896,7 @@ mod tests {
             None,
             "test-caller",
             Some("secret-token-123".into()),
+            None,
         )
         .unwrap();
 
@@ -777,6 +920,7 @@ mod tests {
             None,
             "test-caller",
             Some("secret-token-123".into()),
+            None,
         )
         .unwrap();
 
@@ -800,6 +944,7 @@ mod tests {
             None,
             "test-caller",
             Some("secret-token-123".into()),
+            None,
         )
         .unwrap();
 
@@ -828,5 +973,99 @@ mod tests {
         assert!(!constant_time_eq(b"hello", b"world"));
         assert!(!constant_time_eq(b"hello", b"hell"));
         assert!(constant_time_eq(b"", b""));
+    }
+
+    #[test]
+    fn test_rate_limiter_allows_within_limit() {
+        let mut limiter = RateLimiter::new(5);
+        for _ in 0..5 {
+            assert!(limiter.check().is_ok());
+        }
+        assert_eq!(limiter.current_count(), 5);
+    }
+
+    #[test]
+    fn test_rate_limiter_denies_over_limit() {
+        let mut limiter = RateLimiter::new(3);
+        for _ in 0..3 {
+            assert!(limiter.check().is_ok());
+        }
+        let result = limiter.check();
+        assert!(result.is_err());
+        let wait = result.unwrap_err();
+        assert!(wait.as_secs() <= 60);
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_applied_to_tool_calls() {
+        let policy_file = create_test_policy();
+        // Rate limit to 2 per minute
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, Some(2)).unwrap();
+
+        // Authenticate first
+        let init = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(0)),
+            method: "initialize".into(),
+            params: json!({"protocolVersion": "2024-11-05"}),
+        };
+        server.handle_request(&init).await;
+
+        // First two tool calls should succeed (may be denied by policy, but not rate limited)
+        for i in 1..=2 {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".into(),
+                id: Some(json!(i)),
+                method: "tools/call".into(),
+                params: json!({"name": "rf_exec", "arguments": {"command": "echo hi"}}),
+            };
+            let response = server.handle_request(&request).await;
+            // Should NOT be rate limited (may succeed or fail for policy reasons)
+            if let Some(ref err) = response.error {
+                assert!(!err.message.contains("Rate limited"));
+            }
+        }
+
+        // Third tool call should be rate limited
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(3)),
+            method: "tools/call".into(),
+            params: json!({"name": "rf_exec", "arguments": {"command": "echo hi"}}),
+        };
+        let response = server.handle_request(&request).await;
+        assert!(response.error.is_some());
+        assert!(response.error.unwrap().message.contains("Rate limited"));
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_not_applied_to_tools_list() {
+        let policy_file = create_test_policy();
+        // Very low rate limit
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, Some(1)).unwrap();
+
+        // Authenticate
+        let init = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(0)),
+            method: "initialize".into(),
+            params: json!({"protocolVersion": "2024-11-05"}),
+        };
+        server.handle_request(&init).await;
+
+        // tools/list should never be rate limited
+        for i in 1..=5 {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".into(),
+                id: Some(json!(i)),
+                method: "tools/list".into(),
+                params: json!({}),
+            };
+            let response = server.handle_request(&request).await;
+            assert!(response.result.is_some());
+            assert!(response.error.is_none());
+        }
     }
 }

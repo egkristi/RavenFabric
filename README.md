@@ -665,7 +665,7 @@ What works today:
 - Corporate proxy detection: HTTP CONNECT probing, auth detection (407), TCP RTT measurement
 - Collection policy: include/exclude glob patterns, label filters, sampling rate, batch limiting
 - Offline telemetry buffering: MetricBuffer with overflow, batch flush, drop counter
-- MCP server (`rf-mcp-server`): 7 tools (exec, query policy, file read/write, capabilities, audit query, approval)
+- MCP server (`rf-mcp-server`): 7 tools (exec, query policy, file read/write, capabilities, audit query, approval), API token auth, rate limiting, anomaly detection
 - Named pipe transport driver for Windows IPC (`\\.\pipe\ravenfabric`)
 - Vsock transport driver for VM-to-hypervisor communication (Firecracker, QEMU)
 - Abstract namespace socket driver (Linux-only, no filesystem cleanup)
@@ -730,6 +730,10 @@ AI Agent (Claude Code, Cursor, Aider, custom)
 |---------|--------|-------------|
 | **Stdio pipe transport** | Done | Parent-child process communication (MCP stdio protocol) |
 | **MCP server binary** | Done | `rf-mcp-server` for native Claude/Cursor integration (7 tools, JSON-RPC 2.0) |
+| **API token authentication** | Done | `--api-token` / `RF_API_TOKEN`, constant-time validation |
+| **Per-session rate limiting** | Done | Sliding window throttle (`--rate-limit`, default 60/min) |
+| **Session isolation** | Done | Unique session ID, process-level sandbox, fail-closed on policy error |
+| **Anomaly detection + audit** | Done | Behavioral anomaly events enriched with baseline data, written to audit log |
 | **Immutable deny rules** | Done | `rm -rf /`, `mkfs`, `dd if=/dev/zero`, fork bomb — cannot be overridden by any policy |
 | **AI reasoning audit** | Done | Optional `reason` field on every request, recorded in structured audit log |
 | **Injection detection** | Done | Base64/hex obfuscation, homoglyphs, shell evasion, exfiltration markers |
@@ -739,8 +743,7 @@ AI Agent (Claude Code, Cursor, Aider, custom)
 | **Behavioral anomaly detection** | Done | Velocity, novelty, timing, and escalation anomaly scoring per identity |
 | **AI compliance reporting** | Done | EU AI Act + NIST AI RMF compliance reports with human oversight tracking |
 | **Embedded Web UI** | Done | Real-time agent dashboard (metrics, activity, connected agents) |
-| **Session isolation** | Planned | Each AI session in its own policy sandbox |
-| **Human approval workflow** | Planned | Mutations require human confirmation via CLI/Slack/Teams |
+| **Integration guides** | Done | Claude Desktop, Claude Code, Cursor, Aider setup guides |
 
 ### Policy Templates for AI Agents
 

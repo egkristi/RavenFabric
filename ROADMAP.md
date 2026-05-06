@@ -363,10 +363,12 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
 - [ ] Token rotation — automatic token refresh with configurable TTL, old tokens grace period
 - [ ] RBAC per caller — map API tokens to policy profiles (different callers get different permissions)
-- [ ] Rate limiting per session — sliding window request throttle (configurable max requests/minute)
+- [x] Rate limiting per session — sliding window request throttle (configurable max requests/minute)
 - [x] Agent reasoning capture — optional `reason` parameter recorded in audit log
-- [ ] Claude Desktop integration — `claude_desktop_config.json` reference setup
-- [ ] Claude Code integration — `claude mcp add` reference setup
+- [x] Claude Desktop integration — `claude_desktop_config.json` reference setup, docs/src/integrations/claude-desktop.md
+- [x] Claude Code integration — `claude mcp add` reference setup, docs/src/integrations/claude-code.md
+- [x] Cursor integration — MCP server config, workspace-scoped policy, docs/src/integrations/cursor.md
+- [x] Aider integration — `.aider.conf.yml` setup, docs/src/integrations/aider.md
 - [ ] Design spec: [docs/src/use-cases/ai-agent-access.md](docs/src/use-cases/ai-agent-access.md)
 
 ### Policy Templates Library
@@ -526,7 +528,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Statistical deviation alerting — Z-score threshold on command rate, new-path-access rate, denial rate
 - [x] Session anomaly scoring — cumulative risk score per session; high score triggers automatic capability reduction or session termination
 - [x] Anomaly types: velocity (too many commands), novelty (accessing paths never accessed before), timing (unusual hours), escalation (repeated denied-then-reformulated attempts)
-- [ ] Integration with audit log — anomaly events enriched with baseline comparison data
+- [x] Integration with audit log — anomaly events enriched with baseline comparison data
 - [ ] Alert routing — anomaly alerts to Slack/webhook/email via existing notification infrastructure
 
 ### AI Compliance Reporting
@@ -576,14 +578,14 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Ship: Hardened rf-mcp-server
 - [ ] Production-hardened `rf-mcp-server` binary — audit-tested, fuzzed, zero known vulnerabilities
-- [ ] Session isolation — each AI agent session runs in its own policy sandbox, no cross-session bleed
-- [ ] Rate limiting per session — prevent runaway AI loops from exhausting system resources
-- [ ] Graceful degradation — if policy engine is unreachable, deny all (fail-closed)
+- [x] Session isolation — each AI agent session runs in its own policy sandbox, no cross-session bleed
+- [x] Rate limiting per session — prevent runaway AI loops from exhausting system resources
+- [x] Graceful degradation — if policy engine is unreachable, deny all (fail-closed)
 
 ### Clear Install Guides
-- [ ] Claude Code integration guide — `claude mcp add ravenfabric` one-liner, config reference, troubleshooting
-- [ ] Cursor integration guide — MCP server config for Cursor IDE, workspace-scoped policy
-- [ ] Aider integration guide — stdio transport setup, `.aider.conf.yml` reference
+- [x] Claude Code integration guide — `claude mcp add ravenfabric` one-liner, config reference, troubleshooting
+- [x] Cursor integration guide — MCP server config for Cursor IDE, workspace-scoped policy
+- [x] Aider integration guide — stdio transport setup, `.aider.conf.yml` reference
 
 ### Opinionated Policy Templates (ready-to-use)
 - [x] "Safe Dev Mode" — AI can read/write project files, run tests, use git; cannot touch system, credentials, or network
