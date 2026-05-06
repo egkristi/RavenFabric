@@ -42,9 +42,10 @@ pub async fn send_fds(socket: &UnixStream, fds: &[RawFd]) -> Result<(), Transpor
 
     let raw_fd = socket.as_raw_fd();
 
-    socket.writable().await.map_err(|e| {
-        TransportError::Connection(format!("fd_passing: socket not writable: {e}"))
-    })?;
+    socket
+        .writable()
+        .await
+        .map_err(|e| TransportError::Connection(format!("fd_passing: socket not writable: {e}")))?;
 
     let fds_owned = fds.to_vec();
     let result = socket.try_io(tokio::io::Interest::WRITABLE, || {
@@ -66,13 +67,12 @@ pub async fn send_fds(socket: &UnixStream, fds: &[RawFd]) -> Result<(), Transpor
 pub async fn recv_fds(socket: &UnixStream) -> Result<Vec<RawFd>, TransportError> {
     let raw_fd = socket.as_raw_fd();
 
-    socket.readable().await.map_err(|e| {
-        TransportError::Connection(format!("fd_passing: socket not readable: {e}"))
-    })?;
+    socket
+        .readable()
+        .await
+        .map_err(|e| TransportError::Connection(format!("fd_passing: socket not readable: {e}")))?;
 
-    let result = socket.try_io(tokio::io::Interest::READABLE, || {
-        recv_fds_blocking(raw_fd)
-    });
+    let result = socket.try_io(tokio::io::Interest::READABLE, || recv_fds_blocking(raw_fd));
 
     match result {
         Ok(fds) => Ok(fds),
@@ -99,7 +99,10 @@ pub unsafe fn fd_to_unix_stream(fd: RawFd) -> Result<UnixStream, TransportError>
 
 /// Blocking sendmsg with SCM_RIGHTS ancillary data.
 fn send_fds_blocking(socket_fd: RawFd, fds: &[RawFd]) -> io::Result<()> {
-    use libc::{c_void, cmsghdr, iovec, msghdr, sendmsg, CMSG_DATA, CMSG_LEN, CMSG_SPACE, SOL_SOCKET, SCM_RIGHTS};
+    use libc::{
+        CMSG_DATA, CMSG_LEN, CMSG_SPACE, SCM_RIGHTS, SOL_SOCKET, c_void, cmsghdr, iovec, msghdr,
+        sendmsg,
+    };
     use std::mem;
     use std::ptr;
 
@@ -129,11 +132,7 @@ fn send_fds_blocking(socket_fd: RawFd, fds: &[RawFd]) -> io::Result<()> {
 
     // Copy file descriptors into CMSG_DATA
     unsafe {
-        ptr::copy_nonoverlapping(
-            fds.as_ptr() as *const u8,
-            CMSG_DATA(cmsg),
-            fds_byte_len,
-        );
+        ptr::copy_nonoverlapping(fds.as_ptr() as *const u8, CMSG_DATA(cmsg), fds_byte_len);
     }
 
     let ret = unsafe { sendmsg(socket_fd, &msg, 0) };
@@ -146,7 +145,10 @@ fn send_fds_blocking(socket_fd: RawFd, fds: &[RawFd]) -> io::Result<()> {
 
 /// Blocking recvmsg with SCM_RIGHTS ancillary data extraction.
 fn recv_fds_blocking(socket_fd: RawFd) -> io::Result<Vec<RawFd>> {
-    use libc::{c_void, iovec, msghdr, CMSG_DATA, CMSG_FIRSTHDR, CMSG_LEN, CMSG_NXTHDR, CMSG_SPACE, SOL_SOCKET, SCM_RIGHTS};
+    use libc::{
+        CMSG_DATA, CMSG_FIRSTHDR, CMSG_LEN, CMSG_NXTHDR, CMSG_SPACE, SCM_RIGHTS, SOL_SOCKET,
+        c_void, iovec, msghdr,
+    };
     use std::mem;
 
     let mut data: [u8; 1] = [0];
@@ -179,8 +181,7 @@ fn recv_fds_blocking(socket_fd: RawFd) -> io::Result<Vec<RawFd>> {
         while !cmsg_ptr.is_null() {
             let cmsg_ref = &*cmsg_ptr;
             if cmsg_ref.cmsg_level == SOL_SOCKET && cmsg_ref.cmsg_type == SCM_RIGHTS {
-                let payload_len =
-                    cmsg_ref.cmsg_len as usize - CMSG_LEN(0) as usize;
+                let payload_len = cmsg_ref.cmsg_len as usize - CMSG_LEN(0) as usize;
                 let fd_count = payload_len / mem::size_of::<RawFd>();
                 let fd_ptr = CMSG_DATA(cmsg_ptr) as *const RawFd;
                 for i in 0..fd_count {
