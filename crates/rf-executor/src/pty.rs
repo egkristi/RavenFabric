@@ -318,7 +318,7 @@ impl PtySession {
         unsafe {
             cmd.pre_exec(|| {
                 libc::setsid();
-                libc::ioctl(0, libc::TIOCSCTTY as libc::c_ulong, 0);
+                libc::ioctl(0, libc::TIOCSCTTY as _, 0);
                 Ok(())
             });
         }
