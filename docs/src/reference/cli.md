@@ -183,6 +183,58 @@ rf completions fish > ~/.config/fish/completions/rf.fish
 
 ---
 
+## `rf policy`
+
+Policy template management and validation.
+
+```
+rf policy <SUBCOMMAND>
+```
+
+### `rf policy list`
+
+List all available built-in policy templates.
+
+```bash
+rf policy list
+```
+
+### `rf policy show`
+
+Display the full YAML of a built-in template.
+
+```bash
+rf policy show safe-dev-mode
+rf policy show production-ai-guardrails
+```
+
+### `rf policy validate`
+
+Validate a policy YAML file for correctness.
+
+```bash
+# Validate a file
+rf policy validate --file /etc/ravenfabric/policy.yaml
+
+# Validate a built-in template
+rf policy validate --template safe-dev-mode
+```
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--file <PATH>` | `-f` | Path to policy YAML file |
+| `--template <NAME>` | `-t` | Built-in template name |
+
+### `rf policy compose`
+
+Compose multiple templates with deny-wins conflict resolution.
+
+```bash
+rf policy compose "safe-dev-mode,production-ai-guardrails"
+```
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |

@@ -18,21 +18,26 @@ Binaries are in `target/release/`:
 - `rf` — CLI client
 - `rf-agent` — Agent daemon
 - `rf-relay` — Relay broker
+- `rf-mcp-server` — MCP server for AI agents
 
 ## Feature Flags
 
-The `rf-agent` binary supports feature flags:
+The workspace supports feature flags for different build profiles:
 
-| Feature | Description | Default |
-|---------|-------------|---------|
-| `full` | All transports + sysinfo metrics | Yes |
-| `minimal` | Core only (no QUIC, no sysinfo) | No |
-| `quic` | QUIC transport via quinn | Included in `full` |
-| `sysinfo` | System metrics collection | Included in `full` |
+| Feature | Crate | Description | Default |
+|---------|-------|-------------|---------|
+| `full` | rf-agent | All transports + sysinfo metrics | Yes |
+| `minimal` | rf-agent | Core only (no QUIC, no sysinfo) | No |
+| `quic` | rf-agent | QUIC transport via quinn | Included in `full` |
+| `sysinfo` | rf-agent | System metrics collection | Included in `full` |
+| `http-sse` | rf-mcp-server | HTTP+SSE multi-user transport | No |
 
 ```bash
-# Minimal build (smaller binary, fewer dependencies)
+# Minimal agent build (smaller binary, fewer dependencies)
 cargo build --release -p rf-agent --no-default-features --features minimal
+
+# MCP server with HTTP+SSE support
+cargo build --release -p rf-mcp-server --features http-sse
 ```
 
 ## Cross-Compilation

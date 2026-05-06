@@ -82,10 +82,20 @@ timeout = 30
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `RELAY_SECRET` | HMAC secret for relay meet token verification |
-| `RUST_LOG` | Logging level filter (e.g., `info`, `rf_agent=debug`) |
+| Variable | Component | Description |
+|----------|-----------|-------------|
+| `RELAY_SECRET` | rf-relay | HMAC secret for relay meet token verification |
+| `RF_RELAY` | rf (CLI) | Default relay URL |
+| `RUST_LOG` | All | Logging level filter (e.g., `info`, `rf_agent=debug`) |
+| `RF_POLICY_PATH` | rf-mcp-server | Path to policy YAML file |
+| `RF_AUDIT_PATH` | rf-mcp-server | Path to audit log file |
+| `RF_API_TOKEN` | rf-mcp-server | API authentication token |
+| `RF_API_TOKEN_FILE` | rf-mcp-server | Path to token file (supports rotation) |
+| `RF_ALERT_WEBHOOK` | rf-mcp-server | Webhook URL for anomaly alert notifications |
+| `RF_CALLERS` | rf-mcp-server | Path to RBAC callers config (TOML) |
+| `RF_RATE_LIMIT` | rf-mcp-server | Max tool calls per minute (default: 60) |
+| `RF_HTTP_LISTEN` | rf-mcp-server | HTTP+SSE listen address (e.g., `0.0.0.0:8080`) |
+| `RF_LOG_LEVEL` | rf-mcp-server | Log level: trace, debug, info, warn, error |
 
 ## Resolution Order
 

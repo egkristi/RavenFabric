@@ -77,7 +77,7 @@ cd RavenFabric
 cargo build --release
 
 # Binaries are in target/release/
-ls target/release/rf target/release/rf-agent target/release/rf-relay
+ls target/release/rf target/release/rf-agent target/release/rf-relay target/release/rf-mcp-server
 ```
 
 ## Docker
@@ -120,18 +120,5 @@ cargo build --release --target x86_64-unknown-linux-musl
 rf --version
 rf-agent --help
 rf-relay --help
+rf-mcp-server --help
 ```
-
-## Platform Support
-
-| Platform | Status | Notes |
-|----------|--------|-------|
-| Linux x86_64 | Fully supported | Static musl binaries |
-| Linux aarch64 | Fully supported | Static musl binaries |
-| macOS x86_64 | Fully supported | |
-| macOS aarch64 | Fully supported | Apple Silicon |
-| Windows x86_64 | Fully supported | |
-| Linux armv7 | Best effort | Raspberry Pi |
-| FreeBSD | Best effort | |
-| Android | Planned | NDK cross-compile |
-| iOS | Planned | Network Extension |

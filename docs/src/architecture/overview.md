@@ -6,7 +6,7 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 
 ```
 ┌──────────────────────────────────┐
-│        Application Layer         │  rf-cli, rf-agent, rf-relay
+│        Application Layer         │  rf-cli, rf-agent, rf-relay, rf-mcp-server
 │  (binaries, user-facing tools)   │
 ├──────────────────────────────────┤
 │         Executor Layer           │  rf-executor
@@ -14,6 +14,9 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 ├──────────────────────────────────┤
 │          Policy Layer            │  rf-policy
 │  (deny-by-default enforcement)  │
+├──────────────────────────────────┤
+│         Audit Layer              │  rf-audit
+│  (structured logging, anomaly)  │
 ├──────────────────────────────────┤
 │           RPC Layer              │  rf-rpc
 │  (message types, codec, mux)    │
@@ -30,19 +33,20 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 
 | Crate | Purpose | LOC | Tests |
 |-------|---------|-----|-------|
-| `rf-crypto` | Noise XX handshake, SecureChannel, key management, PQ hybrid KEM | ~1,700 | 35 |
-| `rf-transport` | Driver trait, WebSocket/QUIC/Memory/WireGuard, NAT traversal, mesh, overlays | ~12,300 | 248 |
-| `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller API | ~5,700 | 98 |
-| `rf-audit` | Structured JSON-lines audit logging | ~130 | 3 |
-| `rf-policy` | Policy enforcement, RBAC, capabilities, CRDT convergence | ~2,400 | 55 |
-| `rf-executor` | Command execution, streaming, orchestration, PTY, plugins | ~6,400 | 105 |
+| `rf-crypto` | Noise XX handshake, SecureChannel, key management, PQ hybrid KEM | ~1,600 | 35 |
+| `rf-transport` | Driver trait, WebSocket/QUIC/Memory/WireGuard/Vsock/Unix/Stdio, NAT traversal, mesh, auto-selection | ~14,500 | 300 |
+| `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller API | ~5,800 | 106 |
+| `rf-audit` | Structured JSON-lines audit logging, anomaly event integration | ~650 | 14 |
+| `rf-policy` | Policy enforcement, RBAC, capabilities, CRDT convergence, anomaly detection, injection detection | ~4,500 | 97 |
+| `rf-executor` | Command execution, streaming, orchestration, PTY, plugins | ~6,500 | 105 |
 | `rf-bootstrap` | OTP enrollment, TrustStore, relay pairing | ~430 | 11 |
 | `rf-relay` | Stateless encrypted relay broker with per-IP rate limiting | ~390 | 7 |
-| `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect) | ~350 | — |
-| `rf-cli` | CLI client `rf` (exec, dev, status, completions) | ~970 | — |
+| `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff) | ~370 | — |
+| `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions) | ~1,080 | — |
+| `rf-mcp-server` | MCP server for AI agent integration (Claude, Cursor, Aider) | ~2,500 | 34 |
 | `rf-integration-tests` | End-to-end integration tests | ~240 | 2 |
 
-**Total: ~31,000 LOC | 564 tests | 0 clippy warnings**
+**Total: ~38,800 LOC | 711 tests | 0 clippy warnings**
 
 ## Data Flow
 

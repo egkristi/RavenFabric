@@ -42,6 +42,7 @@
 # Reference
 
 - [CLI Reference](reference/cli.md)
+- [MCP Server](reference/mcp-server.md)
 - [Configuration File](reference/config.md)
 - [Policy YAML Format](reference/policy-yaml.md)
 - [RPC Protocol](reference/rpc.md)

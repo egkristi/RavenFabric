@@ -4,17 +4,19 @@ Get an AI agent connected to RavenFabric in under 5 minutes.
 
 ## Overview
 
-RavenFabric provides an MCP (Model Context Protocol) server that lets AI agents execute commands, read/write files, and query policies — all within a security sandbox.
+RavenFabric provides an MCP (Model Context Protocol) server that lets AI agents execute commands, read/write files, and query policies — all within a security sandbox with behavioral anomaly detection.
 
 ```
 AI Agent (Claude, Cursor, Aider)
-    ↓ MCP stdio
+    ↓ MCP (stdio or HTTP+SSE)
 rf-mcp-server
-    ↓ policy check
+    ↓ policy check + anomaly detection
 Executor → shell command / filesystem
     ↓
 Audit log (every action recorded)
 ```
+
+**Available tools:** `rf_exec`, `rf_query_policy`, `rf_file_read`, `rf_file_write`, `rf_list_my_capabilities`, `rf_audit_query`, `rf_request_approval`, `rf_check_approval`
 
 ## Step 1: Build the MCP Server
 
@@ -125,9 +127,28 @@ Then try:
 - **Deny-by-default security** — only explicitly allowed commands execute
 - **Full audit trail** — every action logged with timestamps, session ID, and decision
 - **Rate limiting** — prevents runaway AI loops (default: 60 calls/minute)
-- **Session isolation** — each AI session is a separate sandboxed process
-- **API token auth** — constant-time validated, reject unauthorized sessions
+- **Per-session crypto identity** — Curve25519 keypair per session for tamper-proof audit correlation
+- **Behavioral anomaly detection** — velocity, novelty, timing, and escalation patterns tracked
+- **Alert webhook** — real-time notifications on suspicious activity
+- **API token auth** — constant-time validated, supports token rotation
 - **RBAC per caller** — different tokens get different policy profiles
+- **Human-in-loop approvals** — sensitive operations require explicit human confirmation
+
+## HTTP+SSE Mode (Multi-User)
+
+For web-based deployments or multi-user setups:
+
+```bash
+cargo build --release -p rf-mcp-server --features http-sse
+
+rf-mcp-server \
+  --policy ~/.config/ravenfabric/ai-policy.yaml \
+  --api-token "$RF_API_TOKEN" \
+  --http-listen 0.0.0.0:8080 \
+  --alert-webhook http://alerts.internal/webhook
+```
+
+See the [MCP Server Reference](../reference/mcp-server.md) for full endpoint documentation.
 
 ## RBAC: Per-Caller Policies
 
@@ -154,6 +175,7 @@ Each caller authenticates with their token and automatically gets their assigned
 
 ## Next Steps
 
+- [MCP Server Reference](../reference/mcp-server.md) — full CLI flags, tools, and configuration
 - [Claude Code integration guide](../integrations/claude-code.md) — full configuration reference
 - [Cursor integration guide](../integrations/cursor.md) — workspace-scoped setup
 - [Aider integration guide](../integrations/aider.md) — `.aider.conf.yml` reference

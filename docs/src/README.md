@@ -20,9 +20,9 @@ RavenFabric is a universal agent that provides policy-controlled, E2E-encrypted 
 
 ## Project Stats
 
-- **11 crates** — layered architecture with strict dependency boundaries
-- **~31,000 lines of code** — Rust, Edition 2024
-- **564 tests** — unit, integration, and fuzz
+- **12 crates** — layered architecture with strict dependency boundaries
+- **~38,800 lines of code** — Rust, Edition 2024
+- **711 tests** — unit, integration, and fuzz
 - **0 clippy warnings** — enforced in CI
 - **8 CI targets** — including cross-compilation for armv7, riscv64, FreeBSD
 
@@ -30,8 +30,10 @@ RavenFabric is a universal agent that provides policy-controlled, E2E-encrypted 
 
 - [Installation](getting-started/installation.md) — Get the binary
 - [Quick Start](getting-started/quickstart.md) — First command in 2 minutes
+- [AI Agent Quick Start](getting-started/ai-quickstart.md) — Connect AI agents in 5 minutes
 - [Architecture](architecture/overview.md) — How it works
 - [Security Model](architecture/security.md) — Trust model and invariants
+- [MCP Server Reference](reference/mcp-server.md) — AI agent integration
 - [Use Cases](use-cases/cloudnativepg.md) — Real-world deployment patterns
 - [CLI Reference](reference/cli.md) — All commands and options
 - [Production Deployment](guide/production-deployment.md) — systemd, TLS, monitoring

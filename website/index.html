@@ -1388,12 +1388,13 @@
     <section id="architecture" class="content-section">
         <div class="container">
             <div class="section-eyebrow">Architecture</div>
-            <h2 class="section-title">Six layers. <em>One binary</em>.</h2>
+            <h2 class="section-title">Seven layers. <em>One binary</em>.</h2>
             <p class="section-lead">
                 Every layer is a separate crate — testable, replaceable, auditable independently.
                 Policy and audit sit beside execution, not bolted on after the fact.
+                12 crates, ~38,800 lines of Rust, 711 tests.
             </p>
-            <img src="assets/architecture.svg" alt="RavenFabric 6-layer architecture diagram showing crypto, transport, RPC, policy, executor, and application layers" width="800" height="600" style="width:100%;max-width:800px;margin:2rem auto;display:block;border-radius:8px;">
+            <img src="assets/architecture.svg" alt="RavenFabric 7-layer architecture diagram showing crypto, transport, RPC, audit, policy, executor, and application layers" width="800" height="600" style="width:100%;max-width:800px;margin:2rem auto;display:block;border-radius:8px;">
         </div>
     </section>
 
@@ -1561,8 +1562,20 @@
 
             <div class="feature-grid" style="margin-top: var(--space-8);">
                 <div class="feature-card">
+                    <h3>Behavioral anomaly detection</h3>
+                    <p>Tracks velocity, novelty, timing, and escalation patterns per session. Detects when an AI agent's behavior deviates from baseline — sudden bursts, new command categories, privilege escalation attempts. Alerts routed via webhook in real-time.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>RBAC per caller</h3>
+                    <p>Different AI agents get different policies. Map tokens to policy profiles — CI agents get deploy commands, coding agents get file access, monitoring agents get read-only. Least privilege enforced per identity, not per server.</p>
+                </div>
+                <div class="feature-card">
                     <h3>Prompt injection containment</h3>
                     <p>When adversarial instructions hidden in documents or data manipulate the AI agent, RavenFabric's policy prevents those instructions from causing damage. The policy is outside the agent's context — it cannot be jailbroken.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Token rotation &amp; revocation</h3>
+                    <p>Zero-downtime token rotation via comma-separated fallback or file-based hot-reload. Revoke a compromised token instantly — all sessions using it are terminated. No grace period for attackers.</p>
                 </div>
                 <div class="feature-card">
                     <h3>Skill-file distribution</h3>
@@ -1577,6 +1590,7 @@
             <p style="font-size: 0.875rem; color: var(--text-tertiary); margin-top: var(--space-6); text-align: center;">
                 Full AI agent architecture:
                 <a href="/docs/use-cases/ai-agent-access.html" style="color: var(--accent-gold);">AI Agent Access Use Case</a> &middot;
+                <a href="/docs/reference/mcp-server.html" style="color: var(--accent-gold);">MCP Server Reference</a> &middot;
                 <a href="/docs/reference/ai-agent-skill.html" style="color: var(--accent-gold);">Agent Skill Reference</a>
             </p>
         </div>
