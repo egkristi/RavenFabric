@@ -315,7 +315,7 @@ impl McpServer {
     }
 
     /// Dispatch a JSON-RPC request to the appropriate handler.
-    async fn handle_request(&self, request: &JsonRpcRequest) -> JsonRpcResponse {
+    pub async fn handle_request(&self, request: &JsonRpcRequest) -> JsonRpcResponse {
         let id = request.id.clone();
 
         // `initialize` is always allowed (it's where auth happens)

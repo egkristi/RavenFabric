@@ -67,6 +67,11 @@ struct Cli {
     #[arg(long, env = "RF_RATE_LIMIT")]
     rate_limit: Option<u32>,
 
+    /// Run in HTTP+SSE mode instead of stdio. Specify listen address (e.g., "0.0.0.0:8080").
+    /// Requires the `http-sse` feature to be enabled.
+    #[arg(long, env = "RF_HTTP_LISTEN")]
+    http_listen: Option<String>,
+
     /// Log level for stderr diagnostics.
     #[arg(long, default_value = "info", env = "RF_LOG_LEVEL")]
     log_level: String,
@@ -106,6 +111,29 @@ async fn main() -> anyhow::Result<()> {
     } else {
         Vec::new()
     };
+
+    // HTTP+SSE mode (multi-user server deployment)
+    #[cfg(feature = "http-sse")]
+    if let Some(ref listen_addr) = cli.http_listen {
+        let config = rf_mcp_server::http_sse::HttpSseConfig {
+            listen_addr: listen_addr.clone(),
+            policy_path: cli.policy.clone(),
+            audit_path: cli.audit.clone(),
+            caller_key: cli.caller_key.clone(),
+            api_token: api_token.clone(),
+            max_requests_per_minute: cli.rate_limit,
+            alert_webhook: cli.alert_webhook.clone(),
+            caller_profiles,
+        };
+        return rf_mcp_server::http_sse::run_http_sse(config).await;
+    }
+
+    #[cfg(not(feature = "http-sse"))]
+    if cli.http_listen.is_some() {
+        anyhow::bail!(
+            "HTTP+SSE mode requires the 'http-sse' feature. Rebuild with: cargo build -p rf-mcp-server --features http-sse"
+        );
+    }
 
     let server = McpServer::new(
         cli.policy.as_deref(),

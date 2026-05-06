@@ -352,7 +352,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### MCP Server (AI Agent Integration)
 - [x] `rf-mcp-server` binary — Model Context Protocol server translating MCP tool calls to RavenFabric operations
 - [x] stdio transport — single-user, single-session (Claude Desktop, IDE extensions)
-- [ ] HTTP+SSE transport — multi-user, server deployment (web-based AI applications)
+- [x] HTTP+SSE transport — multi-user, server deployment (web-based AI applications)
 - [x] Tool: `rf_exec` — policy-validated command execution with structured errors (denial, approval, rate-limit)
 - [x] Tool: `rf_query_policy` — pre-flight policy check without execution
 - [x] Tool: `rf_request_approval` — human-in-loop approval workflow for sensitive operations

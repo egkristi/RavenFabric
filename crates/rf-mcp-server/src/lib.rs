@@ -15,5 +15,8 @@ mod protocol;
 mod server;
 mod tools;
 
+#[cfg(feature = "http-sse")]
+pub mod http_sse;
+
 pub use protocol::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, MCP_VERSION};
 pub use server::{CallerProfile, CallersConfig, McpServer};
