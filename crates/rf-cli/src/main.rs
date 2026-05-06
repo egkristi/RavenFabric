@@ -407,9 +407,7 @@ async fn forward_command(
             forward_id,
             bind_addr,
         } => {
-            println!(
-                "Port forward active: {bind_addr} → {remote_addr} (id: {forward_id})"
-            );
+            println!("Port forward active: {bind_addr} → {remote_addr} (id: {forward_id})");
             println!("Press Ctrl+C to stop.");
 
             // Keep connection alive until interrupted

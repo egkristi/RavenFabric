@@ -211,9 +211,7 @@ pub async fn scrape_target(target: &ScrapeTarget) -> Result<Vec<ScrapedMetric>, 
         .map_err(|e| format!("connect to {addr}: {e}"))?;
 
     // Build HTTP GET request
-    let mut request = format!(
-        "GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n"
-    );
+    let mut request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n");
     for (key, value) in &target.headers {
         request.push_str(&format!("{key}: {value}\r\n"));
     }

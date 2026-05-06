@@ -41,6 +41,9 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             artifact: ravenfabric-windows-amd64
+          - target: armv7-unknown-linux-musleabihf
+            os: ubuntu-latest
+            artifact: ravenfabric-linux-armv7-musl
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -51,10 +54,17 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Install cross-compilation tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        if: contains(matrix.target, 'aarch64-unknown-linux') || contains(matrix.target, 'armv7')
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
+          if [[ "${{ matrix.target }}" == "armv7-unknown-linux-musleabihf" ]]; then
+            wget -q https://musl.cc/armv7l-linux-musleabihf-cross.tgz
+            tar xzf armv7l-linux-musleabihf-cross.tgz -C /opt
+            echo "/opt/armv7l-linux-musleabihf-cross/bin" >> $GITHUB_PATH
+          fi
 
       - name: Install musl tools
         if: contains(matrix.target, 'musl')
