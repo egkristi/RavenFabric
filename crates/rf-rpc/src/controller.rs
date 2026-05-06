@@ -508,23 +508,12 @@ pub struct TraceContext {
 }
 
 impl TraceContext {
-    /// Create a new root trace context with random IDs.
+    /// Create a new root trace context with cryptographically random IDs.
     pub fn new_root() -> Self {
-        // Deterministic for now — real impl would use random.
-        let trace_id = format!(
-            "{:032x}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos()
-        );
-        let span_id = format!(
-            "{:016x}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis()
-        );
+        use rand::Rng;
+        let mut rng = rand::rng();
+        let trace_id = format!("{:032x}", rng.random::<u128>());
+        let span_id = format!("{:016x}", rng.random::<u64>());
         Self {
             trace_id,
             span_id,

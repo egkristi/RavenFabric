@@ -377,7 +377,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Domain fronting transport — `DomainFronter` with SNI/Host rewriting, tunnel request generation, response parsing (3 tests)
 - [x] DNS tunneling driver — `DnsTunnelCodec` with base32/hex encoding, query fragmentation, response decoding (5 tests)
 - [x] ICMP tunneling driver — `IcmpTunnelFramer` with echo request framing, serialize/deserialize, session multiplexing (3 tests)
-- [x] Shadowsocks/Trojan-style mimicry — `MimicryCodec` with XOR obfuscation, AEAD-style framing, protocol stats (4 tests)
+- [x] Shadowsocks/Trojan-style mimicry — `MimicryCodec` with ChaCha20-Poly1305 AEAD, counter-derived nonces, protocol stats (4 tests)
 
 ### Air-Gap and Proximity Transports
 - [~] Reticulum Network Stack driver — enum variant, no protocol integration
@@ -449,13 +449,13 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Offline-verifiable — Ed25519 signature verification, no central authority needed
 
 ### Post-Quantum Cryptography
-- [x] Post-quantum hybrid handshake — `HybridKemContext` combining classical + PQ secrets via KDF (3 tests)
+- [x] Post-quantum hybrid handshake — `HybridKemContext` combining classical + PQ secrets via HKDF-SHA256 (3 tests)
 - [x] Signal PQXDH-inspired key exchange — `PqxdhRatchet` double ratchet with skipped key tracking (3 tests)
 - [x] Harvest-now-decrypt-later resistance — hybrid KEM ensures PQ protection for stored data
 
 ### CRDT State Propagation
 - [x] CRDT-based desired-state convergence — `GSet`, `LwwRegister`, `OrSet`, `PolicyCrdt` with deny-wins semantics (12 tests)
-- [x] Append-only signed policy logs — `PolicyLog` with SHA-256 hash chain, integrity verification (3 tests)
+- [x] Append-only signed policy logs — `PolicyLog` with SHA-256 hash chain + HMAC-SHA256 signatures, integrity verification (3 tests)
 - [x] Opportunistic policy sync — `sync_state()` and `entries_since()` for neighbor sync
 - [x] Conflict-free policy merging — `PolicyCrdt::merge()` with union semantics, idempotent
 - [x] Content-addressed policy distribution — `compute_policy_hash()` SHA-256 content addressing (1 test)
@@ -609,6 +609,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 | v0.3 | Session recording, forced command mode, tunnel time limits |
 | v0.4 | Sealed secrets, key rotation, secret masking in logs |
 | v0.5 | Traffic analysis resistance (noise floor, packet normalization) |
+| v0.5.1 | HKDF-SHA256 for PQ KEM, ChaCha20-Poly1305 mimicry codec, HMAC-signed policy logs, SHA-256 WireGuard key derivation, cryptographic trace IDs |
 | v0.6 | WASM sandboxing, RBAC, approval workflows |
 | v1.0 | Fuzz-tested, binary integrity, DDoS mitigation |
 

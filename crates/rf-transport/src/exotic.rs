@@ -820,28 +820,28 @@ impl DomainFronter {
 /// Mimics Shadowsocks AEAD framing:
 /// [encrypted_length: 2 + 16 tag] [encrypted_payload: N + 16 tag]
 ///
-/// Without actual crypto, this provides the framing structure
-/// that real protocol integration would fill with AEAD ciphertext.
+/// Uses ChaCha20-Poly1305 AEAD with counter-derived nonces for
+/// authenticated encryption matching Shadowsocks wire format.
 #[derive(Debug, Clone)]
 pub struct MimicryFrame {
-    /// Obfuscated length field (2 bytes + 16 byte tag).
+    /// AEAD-encrypted length field (2 bytes + 16 byte tag).
     pub length_block: Vec<u8>,
-    /// Obfuscated payload (N bytes + 16 byte tag).
+    /// AEAD-encrypted payload (N bytes + 16 byte tag).
     pub payload_block: Vec<u8>,
 }
 
-/// Protocol mimicry encoder/decoder.
+/// Protocol mimicry encoder/decoder using ChaCha20-Poly1305 AEAD.
 pub struct MimicryCodec {
-    /// Pre-shared key (for XOR obfuscation in stub; real impl uses AEAD).
+    /// 32-byte pre-shared key for ChaCha20-Poly1305.
     psk: Vec<u8>,
     /// Protocol being mimicked.
     protocol: MimicProtocol,
-    /// Counter for nonce derivation.
+    /// Counter for nonce derivation (monotonically increasing).
     counter: u64,
 }
 
 impl MimicryCodec {
-    /// Tag size for AEAD (16 bytes for Poly1305/GCM).
+    /// Tag size for AEAD (16 bytes for Poly1305).
     const TAG_SIZE: usize = 16;
 
     /// Create a new mimicry codec.
@@ -853,33 +853,35 @@ impl MimicryCodec {
         }
     }
 
-    /// Encode a payload into an obfuscated frame.
-    pub fn encode(&mut self, payload: &[u8]) -> MimicryFrame {
-        let len_bytes = (payload.len() as u16).to_be_bytes();
-        let mut length_block = Vec::with_capacity(2 + Self::TAG_SIZE);
-        // XOR with PSK for length (stub — real impl uses AEAD).
-        for (i, &b) in len_bytes.iter().enumerate() {
-            length_block.push(b ^ self.psk[i % self.psk.len()]);
-        }
-        // Fake tag (deterministic from counter).
-        for i in 0..Self::TAG_SIZE {
-            length_block.push(
-                self.psk[(i + 2) % self.psk.len()] ^ (self.counter as u8).wrapping_add(i as u8),
-            );
-        }
+    /// Derive a 12-byte nonce from counter and a sub-key index.
+    fn derive_nonce(counter: u64, sub: u8) -> [u8; 12] {
+        let mut nonce = [0u8; 12];
+        nonce[0] = sub;
+        // Padding byte at [1..3] stays zero.
+        nonce[4..12].copy_from_slice(&counter.to_be_bytes());
+        nonce
+    }
 
-        let mut payload_block = Vec::with_capacity(payload.len() + Self::TAG_SIZE);
-        // XOR with PSK for payload (stub).
-        for (i, &b) in payload.iter().enumerate() {
-            payload_block.push(b ^ self.psk[(i + 4) % self.psk.len()]);
-        }
-        // Fake tag.
-        for i in 0..Self::TAG_SIZE {
-            payload_block.push(
-                self.psk[(i + 6) % self.psk.len()]
-                    ^ (self.counter as u8).wrapping_add(i as u8 + 16),
-            );
-        }
+    /// Encode a payload into an AEAD-encrypted frame.
+    pub fn encode(&mut self, payload: &[u8]) -> MimicryFrame {
+        use chacha20poly1305::aead::Aead;
+        use chacha20poly1305::{ChaCha20Poly1305, KeyInit, Nonce};
+
+        let key = chacha20poly1305::Key::from_slice(&self.psk[..32]);
+        let cipher = ChaCha20Poly1305::new(key);
+
+        // Encrypt length (2 bytes).
+        let len_bytes = (payload.len() as u16).to_be_bytes();
+        let len_nonce = Self::derive_nonce(self.counter, 0);
+        let length_block = cipher
+            .encrypt(Nonce::from_slice(&len_nonce), len_bytes.as_ref())
+            .expect("length encryption should not fail");
+
+        // Encrypt payload.
+        let payload_nonce = Self::derive_nonce(self.counter, 1);
+        let payload_block = cipher
+            .encrypt(Nonce::from_slice(&payload_nonce), payload)
+            .expect("payload encryption should not fail");
 
         self.counter += 1;
 
@@ -889,29 +891,43 @@ impl MimicryCodec {
         }
     }
 
-    /// Decode an obfuscated frame back to plaintext.
+    /// Decode an AEAD-encrypted frame back to plaintext.
+    /// Returns None if authentication fails (tampered frame).
     pub fn decode(&self, frame: &MimicryFrame) -> Option<Vec<u8>> {
+        self.decode_at(frame, self.counter.saturating_sub(1))
+    }
+
+    /// Decode a frame using a specific counter value (for out-of-order).
+    pub fn decode_at(&self, frame: &MimicryFrame, counter: u64) -> Option<Vec<u8>> {
+        use chacha20poly1305::aead::Aead;
+        use chacha20poly1305::{ChaCha20Poly1305, KeyInit, Nonce};
+
         if frame.length_block.len() < 2 + Self::TAG_SIZE {
             return None;
         }
-        // Decode length.
-        let len_bytes: Vec<u8> = frame.length_block[..2]
-            .iter()
-            .enumerate()
-            .map(|(i, &b)| b ^ self.psk[i % self.psk.len()])
-            .collect();
+
+        let key = chacha20poly1305::Key::from_slice(&self.psk[..32]);
+        let cipher = ChaCha20Poly1305::new(key);
+
+        // Decrypt length.
+        let len_nonce = Self::derive_nonce(counter, 0);
+        let len_bytes = cipher
+            .decrypt(Nonce::from_slice(&len_nonce), frame.length_block.as_ref())
+            .ok()?;
         let len = u16::from_be_bytes([len_bytes[0], len_bytes[1]]) as usize;
 
         if frame.payload_block.len() < len + Self::TAG_SIZE {
             return None;
         }
 
-        // Decode payload.
-        let payload: Vec<u8> = frame.payload_block[..len]
-            .iter()
-            .enumerate()
-            .map(|(i, &b)| b ^ self.psk[(i + 4) % self.psk.len()])
-            .collect();
+        // Decrypt payload.
+        let payload_nonce = Self::derive_nonce(counter, 1);
+        let payload = cipher
+            .decrypt(
+                Nonce::from_slice(&payload_nonce),
+                frame.payload_block.as_ref(),
+            )
+            .ok()?;
 
         Some(payload)
     }

@@ -162,38 +162,22 @@ impl HybridKemContext {
     }
 
     /// Combine both secrets using HKDF-SHA256.
-    /// combined = HKDF-SHA256(classical || pq, info = algorithm_id)
+    /// combined = HKDF-Extract(salt=algorithm_id, IKM=classical||pq) → Expand(info="hybrid-kem", L=32)
     fn try_combine(&mut self) {
         if let (Some(classical), Some(pq)) = (&self.classical_secret, &self.pq_secret) {
-            let mut combined = Vec::with_capacity(classical.len() + pq.len());
-            combined.extend_from_slice(classical);
-            combined.extend_from_slice(pq);
-            // Simple KDF: SHA-256(algorithm || classical || pq)
-            // (Real implementation would use HKDF with proper extract/expand)
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-            let mut hasher = DefaultHasher::new();
-            format!("{:?}", self.algorithm).hash(&mut hasher);
-            combined.hash(&mut hasher);
-            let hash = hasher.finish().to_be_bytes();
-            // Extend to 32 bytes by double hashing
-            let mut key = Vec::with_capacity(32);
-            key.extend_from_slice(&hash);
-            let mut hasher2 = DefaultHasher::new();
-            hash.hash(&mut hasher2);
-            let hash2 = hasher2.finish().to_be_bytes();
-            key.extend_from_slice(&hash2);
-            let mut hasher3 = DefaultHasher::new();
-            hash2.hash(&mut hasher3);
-            let hash3 = hasher3.finish().to_be_bytes();
-            key.extend_from_slice(&hash3);
-            let mut hasher4 = DefaultHasher::new();
-            hash3.hash(&mut hasher4);
-            let hash4 = hasher4.finish().to_be_bytes();
-            key.extend_from_slice(&hash4);
-            key.truncate(32);
+            // HKDF-Extract: PRK = HMAC-SHA256(salt, IKM)
+            let salt = format!("{:?}", self.algorithm);
+            let mut ikm = Vec::with_capacity(classical.len() + pq.len());
+            ikm.extend_from_slice(classical);
+            ikm.extend_from_slice(pq);
+            let prk = hmac_sha256(salt.as_bytes(), &ikm);
 
-            self.combined_key = Some(key);
+            // HKDF-Expand: OKM = HMAC-SHA256(PRK, info || 0x01)
+            let mut expand_input = b"hybrid-kem-session-key".to_vec();
+            expand_input.push(0x01);
+            let key = hmac_sha256(&prk, &expand_input);
+
+            self.combined_key = Some(key.to_vec());
         }
     }
 
@@ -314,28 +298,58 @@ impl PqxdhRatchet {
     }
 }
 
-/// Derive a chain key using simple key derivation.
+/// Derive a chain key using HMAC-SHA256.
+/// message_key = HMAC-SHA256(chain_key, "ratchet-msg" || index)
 fn derive_chain_key(chain_key: &[u8], index: u32) -> Vec<u8> {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    chain_key.hash(&mut hasher);
-    index.hash(&mut hasher);
-    let h = hasher.finish().to_be_bytes();
-    // Expand to 32 bytes.
-    let mut key = Vec::with_capacity(32);
-    key.extend_from_slice(&h);
-    let mut hasher2 = DefaultHasher::new();
-    h.hash(&mut hasher2);
-    key.extend_from_slice(&hasher2.finish().to_be_bytes());
-    let mut hasher3 = DefaultHasher::new();
-    key.hash(&mut hasher3);
-    key.extend_from_slice(&hasher3.finish().to_be_bytes());
-    let mut hasher4 = DefaultHasher::new();
-    hasher3.finish().hash(&mut hasher4);
-    key.extend_from_slice(&hasher4.finish().to_be_bytes());
-    key.truncate(32);
-    key
+    let mut info = b"ratchet-msg-key".to_vec();
+    info.extend_from_slice(&index.to_be_bytes());
+    hmac_sha256(chain_key, &info).to_vec()
+}
+
+/// HMAC-SHA256: RFC 2104.
+/// Returns a 32-byte MAC.
+fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+
+    const BLOCK_SIZE: usize = 64;
+
+    // If key > block size, hash it first.
+    let key_block = if key.len() > BLOCK_SIZE {
+        let mut h = Sha256::new();
+        h.update(key);
+        let hash = h.finalize();
+        let mut block = [0u8; BLOCK_SIZE];
+        block[..32].copy_from_slice(&hash);
+        block
+    } else {
+        let mut block = [0u8; BLOCK_SIZE];
+        block[..key.len()].copy_from_slice(key);
+        block
+    };
+
+    // Inner hash: SHA-256((key XOR ipad) || data)
+    let mut ipad = [0x36u8; BLOCK_SIZE];
+    for (i, b) in ipad.iter_mut().enumerate() {
+        *b ^= key_block[i];
+    }
+    let mut inner = Sha256::new();
+    inner.update(ipad);
+    inner.update(data);
+    let inner_hash = inner.finalize();
+
+    // Outer hash: SHA-256((key XOR opad) || inner_hash)
+    let mut opad = [0x5cu8; BLOCK_SIZE];
+    for (i, b) in opad.iter_mut().enumerate() {
+        *b ^= key_block[i];
+    }
+    let mut outer = Sha256::new();
+    outer.update(opad);
+    outer.update(inner_hash);
+    let result = outer.finalize();
+
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result);
+    out
 }
 
 #[cfg(test)]

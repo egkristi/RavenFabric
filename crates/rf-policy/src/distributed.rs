@@ -458,20 +458,45 @@ impl Default for PolicyCrdt {
     }
 }
 
-/// Append-only policy log with hash-chain integrity.
+/// Append-only policy log with hash-chain integrity and HMAC-SHA256 signatures.
 pub struct PolicyLog {
     entries: Vec<PolicyLogEntry>,
     /// Author → latest sequence number.
     sequences: HashMap<String, u64>,
+    /// Signing key (HMAC-SHA256) for entry authentication.
+    signing_key: Vec<u8>,
 }
 
 impl PolicyLog {
-    /// Create a new empty log.
+    /// Create a new empty log with a signing key.
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),
             sequences: HashMap::new(),
+            signing_key: vec![0u8; 32], // Default key (tests).
         }
+    }
+
+    /// Create a new log with an explicit signing key.
+    pub fn with_key(signing_key: Vec<u8>) -> Self {
+        Self {
+            entries: Vec::new(),
+            sequences: HashMap::new(),
+            signing_key,
+        }
+    }
+
+    /// Sign a content hash using HMAC-SHA256.
+    fn sign_entry(&self, content_hash: &str) -> String {
+        let sig = hmac_sha256_policy(&self.signing_key, content_hash.as_bytes());
+        hex_encode_bytes(&sig)
+    }
+
+    /// Verify a signature against a content hash.
+    fn verify_signature(&self, content_hash: &str, signature: &str) -> bool {
+        let expected = self.sign_entry(content_hash);
+        // Constant-time comparison to prevent timing attacks.
+        constant_time_eq(expected.as_bytes(), signature.as_bytes())
     }
 
     /// Compute SHA-256 hash for a log entry.
@@ -498,22 +523,29 @@ impl PolicyLog {
             previous,
             content_hash: String::new(), // Computed below.
             operation,
-            signature: String::new(), // Placeholder — real impl would Ed25519 sign.
+            signature: String::new(), // Computed below.
             timestamp,
         };
         entry.content_hash = Self::compute_hash(&entry);
+        entry.signature = self.sign_entry(&entry.content_hash);
         let hash = entry.content_hash.clone();
         self.sequences.insert(author, seq);
         self.entries.push(entry);
         hash
     }
 
-    /// Verify the hash chain integrity (all entries link correctly).
+    /// Verify the hash chain integrity and signatures (all entries link correctly).
     pub fn verify_chain(&self) -> bool {
         for (i, entry) in self.entries.iter().enumerate() {
             // Verify content hash.
             let expected = Self::compute_hash(entry);
             if entry.content_hash != expected {
+                return false;
+            }
+            // Verify signature.
+            if !entry.signature.is_empty()
+                && !self.verify_signature(&entry.content_hash, &entry.signature)
+            {
                 return false;
             }
             // Verify previous link.
@@ -616,6 +648,68 @@ pub fn compute_policy_hash(content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+/// HMAC-SHA256 for policy log signing.
+fn hmac_sha256_policy(key: &[u8], data: &[u8]) -> [u8; 32] {
+    const BLOCK_SIZE: usize = 64;
+
+    let key_block = if key.len() > BLOCK_SIZE {
+        let mut h = Sha256::new();
+        h.update(key);
+        let hash = h.finalize();
+        let mut block = [0u8; BLOCK_SIZE];
+        block[..32].copy_from_slice(&hash);
+        block
+    } else {
+        let mut block = [0u8; BLOCK_SIZE];
+        block[..key.len()].copy_from_slice(key);
+        block
+    };
+
+    let mut ipad = [0x36u8; BLOCK_SIZE];
+    for (i, b) in ipad.iter_mut().enumerate() {
+        *b ^= key_block[i];
+    }
+    let mut inner = Sha256::new();
+    inner.update(ipad);
+    inner.update(data);
+    let inner_hash = inner.finalize();
+
+    let mut opad = [0x5cu8; BLOCK_SIZE];
+    for (i, b) in opad.iter_mut().enumerate() {
+        *b ^= key_block[i];
+    }
+    let mut outer = Sha256::new();
+    outer.update(opad);
+    outer.update(inner_hash);
+    let result = outer.finalize();
+
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result);
+    out
+}
+
+/// Constant-time byte comparison to prevent timing attacks.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+/// Hex-encode bytes.
+fn hex_encode_bytes(data: &[u8]) -> String {
+    use std::fmt::Write;
+    data.iter()
+        .fold(String::with_capacity(data.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
 }
 
 #[cfg(test)]

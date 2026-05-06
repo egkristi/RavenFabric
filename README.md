@@ -586,11 +586,11 @@ What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
 - Secure channel with encrypted frames using `StatelessTransportState` for concurrent send/recv (full)
 - Static key management with zeroing-on-drop, cross-platform (full)
-- Post-quantum hybrid KEM framework (`HybridKemContext` + `PqxdhRatchet` double ratchet)
+- Post-quantum hybrid KEM with HKDF-SHA256 key combination (`HybridKemContext` + `PqxdhRatchet` double ratchet)
 - OTP token generation and validation with poisoning-safe locks (full)
 - Policy engine with deny-by-default, regex allow/deny, path checks, symlink resolution (full)
 - CRDT-based policy convergence (`GSet`, `LwwRegister`, `OrSet`, `PolicyCrdt`)
-- Append-only policy log with SHA-256 hash chain verification
+- Append-only policy log with SHA-256 hash chain + HMAC-SHA256 signature verification
 - SIGHUP-triggered hot-reload of policy (atomic swap via RwLock)
 - Multi-tenant isolation with cross-tenant blocking
 - SecurityPolicy with immutable deny rules (rm -rf, mkfs, dd, fork bomb)
@@ -610,7 +610,7 @@ What works today:
 - ICMP tunnel framer (echo request framing, serialize/deserialize, session multiplexing)
 - Serial port framer (sync bytes, CRC-16/CCITT, frame detection)
 - Domain fronting (SNI/Host rewriting, tunnel request generation, response parsing)
-- Protocol mimicry (Shadowsocks-style AEAD framing with XOR obfuscation)
+- Protocol mimicry (Shadowsocks-style ChaCha20-Poly1305 AEAD framing with counter-derived nonces)
 - OTP token generation and validation with poisoning-safe locks (full)
 - Policy engine with deny-by-default, regex allow/deny, path checks, symlink resolution (full)
 - SIGHUP-triggered hot-reload of policy (atomic swap via RwLock)

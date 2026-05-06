@@ -216,9 +216,17 @@ impl Executor {
                     .await
             }
             Action::TailLog { path, lines } => self.handle_tail_log(path, *lines).await,
-            _ => RpcResult::Error {
-                message: "action not yet implemented".into(),
-            },
+            Action::StreamExecute {
+                command,
+                env,
+                workdir,
+            } => {
+                // StreamExecute runs synchronously (like Execute) when no streaming
+                // channel is available. The full streaming path uses stream_execute()
+                // directly from the agent's RPC loop with a mpsc sender.
+                self.handle_execute(&request.id, command, env, workdir, start)
+                    .await
+            }
         };
 
         Response {

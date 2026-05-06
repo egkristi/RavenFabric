@@ -238,20 +238,85 @@ pub fn parse_level(s: &str) -> Option<LogLevel> {
 }
 
 /// Resolve glob pattern to matching file paths.
+/// Supports `*` (any chars in filename), `?` (single char), and literal paths.
+/// Only supports globbing in the filename component (e.g. `/var/log/*.log`).
 pub fn resolve_glob(pattern: &str) -> Vec<PathBuf> {
-    // In production this would use the `glob` crate.
-    // For now, if the pattern contains no wildcards, treat as literal path.
-    if pattern.contains('*') || pattern.contains('?') || pattern.contains('[') {
-        // Placeholder: return empty for glob patterns (needs glob crate)
-        Vec::new()
-    } else {
+    if !pattern.contains('*') && !pattern.contains('?') && !pattern.contains('[') {
+        // Literal path — no globbing.
         let path = PathBuf::from(pattern);
         if path.exists() {
-            vec![path]
-        } else {
-            Vec::new()
+            return vec![path];
         }
+        return Vec::new();
     }
+
+    let path = std::path::Path::new(pattern);
+    let parent = match path.parent() {
+        Some(p) if p.as_os_str().is_empty() => std::path::Path::new("."),
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+    let file_pattern = match path.file_name().and_then(|f| f.to_str()) {
+        Some(p) => p.to_string(),
+        None => return Vec::new(),
+    };
+
+    // If parent itself contains wildcards, we don't support recursive globbing.
+    if parent
+        .to_str()
+        .is_none_or(|s| s.contains('*') || s.contains('?'))
+    {
+        return Vec::new();
+    }
+
+    let dir = match std::fs::read_dir(parent) {
+        Ok(d) => d,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut results: Vec<PathBuf> = dir
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            glob_match(&file_pattern, &name_str)
+        })
+        .map(|entry| entry.path())
+        .filter(|p| p.is_file())
+        .collect();
+
+    results.sort();
+    results
+}
+
+/// Simple glob matching for filename patterns.
+/// Supports `*` (zero or more chars) and `?` (exactly one char).
+fn glob_match(pattern: &str, text: &str) -> bool {
+    let pat: Vec<char> = pattern.chars().collect();
+    let txt: Vec<char> = text.chars().collect();
+    glob_match_recursive(&pat, &txt, 0, 0)
+}
+
+fn glob_match_recursive(pat: &[char], txt: &[char], pi: usize, ti: usize) -> bool {
+    if pi == pat.len() {
+        return ti == txt.len();
+    }
+    if pat[pi] == '*' {
+        // Try matching * with zero or more characters.
+        for skip in 0..=(txt.len() - ti) {
+            if glob_match_recursive(pat, txt, pi + 1, ti + skip) {
+                return true;
+            }
+        }
+        return false;
+    }
+    if ti == txt.len() {
+        return false;
+    }
+    if pat[pi] == '?' || pat[pi] == txt[ti] {
+        return glob_match_recursive(pat, txt, pi + 1, ti + 1);
+    }
+    false
 }
 
 /// A file tailer that watches a file and yields new lines as they appear.
