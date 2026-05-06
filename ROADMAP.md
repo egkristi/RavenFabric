@@ -224,6 +224,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Schedule submissions: HN weekday morning US-east, Reddit staggered over 3 days
 - [ ] Lobsters invite + submission (needs existing member invite)
 - [ ] kode24.no pitch (Norwegian tech press)
+- [ ] Conference pitch: prepare 5-min lightning talk proposal (NDC Oslo, RustConf, FOSDEM Security devroom)
 
 ### Medium-Term
 - [x] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
