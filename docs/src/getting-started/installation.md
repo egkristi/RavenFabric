@@ -1,6 +1,31 @@
 # Installation
 
-## From Source (Recommended)
+## Pre-built Binaries (Recommended)
+
+Download the latest release from [GitHub Releases](https://github.com/egkristi/RavenFabric/releases):
+
+| Platform | Binary |
+|----------|--------|
+| Linux x86_64 (static) | `ravenfabric-linux-amd64-musl-cli` |
+| Linux ARM64 (static) | `ravenfabric-linux-arm64-musl-cli` |
+| macOS x86_64 | `ravenfabric-darwin-amd64-cli` |
+| macOS ARM64 (Apple Silicon) | `ravenfabric-darwin-arm64-cli` |
+| Windows x86_64 | `ravenfabric-windows-amd64-cli.exe` |
+
+```bash
+# Example: Linux x86_64
+curl -Lo rf https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-amd64-musl-cli
+chmod +x rf
+sudo mv rf /usr/local/bin/
+```
+
+## Homebrew (macOS / Linux)
+
+```bash
+brew install egkristi/tap/ravenfabric
+```
+
+## From Source
 
 RavenFabric requires Rust 1.85+ (Edition 2024).
 
@@ -32,13 +57,13 @@ cargo build --release --target x86_64-unknown-linux-musl
 
 ```bash
 # Check CLI
-./target/release/rf --version
+rf --version
 
 # Check agent
-./target/release/rf-agent --help
+rf-agent --help
 
 # Check relay
-./target/release/rf-relay --help
+rf-relay --help
 ```
 
 ## Platform Support

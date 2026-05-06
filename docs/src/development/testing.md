@@ -22,15 +22,17 @@ cargo test -- --nocapture
 
 | Crate | Tests | Coverage Focus |
 |-------|-------|---------------|
-| `rf-crypto` | 25 | Noise handshake, key management, resumption, PQ KEM |
-| `rf-transport` | 121 | NAT traversal, mesh, proxy, gossip, overlays, WireGuard, platforms |
-| `rf-rpc` | 61 | Codec roundtrips, DTN queuing, routing, SOCKS5, controller |
-| `rf-policy` | 31 | RBAC, capabilities, deny-by-default, distributed policy |
-| `rf-executor` | 48 | Command execution, streaming, PTY, log tailing, plugins |
+| `rf-crypto` | 35 | Noise handshake, key management, PQ hybrid KEM, resumption |
+| `rf-transport` | 248 | NAT traversal, mesh, proxy, gossip, overlays, WireGuard, platforms |
+| `rf-rpc` | 98 | Codec roundtrips, DTN queuing, routing, SOCKS5, controller |
+| `rf-policy` | 55 | RBAC, capabilities, deny-by-default, CRDT convergence |
+| `rf-executor` | 105 | Command execution, streaming, PTY, log tailing, plugins |
 | `rf-bootstrap` | 11 | OTP enrollment, TrustStore |
-| Integration | 2 | End-to-end relay + agent + client |
+| `rf-audit` | 3 | JSON-lines logging, error handling |
+| `rf-relay` | 7 | Rate limiting, pairing, forwarding |
+| `rf-integration-tests` | 2 | End-to-end relay + agent + client |
 
-**Total: 336 tests**
+**Total: 564 tests across 11 crates**
 
 ## Writing Tests
 

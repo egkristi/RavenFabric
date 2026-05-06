@@ -30,15 +30,19 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 
 | Crate | Purpose | LOC | Tests |
 |-------|---------|-----|-------|
-| `rf-crypto` | Noise XX handshake, SecureChannel, key management, post-quantum KEM | ~1,300 | 25 |
-| `rf-transport` | Driver trait, WebSocket/QUIC/Memory, NAT, mesh, WireGuard, overlays | ~5,300 | 121 |
-| `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller | ~2,900 | 61 |
-| `rf-audit` | Structured JSON-lines audit logging | 53 | — |
-| `rf-policy` | Policy enforcement, RBAC, capabilities, distributed policy | ~1,500 | 31 |
-| `rf-executor` | Command execution, streaming, orchestration, PTY, plugins | ~3,600 | 48 |
-| `rf-bootstrap` | OTP enrollment, TrustStore | ~380 | 11 |
+| `rf-crypto` | Noise XX handshake, SecureChannel, key management, PQ hybrid KEM | ~1,700 | 35 |
+| `rf-transport` | Driver trait, WebSocket/QUIC/Memory/WireGuard, NAT traversal, mesh, overlays | ~12,300 | 248 |
+| `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller API | ~5,700 | 98 |
+| `rf-audit` | Structured JSON-lines audit logging | ~130 | 3 |
+| `rf-policy` | Policy enforcement, RBAC, capabilities, CRDT convergence | ~2,400 | 55 |
+| `rf-executor` | Command execution, streaming, orchestration, PTY, plugins | ~6,400 | 105 |
+| `rf-bootstrap` | OTP enrollment, TrustStore, relay pairing | ~430 | 11 |
+| `rf-relay` | Stateless encrypted relay broker with per-IP rate limiting | ~390 | 7 |
+| `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect) | ~350 | — |
+| `rf-cli` | CLI client `rf` (exec, dev, status, completions) | ~970 | — |
+| `rf-integration-tests` | End-to-end integration tests | ~240 | 2 |
 
-**Total: ~16,700 LOC | 336 tests | 0 clippy warnings**
+**Total: ~31,000 LOC | 564 tests | 0 clippy warnings**
 
 ## Data Flow
 

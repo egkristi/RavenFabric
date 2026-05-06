@@ -24,6 +24,16 @@
 - [Policy Configuration](guide/policy-config.md)
 - [Agent Enrollment](guide/enrollment.md)
 - [Relay Setup](guide/relay.md)
+- [Production Deployment](guide/production-deployment.md)
+- [Troubleshooting](guide/troubleshooting.md)
+
+# Use Cases
+
+- [CloudNativePG Database Access](use-cases/cloudnativepg.md)
+- [Edge & IoT Fleet Management](use-cases/edge-iot-fleet.md)
+- [Multi-Cluster Kubernetes](use-cases/multi-cluster-kubernetes.md)
+- [Air-Gapped Industrial Systems](use-cases/airgapped-ics.md)
+- [MSP Multi-Tenant Operations](use-cases/msp-multitenant.md)
 
 # Reference
 
@@ -31,6 +41,7 @@
 - [Configuration File](reference/config.md)
 - [Policy YAML Format](reference/policy-yaml.md)
 - [RPC Protocol](reference/rpc.md)
+- [Audit Log Format](reference/audit-log-format.md)
 
 # Development
 
