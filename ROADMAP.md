@@ -210,10 +210,20 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] OG image in WebP/AVIF format (reduce 117KB PNG)
 
 ### When v0.1 Ships
-- [ ] Asciinema cast of `rf exec` demo (30s, embedded player)
+- [ ] **Asciinema cast of `rf exec` demo (30s, embedded player)** — PRIORITY: record before any marketing push
 - [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no
+- [ ] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"
+- [ ] Blog post #3: "Zero-trust mesh networking without certificates — Noise XX deep dive"
 - [x] First blog post ("Why Noise XX over TLS" or "Why air-gap support is first-class")
 - [x] ~~Status badge in header (build status, version, last release date)~~ — shields.io badges
+
+### Marketing Launch Plan
+- [ ] Record asciinema demo (prerequisite for all below)
+- [ ] Write `Show HN` post (title + 300-word description of what makes it different)
+- [ ] Prepare Reddit posts: r/rust (technical), r/selfhosted (deployment), r/sysadmin (replaces what)
+- [ ] Schedule submissions: HN weekday morning US-east, Reddit staggered over 3 days
+- [ ] Lobsters invite + submission (needs existing member invite)
+- [ ] kode24.no pitch (Norwegian tech press)
 
 ### Medium-Term
 - [x] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
