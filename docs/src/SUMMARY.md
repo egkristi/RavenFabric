@@ -36,6 +36,7 @@
 - [Air-Gapped Industrial Systems](use-cases/airgapped-ics.md)
 - [MSP Multi-Tenant Operations](use-cases/msp-multitenant.md)
 - [Maritime & Offshore](use-cases/maritime-offshore.md)
+- [Secure AI Agent Access](use-cases/ai-agent-access.md)
 
 # Reference
 

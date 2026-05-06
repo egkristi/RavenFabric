@@ -12,6 +12,7 @@ RavenFabric is designed for environments where security, auditability, and netwo
 | [Air-Gapped Industrial Systems](airgapped-ics.md) | Remote maintenance of ICS/SCADA/OT networks using physical media transport and store-carry-forward delivery. |
 | [MSP Multi-Tenant Operations](msp-multitenant.md) | Hundreds of client environments through one cryptographically isolated control plane with per-client policy. |
 | [Maritime & Offshore](maritime-offshore.md) | Fleet-wide IT/OT management across vessels and platforms with bandwidth-cost-aware operation over satellite, air-gap support, and IMO/NIS2 compliance. |
+| [Secure AI Agent Access](ai-agent-access.md) | Structured access control for AI agents (local and remote) with command-level policy, approval workflows, and replay-grade audit. |
 
 ## Common Properties
 
@@ -33,3 +34,4 @@ Every use case shares the same foundational guarantees:
 | Offline/air-gapped environments | [Air-Gapped ICS](airgapped-ics.md) |
 | Client isolation for service providers | [MSP Multi-Tenant](msp-multitenant.md) |
 | Maritime/offshore fleet management | [Maritime & Offshore](maritime-offshore.md) |
+| AI agent access control | [Secure AI Agent Access](ai-agent-access.md) |
