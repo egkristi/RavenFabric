@@ -182,3 +182,87 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: packages/*
+
+  homebrew:
+    name: Update Homebrew Tap
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts/
+
+      - name: Compute SHA256 hashes
+        id: hashes
+        run: |
+          SHA_DARWIN_ARM64=$(sha256sum artifacts/ravenfabric-darwin-arm64/ravenfabric-darwin-arm64-cli | awk '{print $1}')
+          SHA_DARWIN_AMD64=$(sha256sum artifacts/ravenfabric-darwin-amd64/ravenfabric-darwin-amd64-cli | awk '{print $1}')
+          SHA_LINUX_AMD64=$(sha256sum artifacts/ravenfabric-linux-amd64-musl/ravenfabric-linux-amd64-musl-cli | awk '{print $1}')
+          SHA_LINUX_ARM64=$(sha256sum artifacts/ravenfabric-linux-arm64-musl/ravenfabric-linux-arm64-musl-cli | awk '{print $1}')
+          echo "darwin_arm64=$SHA_DARWIN_ARM64" >> "$GITHUB_OUTPUT"
+          echo "darwin_amd64=$SHA_DARWIN_AMD64" >> "$GITHUB_OUTPUT"
+          echo "linux_amd64=$SHA_LINUX_AMD64" >> "$GITHUB_OUTPUT"
+          echo "linux_arm64=$SHA_LINUX_ARM64" >> "$GITHUB_OUTPUT"
+
+      - name: Get version
+        id: version
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate formula
+        run: |
+          mkdir -p homebrew-tap/Formula
+          cat > homebrew-tap/Formula/ravenfabric.rb <<EOF
+          class Ravenfabric < Formula
+            desc "Secure remote execution and mesh networking agent"
+            homepage "https://ravenfabric.io"
+            version "${{ steps.version.outputs.tag }}"
+            license "AGPL-3.0-or-later"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/egkristi/RavenFabric/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-darwin-arm64-cli"
+                sha256 "${{ steps.hashes.outputs.darwin_arm64 }}"
+              else
+                url "https://github.com/egkristi/RavenFabric/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-darwin-amd64-cli"
+                sha256 "${{ steps.hashes.outputs.darwin_amd64 }}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/egkristi/RavenFabric/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-linux-arm64-musl-cli"
+                sha256 "${{ steps.hashes.outputs.linux_arm64 }}"
+              else
+                url "https://github.com/egkristi/RavenFabric/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-linux-amd64-musl-cli"
+                sha256 "${{ steps.hashes.outputs.linux_amd64 }}"
+              end
+            end
+
+            def install
+              bin.install Dir.glob("ravenfabric-*").first => "rf"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/rf --version")
+            end
+          end
+          EOF
+          # Fix indentation — remove leading 10 spaces from heredoc
+          sed -i 's/^          //' homebrew-tap/Formula/ravenfabric.rb
+
+      - name: Push to homebrew-tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          cd homebrew-tap
+          git init
+          git remote add origin https://x-access-token:${TAP_TOKEN}@github.com/egkristi/homebrew-tap.git
+          git fetch origin main
+          git checkout main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/ravenfabric.rb
+          git commit -m "feat: update ravenfabric to ${{ steps.version.outputs.tag }}"
+          git push origin main
