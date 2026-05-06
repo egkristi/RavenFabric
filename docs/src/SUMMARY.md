@@ -45,6 +45,7 @@
 - [Policy YAML Format](reference/policy-yaml.md)
 - [RPC Protocol](reference/rpc.md)
 - [Audit Log Format](reference/audit-log-format.md)
+- [AI Agent Skill](reference/ai-agent-skill.md)
 - [Glossary](reference/glossary.md)
 
 # Development
