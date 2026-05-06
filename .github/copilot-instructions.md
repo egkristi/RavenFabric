@@ -23,18 +23,18 @@ Cargo workspace with 11 crates:
 | Crate | Purpose | Status |
 |---|---|---|
 | `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management, PQ hybrid KEM | **Done** (~1,700 LOC, 35 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket backends, NAT traversal, path selection, exotic transports | **Done** (~12,500 LOC, 254 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports | **Done** (~12,800 LOC, 263 tests) |
 | `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~5,700 LOC, 98 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (126 LOC, 3 tests) |
-| `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection | **Done** (~3,100 LOC, 78 tests) |
+| `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection | **Done** (~3,400 LOC, 79 tests) |
 | `rf-executor` | Command execution + streaming under policy control with timeout and output limiting | **Done** (~6,400 LOC, 105 tests) |
 | `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff) | **Done** (~350 LOC) |
-| `rf-cli` | CLI client `rf` (exec, dev, status, completions) | **Done** (~970 LOC) |
+| `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions) | **Done** (~1,070 LOC) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (240 LOC, 2 tests) |
 
-**Total: ~32,600 LOC, 593 tests, 0 clippy warnings.**
+**Total: ~33,300 LOC, 603 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

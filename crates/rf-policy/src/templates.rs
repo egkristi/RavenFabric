@@ -32,6 +32,8 @@ pub enum TemplateCategory {
     CiCdAgent,
     /// Database query agents
     DatabaseQuery,
+    /// Productized AI guardrails (drop-in security for AI agents)
+    ProductizeAI,
 }
 
 impl std::fmt::Display for TemplateCategory {
@@ -42,6 +44,7 @@ impl std::fmt::Display for TemplateCategory {
             Self::SecurityInvestigator => write!(f, "security-investigator"),
             Self::CiCdAgent => write!(f, "ci-cd-agent"),
             Self::DatabaseQuery => write!(f, "database-query"),
+            Self::ProductizeAI => write!(f, "productize-ai"),
         }
     }
 }
@@ -61,6 +64,9 @@ impl TemplateRegistry {
                 security_investigator_template(),
                 ci_cd_agent_template(),
                 database_query_template(),
+                safe_dev_mode_template(),
+                production_ai_guardrails_template(),
+                read_only_infrastructure_ai_template(),
             ],
         }
     }
@@ -461,6 +467,155 @@ fn database_query_template() -> PolicyTemplate {
     }
 }
 
+/// Safe Dev Mode: AI can read/write project files, run tests, use git.
+/// Cannot touch system, credentials, or network. Designed for Claude Code, Cursor, Aider.
+fn safe_dev_mode_template() -> PolicyTemplate {
+    PolicyTemplate {
+        name: "safe-dev-mode".into(),
+        description: "Drop-in safe mode for AI coding agents. Read/write project files, run tests, use git. Blocks system access, credential files, network tools, and destructive operations. Works with Claude Code, Cursor, Aider out of the box.".into(),
+        category: TemplateCategory::ProductizeAI,
+        yaml: r#"spec:
+  commands:
+    allow:
+      - pattern: "^git (status|log|diff|add|commit|branch|checkout|stash|show|blame|rev-parse|push|pull|fetch|rebase|merge|cherry-pick).*"
+      - pattern: "^(cargo|npm|yarn|pnpm|pip|uv|go|make|cmake|gradle|mvn) (build|test|check|clippy|fmt|lint|run|install|ci).*"
+      - pattern: "^(cat|head|tail|less|wc|grep|rg|find|fd|ls|tree|file|stat|diff|sort|uniq|awk|sed) .*"
+      - pattern: "^(mkdir|cp|mv|touch|chmod) .*"
+      - pattern: "^(python|python3|node|ruby|perl) .*"
+      - pattern: "^(docker|podman) (build|run|ps|logs|compose).*"
+      - pattern: "^(echo|printf|cat|tee) .*"
+    deny:
+      - pattern: "^rm -rf /.*"
+      - pattern: "^rm -rf ~.*"
+      - pattern: "^(curl|wget|nc|ncat|socat|telnet|ftp) .*"
+      - pattern: "^sudo .*"
+      - pattern: "^(ssh|scp|rsync|sftp) .*"
+      - pattern: "^(iptables|ufw|firewall-cmd|pfctl) .*"
+      - pattern: "^(systemctl|service|launchctl) (start|stop|restart|enable|disable) .*"
+      - pattern: "^(useradd|userdel|passwd|chown|chgrp) .*"
+      - pattern: "^(mount|umount|mkfs|fdisk|dd) .*"
+      - pattern: "^(kill|killall|pkill) .*"
+      - pattern: ".*(password|secret|token|credential|api.key|\\.env).*"
+      - pattern: "^(base64|openssl|gpg) .*(decode|decrypt|enc).*"
+  filesystem:
+    allow:
+      - path: .
+      - path: /tmp
+    deny:
+      - path: /etc
+      - path: /var
+      - path: /usr
+      - path: /root
+      - path: /home
+      - path: ~/.ssh
+      - path: ~/.aws
+      - path: ~/.config/gh
+      - path: ~/.gnupg
+      - path: ~/.netrc
+      - path: ~/.npmrc
+      - path: ~/.pypirc
+  resources:
+    maxOutputBytes: 10485760
+    timeoutSeconds: 300"#
+            .into(),
+    }
+}
+
+/// Production AI Guardrails: read-only production access with mandatory human approval for any mutation.
+fn production_ai_guardrails_template() -> PolicyTemplate {
+    PolicyTemplate {
+        name: "production-ai-guardrails".into(),
+        description: "Production guardrails for AI agents. Read-only access to production systems. All mutations require explicit human approval. Full audit trail with reasoning capture. Blocks exfiltration, destructive ops, and credential access.".into(),
+        category: TemplateCategory::ProductizeAI,
+        yaml: r#"spec:
+  commands:
+    allow:
+      - pattern: "^systemctl status .*"
+      - pattern: "^journalctl (--no-pager|--since|--until|-u) .*"
+      - pattern: "^kubectl get .*"
+      - pattern: "^kubectl describe .*"
+      - pattern: "^kubectl logs .*"
+      - pattern: "^kubectl top (nodes|pods).*"
+      - pattern: "^docker (ps|logs|inspect|stats|images).*"
+      - pattern: "^(df|du|free|top|uptime|w|who|last|ps aux|lsof).*"
+      - pattern: "^(ip addr|ip route|ss -tlnp|netstat -tlnp).*"
+      - pattern: "^(cat|head|tail|grep|awk) /var/log/.*"
+      - pattern: "^curl -s (localhost|127\\.0\\.0\\.1|\\$).*"
+      - pattern: "^(terraform|tofu) (plan|show|state list|state show).*"
+      - pattern: "^(aws|gcloud|az) .*(describe|get|list|show).*"
+      - pattern: "^helm (list|status|get).*"
+    deny:
+      - pattern: "^(rm|mv|cp|mkdir|touch|chmod|chown|dd|mkfs) .*"
+      - pattern: "^(systemctl|service) (start|stop|restart|enable|disable) .*"
+      - pattern: "^kubectl (delete|apply|patch|edit|scale|rollout|exec) .*"
+      - pattern: "^docker (rm|rmi|stop|kill|exec|run) .*"
+      - pattern: "^(apt|yum|dnf|pacman|pip|npm|cargo) (install|remove|update|upgrade|uninstall) .*"
+      - pattern: "^sudo .*"
+      - pattern: "^(terraform|tofu) (apply|destroy|import).*"
+      - pattern: "^(aws|gcloud|az) .*(create|delete|update|put|modify|terminate).*"
+      - pattern: "^helm (install|upgrade|delete|rollback).*"
+      - pattern: "^(curl|wget) .*(-X POST|-X PUT|-X DELETE|-d |--data).*"
+      - pattern: "^(curl|wget|nc|ncat|socat) .*[^(localhost|127\\.0\\.0\\.1)].*--upload.*"
+      - pattern: "^(scp|rsync|sftp|ftp) .*"
+      - pattern: ".*(password|secret|token|credential|api.key).*cat.*"
+      - pattern: ".*> /dev/.*"
+      - pattern: ".*>> /etc/.*"
+  filesystem:
+    allow:
+      - path: /var/log
+      - path: /tmp
+    deny:
+      - path: /etc
+      - path: /root
+      - path: ~/.ssh
+      - path: ~/.aws/credentials
+      - path: ~/.kube/config
+  resources:
+    maxOutputBytes: 5242880
+    timeoutSeconds: 60"#
+            .into(),
+    }
+}
+
+/// Read-only Infrastructure AI: query logs, metrics, status. Block all writes and exfiltration.
+fn read_only_infrastructure_ai_template() -> PolicyTemplate {
+    PolicyTemplate {
+        name: "read-only-infrastructure-ai".into(),
+        description: "Strict read-only infrastructure access for AI agents. Query logs, metrics, health status only. Blocks ALL writes, ALL network egress, ALL credential paths. Zero mutation surface.".into(),
+        category: TemplateCategory::ProductizeAI,
+        yaml: r#"spec:
+  commands:
+    allow:
+      - pattern: "^cat /var/log/.*"
+      - pattern: "^tail (-[0-9]+f?|-n [0-9]+|--follow|-f) /var/log/.*"
+      - pattern: "^grep .* /var/log/.*"
+      - pattern: "^journalctl (--no-pager|--since|--until|-u|-n) .*"
+      - pattern: "^systemctl (status|is-active|is-enabled|list-units) .*"
+      - pattern: "^(df|du|free|uptime|w|who|last|ps aux|top -bn1).*"
+      - pattern: "^(ip addr|ip route|ss -tlnp|netstat -tlnp).*"
+      - pattern: "^kubectl get .*"
+      - pattern: "^kubectl describe .*"
+      - pattern: "^kubectl logs .* --tail=[0-9]+.*"
+      - pattern: "^kubectl top (nodes|pods).*"
+      - pattern: "^docker (ps|stats|inspect) .*"
+      - pattern: "^(prometheus|promtool) .*(query|check).*"
+      - pattern: "^curl -s (localhost|127\\.0\\.0\\.1):(9090|3000|8080)/.*"
+    deny:
+      - pattern: ".*"
+  filesystem:
+    allow:
+      - path: /var/log
+      - path: /proc
+      - path: /sys/class
+    deny:
+      - path: /
+  resources:
+    maxOutputBytes: 2097152
+    timeoutSeconds: 30"#
+            .into(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -468,7 +623,7 @@ mod tests {
     #[test]
     fn test_registry_has_all_templates() {
         let registry = TemplateRegistry::new();
-        assert_eq!(registry.list().len(), 5);
+        assert_eq!(registry.list().len(), 8);
     }
 
     #[test]
@@ -559,5 +714,16 @@ mod tests {
             TemplateCategory::DatabaseQuery.to_string(),
             "database-query"
         );
+        assert_eq!(TemplateCategory::ProductizeAI.to_string(), "productize-ai");
+    }
+
+    #[test]
+    fn test_productize_ai_templates() {
+        let registry = TemplateRegistry::new();
+        let productize = registry.by_category(&TemplateCategory::ProductizeAI);
+        assert_eq!(productize.len(), 3);
+        assert!(registry.get("safe-dev-mode").is_some());
+        assert!(registry.get("production-ai-guardrails").is_some());
+        assert!(registry.get("read-only-infrastructure-ai").is_some());
     }
 }

@@ -341,7 +341,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Local IPC Transports (Zero-Network Local-to-Local)
 - [x] UNIX domain socket driver — `UnixSocketDriver` implementing `Driver` trait for same-host communication (Linux, macOS, FreeBSD)
 - [ ] Named pipe driver — `NamedPipeDriver` for Windows local IPC (`\\.\pipe\ravenfabric`)
-- [ ] Stdio pipe driver — `StdioDriver` for parent-child process communication (MCP stdio transport, embedded agents)
+- [x] Stdio pipe driver — `StdioDriver` for parent-child process communication (MCP stdio transport, embedded agents)
 - [ ] Vsock driver — `VsockDriver` for VM-to-hypervisor communication (firecracker, cloud-hypervisor, QEMU)
 - [ ] Abstract namespace sockets — Linux-specific `@ravenfabric/<session-id>` (no filesystem cleanup needed)
 - [ ] Automatic driver selection — `rf exec local` detects co-located agent and uses fastest available IPC (vsock > unix > named-pipe > loopback)
@@ -371,7 +371,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] "Security investigator" template — broad read access, deny writes, deny exfiltration, approval for credential access
 - [x] "CI/CD agent" template — build/test/deploy commands, scoped to repo workdir, approval for production push
 - [x] "Database query agent" template — SELECT allowed, DML denied by default, approval for schema changes
-- [ ] Template validation CLI — `rf policy validate --template coding-assistant`
+- [x] Template validation CLI — `rf policy validate --template coding-assistant`
 - [x] Template composition — layer multiple templates with deny-wins conflict resolution
 
 ### Prompt Injection Detection
@@ -582,9 +582,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Aider integration guide — stdio transport setup, `.aider.conf.yml` reference
 
 ### Opinionated Policy Templates (ready-to-use)
-- [ ] "Safe Dev Mode" — AI can read/write project files, run tests, use git; cannot touch system, credentials, or network
-- [ ] "Production AI Guardrails" — read-only production access, require human approval for any mutation, full audit trail
-- [ ] "Read-only Infrastructure AI" — query logs, metrics, status; block all writes, block all exfiltration paths
+- [x] "Safe Dev Mode" — AI can read/write project files, run tests, use git; cannot touch system, credentials, or network
+- [x] "Production AI Guardrails" — read-only production access, require human approval for any mutation, full audit trail
+- [x] "Read-only Infrastructure AI" — query logs, metrics, status; block all writes, block all exfiltration paths
 
 ### Make It Trivial To:
 - [ ] **Drop RavenFabric between AI and system** — single binary, single config file, working in < 5 minutes

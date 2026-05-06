@@ -21,6 +21,7 @@ pub mod probe;
 pub mod proxy;
 #[cfg(feature = "quic")]
 pub mod quic;
+pub mod stdio_pipe;
 pub mod stun_client;
 pub mod stun_server;
 pub mod tun;

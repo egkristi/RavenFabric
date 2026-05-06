@@ -12,6 +12,7 @@ use tracing::{error, info};
 use rf_crypto::channel::SecureChannel;
 use rf_crypto::keys::StaticKey;
 use rf_crypto::noise::handshake;
+use rf_policy::templates::TemplateRegistry;
 use rf_rpc::codec;
 use rf_rpc::types::{Action, Request, Response, RpcResult};
 use rf_transport::driver::{Driver, Target};
@@ -97,6 +98,37 @@ enum Commands {
         /// Shell to generate completions for
         shell: Shell,
     },
+    /// Policy template management and validation
+    Policy {
+        #[command(subcommand)]
+        action: PolicyAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum PolicyAction {
+    /// List all available policy templates
+    List,
+    /// Show a template's full YAML policy
+    Show {
+        /// Template name (e.g., "safe-dev-mode", "production-ai-guardrails")
+        name: String,
+    },
+    /// Validate a policy YAML file
+    Validate {
+        /// Path to policy YAML file (or --template for built-in)
+        #[arg(short, long)]
+        file: Option<PathBuf>,
+
+        /// Validate a built-in template by name
+        #[arg(short, long)]
+        template: Option<String>,
+    },
+    /// Compose multiple templates (deny-wins conflict resolution)
+    Compose {
+        /// Template names to compose (comma-separated)
+        templates: String,
+    },
 }
 
 #[tokio::main]
@@ -132,6 +164,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "rf", &mut std::io::stdout());
+        }
+        Commands::Policy { action } => {
+            policy_command(action)?;
         }
     }
 
@@ -960,6 +995,75 @@ async fn connect_dev_agent(
         let resp_data = codec::encode(&response)?;
         if chan.send(&resp_data).await.is_err() {
             break;
+        }
+    }
+
+    Ok(())
+}
+
+fn policy_command(action: PolicyAction) -> anyhow::Result<()> {
+    let registry = TemplateRegistry::new();
+
+    match action {
+        PolicyAction::List => {
+            println!("Available policy templates:\n");
+            for template in registry.list() {
+                println!("  {:<30} [{}]", template.name, template.category);
+                println!("    {}\n", template.description);
+            }
+        }
+        PolicyAction::Show { name } => {
+            let template = registry.get(&name).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "template '{name}' not found. Use 'rf policy list' to see available templates."
+                )
+            })?;
+            println!("# Template: {}", template.name);
+            println!("# Category: {}", template.category);
+            println!("# {}\n", template.description);
+            println!("{}", template.yaml);
+        }
+        PolicyAction::Validate { file, template } => {
+            if let Some(template_name) = template {
+                let tmpl = registry
+                    .get(&template_name)
+                    .ok_or_else(|| anyhow::anyhow!("template '{template_name}' not found"))?;
+                match TemplateRegistry::validate_yaml(&tmpl.yaml) {
+                    Ok(()) => println!("OK: template '{template_name}' is valid YAML"),
+                    Err(e) => {
+                        eprintln!("ERROR: template '{template_name}' has invalid YAML: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            } else if let Some(path) = file {
+                let content = std::fs::read_to_string(&path)?;
+                match TemplateRegistry::validate_yaml(&content) {
+                    Ok(()) => println!("OK: {} is valid policy YAML", path.display()),
+                    Err(e) => {
+                        eprintln!("ERROR: {} has invalid YAML: {}", path.display(), e);
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                eprintln!("ERROR: specify either --file or --template");
+                std::process::exit(1);
+            }
+        }
+        PolicyAction::Compose { templates } => {
+            let names: Vec<&str> = templates.split(',').map(|s| s.trim()).collect();
+            let mut refs = Vec::new();
+            for name in &names {
+                let tmpl = registry.get(name).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "template '{name}' not found. Use 'rf policy list' to see available."
+                    )
+                })?;
+                refs.push(tmpl);
+            }
+            let composed = TemplateRegistry::compose(&refs)?;
+            println!("# Composed policy from: {templates}");
+            println!("# Conflict resolution: deny-wins\n");
+            println!("{composed}");
         }
     }
 
