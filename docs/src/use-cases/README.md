@@ -11,6 +11,7 @@ RavenFabric is designed for environments where security, auditability, and netwo
 | [Multi-Cluster Kubernetes](multi-cluster-kubernetes.md) | Unified operations across clusters in different clouds, regions, or air-gapped environments. |
 | [Air-Gapped Industrial Systems](airgapped-ics.md) | Remote maintenance of ICS/SCADA/OT networks using physical media transport and store-carry-forward delivery. |
 | [MSP Multi-Tenant Operations](msp-multitenant.md) | Hundreds of client environments through one cryptographically isolated control plane with per-client policy. |
+| [Maritime & Offshore](maritime-offshore.md) | Fleet-wide IT/OT management across vessels and platforms with bandwidth-cost-aware operation over satellite, air-gap support, and IMO/NIS2 compliance. |
 
 ## Common Properties
 
@@ -31,3 +32,4 @@ Every use case shares the same foundational guarantees:
 | Cross-cloud operations | [Multi-Cluster Kubernetes](multi-cluster-kubernetes.md) |
 | Offline/air-gapped environments | [Air-Gapped ICS](airgapped-ics.md) |
 | Client isolation for service providers | [MSP Multi-Tenant](msp-multitenant.md) |
+| Maritime/offshore fleet management | [Maritime & Offshore](maritime-offshore.md) |

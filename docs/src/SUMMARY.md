@@ -35,6 +35,7 @@
 - [Multi-Cluster Kubernetes](use-cases/multi-cluster-kubernetes.md)
 - [Air-Gapped Industrial Systems](use-cases/airgapped-ics.md)
 - [MSP Multi-Tenant Operations](use-cases/msp-multitenant.md)
+- [Maritime & Offshore](use-cases/maritime-offshore.md)
 
 # Reference
 
