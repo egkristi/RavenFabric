@@ -38,4 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docs**: Claude Code integration guide (`docs/src/integrations/claude-code.md`)
 - **Docs**: Cursor integration guide (`docs/src/integrations/cursor.md`)
 - **Docs**: Aider integration guide (`docs/src/integrations/aider.md`)
+- **Docs**: Claude Desktop integration guide (`docs/src/integrations/claude-desktop.md`)
 - **Docs**: AI Agent Quick Start tutorial (`docs/src/getting-started/ai-quickstart.md`)
+- **MCP Server**: Anomaly-audit integration — behavioral events written to audit log with baseline comparison
+- **MCP Server**: `rf_check_approval` tool — poll approval status (PENDING/APPROVED/DENIED)
+- **MCP Server**: `approve()` / `deny()` API for operator approval control

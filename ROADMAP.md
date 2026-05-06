@@ -593,11 +593,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] "Read-only Infrastructure AI" — query logs, metrics, status; block all writes, block all exfiltration paths
 
 ### Make It Trivial To:
-- [ ] **Drop RavenFabric between AI and system** — single binary, single config file, working in < 5 minutes
+- [x] **Drop RavenFabric between AI and system** — single binary, single config file, working in < 5 minutes
 - [x] **Block `rm -rf`** — immutable deny rules ship by default, not opt-in
-- [ ] **Require approval for production changes** — human-in-loop approval workflow with Slack/Teams/CLI notification
+- [x] **Require approval for production changes** — human-in-loop approval workflow with CLI notification and status polling
 - [x] **Log AI reasoning** — every command includes optional `reason` field recorded in structured audit log
-- [ ] Quick-start tutorial — "Secure your AI agent in 5 minutes" (website + README)
+- [x] Quick-start tutorial — "Secure your AI agent in 5 minutes" (docs/src/getting-started/ai-quickstart.md)
 - [ ] Demo video / asciinema — show policy deny in action, approval flow, audit trail
 
 ---

@@ -96,6 +96,14 @@ pub struct McpServer {
     anomaly_tracker: Arc<tokio::sync::Mutex<IdentityBaseline>>,
 }
 
+/// Status of an approval request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ApprovalStatus {
+    Pending,
+    Approved,
+    Denied,
+}
+
 /// A pending human approval request.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -104,6 +112,7 @@ struct ApprovalRequest {
     operation: String,
     command: String,
     reason: String,
+    status: ApprovalStatus,
     timestamp: chrono::DateTime<chrono::Utc>,
 }
 
@@ -369,6 +378,7 @@ impl McpServer {
             "rf_list_my_capabilities" => self.tool_list_capabilities().await,
             "rf_audit_query" => self.tool_audit_query(&arguments).await,
             "rf_request_approval" => self.tool_request_approval(&arguments).await,
+            "rf_check_approval" => self.tool_check_approval(&arguments).await,
             _ => Err(format!("Unknown tool: {tool_name}")),
         };
 
@@ -597,6 +607,7 @@ impl McpServer {
             operation: operation.to_string(),
             command: command.to_string(),
             reason: reason.to_string(),
+            status: ApprovalStatus::Pending,
             timestamp: chrono::Utc::now(),
         };
 
@@ -623,8 +634,65 @@ impl McpServer {
              Command: {command}\n\
              Reason: {reason}\n\n\
              Status: PENDING — waiting for human operator approval.\n\
-             The operator has been notified via stderr/logging."
+             The operator has been notified via stderr/logging.\n\
+             Use rf_check_approval with this ID to poll status."
         )))
+    }
+
+    /// Check the status of a pending approval request.
+    async fn tool_check_approval(&self, args: &Value) -> Result<Value, String> {
+        let approval_id = args
+            .get("approval_id")
+            .and_then(|id| id.as_str())
+            .ok_or("missing 'approval_id' argument")?;
+
+        let approvals = self.approvals.lock().await;
+        match approvals.get(approval_id) {
+            Some(approval) => {
+                let status = match approval.status {
+                    ApprovalStatus::Pending => "PENDING",
+                    ApprovalStatus::Approved => "APPROVED",
+                    ApprovalStatus::Denied => "DENIED",
+                };
+                Ok(tools::text_content(format!(
+                    "Approval ID: {}\n\
+                     Operation: {}\n\
+                     Command: {}\n\
+                     Status: {status}\n\
+                     Requested: {}",
+                    approval.id, approval.operation, approval.command, approval.timestamp
+                )))
+            }
+            None => Ok(tools::error_content(format!(
+                "No approval found with ID: {approval_id}"
+            ))),
+        }
+    }
+
+    /// Approve a pending request (called via operator mechanism, not by AI).
+    #[allow(dead_code)]
+    pub async fn approve(&self, approval_id: &str) -> bool {
+        let mut approvals = self.approvals.lock().await;
+        if let Some(approval) = approvals.get_mut(approval_id) {
+            approval.status = ApprovalStatus::Approved;
+            info!(approval_id = %approval_id, command = %approval.command, "approval GRANTED");
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Deny a pending request (called via operator mechanism, not by AI).
+    #[allow(dead_code)]
+    pub async fn deny(&self, approval_id: &str) -> bool {
+        let mut approvals = self.approvals.lock().await;
+        if let Some(approval) = approvals.get_mut(approval_id) {
+            approval.status = ApprovalStatus::Denied;
+            info!(approval_id = %approval_id, command = %approval.command, "approval DENIED");
+            true
+        } else {
+            false
+        }
     }
 
     /// Record an audit entry for this session.
@@ -785,7 +853,7 @@ mod tests {
         let response = server.handle_request(&request).await;
         let result = response.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 7);
+        assert_eq!(tools.len(), 8);
     }
 
     #[tokio::test]
@@ -1067,5 +1135,79 @@ mod tests {
             assert!(response.result.is_some());
             assert!(response.error.is_none());
         }
+    }
+
+    #[tokio::test]
+    async fn test_approval_workflow() {
+        let policy_file = create_test_policy();
+        let server =
+            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+
+        // Authenticate
+        let init = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(0)),
+            method: "initialize".into(),
+            params: json!({"protocolVersion": "2024-11-05"}),
+        };
+        server.handle_request(&init).await;
+
+        // Request approval
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "tools/call".into(),
+            params: json!({
+                "name": "rf_request_approval",
+                "arguments": {
+                    "operation": "deploy",
+                    "command": "kubectl apply -f deploy.yaml",
+                    "reason": "Deploy new version"
+                }
+            }),
+        };
+        let response = server.handle_request(&request).await;
+        let result = response.result.unwrap();
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("PENDING"));
+        assert!(text.contains("rf_check_approval"));
+
+        // Extract approval ID from response
+        let id_start = text.find("id: ").unwrap() + 4;
+        let id_end = text[id_start..].find(')').unwrap() + id_start;
+        let approval_id = &text[id_start..id_end];
+
+        // Check approval (should be pending)
+        let check = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(2)),
+            method: "tools/call".into(),
+            params: json!({
+                "name": "rf_check_approval",
+                "arguments": {"approval_id": approval_id}
+            }),
+        };
+        let response = server.handle_request(&check).await;
+        let result = response.result.unwrap();
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("PENDING"));
+
+        // Approve it
+        assert!(server.approve(approval_id).await);
+
+        // Check again (should be approved)
+        let check2 = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(3)),
+            method: "tools/call".into(),
+            params: json!({
+                "name": "rf_check_approval",
+                "arguments": {"approval_id": approval_id}
+            }),
+        };
+        let response = server.handle_request(&check2).await;
+        let result = response.result.unwrap();
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("APPROVED"));
     }
 }

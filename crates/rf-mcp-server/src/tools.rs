@@ -131,6 +131,20 @@ pub fn list_tools() -> Value {
                     },
                     "required": ["operation", "command", "reason"]
                 }
+            },
+            {
+                "name": "rf_check_approval",
+                "description": "Check the status of a pending approval request. Returns approved, denied, or pending.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "approval_id": {
+                            "type": "string",
+                            "description": "The approval ID returned by rf_request_approval"
+                        }
+                    },
+                    "required": ["approval_id"]
+                }
             }
         ]
     })
@@ -181,7 +195,8 @@ mod tests {
         assert!(names.contains(&"rf_list_my_capabilities"));
         assert!(names.contains(&"rf_audit_query"));
         assert!(names.contains(&"rf_request_approval"));
-        assert_eq!(names.len(), 7);
+        assert!(names.contains(&"rf_check_approval"));
+        assert_eq!(names.len(), 8);
     }
 
     #[test]
