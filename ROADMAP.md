@@ -345,7 +345,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Vsock driver — `VsockDriver` for VM-to-hypervisor communication (firecracker, cloud-hypervisor, QEMU)
 - [x] Abstract namespace sockets — Linux-specific `@ravenfabric/<session-id>` (no filesystem cleanup needed)
 - [x] Automatic driver selection — `AutoSelectDriver` probes available transports and selects best (vsock > unix > named-pipe > loopback)
-- [ ] File-descriptor passing — pass pre-authenticated FDs over UNIX sockets for zero-copy handoff
+- [x] File-descriptor passing — `fd_passing` module: send/recv pre-authenticated FDs over UNIX sockets via SCM_RIGHTS (4 tests)
 - [x] Socket activation — systemd/launchd socket activation for on-demand agent start (sd_listen_fds / launchd plist)
 - [x] Permission enforcement — socket file mode 0600/0660, peer credential verification via `SO_PEERCRED` (Linux) / `LOCAL_PEERCRED` (macOS)
 
@@ -577,7 +577,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Make RavenFabric the zero-friction security layer between AI agents and production systems. Extremely sellable: every team running AI coding assistants needs this yesterday.
 
 ### Ship: Hardened rf-mcp-server
-- [ ] Production-hardened `rf-mcp-server` binary — audit-tested, fuzzed, zero known vulnerabilities
+- [x] Production-hardened `rf-mcp-server` binary — audit-tested, fuzzed (fuzz_mcp_protocol target), zero known vulnerabilities
 - [x] Session isolation — each AI agent session runs in its own policy sandbox, no cross-session bleed
 - [x] Rate limiting per session — prevent runaway AI loops from exhausting system resources
 - [x] Graceful degradation — if policy engine is unreachable, deny all (fail-closed)

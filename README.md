@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~36,000 LOC | 692 tests | 0 clippy warnings | All CI green**
+**~38,800 LOC | 715 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -616,17 +616,6 @@ What works today:
 - Serial port framer (sync bytes, CRC-16/CCITT, frame detection)
 - Domain fronting (SNI/Host rewriting, tunnel request generation, response parsing)
 - Protocol mimicry (Shadowsocks-style ChaCha20-Poly1305 AEAD framing with counter-derived nonces)
-- OTP token generation and validation with poisoning-safe locks (full)
-- Policy engine with deny-by-default, regex allow/deny, path checks, symlink resolution (full)
-- SIGHUP-triggered hot-reload of policy (atomic swap via RwLock)
-- Command execution under policy control with timeout and output limiting (full, tested)
-- Structured JSON-lines audit logging (full)
-- Msgpack RPC codec with length-prefixed framing and roundtrip tests (full)
-- RPC session over encrypted SecureChannel (full, tested end-to-end)
-- In-memory transport driver for testing (full, tested)
-- WebSocket transport driver with DuplexStream bridge (full)
-- QUIC transport driver (quinn, 0-RTT, connection migration, multiplexed streams)
-- WireGuard userspace tunnel (UDP socket, key handling, peer management)
 - Real STUN client (RFC 5389/8489 binding requests, NAT type detection, ICE candidate gathering)
 - Relay broker with meet-token pairing over WebSocket (full)
 - Per-IP rate limiting on relay (sliding window, 20 conn/min default)
@@ -671,6 +660,7 @@ What works today:
 - Abstract namespace socket driver (Linux-only, no filesystem cleanup)
 - Auto-select transport driver (probes available transports, selects best)
 - Socket activation (systemd-style LISTEN_FDS protocol support)
+- File-descriptor passing (SCM_RIGHTS) for zero-copy session handoff over UNIX sockets
 - Behavioral anomaly detection: velocity, novelty, timing, escalation scoring per identity
 - AI compliance reporting: EU AI Act risk classification, NIST AI RMF mapping, audit export
 - Embedded Web UI dashboard: real-time agent metrics, activity feed, connected agents
@@ -1200,25 +1190,26 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 
 | Binary | Role |
 |--------|------|
-| `rf` | CLI client — user interactions (`rf exec`, `rf dev`, `rf status`) |
+| `rf` | CLI client — user interactions (`rf exec`, `rf dev`, `rf status`, `rf shell`, `rf forward`, `rf playbook`, `rf policy`) |
 | `rf-agent` | Runs on target systems. Connects outbound, serves RPC under policy |
 | `rf-relay` | Stateless encrypted broker. Pairs agents and clients. Geo-distributed |
+| `rf-mcp-server` | MCP server for AI agents (Claude, Cursor, Aider). Policy-enforced tool execution |
 
 ### Core Crates (Workspace)
 
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
-| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM | Done (~1,400 LOC, 29 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, socket activation | Done (~13,200 LOC, 300 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~5,100 LOC, 106 tests) |
-| `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~550 LOC, 14 tests) |
-| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~1,900 LOC, 44 tests) |
-| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping | Done (~6,400 LOC, 105 tests) |
+| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM | Done (~1,600 LOC, 35 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, socket activation, fd-passing | Done (~14,500 LOC, 304 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~5,800 LOC, 106 tests) |
+| `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~650 LOC, 14 tests) |
+| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~4,500 LOC, 97 tests) |
+| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping | Done (~6,500 LOC, 105 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~430 LOC, 11 tests) |
-| `rf-relay` | Stateless encrypted relay broker binary | Done |
-| `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done |
-| `rf-cli` | `rf` CLI binary (exec, status, completions) | Done |
-| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor) | Done (~2,500 LOC, 34 tests) |
+| `rf-relay` | Stateless encrypted relay broker binary | Done (~390 LOC, 7 tests) |
+| `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done (~370 LOC) |
+| `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, completions) | Done (~1,080 LOC) |
+| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~2,500 LOC, 34 tests) |
 | `rf-integration-tests` | End-to-end integration tests | Done (2 tests) |
 
 ### Key Dependencies
@@ -1271,7 +1262,7 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Wire protocol versioning | Version byte in handshake | Enables rolling upgrades without breaking deployed agents |
 | Key trust model | Trust-on-first-use (TOFU) + OTP | First enrollment via OTP, subsequent connections via cached static key |
 | Policy transitions | Atomic swap + grace period | In-flight executions complete under old policy. New connections get new policy |
-| Cargo workspace | 10 small crates | Compile-time isolation, clear boundaries, parallel compilation |
+| Cargo workspace | 12 focused crates | Compile-time isolation, clear boundaries, parallel compilation |
 | CLI name | `rf` (not `ravenfabric`) | Short, memorable, fast to type. `rf exec`, `rf dev`, `rf status` |
 | Identity model | Key-derived address | Address = hash(pubkey). No DNS/DHCP dependency. Reticulum-inspired |
 | Disconnection model | DTN store-carry-forward | Offline is normal. Commands queue, deliver when path exists. NASA Bundle Protocol inspired |
@@ -1418,8 +1409,10 @@ RavenFabric/
 │   ├── rf-bootstrap/       # OTP enrollment flow
 │   ├── rf-relay/           # Relay broker binary
 │   ├── rf-agent/           # Agent binary
-│   └── rf-cli/             # `rf` CLI binary
-├── docs/                   # Documentation
+│   ├── rf-cli/             # `rf` CLI binary
+│   └── rf-mcp-server/     # MCP server for AI agents
+├── docs/                   # Documentation (mdBook)
+├── website/                # Landing page (ravenfabric.io)
 ├── .github/workflows/      # CI/CD (check, fmt, clippy, test, coverage, release)
 ├── ARCHITECTURE.md         # System design + data flow
 ├── CONNECTIVITY.md         # Connectivity value chain (13-phase lifecycle)

@@ -8,6 +8,8 @@ pub mod driver;
 pub mod error;
 pub mod exotic;
 pub mod eyeballs;
+#[cfg(unix)]
+pub mod fd_passing;
 pub mod fingerprint;
 pub mod gossip;
 pub mod latency;

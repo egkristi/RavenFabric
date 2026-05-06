@@ -22,7 +22,7 @@ RavenFabric is a universal agent that provides policy-controlled, E2E-encrypted 
 
 - **12 crates** — layered architecture with strict dependency boundaries
 - **~38,800 lines of code** — Rust, Edition 2024
-- **711 tests** — unit, integration, and fuzz
+- **715 tests** — unit, integration, and fuzz
 - **0 clippy warnings** — enforced in CI
 - **8 CI targets** — including cross-compilation for armv7, riscv64, FreeBSD
 
