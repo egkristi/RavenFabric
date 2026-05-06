@@ -365,6 +365,23 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Claude Code integration — `claude mcp add` reference setup
 - [ ] Design spec: [docs/src/use-cases/ai-agent-access.md](docs/src/use-cases/ai-agent-access.md)
 
+### Policy Templates Library
+- [ ] "Coding assistant" template — filesystem read/write in project dir, git, package managers, test runners; deny network mutation
+- [ ] "Production read-only" template — allow query/status commands, deny all writes, deny destructive operations
+- [ ] "Security investigator" template — broad read access, deny writes, deny exfiltration, approval for credential access
+- [ ] "CI/CD agent" template — build/test/deploy commands, scoped to repo workdir, approval for production push
+- [ ] "Database query agent" template — SELECT allowed, DML denied by default, approval for schema changes
+- [ ] Template validation CLI — `rf policy validate --template coding-assistant`
+- [ ] Template composition — layer multiple templates with deny-wins conflict resolution
+
+### Prompt Injection Detection
+- [ ] Command-level heuristics — detect base64-encoded payloads, hex-encoded commands, unicode homoglyphs in arguments
+- [ ] Pattern library — known injection markers (markdown escapes, instruction overrides, role-play triggers)
+- [ ] Evasion detection — obfuscated commands (string concatenation, variable indirection, eval patterns)
+- [ ] Configurable response — `block` (deny + audit), `flag` (allow + alert), `log` (allow + record suspicion score)
+- [ ] Suspicion scoring — cumulative score per session; threshold triggers automatic capability reduction
+- [ ] Integration with audit log — injection attempts recorded with matched pattern and confidence level
+
 ---
 
 ## v0.4 — VPN + DNS + Secrets + Delay-Tolerant Delivery
@@ -490,15 +507,31 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ---
 
-## v0.7 — Web UI + API
+## v0.7 — Web UI + API + AI Compliance
 
-**Goal:** Web dashboard. REST/gRPC API. Observability.
+**Goal:** Web dashboard. REST/gRPC API. Observability. AI agent behavioral analysis and compliance reporting.
 
 - [x] Controller binary — `AgentRegistry` (heartbeat, stale detection, label selection), `ApiRouter` with 8 REST routes, path matching, role-based access, 7 tests
 - [ ] Web UI
 - [x] REST + gRPC API — `ApiDispatcher` with health/agents endpoints, auth middleware, role-based access (4 tests)
 - [x] OpenTelemetry traces — `TraceContext` (W3C traceparent), `Span` with OTLP JSON export, SpanKind/Status/Events (5 tests)
 - [x] Prometheus metrics endpoint — `metrics_server.rs` HTTP server + agent `--metrics-addr` flag
+
+### Behavioral Anomaly Detection
+- [ ] Per-identity baseline collection — command frequency, timing patterns, resource access patterns over rolling window
+- [ ] Statistical deviation alerting — Z-score threshold on command rate, new-path-access rate, denial rate
+- [ ] Session anomaly scoring — cumulative risk score per session; high score triggers automatic capability reduction or session termination
+- [ ] Anomaly types: velocity (too many commands), novelty (accessing paths never accessed before), timing (unusual hours), escalation (repeated denied-then-reformulated attempts)
+- [ ] Integration with audit log — anomaly events enriched with baseline comparison data
+- [ ] Alert routing — anomaly alerts to Slack/webhook/email via existing notification infrastructure
+
+### AI Compliance Reporting
+- [ ] EU AI Act traceability report — per-agent decision log with reasoning, human oversight records, risk classification
+- [ ] NIST AI Risk Management Framework alignment — map RavenFabric controls to NIST AI RMF functions (Govern, Map, Measure, Manage)
+- [ ] Audit report generation — structured PDF/HTML reports from audit log data, filterable by agent, time range, action type
+- [ ] Human-in-loop evidence — approval workflow records as proof of human oversight for high-risk AI operations
+- [ ] Incident reconstruction — timeline view of agent actions leading to an incident, with reasoning and policy decisions
+- [ ] Export formats — JSON, CSV, PDF for compliance submissions; SIEM-compatible event streams
 
 ---
 
@@ -514,6 +547,22 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Named Data Networking concepts for policy distribution (interest/data pattern)
 - [x] Subsea-cable resilience (mesh fallback when physical links fail)
 - [x] Full SPIFFE workload identity compliance
+
+---
+
+## Post-v1.0 — Framework SDKs & Ecosystem
+
+**Goal:** Native integration with AI agent frameworks beyond MCP. SDK-level access for framework authors.
+
+- [ ] LangChain integration — `RavenFabricTool` class wrapping MCP client, published to PyPI
+- [ ] CrewAI integration — agent tool definition compatible with CrewAI task delegation
+- [ ] AutoGen integration — `RavenFabricExecutor` for Microsoft AutoGen multi-agent orchestration
+- [ ] Custom MCP client SDK (Rust) — library crate for building RavenFabric-aware MCP clients
+- [ ] Custom MCP client SDK (Python) — pip-installable client for Python agent frameworks
+- [ ] Custom MCP client SDK (TypeScript) — npm package for JS/TS agent frameworks
+- [ ] OpenAI function-calling adapter — translate OpenAI tool schemas to RavenFabric MCP calls
+- [ ] Anthropic tool-use adapter — native Claude API tool definitions backed by RavenFabric
+- [ ] Agent framework benchmark suite — standardized tests measuring policy overhead, latency, throughput across frameworks
 
 ---
 
@@ -633,11 +682,12 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 |---------|-----------|
 | v0.1 | Noise XX mutual auth, deny-by-default policy, structured audit, `unsafe_code = "forbid"` |
 | v0.2 | Symlink traversal protection, output limiting, timeout enforcement |
-| v0.3 | Session recording, forced command mode, tunnel time limits, MCP server per-session identity |
+| v0.3 | Session recording, forced command mode, tunnel time limits, MCP server per-session identity, prompt injection detection, policy templates |
 | v0.4 | Sealed secrets, key rotation, secret masking in logs |
 | v0.5 | Traffic analysis resistance (noise floor, packet normalization) |
 | v0.5.1 | HKDF-SHA256 for PQ KEM, ChaCha20-Poly1305 mimicry codec, HMAC-signed policy logs, SHA-256 WireGuard key derivation, cryptographic trace IDs |
 | v0.6 | WASM sandboxing, RBAC, approval workflows |
+| v0.7 | Behavioral anomaly detection, AI compliance reporting (EU AI Act, NIST AI RMF) |
 | v1.0 | Fuzz-tested, binary integrity, DDoS mitigation |
 
 ---

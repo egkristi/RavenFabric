@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="RavenFabric — security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA. Replaces Tailscale, Ansible, Twingate, and more.">
-    <meta name="keywords" content="ZTNA, mesh VPN, distributed execution, zero trust, policy-driven, E2E encryption, Noise XX, Rust, Tailscale alternative, Ansible alternative">
+    <meta name="description" content="RavenFabric — security-first distributed execution engine and AI agent security layer. Policy-controlled access for human operators and AI agents. E2E encrypted, network-agnostic, ZTNA.">
+    <meta name="keywords" content="ZTNA, mesh VPN, distributed execution, zero trust, policy-driven, E2E encryption, Noise XX, Rust, Tailscale alternative, Ansible alternative, AI agent security, MCP server, AI access control, prompt injection protection">
     <meta name="author" content="Erling Kristiansen">
     <meta name="theme-color" content="#0a0b0d">
     <meta name="color-scheme" content="dark">
@@ -1245,6 +1245,7 @@
             </a>
             <nav class="topnav">
                 <a href="#what">What</a>
+                <a href="#ai-agents">AI Agents</a>
                 <a href="#architecture">Architecture</a>
                 <a href="#replaces">Replaces</a>
                 <a href="#examples">Examples</a>
@@ -1268,7 +1269,7 @@
                 One fabric for <em>transport</em>, <em>policy</em>, and <em>execution</em>.
             </h1>
             <p class="hero-tagline">
-                <strong>RavenFabric</strong> is a security-first distributed execution engine. End-to-end encrypted, network-agnostic, policy-driven. From full mesh VPN to fire-and-forget commands to declarative desired state — all within an airtight ZTNA policy layer.
+                <strong>RavenFabric</strong> is a security-first distributed execution engine and <strong>AI agent security layer</strong>. End-to-end encrypted, network-agnostic, policy-driven. The safety infrastructure between AI agents and the systems they operate on — and between human operators and their entire fleet. Same cryptographic identity. Same policy. Same audit trail.
             </p>
             <div class="hero-cta">
                 <a href="https://github.com/egkristi/RavenFabric" class="btn btn-primary" target="_blank" rel="noopener">
@@ -1513,6 +1514,71 @@
                     <p>One <code>rf exec</code> command from your laptop to any environment. Instant feedback, no bastion hop, no VPN toggle. Completions for your shell included.</p>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- ─── AI AGENT SECURITY LAYER ────────────────────────────── -->
+    <section id="ai-agents" class="content-section">
+        <div class="container">
+            <div class="section-eyebrow">AI Agent Security Layer</div>
+            <h2 class="section-title">The safety infrastructure between AI agents and <em>your systems</em>.</h2>
+            <p class="section-lead">
+                AI agents — Claude, GPT, Cursor, autonomous coding agents, operational AI — need real access to real systems. But they hallucinate commands, fall for prompt injection, and operate at machine speed when things go wrong. RavenFabric is the policy-enforced execution gateway that makes AI agent access safe, auditable, and revocable.
+            </p>
+
+            <div class="what-grid">
+                <div class="what-card">
+                    <div class="card-num">01</div>
+                    <h3>Local and remote, same controls</h3>
+                    <p>Whether the AI agent runs on your laptop (Claude Code, Cursor, Aider) or reaches remote infrastructure — the same Noise XX authentication, the same policy engine, the same audit trail applies. Local does not mean trusted.</p>
+                </div>
+                <div class="what-card">
+                    <div class="card-num">02</div>
+                    <h3>MCP-native integration</h3>
+                    <p>Model Context Protocol server (<code>rf-mcp-server</code>) exposes RavenFabric as tools to any MCP-compatible AI agent. Stdio transport for Claude Desktop/Code; HTTP+SSE for multi-user deployments. Drop-in setup, no code changes.</p>
+                </div>
+                <div class="what-card">
+                    <div class="card-num">03</div>
+                    <h3>Command-level deny-by-default</h3>
+                    <p>Every command the AI agent attempts is checked against policy before execution. Dangerous patterns (<code>rm -rf</code>, credential access, network exfiltration) are blocked regardless of how the agent phrases them. The agent cannot override, work around, or modify its own policy.</p>
+                </div>
+                <div class="what-card">
+                    <div class="card-num">04</div>
+                    <h3>Human-in-loop approval workflows</h3>
+                    <p>Sensitive operations require explicit human approval before execution. The agent requests, the human decides. Approval routing via terminal prompt, Slack, or email. Timeout-enforced — no silent waiting forever.</p>
+                </div>
+                <div class="what-card">
+                    <div class="card-num">05</div>
+                    <h3>Per-session cryptographic identity</h3>
+                    <p>Each AI agent session gets a short-lived Curve25519 identity. Sessions expire, cannot be reused, and are independently revocable. No long-lived credentials for an AI agent to leak or misuse.</p>
+                </div>
+                <div class="what-card">
+                    <div class="card-num">06</div>
+                    <h3>Replay-grade audit with reasoning</h3>
+                    <p>Every action logged with the agent's stated reasoning (<code>--reason</code>). Reconstruct exactly what the agent did, why it thought it should, what was denied, and what was approved. Compliance-ready for EU AI Act traceability.</p>
+                </div>
+            </div>
+
+            <div class="feature-grid" style="margin-top: var(--space-8);">
+                <div class="feature-card">
+                    <h3>Prompt injection containment</h3>
+                    <p>When adversarial instructions hidden in documents or data manipulate the AI agent, RavenFabric's policy prevents those instructions from causing damage. The policy is outside the agent's context — it cannot be jailbroken.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Skill-file distribution</h3>
+                    <p>Teach any AI agent how to use RavenFabric with a single skill file. Compatible with Claude, Claude Code, Cursor, Aider, and any runtime supporting prompt augmentation. The agent learns <code>rf exec</code>, respects denials, and reports limitations honestly.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>No existing competitor</h3>
+                    <p>Tailscale, Teleport, Boundary — all human-operator focused. No product today positions specifically as the security layer between AI agents and systems. RavenFabric fills this gap with production-grade cryptography and policy enforcement already built.</p>
+                </div>
+            </div>
+
+            <p style="font-size: 0.875rem; color: var(--text-tertiary); margin-top: var(--space-6); text-align: center;">
+                Full AI agent architecture:
+                <a href="/docs/use-cases/ai-agent-access.html" style="color: var(--accent-gold);">AI Agent Access Use Case</a> &middot;
+                <a href="/docs/reference/ai-agent-skill.html" style="color: var(--accent-gold);">Agent Skill Reference</a>
+            </p>
         </div>
     </section>
 
