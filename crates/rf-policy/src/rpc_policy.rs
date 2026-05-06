@@ -14,6 +14,9 @@ pub struct RpcPolicy {
     denied_paths: Vec<PathBuf>,
     pub max_output_bytes: u64,
     pub timeout_seconds: u32,
+    /// Immutable deny patterns — cannot be overridden by policy configuration.
+    /// These prevent catastrophic commands regardless of YAML allow rules.
+    immutable_deny: Vec<String>,
 }
 
 /// YAML config format for policy files.
@@ -121,13 +124,23 @@ impl RpcPolicy {
                 .and_then(|r| r.max_output_bytes)
                 .unwrap_or(10_485_760),
             timeout_seconds: resources.and_then(|r| r.timeout_seconds).unwrap_or(300),
+            immutable_deny: Self::default_immutable_deny(),
         })
     }
 
     /// Check if a command is allowed by policy.
-    /// Deny rules checked first (always win). Then allow rules. Default: deny.
+    /// Immutable deny checked first (cannot be overridden).
+    /// Then deny rules. Then allow rules. Default: deny.
     pub fn check_command(&self, cmd: &str) -> Decision {
-        // Deny rules always win
+        // Immutable deny — these can never be overridden by policy configuration
+        if let Some(pattern) = self.is_immutably_denied(cmd) {
+            return Decision::deny(
+                format!("immutable deny: command contains '{pattern}'"),
+                format!("immutable_deny:{pattern}"),
+            );
+        }
+
+        // Deny rules always win over allow rules
         for re in &self.denied_commands {
             if re.is_match(cmd) {
                 return Decision::deny(
@@ -146,6 +159,28 @@ impl RpcPolicy {
 
         // Default: deny
         Decision::deny_default()
+    }
+
+    /// Returns the default set of immutable deny patterns.
+    /// These cannot be removed or overridden by any policy file.
+    fn default_immutable_deny() -> Vec<String> {
+        vec![
+            "rm -rf /".into(),
+            "rm -rf --no-preserve-root".into(),
+            "mkfs".into(),
+            "dd if=/dev/zero".into(),
+            ":(){ :|:& };:".into(),
+            "> /dev/sda".into(),
+            "chmod -R 777 /".into(),
+        ]
+    }
+
+    /// Check if a command matches any immutable deny pattern.
+    fn is_immutably_denied(&self, command: &str) -> Option<&str> {
+        self.immutable_deny
+            .iter()
+            .find(|pattern| command.contains(pattern.as_str()))
+            .map(|s| s.as_str())
     }
 
     /// Check if a filesystem path is allowed by policy.
@@ -246,5 +281,81 @@ spec:
         let policy = test_policy();
         // "echo" is allowed, but "secret" in command triggers deny
         assert!(!policy.check_command("echo secret").allowed);
+    }
+
+    #[test]
+    fn test_immutable_deny_rm_rf() {
+        // Even if a policy explicitly allows "rm", immutable deny blocks "rm -rf /"
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: "^rm.*"
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        let decision = policy.check_command("rm -rf /");
+        assert!(!decision.allowed);
+        assert!(decision.matched_rule.contains("immutable_deny"));
+    }
+
+    #[test]
+    fn test_immutable_deny_mkfs() {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        let decision = policy.check_command("mkfs.ext4 /dev/sda1");
+        assert!(!decision.allowed);
+        assert!(decision.matched_rule.contains("immutable_deny"));
+    }
+
+    #[test]
+    fn test_immutable_deny_fork_bomb() {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        let decision = policy.check_command(":(){ :|:& };:");
+        assert!(!decision.allowed);
+        assert!(decision.matched_rule.contains("immutable_deny"));
+    }
+
+    #[test]
+    fn test_immutable_deny_dd_zero() {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        let decision = policy.check_command("dd if=/dev/zero of=/dev/sda bs=1M");
+        assert!(!decision.allowed);
+        assert!(decision.matched_rule.contains("immutable_deny"));
+    }
+
+    #[test]
+    fn test_immutable_deny_cannot_be_overridden() {
+        // A policy that explicitly allows everything still can't override immutable deny
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        // Normal commands still work
+        assert!(policy.check_command("echo hello").allowed);
+        assert!(policy.check_command("ls -la").allowed);
+        // But immutable deny patterns are always blocked
+        assert!(!policy.check_command("rm -rf /").allowed);
+        assert!(!policy.check_command("chmod -R 777 /").allowed);
+        assert!(!policy.check_command("> /dev/sda").allowed);
     }
 }

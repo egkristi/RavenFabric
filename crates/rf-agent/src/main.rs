@@ -314,6 +314,7 @@ async fn run_session(
                             exit_code: None,
                             duration_ms: 0,
                             caller_key: String::new(),
+                            reason: None,
                         });
                         return Err(anyhow::anyhow!("tamper detected: MAC verification failed"));
                     }
@@ -329,6 +330,7 @@ async fn run_session(
                             exit_code: None,
                             duration_ms: 0,
                             caller_key: String::new(),
+                            reason: None,
                         });
                         return Err(anyhow::anyhow!("frame injection detected"));
                     }

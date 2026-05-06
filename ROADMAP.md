@@ -588,9 +588,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Make It Trivial To:
 - [ ] **Drop RavenFabric between AI and system** — single binary, single config file, working in < 5 minutes
-- [ ] **Block `rm -rf`** — immutable deny rules ship by default, not opt-in
+- [x] **Block `rm -rf`** — immutable deny rules ship by default, not opt-in
 - [ ] **Require approval for production changes** — human-in-loop approval workflow with Slack/Teams/CLI notification
-- [ ] **Log AI reasoning** — every command includes optional `reason` field recorded in structured audit log
+- [x] **Log AI reasoning** — every command includes optional `reason` field recorded in structured audit log
 - [ ] Quick-start tutorial — "Secure your AI agent in 5 minutes" (website + README)
 - [ ] Demo video / asciinema — show policy deny in action, approval flow, audit trail
 

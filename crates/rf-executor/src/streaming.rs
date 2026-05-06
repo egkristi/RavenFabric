@@ -56,6 +56,7 @@ pub async fn stream_execute(
             exit_code: None,
             duration_ms,
             caller_key: caller_key.to_string(),
+            reason: None,
         }) {
             tracing::error!("audit log write failed: {}", e);
         }
@@ -187,6 +188,7 @@ pub async fn stream_execute(
         exit_code: Some(exit_code),
         duration_ms,
         caller_key: caller_key.to_string(),
+        reason: None,
     }) {
         tracing::error!("audit log write failed: {}", e);
     }

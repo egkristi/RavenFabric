@@ -85,6 +85,7 @@ mod tests {
                 workdir: None,
             },
             timeout_ms: Some(5000),
+            reason: None,
         };
 
         let encoded = encode(&req).unwrap();
@@ -132,6 +133,7 @@ mod tests {
             id: "stream-test".into(),
             action: Action::Metrics,
             timeout_ms: None,
+            reason: None,
         };
 
         let (mut client, mut server) = tokio::io::duplex(65536);

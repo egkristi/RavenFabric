@@ -210,6 +210,7 @@ async fn exec_command(
             workdir: None,
         },
         timeout_ms: Some(30_000),
+        reason: None,
     };
 
     let req_data = codec::encode(&request)?;
@@ -360,6 +361,7 @@ async fn status_command(
         id: uuid::Uuid::new_v4().to_string(),
         action: Action::Status,
         timeout_ms: Some(5_000),
+        reason: None,
     };
 
     let req_data = codec::encode(&request)?;
@@ -429,6 +431,7 @@ async fn forward_command(
             target_addr: remote_addr.to_string(),
         },
         timeout_ms: Some(10_000),
+        reason: None,
     };
 
     let req_data = codec::encode(&request)?;
@@ -455,6 +458,7 @@ async fn forward_command(
                     forward_id: forward_id.clone(),
                 },
                 timeout_ms: Some(5_000),
+                reason: None,
             };
             let close_data = codec::encode(&close_req)?;
             chan.send(&close_data).await?;
@@ -634,6 +638,7 @@ async fn execute_on_agent(
             workdir: None,
         },
         timeout_ms: Some(timeout_secs * 1000),
+        reason: None,
     };
 
     let req_data = codec::encode(&request)?;
@@ -707,6 +712,7 @@ async fn shell_command(
             env: Default::default(),
         },
         timeout_ms: None,
+        reason: None,
     };
 
     let req_data = codec::encode(&request)?;
@@ -786,6 +792,7 @@ async fn shell_command(
                                     data: buf[..n].to_vec(),
                                 },
                                 timeout_ms: None,
+                                reason: None,
                             };
                             if let Ok(data) = codec::encode(&req) {
                                 if chan_write.send(&data).await.is_err() {
@@ -840,6 +847,7 @@ async fn shell_command(
             session_id: session_id_clone,
         },
         timeout_ms: Some(5_000),
+        reason: None,
     };
     if let Ok(data) = codec::encode(&close_req) {
         let _ = chan.send(&data).await;

@@ -144,6 +144,7 @@ async fn run_client_exec(port: u16, token: &str, command: &str) -> anyhow::Resul
             workdir: None,
         },
         timeout_ms: Some(5000),
+        reason: None,
     };
 
     let req_data = codec::encode(&request)?;

@@ -7,6 +7,10 @@ pub struct Request {
     pub id: String,
     pub action: Action,
     pub timeout_ms: Option<u64>,
+    /// Optional reasoning from AI agent explaining why this action is needed.
+    /// Recorded in audit log for compliance and forensics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// The action to perform on the agent.
@@ -231,10 +235,32 @@ mod tests {
                 workdir: Some("/home".into()),
             },
             timeout_ms: Some(30000),
+            reason: None,
         };
         let bytes = codec::encode(&req).unwrap();
         let decoded: Request = codec::decode(&bytes).unwrap();
         assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_request_with_reason() {
+        let req = Request {
+            id: "ai-req-1".into(),
+            action: Action::Execute {
+                command: "cargo test".into(),
+                env: Default::default(),
+                workdir: Some("/project".into()),
+            },
+            timeout_ms: Some(60000),
+            reason: Some("Running tests to verify the refactoring didn't break anything".into()),
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+        assert_eq!(
+            decoded.reason.unwrap(),
+            "Running tests to verify the refactoring didn't break anything"
+        );
     }
 
     #[test]
@@ -247,6 +273,7 @@ mod tests {
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
         let bytes = codec::encode(&req).unwrap();
         let decoded: Request = codec::decode(&bytes).unwrap();
@@ -408,6 +435,7 @@ mod tests {
                 id: "test".into(),
                 action,
                 timeout_ms: None,
+                reason: None,
             };
             let bytes = codec::encode(&req).unwrap();
             let decoded: Request = codec::decode(&bytes).unwrap();

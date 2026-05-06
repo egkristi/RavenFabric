@@ -70,6 +70,7 @@ mod tests {
             exit_code: Some(0),
             duration_ms: 42,
             caller_key: "aabbccdd".to_string(),
+            reason: None,
         }
     }
 
@@ -104,5 +105,27 @@ mod tests {
         let json = serde_json::to_string(&entry).expect("serialize");
         let parsed: AuditEntry = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(entry, parsed);
+    }
+
+    #[test]
+    fn test_audit_entry_with_reason() {
+        let mut entry = sample_entry();
+        entry.reason = Some("AI agent needs to check service health".into());
+
+        let json = serde_json::to_string(&entry).expect("serialize");
+        assert!(json.contains("AI agent needs to check service health"));
+
+        let parsed: AuditEntry = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(
+            parsed.reason.unwrap(),
+            "AI agent needs to check service health"
+        );
+    }
+
+    #[test]
+    fn test_audit_entry_reason_omitted_when_none() {
+        let entry = sample_entry();
+        let json = serde_json::to_string(&entry).expect("serialize");
+        assert!(!json.contains("reason"));
     }
 }

@@ -240,6 +240,7 @@ mod tests {
             id: "mux-test-1".into(),
             action: Action::Status,
             timeout_ms: Some(5000),
+            reason: None,
         };
 
         // Server task: accept stream, read request, send response

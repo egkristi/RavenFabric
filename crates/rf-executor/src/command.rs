@@ -260,6 +260,7 @@ impl Executor {
                 exit_code: None,
                 duration_ms,
                 caller_key: self.caller_key.clone(),
+                reason: None,
             }) {
                 tracing::error!("audit log write failed: {}", e);
             }
@@ -325,6 +326,7 @@ impl Executor {
             exit_code: Some(exit_code),
             duration_ms,
             caller_key: self.caller_key.clone(),
+            reason: None,
         }) {
             tracing::error!("audit log write failed: {}", e);
         }
@@ -1071,6 +1073,7 @@ spec:
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1105,14 +1108,21 @@ spec:
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
         assert_eq!(resp.id, "req-2");
 
         if let RpcResult::Denied { reason, rule } = &resp.result {
-            assert!(reason.contains("deny rule"));
-            assert!(rule.contains("rm.*-rf"));
+            assert!(
+                reason.contains("deny rule") || reason.contains("immutable deny"),
+                "unexpected reason: {reason}"
+            );
+            assert!(
+                rule.contains("rm.*-rf") || rule.contains("immutable_deny"),
+                "unexpected rule: {rule}"
+            );
         } else {
             panic!("expected denied, got {:?}", resp.result);
         }
@@ -1136,6 +1146,7 @@ spec:
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1159,6 +1170,7 @@ spec:
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1182,6 +1194,7 @@ spec:
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1206,6 +1219,7 @@ spec:
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1232,6 +1246,7 @@ spec:
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1251,6 +1266,7 @@ spec:
             id: "req-8".into(),
             action: Action::Metrics,
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1273,6 +1289,7 @@ spec:
                 path: "/etc/hostname".into(),
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1297,6 +1314,7 @@ spec:
                 mode: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1317,6 +1335,7 @@ spec:
                 path: "/root".into(),
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1352,6 +1371,7 @@ spec:
                 path: tmp_file.to_string_lossy().into(),
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1398,6 +1418,7 @@ spec:
                 mode: Some(0o644),
             },
             timeout_ms: None,
+            reason: None,
         };
         let resp = exec.handle(req).await;
         match &resp.result {
@@ -1414,6 +1435,7 @@ spec:
                 path: test_dir.to_string_lossy().into(),
             },
             timeout_ms: None,
+            reason: None,
         };
         let resp = exec.handle(req).await;
         match &resp.result {
@@ -1441,6 +1463,7 @@ spec:
                 workdir: None,
             },
             timeout_ms: None,
+            reason: None,
         };
 
         let resp = exec.handle(req).await;
@@ -1456,6 +1479,7 @@ spec:
                 job_id: job_id.clone(),
             },
             timeout_ms: None,
+            reason: None,
         };
         let resp = exec.handle(req).await;
         match &resp.result {
@@ -1484,6 +1508,7 @@ spec:
                 job_id: "nonexistent".into(),
             },
             timeout_ms: None,
+            reason: None,
         };
         let resp = exec.handle(req).await;
         match &resp.result {

@@ -14,6 +14,7 @@ fn bench_encode_request(c: &mut Criterion) {
             workdir: Some("/opt/app".into()),
         },
         timeout_ms: Some(30000),
+        reason: None,
     };
 
     c.bench_function("encode_request", |b| {
@@ -30,6 +31,7 @@ fn bench_decode_request(c: &mut Criterion) {
             workdir: None,
         },
         timeout_ms: Some(30000),
+        reason: None,
     };
     let bytes = codec::encode(&req).expect("encode");
 
@@ -73,6 +75,7 @@ fn bench_roundtrip(c: &mut Criterion) {
             workdir: Some("/tmp".into()),
         },
         timeout_ms: Some(5000),
+        reason: None,
     };
 
     c.bench_function("roundtrip_request", |b| {

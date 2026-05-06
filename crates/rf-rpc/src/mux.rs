@@ -105,6 +105,7 @@ mod tests {
                 workdir: None,
             },
             timeout_ms: Some(5000),
+            reason: None,
         };
 
         let server_handle = tokio::spawn(async move {

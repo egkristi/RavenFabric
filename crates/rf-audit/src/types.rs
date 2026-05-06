@@ -13,4 +13,7 @@ pub struct AuditEntry {
     pub exit_code: Option<i32>,
     pub duration_ms: u64,
     pub caller_key: String,
+    /// AI agent reasoning (if provided). Records why the agent performed this action.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
