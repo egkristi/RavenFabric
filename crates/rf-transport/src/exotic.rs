@@ -4,6 +4,7 @@
 //! that disguise RavenFabric traffic as normal network activity or
 //! use unconventional physical channels.
 
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -962,6 +963,587 @@ impl MimicryCodec {
     }
 }
 
+// --- HTTP/3 MASQUE Transport ---
+
+/// HTTP/3 MASQUE proxy transport (RFC 9298 CONNECT-UDP / RFC 9484 CONNECT-IP).
+///
+/// Tunnels RavenFabric traffic through an HTTP/3 proxy using CONNECT-UDP
+/// or CONNECT-IP methods, making it look like standard HTTP/3 proxy traffic.
+pub struct MasqueTransport {
+    /// HTTP/3 proxy endpoint URL.
+    proxy_endpoint: String,
+    /// Target host:port to reach through the proxy.
+    target: String,
+    /// MASQUE method (CONNECT-UDP or CONNECT-IP).
+    method: MasqueMethod,
+    /// Session ID for multiplexing.
+    session_id: u64,
+    /// Frames sent counter.
+    frames_sent: u64,
+    /// Frames received counter.
+    frames_received: u64,
+}
+
+/// A MASQUE capsule (RFC 9297 HTTP Datagrams).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MasqueCapsule {
+    /// Capsule type (0x00 = DATAGRAM, 0x01 = CLOSE).
+    pub capsule_type: MasqueCapsuleType,
+    /// Session context ID (quarter-stream ID).
+    pub context_id: u64,
+    /// Payload data.
+    pub payload: Vec<u8>,
+}
+
+/// MASQUE capsule types per RFC 9297.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MasqueCapsuleType {
+    /// DATAGRAM capsule — carries tunneled data.
+    Datagram,
+    /// CLOSE capsule — signals session teardown.
+    Close,
+    /// ADDRESS_ASSIGN — assign address (CONNECT-IP).
+    AddressAssign,
+    /// ADDRESS_REQUEST — request address (CONNECT-IP).
+    AddressRequest,
+    /// ROUTE_ADVERTISEMENT — advertise routes (CONNECT-IP).
+    RouteAdvertisement,
+}
+
+impl MasqueCapsuleType {
+    /// Wire type ID.
+    pub fn type_id(self) -> u64 {
+        match self {
+            Self::Datagram => 0x00,
+            Self::Close => 0x01,
+            Self::AddressAssign => 0x01,
+            Self::AddressRequest => 0x02,
+            Self::RouteAdvertisement => 0x03,
+        }
+    }
+
+    /// Parse from type ID.
+    pub fn from_type_id(id: u64, method: &MasqueMethod) -> Option<Self> {
+        match (method, id) {
+            (MasqueMethod::ConnectUdp, 0x00) => Some(Self::Datagram),
+            (MasqueMethod::ConnectUdp, 0x01) => Some(Self::Close),
+            (MasqueMethod::ConnectIp, 0x00) => Some(Self::Datagram),
+            (MasqueMethod::ConnectIp, 0x01) => Some(Self::AddressAssign),
+            (MasqueMethod::ConnectIp, 0x02) => Some(Self::AddressRequest),
+            (MasqueMethod::ConnectIp, 0x03) => Some(Self::RouteAdvertisement),
+            _ => None,
+        }
+    }
+}
+
+impl MasqueTransport {
+    /// Create a new MASQUE transport.
+    pub fn new(proxy_endpoint: String, target: String, method: MasqueMethod) -> Self {
+        Self {
+            proxy_endpoint,
+            target,
+            method,
+            session_id: rand::random::<u64>() & 0x3FFF_FFFF_FFFF_FFFF, // 62-bit
+            frames_sent: 0,
+            frames_received: 0,
+        }
+    }
+
+    /// Generate an HTTP/3 CONNECT request for the MASQUE session.
+    ///
+    /// Returns the serialized HTTP/3 CONNECT headers as bytes.
+    pub fn connect_request(&self) -> Vec<u8> {
+        let method_str = match self.method {
+            MasqueMethod::ConnectUdp => "connect-udp",
+            MasqueMethod::ConnectIp => "connect-ip",
+        };
+
+        // HTTP/3 extended CONNECT pseudo-headers (RFC 9220)
+        let request = format!(
+            ":method: CONNECT\r\n\
+             :protocol: {method_str}\r\n\
+             :authority: {proxy}\r\n\
+             :path: /.well-known/masque/{method_str}/{target}/\r\n\
+             capsule-protocol: ?1\r\n\
+             \r\n",
+            proxy = self.proxy_endpoint,
+            target = self.target,
+        );
+        request.into_bytes()
+    }
+
+    /// Parse a CONNECT response. Returns true if the proxy accepted.
+    pub fn parse_connect_response(data: &[u8]) -> bool {
+        if let Ok(s) = std::str::from_utf8(data) {
+            // HTTP/3 returns status via :status pseudo-header
+            // HTTP/1.1 returns "HTTP/1.1 200"
+            s.contains(":status: 200") || s.contains("200")
+        } else {
+            false
+        }
+    }
+
+    /// Encode a data payload into a MASQUE capsule (RFC 9297).
+    ///
+    /// Format: [context_id: varint] [payload]
+    /// The capsule itself is framed by HTTP/3 DATA frames.
+    pub fn encode_capsule(&mut self, data: &[u8]) -> MasqueCapsule {
+        self.frames_sent += 1;
+        MasqueCapsule {
+            capsule_type: MasqueCapsuleType::Datagram,
+            context_id: 0, // Default context
+            payload: data.to_vec(),
+        }
+    }
+
+    /// Encode a close capsule to signal session teardown.
+    pub fn encode_close(&mut self) -> MasqueCapsule {
+        self.frames_sent += 1;
+        MasqueCapsule {
+            capsule_type: MasqueCapsuleType::Close,
+            context_id: 0,
+            payload: Vec::new(),
+        }
+    }
+
+    /// Serialize a capsule to wire format.
+    ///
+    /// Wire format: [capsule_type: varint][length: varint][context_id: varint][payload]
+    pub fn serialize_capsule(capsule: &MasqueCapsule) -> Vec<u8> {
+        let mut out = Vec::new();
+        // Capsule type (varint)
+        encode_varint(capsule.capsule_type.type_id(), &mut out);
+        // Capsule length (context_id varint + payload)
+        let context_len = varint_len(capsule.context_id);
+        let total_len = context_len + capsule.payload.len();
+        encode_varint(total_len as u64, &mut out);
+        // Context ID (varint)
+        encode_varint(capsule.context_id, &mut out);
+        // Payload
+        out.extend_from_slice(&capsule.payload);
+        out
+    }
+
+    /// Deserialize a capsule from wire format.
+    pub fn deserialize_capsule(&mut self, data: &[u8]) -> Option<MasqueCapsule> {
+        let mut offset = 0;
+
+        // Capsule type
+        let (type_id, consumed) = decode_varint(&data[offset..])?;
+        offset += consumed;
+
+        // Length
+        let (length, consumed) = decode_varint(&data[offset..])?;
+        offset += consumed;
+
+        if data.len() < offset + length as usize {
+            return None; // Incomplete
+        }
+
+        // Context ID
+        let (context_id, consumed) = decode_varint(&data[offset..])?;
+        offset += consumed;
+
+        // Payload (rest up to length)
+        let payload_len = length as usize - varint_len(context_id);
+        if data.len() < offset + payload_len {
+            return None;
+        }
+        let payload = data[offset..offset + payload_len].to_vec();
+
+        let capsule_type = MasqueCapsuleType::from_type_id(type_id, &self.method)?;
+
+        self.frames_received += 1;
+
+        Some(MasqueCapsule {
+            capsule_type,
+            context_id,
+            payload,
+        })
+    }
+
+    /// Session ID.
+    pub fn session_id(&self) -> u64 {
+        self.session_id
+    }
+
+    /// Proxy endpoint.
+    pub fn proxy_endpoint(&self) -> &str {
+        &self.proxy_endpoint
+    }
+
+    /// Target.
+    pub fn target(&self) -> &str {
+        &self.target
+    }
+
+    /// Method.
+    pub fn method(&self) -> &MasqueMethod {
+        &self.method
+    }
+
+    /// Frames sent.
+    pub fn frames_sent(&self) -> u64 {
+        self.frames_sent
+    }
+
+    /// Frames received.
+    pub fn frames_received(&self) -> u64 {
+        self.frames_received
+    }
+}
+
+// --- Encrypted Client Hello (ECH) ---
+
+/// Encrypted Client Hello configuration and handler (RFC 9460 / draft-ietf-tls-esni).
+///
+/// ECH encrypts the ClientHello's SNI extension so that network observers
+/// cannot determine the true destination server. This defeats SNI-based
+/// censorship and traffic analysis.
+pub struct EchTransport {
+    /// Target WebSocket endpoint (the real server).
+    target_endpoint: String,
+    /// Public-facing server name (the outer SNI, e.g., "cloudflare-ech.com").
+    public_name: String,
+    /// ECH config list (base64-encoded, from DNS HTTPS record).
+    ech_config_list: String,
+    /// HPKE cipher suite for ECH encryption.
+    cipher_suite: EchCipherSuite,
+    /// Whether GREASE ECH should be used as fallback when config is unavailable.
+    grease_on_failure: bool,
+}
+
+/// HPKE cipher suite selection for ECH.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EchCipherSuite {
+    /// X25519 + HKDF-SHA256 + AES-128-GCM (recommended).
+    X25519HkdfSha256Aes128Gcm,
+    /// X25519 + HKDF-SHA256 + ChaCha20-Poly1305.
+    X25519HkdfSha256ChaCha20,
+}
+
+/// Parsed ECH config entry (from HTTPS DNS record or well-known URL).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EchConfig {
+    /// Config version (0xFE0D for draft-13+).
+    pub version: u16,
+    /// Config ID (unique per server rotation).
+    pub config_id: u8,
+    /// HPKE KEM ID (0x0020 = DHKEM X25519).
+    pub kem_id: u16,
+    /// HPKE public key (raw bytes).
+    pub public_key: Vec<u8>,
+    /// Public name (outer SNI).
+    pub public_name: String,
+    /// Maximum name length (for padding).
+    pub max_name_len: u8,
+    /// Supported cipher suites.
+    pub cipher_suites: Vec<(u16, u16)>, // (KDF ID, AEAD ID)
+}
+
+/// Result of ECH config parsing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EchConfigParseResult {
+    /// Successfully parsed config list.
+    Success(Vec<EchConfig>),
+    /// Config format not recognized (use GREASE).
+    UnknownVersion,
+    /// Invalid config data.
+    Invalid(String),
+}
+
+impl EchTransport {
+    /// Create a new ECH transport.
+    pub fn new(
+        target_endpoint: String,
+        public_name: String,
+        ech_config_list: String,
+        cipher_suite: EchCipherSuite,
+    ) -> Self {
+        Self {
+            target_endpoint,
+            public_name,
+            ech_config_list,
+            cipher_suite,
+            grease_on_failure: true,
+        }
+    }
+
+    /// Disable GREASE fallback (fail hard if ECH config is invalid).
+    pub fn disable_grease_fallback(&mut self) {
+        self.grease_on_failure = false;
+    }
+
+    /// Parse the base64-encoded ECH config list.
+    ///
+    /// ECH config list format:
+    /// [total_length: 2][config1][config2]...
+    /// Each config: [version: 2][length: 2][contents...]
+    pub fn parse_config_list(config_b64: &str) -> EchConfigParseResult {
+        let data = match base64_decode(config_b64) {
+            Some(d) => d,
+            None => return EchConfigParseResult::Invalid("invalid base64".into()),
+        };
+
+        if data.len() < 2 {
+            return EchConfigParseResult::Invalid("too short".into());
+        }
+
+        let total_len = u16::from_be_bytes([data[0], data[1]]) as usize;
+        if data.len() < 2 + total_len {
+            return EchConfigParseResult::Invalid("length mismatch".into());
+        }
+
+        let mut configs = Vec::new();
+        let mut offset = 2;
+
+        while offset < 2 + total_len {
+            if offset + 4 > data.len() {
+                break;
+            }
+            let version = u16::from_be_bytes([data[offset], data[offset + 1]]);
+            let config_len = u16::from_be_bytes([data[offset + 2], data[offset + 3]]) as usize;
+            offset += 4;
+
+            if version != 0xFE0D {
+                // Unknown version — skip this config
+                offset += config_len;
+                continue;
+            }
+
+            if offset + config_len > data.len() {
+                return EchConfigParseResult::Invalid("config truncated".into());
+            }
+
+            let config_data = &data[offset..offset + config_len];
+            if let Some(config) = Self::parse_single_config(config_data) {
+                configs.push(config);
+            }
+            offset += config_len;
+        }
+
+        if configs.is_empty() {
+            EchConfigParseResult::UnknownVersion
+        } else {
+            EchConfigParseResult::Success(configs)
+        }
+    }
+
+    /// Parse a single ECH config contents.
+    fn parse_single_config(data: &[u8]) -> Option<EchConfig> {
+        if data.len() < 7 {
+            return None;
+        }
+
+        let mut offset = 0;
+
+        // Config ID (1 byte)
+        let config_id = data[offset];
+        offset += 1;
+
+        // KEM ID (2 bytes)
+        let kem_id = u16::from_be_bytes([data[offset], data[offset + 1]]);
+        offset += 2;
+
+        // Public key length (2 bytes) + public key
+        let pk_len = u16::from_be_bytes([data[offset], data[offset + 1]]) as usize;
+        offset += 2;
+        if offset + pk_len > data.len() {
+            return None;
+        }
+        let public_key = data[offset..offset + pk_len].to_vec();
+        offset += pk_len;
+
+        // Cipher suites length (2 bytes)
+        if offset + 2 > data.len() {
+            return None;
+        }
+        let suites_len = u16::from_be_bytes([data[offset], data[offset + 1]]) as usize;
+        offset += 2;
+
+        let mut cipher_suites = Vec::new();
+        let suites_end = offset + suites_len;
+        while offset + 4 <= suites_end && offset + 4 <= data.len() {
+            let kdf_id = u16::from_be_bytes([data[offset], data[offset + 1]]);
+            let aead_id = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
+            cipher_suites.push((kdf_id, aead_id));
+            offset += 4;
+        }
+        offset = suites_end.min(data.len());
+
+        // Max name length (1 byte)
+        if offset >= data.len() {
+            return None;
+        }
+        let max_name_len = data[offset];
+        offset += 1;
+
+        // Public name length (1 byte) + public name
+        if offset >= data.len() {
+            return None;
+        }
+        let name_len = data[offset] as usize;
+        offset += 1;
+        if offset + name_len > data.len() {
+            return None;
+        }
+        let public_name = String::from_utf8_lossy(&data[offset..offset + name_len]).into_owned();
+
+        Some(EchConfig {
+            version: 0xFE0D,
+            config_id,
+            kem_id,
+            public_key,
+            public_name,
+            max_name_len,
+            cipher_suites,
+        })
+    }
+
+    /// Generate a GREASE ECH extension (random, indistinguishable from real ECH).
+    ///
+    /// Used when no valid ECH config is available to maintain uniformity
+    /// of traffic patterns — all clients send ECH-like extensions.
+    pub fn generate_grease_ech() -> Vec<u8> {
+        let mut rng = rand::rng();
+        let mut grease = vec![0u8; 128]; // Typical ECH payload size
+        rng.fill_bytes(&mut grease);
+        // Set GREASE cipher suite indicator
+        grease[0] = 0xDA;
+        grease[1] = 0x0A; // GREASE value
+        grease
+    }
+
+    /// Build the ClientHelloOuter SNI value.
+    pub fn outer_sni(&self) -> &str {
+        &self.public_name
+    }
+
+    /// Target endpoint.
+    pub fn target_endpoint(&self) -> &str {
+        &self.target_endpoint
+    }
+
+    /// ECH config (base64).
+    pub fn ech_config_list(&self) -> &str {
+        &self.ech_config_list
+    }
+
+    /// Cipher suite.
+    pub fn cipher_suite(&self) -> EchCipherSuite {
+        self.cipher_suite
+    }
+
+    /// Whether GREASE is used on config failure.
+    pub fn grease_on_failure(&self) -> bool {
+        self.grease_on_failure
+    }
+}
+
+/// Simple base64 decoder (no external dependency needed).
+fn base64_decode(input: &str) -> Option<Vec<u8>> {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    fn decode_char(c: u8) -> Option<u8> {
+        TABLE.iter().position(|&x| x == c).map(|p| p as u8)
+    }
+
+    let input = input.trim().as_bytes();
+    let mut out = Vec::with_capacity(input.len() * 3 / 4);
+    let mut buf: u32 = 0;
+    let mut bits: u32 = 0;
+
+    for &byte in input {
+        if byte == b'=' {
+            break;
+        }
+        if byte == b'\n' || byte == b'\r' || byte == b' ' {
+            continue;
+        }
+        let val = decode_char(byte)?;
+        buf = (buf << 6) | u32::from(val);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buf >> bits) as u8);
+            buf &= (1 << bits) - 1;
+        }
+    }
+    Some(out)
+}
+
+/// Encode a variable-length integer (QUIC varint encoding, RFC 9000 Section 16).
+fn encode_varint(value: u64, buf: &mut Vec<u8>) {
+    if value < 64 {
+        buf.push(value as u8);
+    } else if value < 16384 {
+        buf.push(0x40 | (value >> 8) as u8);
+        buf.push(value as u8);
+    } else if value < 1_073_741_824 {
+        buf.push(0x80 | (value >> 24) as u8);
+        buf.push((value >> 16) as u8);
+        buf.push((value >> 8) as u8);
+        buf.push(value as u8);
+    } else {
+        buf.push(0xC0 | (value >> 56) as u8);
+        buf.push((value >> 48) as u8);
+        buf.push((value >> 40) as u8);
+        buf.push((value >> 32) as u8);
+        buf.push((value >> 24) as u8);
+        buf.push((value >> 16) as u8);
+        buf.push((value >> 8) as u8);
+        buf.push(value as u8);
+    }
+}
+
+/// Decode a QUIC varint. Returns (value, bytes_consumed).
+fn decode_varint(data: &[u8]) -> Option<(u64, usize)> {
+    if data.is_empty() {
+        return None;
+    }
+    let first = data[0];
+    let len = 1 << (first >> 6);
+    if data.len() < len {
+        return None;
+    }
+    let value = match len {
+        1 => u64::from(first & 0x3F),
+        2 => {
+            let v = u16::from_be_bytes([first & 0x3F, data[1]]);
+            u64::from(v)
+        }
+        4 => {
+            let v = u32::from_be_bytes([first & 0x3F, data[1], data[2], data[3]]);
+            u64::from(v)
+        }
+        8 => u64::from_be_bytes([
+            first & 0x3F,
+            data[1],
+            data[2],
+            data[3],
+            data[4],
+            data[5],
+            data[6],
+            data[7],
+        ]),
+        _ => return None,
+    };
+    Some((value, len))
+}
+
+/// Length of a varint encoding.
+fn varint_len(value: u64) -> usize {
+    if value < 64 {
+        1
+    } else if value < 16384 {
+        2
+    } else if value < 1_073_741_824 {
+        4
+    } else {
+        8
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1390,5 +1972,259 @@ mod tests {
         let frame = codec.encode(b"test");
         let bytes = MimicryCodec::serialize(&frame);
         assert_eq!(bytes.len(), 18 + 20); // length_block + payload_block
+    }
+
+    // --- MASQUE transport tests ---
+
+    #[test]
+    fn test_masque_connect_request_udp() {
+        let transport = MasqueTransport::new(
+            "proxy.example.com".into(),
+            "target.example.com:443".into(),
+            MasqueMethod::ConnectUdp,
+        );
+        let req = transport.connect_request();
+        let req_str = String::from_utf8(req).unwrap();
+        assert!(req_str.contains(":method: CONNECT"));
+        assert!(req_str.contains(":protocol: connect-udp"));
+        assert!(req_str.contains("capsule-protocol: ?1"));
+        assert!(req_str.contains("target.example.com:443"));
+    }
+
+    #[test]
+    fn test_masque_connect_request_ip() {
+        let transport = MasqueTransport::new(
+            "proxy.example.com".into(),
+            "10.0.0.1".into(),
+            MasqueMethod::ConnectIp,
+        );
+        let req = transport.connect_request();
+        let req_str = String::from_utf8(req).unwrap();
+        assert!(req_str.contains(":protocol: connect-ip"));
+        assert!(req_str.contains("/.well-known/masque/connect-ip/10.0.0.1/"));
+    }
+
+    #[test]
+    fn test_masque_parse_connect_response() {
+        assert!(MasqueTransport::parse_connect_response(b":status: 200\r\n"));
+        assert!(MasqueTransport::parse_connect_response(
+            b"HTTP/1.1 200 OK\r\n"
+        ));
+        assert!(!MasqueTransport::parse_connect_response(
+            b":status: 403\r\n"
+        ));
+    }
+
+    #[test]
+    fn test_masque_capsule_roundtrip() {
+        let mut transport = MasqueTransport::new(
+            "proxy.example.com".into(),
+            "target:443".into(),
+            MasqueMethod::ConnectUdp,
+        );
+        let payload = b"hello masque";
+        let capsule = transport.encode_capsule(payload);
+        assert_eq!(capsule.capsule_type, MasqueCapsuleType::Datagram);
+        assert_eq!(capsule.payload, payload);
+
+        let serialized = MasqueTransport::serialize_capsule(&capsule);
+        let deserialized = transport.deserialize_capsule(&serialized).unwrap();
+        assert_eq!(deserialized.capsule_type, MasqueCapsuleType::Datagram);
+        assert_eq!(deserialized.context_id, 0);
+        assert_eq!(deserialized.payload, payload);
+    }
+
+    #[test]
+    fn test_masque_close_capsule() {
+        let mut transport = MasqueTransport::new(
+            "proxy.example.com".into(),
+            "target:443".into(),
+            MasqueMethod::ConnectUdp,
+        );
+        let capsule = transport.encode_close();
+        assert_eq!(capsule.capsule_type, MasqueCapsuleType::Close);
+        assert!(capsule.payload.is_empty());
+
+        let serialized = MasqueTransport::serialize_capsule(&capsule);
+        let deserialized = transport.deserialize_capsule(&serialized).unwrap();
+        assert_eq!(deserialized.capsule_type, MasqueCapsuleType::Close);
+    }
+
+    #[test]
+    fn test_masque_frame_counters() {
+        let mut transport = MasqueTransport::new(
+            "p.example.com".into(),
+            "t:443".into(),
+            MasqueMethod::ConnectUdp,
+        );
+        assert_eq!(transport.frames_sent(), 0);
+        assert_eq!(transport.frames_received(), 0);
+
+        transport.encode_capsule(b"a");
+        transport.encode_capsule(b"b");
+        assert_eq!(transport.frames_sent(), 2);
+
+        let capsule = transport.encode_capsule(b"c");
+        let serialized = MasqueTransport::serialize_capsule(&capsule);
+        transport.deserialize_capsule(&serialized);
+        assert_eq!(transport.frames_sent(), 3);
+        assert_eq!(transport.frames_received(), 1);
+    }
+
+    #[test]
+    fn test_varint_encoding_roundtrip() {
+        for value in [0u64, 1, 63, 64, 16383, 16384, 1_073_741_823, 1_073_741_824] {
+            let mut buf = Vec::new();
+            encode_varint(value, &mut buf);
+            let (decoded, len) = decode_varint(&buf).unwrap();
+            assert_eq!(decoded, value);
+            assert_eq!(len, buf.len());
+        }
+    }
+
+    #[test]
+    fn test_masque_connect_ip_capsule_types() {
+        let mut transport = MasqueTransport::new(
+            "proxy.example.com".into(),
+            "10.0.0.0/24".into(),
+            MasqueMethod::ConnectIp,
+        );
+
+        // Address assign capsule
+        let capsule = MasqueCapsule {
+            capsule_type: MasqueCapsuleType::AddressAssign,
+            context_id: 0,
+            payload: vec![0x04, 10, 0, 0, 1, 24], // IPv4 10.0.0.1/24
+        };
+        let serialized = MasqueTransport::serialize_capsule(&capsule);
+        let deserialized = transport.deserialize_capsule(&serialized).unwrap();
+        assert_eq!(deserialized.capsule_type, MasqueCapsuleType::AddressAssign);
+        assert_eq!(deserialized.payload, vec![0x04, 10, 0, 0, 1, 24]);
+    }
+
+    // --- ECH transport tests ---
+
+    #[test]
+    fn test_ech_transport_creation() {
+        let ech = EchTransport::new(
+            "wss://target.example.com".into(),
+            "cloudflare-ech.com".into(),
+            "AAAAAA==".into(),
+            EchCipherSuite::X25519HkdfSha256Aes128Gcm,
+        );
+        assert_eq!(ech.outer_sni(), "cloudflare-ech.com");
+        assert_eq!(ech.target_endpoint(), "wss://target.example.com");
+        assert!(ech.grease_on_failure());
+    }
+
+    #[test]
+    fn test_ech_grease_generation() {
+        let grease = EchTransport::generate_grease_ech();
+        assert_eq!(grease.len(), 128);
+        assert_eq!(grease[0], 0xDA);
+        assert_eq!(grease[1], 0x0A);
+    }
+
+    #[test]
+    fn test_ech_config_parse_too_short() {
+        let result = EchTransport::parse_config_list("AA==");
+        assert!(matches!(result, EchConfigParseResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_ech_config_parse_valid() {
+        // Construct a minimal valid ECH config list:
+        // [config_id: 1][kem_id: 0x0020][pk_len: 32][pk: 32 bytes]
+        // [suites_len: 4][kdf+aead][max_name_len][name_len][name]
+        let mut config = Vec::new();
+        config.push(0x01); // config_id
+        config.extend_from_slice(&[0x00, 0x20]); // kem_id X25519
+        config.extend_from_slice(&[0x00, 0x20]); // pk length 32
+        config.extend_from_slice(&[0xAA; 32]); // public key
+        config.extend_from_slice(&[0x00, 0x04]); // suites length
+        config.extend_from_slice(&[0x00, 0x01, 0x00, 0x01]); // HKDF-SHA256 + AES-128-GCM
+        config.push(64); // max_name_len
+        config.push(0x01); // name_len
+        config.push(b'e'); // name
+
+        // Wrap in config entry: [version: 0xFE0D][length]
+        let mut entry = Vec::new();
+        entry.extend_from_slice(&[0xFE, 0x0D]);
+        entry.extend_from_slice(&(config.len() as u16).to_be_bytes());
+        entry.extend_from_slice(&config);
+
+        // Wrap in config list: [total_len]
+        let mut list = Vec::new();
+        list.extend_from_slice(&(entry.len() as u16).to_be_bytes());
+        list.extend_from_slice(&entry);
+
+        let b64 = base64_encode_test(&list);
+        let result = EchTransport::parse_config_list(&b64);
+        match result {
+            EchConfigParseResult::Success(configs) => {
+                assert_eq!(configs.len(), 1);
+                assert_eq!(configs[0].version, 0xFE0D);
+                assert_eq!(configs[0].config_id, 0x01);
+                assert_eq!(configs[0].kem_id, 0x0020);
+                assert_eq!(configs[0].public_key.len(), 32);
+                assert_eq!(configs[0].cipher_suites, vec![(0x0001, 0x0001)]);
+                assert_eq!(configs[0].public_name, "e");
+            }
+            other => panic!("expected Success, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_ech_config_unknown_version() {
+        let mut entry = Vec::new();
+        entry.extend_from_slice(&[0x00, 0x01]); // unknown version
+        entry.extend_from_slice(&[0x00, 0x04]); // length
+        entry.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // dummy data
+
+        let mut list = Vec::new();
+        list.extend_from_slice(&(entry.len() as u16).to_be_bytes());
+        list.extend_from_slice(&entry);
+
+        let b64 = base64_encode_test(&list);
+        let result = EchTransport::parse_config_list(&b64);
+        assert!(matches!(result, EchConfigParseResult::UnknownVersion));
+    }
+
+    #[test]
+    fn test_ech_disable_grease() {
+        let mut ech = EchTransport::new(
+            "wss://target.example.com".into(),
+            "public.example.com".into(),
+            "config".into(),
+            EchCipherSuite::X25519HkdfSha256ChaCha20,
+        );
+        assert!(ech.grease_on_failure());
+        ech.disable_grease_fallback();
+        assert!(!ech.grease_on_failure());
+    }
+
+    /// Helper: minimal base64 encoder for tests.
+    fn base64_encode_test(data: &[u8]) -> String {
+        const TABLE: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = String::new();
+        for chunk in data.chunks(3) {
+            let b0 = chunk[0];
+            let b1 = chunk.get(1).copied().unwrap_or(0);
+            let b2 = chunk.get(2).copied().unwrap_or(0);
+            out.push(TABLE[(b0 >> 2) as usize] as char);
+            out.push(TABLE[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
+            if chunk.len() > 1 {
+                out.push(TABLE[(((b1 & 0x0F) << 2) | (b2 >> 6)) as usize] as char);
+            } else {
+                out.push('=');
+            }
+            if chunk.len() > 2 {
+                out.push(TABLE[(b2 & 0x3F) as usize] as char);
+            } else {
+                out.push('=');
+            }
+        }
+        out
     }
 }

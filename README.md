@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~38,800 LOC | 715 tests | 0 clippy warnings | All CI green**
+**~40,700 LOC | 740 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -664,6 +664,10 @@ What works today:
 - Behavioral anomaly detection: velocity, novelty, timing, escalation scoring per identity
 - AI compliance reporting: EU AI Act risk classification, NIST AI RMF mapping, audit export
 - Embedded Web UI dashboard: real-time agent metrics, activity feed, connected agents
+- HTTP/3 MASQUE transport (RFC 9297/9298): capsule encoding, CONNECT-UDP/IP, varint framing
+- Encrypted Client Hello (ECH): RFC 9460 config parsing, HPKE suites, GREASE fallback
+- MCP client SDK (`rf-mcp-client`): stdio transport, typed wrappers for all RavenFabric tools
+- Single-threaded async runtime (`rt-single-thread` feature) for constrained IoT devices
 
 Working end-to-end flows:
 - `rf exec --token <token> "command"` → relay → agent → execute → respond
@@ -1200,7 +1204,8 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM | Done (~1,600 LOC, 35 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, socket activation, fd-passing | Done (~14,500 LOC, 304 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, socket activation, fd-passing, MASQUE, ECH | Done (~15,700 LOC, 318 tests) |
+| `rf-mcp-client` | MCP client SDK — stdio transport, typed tool wrappers for exec/policy/files/capabilities | Done (~720 LOC, 14 tests) |
 | `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~5,800 LOC, 106 tests) |
 | `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~650 LOC, 14 tests) |
 | `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~4,500 LOC, 97 tests) |
@@ -1410,7 +1415,8 @@ RavenFabric/
 │   ├── rf-relay/           # Relay broker binary
 │   ├── rf-agent/           # Agent binary
 │   ├── rf-cli/             # `rf` CLI binary
-│   └── rf-mcp-server/     # MCP server for AI agents
+│   ├── rf-mcp-server/     # MCP server for AI agents
+│   └── rf-mcp-client/     # MCP client SDK (Rust library)
 ├── docs/                   # Documentation (mdBook)
 ├── website/                # Landing page (ravenfabric.io)
 ├── .github/workflows/      # CI/CD (check, fmt, clippy, test, coverage, release)

@@ -15,6 +15,7 @@ keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol",
 default = ["full"]
 full = ["rf-transport/quic", "rf-executor/sysinfo"]
 minimal = []
+rt-single-thread = []
 
 [dependencies]
 rf-crypto = { path = "../rf-crypto", version = "0.1.0" }

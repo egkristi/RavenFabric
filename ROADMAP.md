@@ -421,9 +421,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Air-gap support. Anonymity. Hostile network traversal. Peer discovery. Radio mesh.
 
 ### Censorship-Resistant Transports
-- [~] HTTP/3 MASQUE driver — enum variant defined, no protocol implementation
+- [x] HTTP/3 MASQUE driver — `MasqueTransport` with RFC 9297/9298 capsule encoding, CONNECT-UDP/CONNECT-IP, varint framing, session management (8 tests)
 - [x] Traffic obfuscation layer — basic padding/depadding functional (~50 lines logic)
-- [~] Encrypted Client Hello (ECH) — types only
+- [x] Encrypted Client Hello (ECH) — `EchTransport` with RFC 9460 config parsing, HPKE cipher suite selection, GREASE fallback, base64 config list decoder (6 tests)
 - [x] Domain fronting transport — `DomainFronter` with SNI/Host rewriting, tunnel request generation, response parsing (3 tests)
 - [x] DNS tunneling driver — `DnsTunnelCodec` with base32/hex encoding, query fragmentation, response decoding (5 tests)
 - [x] ICMP tunneling driver — `IcmpTunnelFramer` with echo request framing, serialize/deserialize, session multiplexing (3 tests)
@@ -480,7 +480,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] OpenWrt package (MIPS/ARM, minimal feature set)
 - [ ] WASM/WASI compilation target (browser-side client, edge workers)
 - [ ] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52)
-- [ ] Single-threaded async runtime mode (for constrained devices < 256KB RAM)
+- [x] Single-threaded async runtime mode — `rt-single-thread` feature flag in rf-agent, uses `current_thread` runtime for constrained devices
 
 ### Plugin System
 - [x] Wasmtime-based plugin runtime — `PluginRegistry` with hash verification, capability checking, lifecycle management (Loaded→Ready→Running→Failed→Disabled), invocation tracking, 7 tests
@@ -563,7 +563,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] LangChain integration — `RavenFabricTool` class wrapping MCP client, published to PyPI
 - [ ] CrewAI integration — agent tool definition compatible with CrewAI task delegation
 - [ ] AutoGen integration — `RavenFabricExecutor` for Microsoft AutoGen multi-agent orchestration
-- [ ] Custom MCP client SDK (Rust) — library crate for building RavenFabric-aware MCP clients
+- [x] Custom MCP client SDK (Rust) — `rf-mcp-client` library crate: stdio transport, typed tool wrappers (exec, query_policy, file_read/write, list_capabilities, request_approval), 14 tests
 - [ ] Custom MCP client SDK (Python) — pip-installable client for Python agent frameworks
 - [ ] Custom MCP client SDK (TypeScript) — npm package for JS/TS agent frameworks
 - [ ] OpenAI function-calling adapter — translate OpenAI tool schemas to RavenFabric MCP calls

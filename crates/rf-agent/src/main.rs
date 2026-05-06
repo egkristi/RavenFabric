@@ -151,8 +151,19 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
     })
 }
 
+#[cfg(not(feature = "rt-single-thread"))]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    agent_main().await
+}
+
+#[cfg(feature = "rt-single-thread")]
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> anyhow::Result<()> {
+    agent_main().await
+}
+
+async fn agent_main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let args = Args::parse();

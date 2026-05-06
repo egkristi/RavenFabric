@@ -1,0 +1,21 @@
+[package]
+name = "rf-mcp-client"
+description = "RavenFabric MCP client SDK — library for building MCP-aware applications"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+categories = ["api-bindings", "network-programming"]
+keywords = ["mcp", "ai-agent", "ravenfabric", "model-context-protocol"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "process", "sync", "time"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
