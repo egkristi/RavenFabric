@@ -27,7 +27,7 @@ brew install egkristi/tap/ravenfabric
 
 ## From Source
 
-RavenFabric requires Rust 1.85+ (Edition 2024).
+RavenFabric requires Rust 1.88+ (Edition 2024).
 
 ```bash
 # Clone the repository

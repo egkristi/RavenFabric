@@ -192,10 +192,10 @@ async fn exec_command(
             duration_ms,
         } => {
             if !stdout.is_empty() {
-                print!("{}", stdout);
+                print!("{stdout}");
             }
             if !stderr.is_empty() {
-                eprint!("{}", stderr);
+                eprint!("{stderr}");
             }
             info!("exit_code={} duration={}ms", exit_code, duration_ms);
             if exit_code != 0 {
@@ -219,7 +219,7 @@ async fn exec_command(
             std::process::exit(1);
         }
         RpcResult::JobStarted { job_id, pid } => {
-            println!("background job started: {} (pid {})", job_id, pid);
+            println!("background job started: {job_id} (pid {pid})");
         }
         RpcResult::JobStatus {
             job_id,
@@ -229,13 +229,13 @@ async fn exec_command(
             stderr,
         } => {
             if running {
-                println!("job {} is still running", job_id);
+                println!("job {job_id} is still running");
             } else {
                 if let Some(out) = stdout {
-                    print!("{}", out);
+                    print!("{out}");
                 }
                 if let Some(err) = stderr {
-                    eprint!("{}", err);
+                    eprint!("{err}");
                 }
                 let code = exit_code.unwrap_or(-1);
                 info!("job {} completed, exit_code={}", job_id, code);
@@ -245,29 +245,29 @@ async fn exec_command(
             }
         }
         RpcResult::Pong { timestamp_ms } => {
-            println!("pong (timestamp: {}ms)", timestamp_ms);
+            println!("pong (timestamp: {timestamp_ms}ms)");
         }
         RpcResult::ShellOpened { session_id } => {
-            println!("shell session opened: {}", session_id);
+            println!("shell session opened: {session_id}");
         }
         RpcResult::ShellOutput { data, .. } => {
             let output = String::from_utf8_lossy(&data);
-            print!("{}", output);
+            print!("{output}");
         }
         RpcResult::ShellExited {
             session_id,
             exit_code,
         } => {
-            println!("shell session {} exited (code {})", session_id, exit_code);
+            println!("shell session {session_id} exited (code {exit_code})");
         }
         RpcResult::ForwardStarted {
             forward_id,
             bind_addr,
         } => {
-            println!("port forward started: {} on {}", forward_id, bind_addr);
+            println!("port forward started: {forward_id} on {bind_addr}");
         }
         RpcResult::ForwardStopped { forward_id } => {
-            println!("port forward stopped: {}", forward_id);
+            println!("port forward stopped: {forward_id}");
         }
         RpcResult::HealthCheckResult {
             success,
@@ -275,7 +275,7 @@ async fn exec_command(
             error,
         } => {
             if success {
-                println!("health check OK ({}ms)", latency_ms);
+                println!("health check OK ({latency_ms}ms)");
             } else {
                 println!(
                     "health check FAILED ({}ms): {}",
@@ -285,9 +285,9 @@ async fn exec_command(
             }
         }
         RpcResult::TailOutput { lines, path } => {
-            println!("--- {} ---", path);
+            println!("--- {path} ---");
             for line in lines {
-                println!("{}", line);
+                println!("{line}");
             }
         }
     }
@@ -339,9 +339,9 @@ async fn status_command(
             version,
             uptime_seconds,
         } => {
-            println!("Agent:   {}", agent_id);
-            println!("Version: {}", version);
-            println!("Uptime:  {}s", uptime_seconds);
+            println!("Agent:   {agent_id}");
+            println!("Version: {version}");
+            println!("Uptime:  {uptime_seconds}s");
             println!("Peer:    {}", hex::encode(peer_key));
             println!("Status:  connected");
         }
@@ -408,8 +408,7 @@ async fn forward_command(
             bind_addr,
         } => {
             println!(
-                "Port forward active: {} → {} (id: {})",
-                bind_addr, remote_addr, forward_id
+                "Port forward active: {bind_addr} → {remote_addr} (id: {forward_id})"
             );
             println!("Press Ctrl+C to stop.");
 
@@ -460,7 +459,7 @@ async fn playbook_command(
         .map_err(|e| anyhow::anyhow!("failed to read playbook {}: {}", file.display(), e))?;
 
     let plan: OrchestrationPlan = serde_yaml::from_str(&yaml_content)
-        .map_err(|e| anyhow::anyhow!("failed to parse playbook YAML: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("failed to parse playbook YAML: {e}"))?;
 
     // Resolve target agents
     let agents = match &plan.target {
@@ -475,7 +474,7 @@ async fn playbook_command(
     println!("Playbook: {}", file.display());
     println!("Command:  {}", plan.command);
     println!("Strategy: {:?}", plan.strategy);
-    println!("Agents:   {:?}", agents);
+    println!("Agents:   {agents:?}");
     println!("---");
 
     let key = StaticKey::load_or_generate(key_path)?;
@@ -483,7 +482,7 @@ async fn playbook_command(
     let mut orch = Orchestrator::new(plan.clone(), agents);
 
     while let Some(batch) = orch.next_batch() {
-        println!("Executing batch: {:?}", batch);
+        println!("Executing batch: {batch:?}");
 
         let mut batch_results = Vec::new();
 
@@ -497,7 +496,7 @@ async fn playbook_command(
                 Ok((stdout, stderr, exit_code)) => {
                     let success = exit_code == 0;
                     let symbol = if success { "✓" } else { "✗" };
-                    println!("  {} {} (exit {})", symbol, agent_id, exit_code);
+                    println!("  {symbol} {agent_id} (exit {exit_code})");
                     AgentResult {
                         agent_id: agent_id.clone(),
                         success,
@@ -508,7 +507,7 @@ async fn playbook_command(
                     }
                 }
                 Err(e) => {
-                    println!("  ✗ {} (error: {})", agent_id, e);
+                    println!("  ✗ {agent_id} (error: {e})");
                     AgentResult {
                         agent_id: agent_id.clone(),
                         success: false,
@@ -545,7 +544,7 @@ async fn playbook_command(
                         )
                         .await;
                         let symbol = if rb_result.is_ok() { "↩" } else { "!" };
-                        println!("  {} {} rollback", symbol, agent_id);
+                        println!("  {symbol} {agent_id} rollback");
                     }
                 }
             }
@@ -618,10 +617,10 @@ async fn execute_on_agent(
             ..
         } => Ok((stdout, stderr, exit_code)),
         RpcResult::Denied { reason, .. } => {
-            anyhow::bail!("denied: {}", reason);
+            anyhow::bail!("denied: {reason}");
         }
         RpcResult::Error { message } => {
-            anyhow::bail!("{}", message);
+            anyhow::bail!("{message}");
         }
         _ => anyhow::bail!("unexpected response"),
     }
@@ -832,17 +831,17 @@ async fn shell_command(
 
 /// Development mode: starts a relay and agent in a single process with permissive policy.
 async fn dev_mode(port: u16) -> anyhow::Result<()> {
-    let listen_addr = format!("127.0.0.1:{}", port);
-    let relay_url = format!("ws://127.0.0.1:{}", port);
+    let listen_addr = format!("127.0.0.1:{port}");
+    let relay_url = format!("ws://127.0.0.1:{port}");
     let dev_token = "dev";
 
     println!("RavenFabric Dev Mode");
     println!("====================");
-    println!("Relay:  {}", listen_addr);
-    println!("Token:  {}", dev_token);
+    println!("Relay:  {listen_addr}");
+    println!("Token:  {dev_token}");
     println!();
     println!("Usage:");
-    println!("  rf exec --token {} \"<command>\"", dev_token);
+    println!("  rf exec --token {dev_token} \"<command>\"");
     println!();
     println!("Press Ctrl+C to stop.");
     println!();

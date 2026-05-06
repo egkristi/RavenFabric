@@ -153,24 +153,24 @@ impl Driver for QuicDriver {
         let addr_str = url.strip_prefix("quic://").unwrap_or(url);
         let addr: SocketAddr = addr_str
             .parse()
-            .map_err(|e| TransportError::Connection(format!("invalid address: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("invalid address: {e}")))?;
 
         let client_config = make_client_config();
         let mut endpoint = Endpoint::client("0.0.0.0:0".parse().unwrap())
-            .map_err(|e| TransportError::Connection(format!("bind failed: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("bind failed: {e}")))?;
         endpoint.set_default_client_config(client_config);
 
         let connection = endpoint
             .connect(addr, "ravenfabric.local")
-            .map_err(|e| TransportError::Connection(format!("connect config: {}", e)))?
+            .map_err(|e| TransportError::Connection(format!("connect config: {e}")))?
             .await
-            .map_err(|e| TransportError::Connection(format!("connect: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("connect: {e}")))?;
 
         // Open a bidirectional stream for RPC
         let (send, recv) = connection
             .open_bi()
             .await
-            .map_err(|e| TransportError::Connection(format!("open bi: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("open bi: {e}")))?;
 
         // Send meet token as first message if provided
         let mut send = send;
@@ -179,10 +179,10 @@ impl Driver for QuicDriver {
             let len = (token_bytes.len() as u32).to_be_bytes();
             send.write_all(&len)
                 .await
-                .map_err(|e| TransportError::Connection(format!("write token len: {}", e)))?;
+                .map_err(|e| TransportError::Connection(format!("write token len: {e}")))?;
             send.write_all(token_bytes)
                 .await
-                .map_err(|e| TransportError::Connection(format!("write token: {}", e)))?;
+                .map_err(|e| TransportError::Connection(format!("write token: {e}")))?;
         }
 
         let stream = bridge_quic_bi(send, recv);
@@ -192,11 +192,11 @@ impl Driver for QuicDriver {
     async fn listen(&self, addr: &str) -> Result<Box<dyn Listener>, TransportError> {
         let socket_addr: SocketAddr = addr
             .parse()
-            .map_err(|e| TransportError::Connection(format!("invalid listen addr: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("invalid listen addr: {e}")))?;
 
         let server_config = make_server_config();
         let endpoint = Endpoint::server(server_config, socket_addr)
-            .map_err(|e| TransportError::Connection(format!("bind: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("bind: {e}")))?;
 
         Ok(Box::new(QuicListener { endpoint }))
     }
@@ -217,12 +217,12 @@ impl Listener for QuicListener {
 
         let connection = incoming
             .await
-            .map_err(|e| TransportError::Connection(format!("accept: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("accept: {e}")))?;
 
         let (send, recv) = connection
             .accept_bi()
             .await
-            .map_err(|e| TransportError::Connection(format!("accept bi: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("accept bi: {e}")))?;
 
         let stream = bridge_quic_bi(send, recv);
         Ok(Box::new(stream))
@@ -287,8 +287,8 @@ mod tests {
         };
         drop(listener);
 
-        let listener = driver.listen(&format!("127.0.0.1:{}", port)).await.unwrap();
-        let addr = format!("127.0.0.1:{}", port);
+        let listener = driver.listen(&format!("127.0.0.1:{port}")).await.unwrap();
+        let addr = format!("127.0.0.1:{port}");
 
         // Dial from client
         let target = Target {

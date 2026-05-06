@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Rust 1.85+ (Edition 2024)
+- Rust 1.88+ (Edition 2024)
 - Git
 
 ```bash
@@ -10,7 +10,7 @@
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Verify version
-rustc --version  # Must be 1.85.0 or later
+rustc --version  # Must be 1.88.0 or later
 ```
 
 ## Clone and Build

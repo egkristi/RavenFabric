@@ -156,8 +156,8 @@ pub async fn race_connect(
                     };
                     Ok((stream, result))
                 }
-                Ok(Err(e)) => Err(format!("connect to {}: {}", first_addr, e)),
-                Err(_) => Err(format!("connect to {}: timeout", first_addr)),
+                Ok(Err(e)) => Err(format!("connect to {first_addr}: {e}")),
+                Err(_) => Err(format!("connect to {first_addr}: timeout")),
             }
         }
         Some(second_addr) => {
@@ -202,8 +202,7 @@ pub async fn race_connect(
                     Ok((stream, result))
                 }
                 Ok(None) => Err(format!(
-                    "all connections failed: {} and {}",
-                    first_addr, second_addr
+                    "all connections failed: {first_addr} and {second_addr}"
                 )),
                 Err(_) => Err("connection timeout".to_string()),
             }
@@ -325,7 +324,7 @@ pub async fn detect_nat64() -> Nat64Status {
     // Resolve ipv4only.arpa for AAAA records
     let addrs = match tokio::net::lookup_host("ipv4only.arpa:80").await {
         Ok(addrs) => addrs.collect::<Vec<_>>(),
-        Err(e) => return Nat64Status::Error(format!("DNS lookup failed: {}", e)),
+        Err(e) => return Nat64Status::Error(format!("DNS lookup failed: {e}")),
     };
 
     // Look for synthesized IPv6 addresses

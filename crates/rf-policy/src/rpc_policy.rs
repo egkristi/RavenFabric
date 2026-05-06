@@ -179,11 +179,11 @@ fn compile_anchored(pattern: &str) -> Result<Regex, PolicyError> {
     let anchored = if pattern.starts_with('^') && pattern.ends_with('$') {
         pattern.to_string()
     } else if pattern.starts_with('^') {
-        format!("{}$", pattern)
+        format!("{pattern}$")
     } else if pattern.ends_with('$') {
-        format!("^{}", pattern)
+        format!("^{pattern}")
     } else {
-        format!("^{}$", pattern)
+        format!("^{pattern}$")
     };
     Regex::new(&anchored).map_err(|source| PolicyError::InvalidRegex {
         pattern: pattern.to_string(),

@@ -204,19 +204,18 @@ pub async fn scrape_target(target: &ScrapeTarget) -> Result<Vec<ScrapedMetric>, 
     let (host, port, path) = parse_http_url(url)?;
 
     // Connect via TCP
-    let addr = format!("{}:{}", host, port);
+    let addr = format!("{host}:{port}");
     let mut stream = timeout(timeout_dur, tokio::net::TcpStream::connect(&addr))
         .await
-        .map_err(|_| format!("connect timeout to {}", addr))?
-        .map_err(|e| format!("connect to {}: {}", addr, e))?;
+        .map_err(|_| format!("connect timeout to {addr}"))?
+        .map_err(|e| format!("connect to {addr}: {e}"))?;
 
     // Build HTTP GET request
     let mut request = format!(
-        "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n",
-        path, host
+        "GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n"
     );
     for (key, value) in &target.headers {
-        request.push_str(&format!("{}: {}\r\n", key, value));
+        request.push_str(&format!("{key}: {value}\r\n"));
     }
     request.push_str("\r\n");
 
@@ -224,7 +223,7 @@ pub async fn scrape_target(target: &ScrapeTarget) -> Result<Vec<ScrapedMetric>, 
     stream
         .write_all(request.as_bytes())
         .await
-        .map_err(|e| format!("write request: {}", e))?;
+        .map_err(|e| format!("write request: {e}"))?;
 
     // Read response (with timeout)
     let mut response = Vec::new();
@@ -233,7 +232,7 @@ pub async fn scrape_target(target: &ScrapeTarget) -> Result<Vec<ScrapedMetric>, 
     })
     .await
     .map_err(|_| "read timeout".to_string())?
-    .map_err(|e| format!("read response: {}", e))?;
+    .map_err(|e| format!("read response: {e}"))?;
 
     // Parse HTTP response
     let response_str = String::from_utf8_lossy(&response);
@@ -420,7 +419,7 @@ mod tests {
 
         let target = ScrapeTarget {
             name: "test-app".into(),
-            url: format!("http://127.0.0.1:{}/metrics", port),
+            url: format!("http://127.0.0.1:{port}/metrics"),
             interval_secs: 15,
             timeout_secs: 5,
             headers: Vec::new(),

@@ -95,7 +95,7 @@ pub async fn stream_execute(
                 .send(Response {
                     id: request_id,
                     result: RpcResult::Error {
-                        message: format!("spawn failed: {}", e),
+                        message: format!("spawn failed: {e}"),
                     },
                 })
                 .await;

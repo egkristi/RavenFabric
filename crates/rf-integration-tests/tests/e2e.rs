@@ -29,7 +29,7 @@ async fn test_e2e_exec_through_relay() {
     // Start relay
     let relay_cancel = cancel.clone();
     let relay_handle = tokio::spawn(async move {
-        rf_relay::run_relay(&format!("127.0.0.1:{}", port), relay_cancel)
+        rf_relay::run_relay(&format!("127.0.0.1:{port}"), relay_cancel)
             .await
             .ok();
     });
@@ -66,7 +66,7 @@ async fn test_e2e_exec_through_relay() {
             assert_eq!(stdout.trim(), "hello");
             assert_eq!(exit_code, 0);
         }
-        other => panic!("expected Success, got: {:?}", other),
+        other => panic!("expected Success, got: {other:?}"),
     }
 
     cancel.cancel();
@@ -83,7 +83,7 @@ async fn test_e2e_policy_denial() {
 
     let relay_cancel = cancel.clone();
     let relay_handle = tokio::spawn(async move {
-        rf_relay::run_relay(&format!("127.0.0.1:{}", port), relay_cancel)
+        rf_relay::run_relay(&format!("127.0.0.1:{port}"), relay_cancel)
             .await
             .ok();
     });
@@ -113,7 +113,7 @@ async fn test_e2e_policy_denial() {
 
     match response.result {
         RpcResult::Denied { .. } => {} // Expected
-        other => panic!("expected Denied, got: {:?}", other),
+        other => panic!("expected Denied, got: {other:?}"),
     }
 
     cancel.cancel();
@@ -126,7 +126,7 @@ async fn run_client_exec(port: u16, token: &str, command: &str) -> anyhow::Resul
     let driver = WebSocketDriver::new();
     let target = Target {
         agent_id: String::new(),
-        relay_url: Some(format!("ws://127.0.0.1:{}", port)),
+        relay_url: Some(format!("ws://127.0.0.1:{port}")),
         meet_token: Some(token.to_string()),
     };
 
@@ -171,7 +171,7 @@ spec:
     let driver = WebSocketDriver::new();
     let target = Target {
         agent_id: "test-agent".to_string(),
-        relay_url: Some(format!("ws://127.0.0.1:{}", port)),
+        relay_url: Some(format!("ws://127.0.0.1:{port}")),
         meet_token: Some(token.to_string()),
     };
 
@@ -214,7 +214,7 @@ spec:
     let driver = WebSocketDriver::new();
     let target = Target {
         agent_id: "test-agent".to_string(),
-        relay_url: Some(format!("ws://127.0.0.1:{}", port)),
+        relay_url: Some(format!("ws://127.0.0.1:{port}")),
         meet_token: Some(token.to_string()),
     };
 

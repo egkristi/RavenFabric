@@ -216,9 +216,9 @@ impl Default for Socks5Config {
 /// Check if a destination is allowed by the SOCKS5 policy.
 pub fn is_destination_allowed(config: &Socks5Config, dest: &Socks5Addr, port: u16) -> bool {
     let dest_str = match dest {
-        Socks5Addr::Ipv4(ip) => format!("{}:{}", ip, port),
-        Socks5Addr::Ipv6(ip) => format!("[{}]:{}", ip, port),
-        Socks5Addr::Domain(d) => format!("{}:{}", d, port),
+        Socks5Addr::Ipv4(ip) => format!("{ip}:{port}"),
+        Socks5Addr::Ipv6(ip) => format!("[{ip}]:{port}"),
+        Socks5Addr::Domain(d) => format!("{d}:{port}"),
     };
 
     // Check denied first (deny-by-default principle)
@@ -270,7 +270,7 @@ impl Socks5Server {
             .map_err(|e| format!("bind {}: {}", self.config.bind_addr, e))?;
         let bound_addr = listener
             .local_addr()
-            .map_err(|e| format!("local_addr: {}", e))?;
+            .map_err(|e| format!("local_addr: {e}"))?;
 
         let config = self.config.clone();
         let mut cancel = self.cancel.clone();
@@ -310,14 +310,14 @@ impl Socks5Server {
         let n = client
             .read(&mut buf)
             .await
-            .map_err(|e| format!("read greeting: {}", e))?;
+            .map_err(|e| format!("read greeting: {e}"))?;
         if n < 2 {
             return Err("greeting too short".into());
         }
 
         let version = buf[0];
         if version != 0x05 {
-            return Err(format!("unsupported SOCKS version: {}", version));
+            return Err(format!("unsupported SOCKS version: {version}"));
         }
 
         let nmethods = buf[1] as usize;
@@ -343,7 +343,7 @@ impl Socks5Server {
         client
             .write_all(&[0x05, selected as u8])
             .await
-            .map_err(|e| format!("write method: {}", e))?;
+            .map_err(|e| format!("write method: {e}"))?;
 
         if selected == AuthMethod::NoAcceptable {
             return Err("no acceptable auth method".into());
@@ -353,7 +353,7 @@ impl Socks5Server {
         let n = client
             .read(&mut buf)
             .await
-            .map_err(|e| format!("read request: {}", e))?;
+            .map_err(|e| format!("read request: {e}"))?;
         if n < 4 {
             return Err("request too short".into());
         }
@@ -397,14 +397,14 @@ impl Socks5Server {
                 dest_port,
             )
             .await?;
-            return Err(format!("destination denied: {:?}:{}", dest_addr, dest_port));
+            return Err(format!("destination denied: {dest_addr:?}:{dest_port}"));
         }
 
         // Step 4: Connect to target
         let target_str = match &dest_addr {
-            Socks5Addr::Ipv4(ip) => format!("{}:{}", ip, dest_port),
-            Socks5Addr::Ipv6(ip) => format!("[{}]:{}", ip, dest_port),
-            Socks5Addr::Domain(domain) => format!("{}:{}", domain, dest_port),
+            Socks5Addr::Ipv4(ip) => format!("{ip}:{dest_port}"),
+            Socks5Addr::Ipv6(ip) => format!("[{ip}]:{dest_port}"),
+            Socks5Addr::Domain(domain) => format!("{domain}:{dest_port}"),
         };
 
         let target = match TcpStream::connect(&target_str).await {
@@ -417,7 +417,7 @@ impl Socks5Server {
                     dest_port,
                 )
                 .await?;
-                return Err(format!("connect to {}: failed", target_str));
+                return Err(format!("connect to {target_str}: failed"));
             }
         };
 
@@ -459,7 +459,7 @@ impl Socks5Server {
         client
             .write_all(&reply)
             .await
-            .map_err(|e| format!("write reply: {}", e))
+            .map_err(|e| format!("write reply: {e}"))
     }
 }
 

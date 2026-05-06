@@ -149,7 +149,7 @@ pub fn should_bypass(host: &str, no_proxy: &[String]) -> bool {
             return true;
         }
         // Also match without leading dot
-        let with_dot = format!(".{}", pattern);
+        let with_dot = format!(".{pattern}");
         if host_lower.ends_with(&with_dot) {
             return true;
         }
@@ -321,7 +321,7 @@ pub async fn probe_proxy(
         error: if connect_supported {
             None
         } else {
-            Some(format!("CONNECT returned status: {:?}", status_code))
+            Some(format!("CONNECT returned status: {status_code:?}"))
         },
     }
 }

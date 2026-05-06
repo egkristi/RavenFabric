@@ -60,7 +60,7 @@ impl MuxClient {
                                 let result = match connection.poll_new_outbound(cx) {
                                     std::task::Poll::Ready(Ok(s)) => Ok(s),
                                     std::task::Poll::Ready(Err(e)) => {
-                                        Err(RpcError::Io(format!("yamux: {}", e)))
+                                        Err(RpcError::Io(format!("yamux: {e}")))
                                     }
                                     std::task::Poll::Pending => {
                                         Err(RpcError::Io("yamux: too many streams".into()))
@@ -170,7 +170,7 @@ async fn read_frame<S: tokio::io::AsyncRead + Unpin>(stream: &mut S) -> Result<V
     stream
         .read_exact(&mut len_buf)
         .await
-        .map_err(|e| RpcError::Io(format!("read frame length: {}", e)))?;
+        .map_err(|e| RpcError::Io(format!("read frame length: {e}")))?;
     let len = u32::from_be_bytes(len_buf) as usize;
 
     if len > 16 * 1024 * 1024 {
@@ -181,7 +181,7 @@ async fn read_frame<S: tokio::io::AsyncRead + Unpin>(stream: &mut S) -> Result<V
     stream
         .read_exact(&mut data)
         .await
-        .map_err(|e| RpcError::Io(format!("read frame data: {}", e)))?;
+        .map_err(|e| RpcError::Io(format!("read frame data: {e}")))?;
     Ok(data)
 }
 
@@ -196,15 +196,15 @@ async fn write_frame<S: tokio::io::AsyncWrite + Unpin>(
     stream
         .write_all(&len)
         .await
-        .map_err(|e| RpcError::Io(format!("write frame length: {}", e)))?;
+        .map_err(|e| RpcError::Io(format!("write frame length: {e}")))?;
     stream
         .write_all(data)
         .await
-        .map_err(|e| RpcError::Io(format!("write frame data: {}", e)))?;
+        .map_err(|e| RpcError::Io(format!("write frame data: {e}")))?;
     stream
         .flush()
         .await
-        .map_err(|e| RpcError::Io(format!("flush frame: {}", e)))?;
+        .map_err(|e| RpcError::Io(format!("flush frame: {e}")))?;
     Ok(())
 }
 

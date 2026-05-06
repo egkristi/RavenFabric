@@ -289,7 +289,7 @@ mod tests {
         let result = mac.finalize();
         let mac_hex = hex::encode(result.into_bytes());
 
-        let token = format!("{}.{}", payload, mac_hex);
+        let token = format!("{payload}.{mac_hex}");
         assert!(verify_meet_token(&token, Some(secret)));
     }
 
@@ -316,7 +316,7 @@ mod tests {
         mac.update(payload.as_bytes());
         let mac_hex = hex::encode(mac.finalize().into_bytes());
 
-        let token = format!("{}.{}", payload, mac_hex);
+        let token = format!("{payload}.{mac_hex}");
         // Verify with different secret fails
         assert!(!verify_meet_token(&token, Some("secret-b")));
     }

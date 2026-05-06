@@ -332,7 +332,7 @@ async fn run_session(
                         });
                         return Err(anyhow::anyhow!("frame injection detected"));
                     }
-                    Err(e) => return Err(anyhow::anyhow!("channel recv: {}", e)),
+                    Err(e) => return Err(anyhow::anyhow!("channel recv: {e}")),
                 }
             }
             _ = tokio::signal::ctrl_c() => {
@@ -360,7 +360,7 @@ async fn run_session(
 
         let resp_data = codec::encode(&response)?;
         if let Err(e) = chan.send(&resp_data).await {
-            return Err(anyhow::anyhow!("channel send: {}", e));
+            return Err(anyhow::anyhow!("channel send: {e}"));
         }
     }
 }

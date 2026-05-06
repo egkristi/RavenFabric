@@ -254,7 +254,7 @@ impl ConnectionRunner {
             .find(|(n, _)| n == target_transport)
             .map(|(_, d)| d.clone())
             .ok_or_else(|| {
-                TransportError::Connection(format!("unknown transport: {}", target_transport))
+                TransportError::Connection(format!("unknown transport: {target_transport}"))
             })?;
 
         // Try to establish new connection
@@ -266,8 +266,7 @@ impl ConnectionRunner {
             Err(e) => {
                 migration.abort();
                 return Err(TransportError::Connection(format!(
-                    "migration dial failed: {}",
-                    e
+                    "migration dial failed: {e}"
                 )));
             }
         };

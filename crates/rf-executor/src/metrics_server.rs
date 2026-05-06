@@ -124,7 +124,7 @@ mod tests {
         drop(listener);
 
         let config = MetricsServerConfig {
-            bind_addr: format!("127.0.0.1:{}", port),
+            bind_addr: format!("127.0.0.1:{port}"),
         };
 
         let _handle = start_metrics_server(config).await.unwrap();
@@ -133,7 +133,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(50)).await;
 
         // Make a request
-        let mut stream = tokio::net::TcpStream::connect(format!("127.0.0.1:{}", port))
+        let mut stream = tokio::net::TcpStream::connect(format!("127.0.0.1:{port}"))
             .await
             .unwrap();
         stream
@@ -157,13 +157,13 @@ mod tests {
         drop(listener);
 
         let config = MetricsServerConfig {
-            bind_addr: format!("127.0.0.1:{}", port),
+            bind_addr: format!("127.0.0.1:{port}"),
         };
 
         let _handle = start_metrics_server(config).await.unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
-        let mut stream = tokio::net::TcpStream::connect(format!("127.0.0.1:{}", port))
+        let mut stream = tokio::net::TcpStream::connect(format!("127.0.0.1:{port}"))
             .await
             .unwrap();
         stream

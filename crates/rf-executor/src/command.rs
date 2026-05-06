@@ -113,7 +113,7 @@ impl Executor {
                 let store = store.lock().await;
                 store
                     .resolve_template(command)
-                    .map_err(|e| format!("secret resolution failed: {}", e))
+                    .map_err(|e| format!("secret resolution failed: {e}"))
             }
             None => Err("secrets not configured".to_string()),
         }
@@ -298,7 +298,7 @@ impl Executor {
             Ok(Ok(output)) => output,
             Ok(Err(e)) => {
                 return RpcResult::Error {
-                    message: format!("spawn failed: {}", e),
+                    message: format!("spawn failed: {e}"),
                 };
             }
             Err(_) => {
@@ -385,7 +385,7 @@ impl Executor {
             Ok(p) => p,
             Err(e) => {
                 return RpcResult::Error {
-                    message: format!("resolve path: {}", e),
+                    message: format!("resolve path: {e}"),
                 };
             }
         };
@@ -408,7 +408,7 @@ impl Executor {
                 }
             }
             Err(e) => RpcResult::Error {
-                message: format!("read file: {}", e),
+                message: format!("read file: {e}"),
             },
         }
     }
@@ -428,10 +428,10 @@ impl Executor {
         drop(policy);
 
         // Atomic write: write to temp file then rename
-        let temp_path = format!("{}.rf_tmp", path);
+        let temp_path = format!("{path}.rf_tmp");
         if let Err(e) = tokio::fs::write(&temp_path, data).await {
             return RpcResult::Error {
-                message: format!("write temp file: {}", e),
+                message: format!("write temp file: {e}"),
             };
         }
 
@@ -443,7 +443,7 @@ impl Executor {
             if let Err(e) = tokio::fs::set_permissions(&temp_path, perms).await {
                 let _ = tokio::fs::remove_file(&temp_path).await;
                 return RpcResult::Error {
-                    message: format!("set permissions: {}", e),
+                    message: format!("set permissions: {e}"),
                 };
             }
         }
@@ -455,7 +455,7 @@ impl Executor {
         if let Err(e) = tokio::fs::rename(&temp_path, path).await {
             let _ = tokio::fs::remove_file(&temp_path).await;
             return RpcResult::Error {
-                message: format!("rename: {}", e),
+                message: format!("rename: {e}"),
             };
         }
 
@@ -486,7 +486,7 @@ impl Executor {
             Ok(p) => p,
             Err(e) => {
                 return RpcResult::Error {
-                    message: format!("resolve path: {}", e),
+                    message: format!("resolve path: {e}"),
                 };
             }
         };
@@ -496,7 +496,7 @@ impl Executor {
             Ok(d) => d,
             Err(e) => {
                 return RpcResult::Error {
-                    message: format!("read dir: {}", e),
+                    message: format!("read dir: {e}"),
                 };
             }
         };
@@ -504,7 +504,7 @@ impl Executor {
         while let Ok(Some(entry)) = dir.next_entry().await {
             let name = entry.file_name().to_string_lossy().to_string();
             let is_dir = entry.file_type().await.map(|t| t.is_dir()).unwrap_or(false);
-            entries.push(if is_dir { format!("{}/", name) } else { name });
+            entries.push(if is_dir { format!("{name}/") } else { name });
         }
 
         entries.sort();
@@ -523,7 +523,7 @@ impl Executor {
             let result = unsafe { libc::kill(pid as libc::pid_t, signal as libc::c_int) };
             if result == 0 {
                 RpcResult::Success {
-                    stdout: format!("signal {} sent to pid {}", signal, pid),
+                    stdout: format!("signal {signal} sent to pid {pid}"),
                     stderr: String::new(),
                     exit_code: 0,
                     duration_ms: 0,
@@ -583,7 +583,7 @@ impl Executor {
             Ok(child) => child,
             Err(e) => {
                 return RpcResult::Error {
-                    message: format!("spawn failed: {}", e),
+                    message: format!("spawn failed: {e}"),
                 };
             }
         };
@@ -657,7 +657,7 @@ impl Executor {
                 stderr: Some(job.stderr.clone()),
             },
             None => RpcResult::Error {
-                message: format!("unknown job: {}", job_id),
+                message: format!("unknown job: {job_id}"),
             },
         }
     }
@@ -679,13 +679,13 @@ impl Executor {
                 }
                 if !jobs.contains_key(job_id) {
                     return RpcResult::Error {
-                        message: format!("unknown job: {}", job_id),
+                        message: format!("unknown job: {job_id}"),
                     };
                 }
             }
             if tokio::time::Instant::now() > deadline {
                 return RpcResult::Error {
-                    message: format!("timeout waiting for job: {}", job_id),
+                    message: format!("timeout waiting for job: {job_id}"),
                 };
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -1332,8 +1332,7 @@ spec:
         let tmp_base = std::fs::canonicalize(std::env::temp_dir()).unwrap();
         let tmp_base_str = tmp_base.to_string_lossy();
         let yaml = format!(
-            "spec:\n  commands:\n    allow:\n      - pattern: \".*\"\n  filesystem:\n    allow:\n      - path: \"{}\"\n  resources:\n    maxOutputBytes: 1024\n    timeoutSeconds: 2\n",
-            tmp_base_str
+            "spec:\n  commands:\n    allow:\n      - pattern: \".*\"\n  filesystem:\n    allow:\n      - path: \"{tmp_base_str}\"\n  resources:\n    maxOutputBytes: 1024\n    timeoutSeconds: 2\n"
         );
         let policy = RpcPolicy::from_yaml(&yaml).unwrap();
         let audit = Arc::new(TestAuditLogger::new());
@@ -1376,8 +1375,7 @@ spec:
         let tmp_base = std::fs::canonicalize(std::env::temp_dir()).unwrap();
         let tmp_base_str = tmp_base.to_string_lossy();
         let yaml = format!(
-            "spec:\n  commands:\n    allow:\n      - pattern: \".*\"\n  filesystem:\n    allow:\n      - path: \"{}\"\n  resources:\n    maxOutputBytes: 1024\n    timeoutSeconds: 2\n",
-            tmp_base_str
+            "spec:\n  commands:\n    allow:\n      - pattern: \".*\"\n  filesystem:\n    allow:\n      - path: \"{tmp_base_str}\"\n  resources:\n    maxOutputBytes: 1024\n    timeoutSeconds: 2\n"
         );
         let policy = RpcPolicy::from_yaml(&yaml).unwrap();
         let audit = Arc::new(TestAuditLogger::new());

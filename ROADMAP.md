@@ -424,9 +424,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Platform Expansion (Tier 2 + 3)
 - [ ] Android agent (NDK cross-compile, foreground service, Doze-aware reconnect)
 - [ ] iOS agent (Network Extension, background entitlements)
-- [ ] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target
-- [ ] Linux riscv64 — cross-compile verification
-- [ ] FreeBSD agent
+- [x] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target (cross-check in CI)
+- [x] Linux riscv64 — cross-compile verification (cross-check in CI)
+- [x] FreeBSD agent — cross-compile verification (cross-check in CI)
 - [ ] OpenWrt package (MIPS/ARM, minimal feature set)
 - [ ] WASM/WASI compilation target (browser-side client, edge workers)
 - [ ] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52)
@@ -582,7 +582,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - `cargo test --all` — all unit + integration tests
 - Coverage threshold: 60%
 - Cross-compile: Linux (amd64, arm64, musl), macOS (amd64, arm64)
-- MSRV check: Rust 1.85
+- MSRV check: Rust 1.88
 
 ---
 

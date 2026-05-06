@@ -16,7 +16,7 @@ Thank you for your interest in contributing to RavenFabric.
 ## Code Standards
 
 - **Language**: All code, comments, and documentation in English
-- **Edition**: Rust 2024, MSRV 1.85
+- **Edition**: Rust 2024, MSRV 1.88
 - **Error handling**: `thiserror` in libraries, `anyhow` only in binaries
 - **Async**: Use `async-trait` for async trait methods
 - **Logging**: `tracing` crate only — never `println!` in libraries

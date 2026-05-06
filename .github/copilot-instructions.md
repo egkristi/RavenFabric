@@ -81,7 +81,7 @@ RavenFabric runs **everywhere**. The agent must compile and operate on any devic
 
 ## Coding Standards
 
-- **Edition**: Rust 2024, MSRV 1.85
+- **Edition**: Rust 2024, MSRV 1.88
 - **Async runtime**: Tokio (full features for server/desktop; `tokio` with `rt` feature only for constrained)
 - **Error handling**: `thiserror` for library errors, `anyhow` only in binaries (agent, relay, cli)
 - **Traits**: Use `async-trait` for async trait methods. All traits must be `Send + Sync`

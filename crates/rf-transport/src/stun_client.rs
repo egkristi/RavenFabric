@@ -103,8 +103,7 @@ fn parse_binding_response(
     let msg_type = u16::from_be_bytes([data[0], data[1]]);
     if msg_type != BINDING_RESPONSE {
         return Err(StunError::InvalidResponse(format!(
-            "expected binding response (0x0101), got 0x{:04x}",
-            msg_type
+            "expected binding response (0x0101), got 0x{msg_type:04x}"
         )));
     }
 

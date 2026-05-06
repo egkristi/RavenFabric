@@ -64,7 +64,7 @@ impl SecretStore {
         let sealed = self
             .secrets
             .get(name)
-            .ok_or_else(|| CryptoError::Decrypt(format!("secret '{}' not found", name)))?;
+            .ok_or_else(|| CryptoError::Decrypt(format!("secret '{name}' not found")))?;
 
         let cipher = ChaCha20Poly1305::new((&self.seal_key).into());
         let nonce = Nonce::from_slice(&sealed.nonce);

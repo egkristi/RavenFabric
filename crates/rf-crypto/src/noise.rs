@@ -50,8 +50,7 @@ where
         .map_err(|_| CryptoError::Disconnected)?;
     if &magic != WIRE_MAGIC {
         return Err(CryptoError::Handshake(format!(
-            "invalid wire magic: expected RVNF, got {:?}",
-            magic
+            "invalid wire magic: expected RVNF, got {magic:?}"
         )));
     }
 

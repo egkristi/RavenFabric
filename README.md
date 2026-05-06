@@ -5,7 +5,7 @@
 
 **Status: Alpha** — v0.1 foundation complete. End-to-end execution working (`rf exec`).
 
-[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSES/AGPLv3.txt)
 [![CI](https://github.com/egkristi/RavenFabric/actions/workflows/ci.yml/badge.svg)](https://github.com/egkristi/RavenFabric/actions/workflows/ci.yml)
 
@@ -1220,7 +1220,7 @@ See [ROADMAP.md — Distribution & Packaging](ROADMAP.md#distribution--packaging
 
 ### Prerequisites
 
-- Rust 1.85+ (install via [rustup](https://rustup.rs))
+- Rust 1.88+ (install via [rustup](https://rustup.rs))
 - Linux, macOS, or Windows (WSL2 recommended)
 
 ### Build & Run

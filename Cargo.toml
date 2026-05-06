@@ -22,7 +22,7 @@ repository = "https://github.com/egkristi/RavenFabric"
 homepage = "https://github.com/egkristi/RavenFabric"
 authors = ["Erling Kristiansen"]
 description = "Secure remote execution and mesh networking agent — zero-trust, cryptographically verified"
-rust-version = "1.85"
+rust-version = "1.88"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -94,7 +94,7 @@ base64 = "0.22"
 libc = "0.2"
 
 # System info
-sysinfo = "0.32"
+sysinfo = "0.38"
 
 # JSON (for audit logger)
 serde_json = "1"

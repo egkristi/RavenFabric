@@ -11,6 +11,11 @@ rust-version.workspace = true
 categories = ["command-line-utilities", "network-programming"]
 keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
 
+[features]
+default = ["full"]
+full = ["rf-transport/quic", "rf-executor/sysinfo"]
+minimal = []
+
 [dependencies]
 rf-crypto = { path = "../rf-crypto" }
 rf-transport = { path = "../rf-transport" }

@@ -39,7 +39,7 @@ impl AuditLogger for FileAuditLogger {
     fn log(&self, entry: AuditEntry) -> Result<(), AuditError> {
         let json = serde_json::to_string(&entry)?;
         let mut file = self.file.lock().map_err(|_| AuditError::LockPoisoned)?;
-        writeln!(file, "{}", json)?;
+        writeln!(file, "{json}")?;
         Ok(())
     }
 }
