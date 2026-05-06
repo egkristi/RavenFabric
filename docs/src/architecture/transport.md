@@ -53,6 +53,52 @@ Userspace WireGuard for direct peer-to-peer connections. Full `WgTunnel` with UD
 
 In-process transport for testing. Uses `tokio::io::duplex` — no real network required.
 
+## Local IPC Transports (Planned)
+
+For same-host communication — AI agent access, MCP server connections, sidecar patterns — without touching the network stack. All local transports go through the same Noise XX handshake and policy engine as network transports. Local does not mean trusted.
+
+| Transport | Platform | Use Case | Socket Path / Address |
+|-----------|----------|----------|----------------------|
+| **UNIX domain socket** | Linux, macOS, FreeBSD | Primary local IPC — AI agents, MCP server, sidecar processes | `/var/run/ravenfabric/local.sock` |
+| **Abstract namespace socket** | Linux only | No filesystem cleanup, container-friendly | `@ravenfabric/<session-id>` |
+| **Named pipe** | Windows | Windows-native local IPC equivalent | `\\.\pipe\ravenfabric` |
+| **Stdio pipe** | All | Parent-child process communication (MCP stdio transport) | stdin/stdout FDs |
+| **Vsock** | Linux (VM guests) | VM-to-hypervisor communication (firecracker, QEMU) | CID + port |
+
+### Why local transports matter
+
+The AI agent access use case (Claude Code, Cursor, Aider, MCP servers) requires same-host communication between the agent runtime and the RavenFabric policy engine. Network loopback (`127.0.0.1`) works but has drawbacks:
+
+- **Port conflicts** — multiple agents or users competing for ports
+- **No peer identity** — TCP cannot verify which process connected
+- **Firewall interference** — host firewalls may block loopback in hardened environments
+- **Overhead** — full TCP/IP stack for same-host communication
+
+UNIX domain sockets solve all of these: filesystem permissions control access, `SO_PEERCRED` / `LOCAL_PEERCRED` verify the connecting process identity (UID/PID), no port allocation is needed, and kernel-level transfer avoids IP stack overhead.
+
+### Automatic driver selection
+
+When `rf exec local` is invoked, the CLI automatically selects the fastest available local transport:
+
+```
+vsock (if in VM) > unix socket > named pipe (Windows) > loopback TCP
+```
+
+### Socket activation
+
+On systemd (Linux) and launchd (macOS), the agent supports socket activation — the OS creates the socket and starts the agent on first connection. This means zero idle resource usage.
+
+```ini
+# systemd example: /etc/systemd/system/ravenfabric.socket
+[Socket]
+ListenStream=/var/run/ravenfabric/local.sock
+SocketMode=0660
+SocketGroup=ravenfabric
+
+[Install]
+WantedBy=sockets.target
+```
+
 ## Censorship-Resistant Transports
 
 Implemented codecs and framers for hostile network traversal:

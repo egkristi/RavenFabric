@@ -312,9 +312,9 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ---
 
-## v0.3 — Shell + Tunnels + Playbooks
+## v0.3 — Shell + Tunnels + Playbooks + Local IPC
 
-**Goal:** Interactive shell. Port forwarding. Multi-agent orchestration. Cross-protocol path upgrade.
+**Goal:** Interactive shell. Port forwarding. Multi-agent orchestration. Cross-protocol path upgrade. Local IPC transports for zero-network agent communication.
 
 ### Interactive Shell
 - [x] PTY allocation — real `openpty` on Unix with `PtySession` (spawn, read, write, resize, signal)
@@ -337,6 +337,17 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Multi-agent orchestration — `Orchestrator` + `rf playbook` CLI command connected to real agent RPC sessions
 - [x] Rollback on failure — automatic rollback command execution on agents that succeeded before failure
 - [x] Grain-based targeting — `TargetGrain` with agent-list targeting for CLI
+
+### Local IPC Transports (Zero-Network Local-to-Local)
+- [ ] UNIX domain socket driver — `UnixSocketDriver` implementing `Driver` trait for same-host communication (Linux, macOS, FreeBSD)
+- [ ] Named pipe driver — `NamedPipeDriver` for Windows local IPC (`\\.\pipe\ravenfabric`)
+- [ ] Stdio pipe driver — `StdioDriver` for parent-child process communication (MCP stdio transport, embedded agents)
+- [ ] Vsock driver — `VsockDriver` for VM-to-hypervisor communication (firecracker, cloud-hypervisor, QEMU)
+- [ ] Abstract namespace sockets — Linux-specific `@ravenfabric/<session-id>` (no filesystem cleanup needed)
+- [ ] Automatic driver selection — `rf exec local` detects co-located agent and uses fastest available IPC (vsock > unix > named-pipe > loopback)
+- [ ] File-descriptor passing — pass pre-authenticated FDs over UNIX sockets for zero-copy handoff
+- [ ] Socket activation — systemd/launchd socket activation for on-demand agent start (sd_listen_fds / launchd plist)
+- [ ] Permission enforcement — socket file mode 0600/0660, peer credential verification via `SO_PEERCRED` (Linux) / `LOCAL_PEERCRED` (macOS)
 
 ### MCP Server (AI Agent Integration)
 - [ ] `rf-mcp-server` binary — Model Context Protocol server translating MCP tool calls to RavenFabric operations
@@ -683,3 +694,4 @@ All critical and important issues resolved. Minor items tracked below.
 | 2026-05-05 | Universal platform target | Agent runs anywhere: server, desktop, mobile, IoT, embedded. No platform excluded by design |
 | 2026-05-05 | Feature-flag architecture | `full` vs `minimal` feature sets allow same codebase to target 10 MB Raspberry Pi and 15 MB router |
 | 2026-05-06 | MCP server as translation layer | Policy enforced by rf-agent, not MCP server. Compromised MCP binary cannot bypass policy. AI agent access uses same crypto/audit/policy as human operators |
+| 2026-05-06 | Local IPC as first-class transports | UNIX sockets, named pipes, stdio, vsock are not shortcuts — they go through the same Noise XX handshake and policy engine. Local does not mean trusted |
