@@ -360,7 +360,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Tool: `rf_audit_query` — self-audit (agent queries its own recent actions)
 - [x] Tool: `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
 - [x] API token authentication — `--api-token` / `RF_API_TOKEN` env, constant-time validation, reject unauthenticated requests
-- [ ] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
+- [x] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
 - [x] Token rotation — comma-separated tokens for grace period, --api-token-file for external rotation
 - [x] RBAC per caller — map API tokens to policy profiles (different callers get different permissions)
 - [x] Rate limiting per session — sliding window request throttle (configurable max requests/minute)
@@ -369,7 +369,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Claude Code integration — `claude mcp add` reference setup, docs/src/integrations/claude-code.md
 - [x] Cursor integration — MCP server config, workspace-scoped policy, docs/src/integrations/cursor.md
 - [x] Aider integration — `.aider.conf.yml` setup, docs/src/integrations/aider.md
-- [ ] Design spec: [docs/src/use-cases/ai-agent-access.md](docs/src/use-cases/ai-agent-access.md)
+- [x] Design spec: [docs/src/use-cases/ai-agent-access.md](docs/src/use-cases/ai-agent-access.md)
 
 ### Policy Templates Library
 - [x] "Coding assistant" template — filesystem read/write in project dir, git, package managers, test runners; deny network mutation

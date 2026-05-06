@@ -14,6 +14,7 @@ full = ["rf-executor/sysinfo"]
 minimal = []
 
 [dependencies]
+rf-crypto = { path = "../rf-crypto", version = "0.1.0" }
 rf-policy = { path = "../rf-policy", version = "0.1.0" }
 rf-audit = { path = "../rf-audit", version = "0.1.0" }
 rf-executor = { path = "../rf-executor", version = "0.1.0" }

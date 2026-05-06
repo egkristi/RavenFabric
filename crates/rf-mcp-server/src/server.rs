@@ -8,6 +8,7 @@ use chrono::Timelike;
 
 use rf_audit::logger::{AuditLogger, FileAuditLogger};
 use rf_audit::types::AuditEntry;
+use rf_crypto::keys::StaticKey;
 use rf_executor::command::Executor;
 use rf_policy::anomaly::{AnomalyConfig, AnomalyResponse, IdentityBaseline};
 use rf_policy::rpc_policy::RpcPolicy;
@@ -127,6 +128,8 @@ pub struct McpServer {
     alert_webhook: Option<String>,
     /// RBAC caller profiles (token → policy mapping).
     caller_profiles: Vec<CallerProfile>,
+    /// Short-lived Curve25519 session identity key (generated per session).
+    session_key: StaticKey,
 }
 
 /// Status of an approval request.
@@ -207,6 +210,13 @@ impl McpServer {
             AnomalyConfig::default(),
         )));
 
+        // Generate short-lived Curve25519 keypair for this session
+        let session_key = StaticKey::generate();
+        info!(
+            session_pubkey = %session_key.public_hex(),
+            "generated session cryptographic identity"
+        );
+
         Ok(Self {
             executor: Arc::new(executor),
             policy,
@@ -220,6 +230,7 @@ impl McpServer {
             anomaly_tracker,
             alert_webhook,
             caller_profiles,
+            session_key,
         })
     }
 
@@ -416,7 +427,8 @@ impl McpServer {
                     "name": "rf-mcp-server",
                     "version": env!("CARGO_PKG_VERSION")
                 },
-                "sessionId": self.session_id
+                "sessionId": self.session_id,
+                "sessionPublicKey": self.session_key.public_hex()
             }),
         )
     }
@@ -626,6 +638,7 @@ impl McpServer {
             "max_output_bytes": policy.max_output_bytes,
             "timeout_seconds": policy.timeout_seconds,
             "session_id": self.session_id,
+            "session_public_key": self.session_key.public_hex(),
             "note": "Use rf_query_policy to check specific commands. All operations are deny-by-default."
         });
         Ok(tools::text_content(
@@ -1051,6 +1064,10 @@ mod tests {
         let result = response.result.unwrap();
         assert_eq!(result["protocolVersion"], MCP_VERSION);
         assert!(result["capabilities"]["tools"].is_object());
+        // Session cryptographic identity is present
+        assert!(result["sessionPublicKey"].is_string());
+        let pubkey = result["sessionPublicKey"].as_str().unwrap();
+        assert_eq!(pubkey.len(), 64); // 32 bytes hex-encoded
     }
 
     #[tokio::test]
