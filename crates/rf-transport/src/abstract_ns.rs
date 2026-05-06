@@ -131,18 +131,66 @@ impl Driver for AbstractNsDriver {
 
         #[cfg(target_os = "linux")]
         {
-            use std::os::linux::net::SocketAddrExt;
-            use tokio::net::UnixStream;
+            use std::os::unix::io::FromRawFd;
 
-            let addr = std::os::unix::net::SocketAddr::from_abstract_name(sock_name.as_bytes())
-                .map_err(|e| {
-                    TransportError::Connection(format!("abstract-ns: invalid name: {e}"))
-                })?;
+            // Use raw libc for abstract namespace socket connection (portable across Linux targets)
+            let name_bytes = sock_name.as_bytes().to_vec();
+            let std_stream = tokio::task::spawn_blocking(move || {
+                unsafe {
+                    let fd = libc::socket(libc::AF_UNIX, libc::SOCK_STREAM | libc::SOCK_CLOEXEC, 0);
+                    if fd < 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
 
-            let stream = UnixStream::connect_addr(addr.into()).await.map_err(|e| {
+                    // Build abstract socket address: first byte is NUL, then the name
+                    let mut addr: libc::sockaddr_un = std::mem::zeroed();
+                    addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
+                    // sun_path[0] = 0 (abstract namespace indicator)
+                    // sun_path[1..] = name bytes
+                    let max_len = addr.sun_path.len() - 1;
+                    if name_bytes.len() > max_len {
+                        libc::close(fd);
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "abstract socket name too long",
+                        ));
+                    }
+                    for (i, &b) in name_bytes.iter().enumerate() {
+                        addr.sun_path[i + 1] = b as libc::c_char;
+                    }
+
+                    let addr_len = (std::mem::size_of::<libc::sa_family_t>() + 1 + name_bytes.len())
+                        as libc::socklen_t;
+
+                    let ret = libc::connect(
+                        fd,
+                        &addr as *const libc::sockaddr_un as *const libc::sockaddr,
+                        addr_len,
+                    );
+                    if ret < 0 {
+                        let err = std::io::Error::last_os_error();
+                        libc::close(fd);
+                        return Err(err);
+                    }
+
+                    Ok(std::os::unix::net::UnixStream::from_raw_fd(fd))
+                }
+            })
+            .await
+            .map_err(|e| {
+                TransportError::Connection(format!("abstract-ns: spawn_blocking failed: {e}"))
+            })?
+            .map_err(|e| {
                 TransportError::Connection(format!(
                     "abstract-ns: connect to @{sock_name} failed: {e}"
                 ))
+            })?;
+
+            std_stream.set_nonblocking(true).map_err(|e| {
+                TransportError::Connection(format!("abstract-ns: set_nonblocking failed: {e}"))
+            })?;
+            let stream = tokio::net::UnixStream::from_std(std_stream).map_err(|e| {
+                TransportError::Connection(format!("abstract-ns: tokio wrap failed: {e}"))
             })?;
 
             let (read, write) = tokio::io::split(stream);
@@ -166,16 +214,65 @@ impl Driver for AbstractNsDriver {
 
         #[cfg(target_os = "linux")]
         {
-            use std::os::linux::net::SocketAddrExt;
-            use tokio::net::UnixListener;
+            use std::os::unix::io::FromRawFd;
 
-            let addr = std::os::unix::net::SocketAddr::from_abstract_name(sock_name.as_bytes())
-                .map_err(|e| {
-                    TransportError::Connection(format!("abstract-ns: invalid name: {e}"))
-                })?;
+            // Use raw libc for abstract namespace socket binding (portable across Linux targets)
+            let name_bytes = sock_name.as_bytes().to_vec();
+            let std_listener = unsafe {
+                let fd = libc::socket(libc::AF_UNIX, libc::SOCK_STREAM | libc::SOCK_CLOEXEC, 0);
+                if fd < 0 {
+                    return Err(TransportError::Connection(format!(
+                        "abstract-ns: socket creation failed: {}",
+                        std::io::Error::last_os_error()
+                    )));
+                }
 
-            let listener = UnixListener::bind_addr(&addr.into()).map_err(|e| {
-                TransportError::Connection(format!("abstract-ns: bind to @{sock_name} failed: {e}"))
+                let mut addr_un: libc::sockaddr_un = std::mem::zeroed();
+                addr_un.sun_family = libc::AF_UNIX as libc::sa_family_t;
+                let max_len = addr_un.sun_path.len() - 1;
+                if name_bytes.len() > max_len {
+                    libc::close(fd);
+                    return Err(TransportError::Connection(
+                        "abstract-ns: socket name too long".into(),
+                    ));
+                }
+                for (i, &b) in name_bytes.iter().enumerate() {
+                    addr_un.sun_path[i + 1] = b as libc::c_char;
+                }
+
+                let addr_len = (std::mem::size_of::<libc::sa_family_t>() + 1 + name_bytes.len())
+                    as libc::socklen_t;
+
+                let ret = libc::bind(
+                    fd,
+                    &addr_un as *const libc::sockaddr_un as *const libc::sockaddr,
+                    addr_len,
+                );
+                if ret < 0 {
+                    let err = std::io::Error::last_os_error();
+                    libc::close(fd);
+                    return Err(TransportError::Connection(format!(
+                        "abstract-ns: bind to @{sock_name} failed: {err}"
+                    )));
+                }
+
+                let ret = libc::listen(fd, 128);
+                if ret < 0 {
+                    let err = std::io::Error::last_os_error();
+                    libc::close(fd);
+                    return Err(TransportError::Connection(format!(
+                        "abstract-ns: listen failed: {err}"
+                    )));
+                }
+
+                std::os::unix::net::UnixListener::from_raw_fd(fd)
+            };
+
+            std_listener.set_nonblocking(true).map_err(|e| {
+                TransportError::Connection(format!("abstract-ns: set_nonblocking failed: {e}"))
+            })?;
+            let listener = tokio::net::UnixListener::from_std(std_listener).map_err(|e| {
+                TransportError::Connection(format!("abstract-ns: tokio wrap failed: {e}"))
             })?;
 
             Ok(Box::new(AbstractNsListener { listener }))
