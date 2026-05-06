@@ -338,6 +338,22 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Rollback on failure — automatic rollback command execution on agents that succeeded before failure
 - [x] Grain-based targeting — `TargetGrain` with agent-list targeting for CLI
 
+### MCP Server (AI Agent Integration)
+- [ ] `rf-mcp-server` binary — Model Context Protocol server translating MCP tool calls to RavenFabric operations
+- [ ] stdio transport — single-user, single-session (Claude Desktop, IDE extensions)
+- [ ] HTTP+SSE transport — multi-user, server deployment (web-based AI applications)
+- [ ] Tool: `rf_exec` — policy-validated command execution with structured errors (denial, approval, rate-limit)
+- [ ] Tool: `rf_query_policy` — pre-flight policy check without execution
+- [ ] Tool: `rf_request_approval` — human-in-loop approval workflow for sensitive operations
+- [ ] Tool: `rf_list_my_capabilities` — dynamic capability discovery filtered by agent policy
+- [ ] Tool: `rf_audit_query` — self-audit (agent queries its own recent actions)
+- [ ] Tool: `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
+- [ ] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
+- [ ] Agent reasoning capture — optional `reason` parameter recorded in audit log
+- [ ] Claude Desktop integration — `claude_desktop_config.json` reference setup
+- [ ] Claude Code integration — `claude mcp add` reference setup
+- [ ] Design spec: [docs/src/use-cases/ai-agent-access.md](docs/src/use-cases/ai-agent-access.md)
+
 ---
 
 ## v0.4 — VPN + DNS + Secrets + Delay-Tolerant Delivery
@@ -606,7 +622,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 |---------|-----------|
 | v0.1 | Noise XX mutual auth, deny-by-default policy, structured audit, `unsafe_code = "forbid"` |
 | v0.2 | Symlink traversal protection, output limiting, timeout enforcement |
-| v0.3 | Session recording, forced command mode, tunnel time limits |
+| v0.3 | Session recording, forced command mode, tunnel time limits, MCP server per-session identity |
 | v0.4 | Sealed secrets, key rotation, secret masking in logs |
 | v0.5 | Traffic analysis resistance (noise floor, packet normalization) |
 | v0.5.1 | HKDF-SHA256 for PQ KEM, ChaCha20-Poly1305 mimicry codec, HMAC-signed policy logs, SHA-256 WireGuard key derivation, cryptographic trace IDs |
@@ -666,3 +682,4 @@ All critical and important issues resolved. Minor items tracked below.
 | 2026-05-05 | 13-phase connectivity value chain | Connection lifecycle is a formal pipeline (CONNECTIVITY.md). Each phase is independent and composable |
 | 2026-05-05 | Universal platform target | Agent runs anywhere: server, desktop, mobile, IoT, embedded. No platform excluded by design |
 | 2026-05-05 | Feature-flag architecture | `full` vs `minimal` feature sets allow same codebase to target 10 MB Raspberry Pi and 15 MB router |
+| 2026-05-06 | MCP server as translation layer | Policy enforced by rf-agent, not MCP server. Compromised MCP binary cannot bypass policy. AI agent access uses same crypto/audit/policy as human operators |
