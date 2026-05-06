@@ -2171,7 +2171,7 @@ mod tests {
                 assert_eq!(configs[0].cipher_suites, vec![(0x0001, 0x0001)]);
                 assert_eq!(configs[0].public_name, "e");
             }
-            other => panic!("expected Success, got {:?}", other),
+            other => panic!("expected Success, got {other:?}"),
         }
     }
 
