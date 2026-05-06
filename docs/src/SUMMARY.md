@@ -20,10 +20,10 @@
 
 # User Guide
 
-- [Remote Execution](guide/execution.md)
-- [Policy Configuration](guide/policy-config.md)
 - [Agent Enrollment](guide/enrollment.md)
 - [Relay Setup](guide/relay.md)
+- [Policy Configuration](guide/policy-config.md)
+- [Remote Execution](guide/execution.md)
 - [Production Deployment](guide/production-deployment.md)
 - [Troubleshooting](guide/troubleshooting.md)
 
@@ -42,6 +42,7 @@
 - [Policy YAML Format](reference/policy-yaml.md)
 - [RPC Protocol](reference/rpc.md)
 - [Audit Log Format](reference/audit-log-format.md)
+- [Glossary](reference/glossary.md)
 
 # Development
 

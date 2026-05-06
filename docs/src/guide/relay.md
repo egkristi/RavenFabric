@@ -76,3 +76,9 @@ Agents connect to the nearest relay. The relay selection is automatic based on l
 - **Opaque** — Relay sees only encrypted bytes, never plaintext
 - **No keys** — Relay has no access to agent or client keys
 - **Ephemeral** — Can be restarted/replaced without state loss
+
+## See Also
+
+- [Production Deployment](production-deployment.md) — TLS termination, systemd, monitoring
+- [Architecture: Transport](../architecture/transport.md) — Transport driver internals
+- [Troubleshooting](troubleshooting.md) — Connection and relay issues

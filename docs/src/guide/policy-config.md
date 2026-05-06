@@ -81,3 +81,12 @@ Send `SIGHUP` to the agent process to reload policy without restarting:
 ```bash
 kill -HUP $(pidof rf-agent)
 ```
+
+Immutable rules persist across reloads — they can only be changed by restarting the agent.
+
+## See Also
+
+- [Policy YAML Reference](../reference/policy-yaml.md) — Full schema with RBAC, time windows, tenants
+- [Architecture: Policy Engine](../architecture/policy.md) — How decisions are made
+- [Use Cases](../use-cases/cloudnativepg.md) — Real-world policy examples
+- [Audit Log Format](../reference/audit-log-format.md) — Policy decisions are logged
