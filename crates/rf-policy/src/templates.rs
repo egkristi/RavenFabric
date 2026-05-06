@@ -168,15 +168,10 @@ impl TemplateRegistry {
 
                 // Resources: most restrictive wins
                 if let Some(resources) = spec.get("resources") {
-                    if let Some(bytes) = resources
-                        .get("maxOutputBytes")
-                        .and_then(|v| v.as_u64())
-                    {
+                    if let Some(bytes) = resources.get("maxOutputBytes").and_then(|v| v.as_u64()) {
                         min_output_bytes = min_output_bytes.min(bytes);
                     }
-                    if let Some(timeout) = resources
-                        .get("timeoutSeconds")
-                        .and_then(|v| v.as_u64())
+                    if let Some(timeout) = resources.get("timeoutSeconds").and_then(|v| v.as_u64())
                     {
                         min_timeout = min_timeout.min(timeout as u32);
                     }
@@ -547,10 +542,22 @@ mod tests {
 
     #[test]
     fn test_template_category_display() {
-        assert_eq!(TemplateCategory::CodingAssistant.to_string(), "coding-assistant");
-        assert_eq!(TemplateCategory::ProductionReadOnly.to_string(), "production-read-only");
-        assert_eq!(TemplateCategory::SecurityInvestigator.to_string(), "security-investigator");
+        assert_eq!(
+            TemplateCategory::CodingAssistant.to_string(),
+            "coding-assistant"
+        );
+        assert_eq!(
+            TemplateCategory::ProductionReadOnly.to_string(),
+            "production-read-only"
+        );
+        assert_eq!(
+            TemplateCategory::SecurityInvestigator.to_string(),
+            "security-investigator"
+        );
         assert_eq!(TemplateCategory::CiCdAgent.to_string(), "ci-cd-agent");
-        assert_eq!(TemplateCategory::DatabaseQuery.to_string(), "database-query");
+        assert_eq!(
+            TemplateCategory::DatabaseQuery.to_string(),
+            "database-query"
+        );
     }
 }

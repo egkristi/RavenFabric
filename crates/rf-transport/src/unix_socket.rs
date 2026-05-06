@@ -72,11 +72,7 @@ impl Driver for UnixSocketDriver {
         let path = self.resolve_path(config);
 
         let stream = UnixStream::connect(&path).await.map_err(|e| {
-            TransportError::Connection(format!(
-                "unix socket connect to {}: {}",
-                path.display(),
-                e
-            ))
+            TransportError::Connection(format!("unix socket connect to {}: {}", path.display(), e))
         })?;
 
         Ok(Box::new(stream))
@@ -149,9 +145,9 @@ pub struct PeerCredentials {
 ///
 /// Uses `SO_PEERCRED` on Linux and `LOCAL_PEERCRED` on macOS/FreeBSD.
 pub fn get_peer_credentials(stream: &UnixStream) -> Result<PeerCredentials, TransportError> {
-    let cred = stream.peer_cred().map_err(|e| {
-        TransportError::Connection(format!("cannot get peer credentials: {e}"))
-    })?;
+    let cred = stream
+        .peer_cred()
+        .map_err(|e| TransportError::Connection(format!("cannot get peer credentials: {e}")))?;
 
     Ok(PeerCredentials {
         pid: cred.pid().unwrap_or(0) as u32,
@@ -168,9 +164,11 @@ struct UnixSocketListener {
 #[async_trait::async_trait]
 impl Listener for UnixSocketListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
-        let (stream, _addr) = self.listener.accept().await.map_err(|e| {
-            TransportError::Connection(format!("unix socket accept: {e}"))
-        })?;
+        let (stream, _addr) = self
+            .listener
+            .accept()
+            .await
+            .map_err(|e| TransportError::Connection(format!("unix socket accept: {e}")))?;
         Ok(Box::new(stream))
     }
 }
@@ -274,10 +272,7 @@ mod tests {
         // Accept and check peer creds via raw UnixStream
         let (_raw_stream, _) = {
             // We need to access the raw listener to get credentials
-            let tokio_listener = TokioUnixListener::bind(
-                tmp.path().join("cred2.sock"),
-            )
-            .unwrap();
+            let tokio_listener = TokioUnixListener::bind(tmp.path().join("cred2.sock")).unwrap();
             // For the test, just verify the function compiles and the accept works
             drop(tokio_listener);
             (listener.accept().await.unwrap(), ())
@@ -285,10 +280,28 @@ mod tests {
 
         let _client = dial_handle.await.unwrap().unwrap();
 
-        // The peer credentials function exists and compiles
-        // (We can't easily get a raw UnixStream from Box<dyn AsyncStream> in tests,
-        // but we verify the API compiles correctly)
-        assert!(true, "Unix socket with peer credentials API works");
+        // Verify peer credentials by connecting a new pair through a dedicated listener
+        let cred_sock = tmp.path().join("cred_test.sock");
+        let cred_listener = TokioUnixListener::bind(&cred_sock).unwrap();
+        let connect_handle = tokio::spawn({
+            let p = cred_sock.clone();
+            async move { UnixStream::connect(p).await.unwrap() }
+        });
+        let (server_stream, _) = cred_listener.accept().await.unwrap();
+        let client_stream = connect_handle.await.unwrap();
+
+        let server_creds = get_peer_credentials(&server_stream);
+        assert!(
+            server_creds.is_ok(),
+            "get_peer_credentials should succeed on server side"
+        );
+        let client_creds = get_peer_credentials(&client_stream);
+        assert!(
+            client_creds.is_ok(),
+            "get_peer_credentials should succeed on client side"
+        );
+        // Both sides should report our UID
+        assert_eq!(server_creds.unwrap().uid, client_creds.unwrap().uid);
     }
 
     #[tokio::test]
@@ -327,7 +340,10 @@ mod tests {
         };
 
         let result = driver.dial(&target, &config).await;
-        assert!(result.is_err(), "Should fail to connect to nonexistent socket");
+        assert!(
+            result.is_err(),
+            "Should fail to connect to nonexistent socket"
+        );
     }
 
     #[tokio::test]

@@ -566,6 +566,36 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ---
 
+## Productize AI Agent Integration
+
+**Goal:** Make RavenFabric the zero-friction security layer between AI agents and production systems. Extremely sellable: every team running AI coding assistants needs this yesterday.
+
+### Ship: Hardened rf-mcp-server
+- [ ] Production-hardened `rf-mcp-server` binary — audit-tested, fuzzed, zero known vulnerabilities
+- [ ] Session isolation — each AI agent session runs in its own policy sandbox, no cross-session bleed
+- [ ] Rate limiting per session — prevent runaway AI loops from exhausting system resources
+- [ ] Graceful degradation — if policy engine is unreachable, deny all (fail-closed)
+
+### Clear Install Guides
+- [ ] Claude Code integration guide — `claude mcp add ravenfabric` one-liner, config reference, troubleshooting
+- [ ] Cursor integration guide — MCP server config for Cursor IDE, workspace-scoped policy
+- [ ] Aider integration guide — stdio transport setup, `.aider.conf.yml` reference
+
+### Opinionated Policy Templates (ready-to-use)
+- [ ] "Safe Dev Mode" — AI can read/write project files, run tests, use git; cannot touch system, credentials, or network
+- [ ] "Production AI Guardrails" — read-only production access, require human approval for any mutation, full audit trail
+- [ ] "Read-only Infrastructure AI" — query logs, metrics, status; block all writes, block all exfiltration paths
+
+### Make It Trivial To:
+- [ ] **Drop RavenFabric between AI and system** — single binary, single config file, working in < 5 minutes
+- [ ] **Block `rm -rf`** — immutable deny rules ship by default, not opt-in
+- [ ] **Require approval for production changes** — human-in-loop approval workflow with Slack/Teams/CLI notification
+- [ ] **Log AI reasoning** — every command includes optional `reason` field recorded in structured audit log
+- [ ] Quick-start tutorial — "Secure your AI agent in 5 minutes" (website + README)
+- [ ] Demo video / asciinema — show policy deny in action, approval flow, audit trail
+
+---
+
 ## Distribution & Packaging
 
 **Goal:** RavenFabric installs natively on every platform through the user's preferred package manager. One command to install, one command to update.
