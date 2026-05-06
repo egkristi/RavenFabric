@@ -25,6 +25,8 @@ pub mod stun_client;
 pub mod stun_server;
 pub mod tun;
 pub mod turn_relay;
+#[cfg(unix)]
+pub mod unix_socket;
 #[cfg(feature = "websocket")]
 pub mod websocket;
 pub mod wg_tunnel;

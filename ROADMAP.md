@@ -339,7 +339,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Grain-based targeting — `TargetGrain` with agent-list targeting for CLI
 
 ### Local IPC Transports (Zero-Network Local-to-Local)
-- [ ] UNIX domain socket driver — `UnixSocketDriver` implementing `Driver` trait for same-host communication (Linux, macOS, FreeBSD)
+- [x] UNIX domain socket driver — `UnixSocketDriver` implementing `Driver` trait for same-host communication (Linux, macOS, FreeBSD)
 - [ ] Named pipe driver — `NamedPipeDriver` for Windows local IPC (`\\.\pipe\ravenfabric`)
 - [ ] Stdio pipe driver — `StdioDriver` for parent-child process communication (MCP stdio transport, embedded agents)
 - [ ] Vsock driver — `VsockDriver` for VM-to-hypervisor communication (firecracker, cloud-hypervisor, QEMU)
@@ -347,7 +347,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Automatic driver selection — `rf exec local` detects co-located agent and uses fastest available IPC (vsock > unix > named-pipe > loopback)
 - [ ] File-descriptor passing — pass pre-authenticated FDs over UNIX sockets for zero-copy handoff
 - [ ] Socket activation — systemd/launchd socket activation for on-demand agent start (sd_listen_fds / launchd plist)
-- [ ] Permission enforcement — socket file mode 0600/0660, peer credential verification via `SO_PEERCRED` (Linux) / `LOCAL_PEERCRED` (macOS)
+- [x] Permission enforcement — socket file mode 0600/0660, peer credential verification via `SO_PEERCRED` (Linux) / `LOCAL_PEERCRED` (macOS)
 
 ### MCP Server (AI Agent Integration)
 - [ ] `rf-mcp-server` binary — Model Context Protocol server translating MCP tool calls to RavenFabric operations
@@ -366,21 +366,21 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] Design spec: [docs/src/use-cases/ai-agent-access.md](docs/src/use-cases/ai-agent-access.md)
 
 ### Policy Templates Library
-- [ ] "Coding assistant" template — filesystem read/write in project dir, git, package managers, test runners; deny network mutation
-- [ ] "Production read-only" template — allow query/status commands, deny all writes, deny destructive operations
-- [ ] "Security investigator" template — broad read access, deny writes, deny exfiltration, approval for credential access
-- [ ] "CI/CD agent" template — build/test/deploy commands, scoped to repo workdir, approval for production push
-- [ ] "Database query agent" template — SELECT allowed, DML denied by default, approval for schema changes
+- [x] "Coding assistant" template — filesystem read/write in project dir, git, package managers, test runners; deny network mutation
+- [x] "Production read-only" template — allow query/status commands, deny all writes, deny destructive operations
+- [x] "Security investigator" template — broad read access, deny writes, deny exfiltration, approval for credential access
+- [x] "CI/CD agent" template — build/test/deploy commands, scoped to repo workdir, approval for production push
+- [x] "Database query agent" template — SELECT allowed, DML denied by default, approval for schema changes
 - [ ] Template validation CLI — `rf policy validate --template coding-assistant`
-- [ ] Template composition — layer multiple templates with deny-wins conflict resolution
+- [x] Template composition — layer multiple templates with deny-wins conflict resolution
 
 ### Prompt Injection Detection
-- [ ] Command-level heuristics — detect base64-encoded payloads, hex-encoded commands, unicode homoglyphs in arguments
-- [ ] Pattern library — known injection markers (markdown escapes, instruction overrides, role-play triggers)
-- [ ] Evasion detection — obfuscated commands (string concatenation, variable indirection, eval patterns)
-- [ ] Configurable response — `block` (deny + audit), `flag` (allow + alert), `log` (allow + record suspicion score)
-- [ ] Suspicion scoring — cumulative score per session; threshold triggers automatic capability reduction
-- [ ] Integration with audit log — injection attempts recorded with matched pattern and confidence level
+- [x] Command-level heuristics — detect base64-encoded payloads, hex-encoded commands, unicode homoglyphs in arguments
+- [x] Pattern library — known injection markers (markdown escapes, instruction overrides, role-play triggers)
+- [x] Evasion detection — obfuscated commands (string concatenation, variable indirection, eval patterns)
+- [x] Configurable response — `block` (deny + audit), `flag` (allow + alert), `log` (allow + record suspicion score)
+- [x] Suspicion scoring — cumulative score per session; threshold triggers automatic capability reduction
+- [x] Integration with audit log — injection attempts recorded with matched pattern and confidence level
 
 ---
 

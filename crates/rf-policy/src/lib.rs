@@ -3,5 +3,7 @@ pub mod collection;
 pub mod decision;
 pub mod distributed;
 pub mod error;
+pub mod injection;
 pub mod rbac;
 pub mod rpc_policy;
+pub mod templates;

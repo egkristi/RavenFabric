@@ -10,4 +10,6 @@ pub enum PolicyError {
         pattern: String,
         source: regex::Error,
     },
+    #[error("policy validation error: {0}")]
+    Validation(String),
 }

@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~31,000 LOC | 564 tests | 0 clippy warnings | All CI green**
+**~32,600 LOC | 593 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -595,6 +595,8 @@ What works today:
 - Multi-tenant isolation with cross-tenant blocking
 - SecurityPolicy with immutable deny rules (rm -rf, mkfs, dd, fork bomb)
 - Capability-based auth tokens with delegation and attenuation
+- Policy templates library (coding-assistant, production-read-only, security-investigator, ci-cd-agent, database-query)
+- Prompt injection detection (base64/hex detection, homoglyphs, shell evasion, injection markers, exfiltration)
 - Command execution under policy control with timeout and output limiting (full, tested)
 - Structured JSON-lines audit logging (full)
 - Msgpack RPC codec with length-prefixed framing and roundtrip tests (full)
@@ -605,6 +607,7 @@ What works today:
 - In-memory transport driver for testing (full, tested)
 - WebSocket transport driver with DuplexStream bridge (full)
 - QUIC transport driver (quinn, 0-RTT, connection migration, multiplexed streams)
+- UNIX domain socket transport driver with peer credential verification and stale socket removal
 - WireGuard userspace tunnel (UDP socket, key handling, peer management)
 - DNS tunnel codec (base32/hex encoding, query fragmentation, response decoding)
 - ICMP tunnel framer (echo request framing, serialize/deserialize, session multiplexing)
