@@ -94,6 +94,8 @@ pub struct McpServer {
     rate_limiter: Arc<tokio::sync::Mutex<RateLimiter>>,
     /// Per-session behavioral anomaly tracker.
     anomaly_tracker: Arc<tokio::sync::Mutex<IdentityBaseline>>,
+    /// Optional webhook URL for anomaly/security alerts.
+    alert_webhook: Option<String>,
 }
 
 /// Status of an approval request.
@@ -128,6 +130,7 @@ impl McpServer {
         caller_key: &str,
         api_token: Option<String>,
         max_requests_per_minute: Option<u32>,
+        alert_webhook: Option<String>,
     ) -> anyhow::Result<Self> {
         let policy = if let Some(path) = policy_path {
             RpcPolicy::load(path)?
@@ -181,6 +184,7 @@ impl McpServer {
             authenticated,
             rate_limiter,
             anomaly_tracker,
+            alert_webhook,
         })
     }
 
@@ -319,7 +323,7 @@ impl McpServer {
         if let Some(ref expected_token) = self.api_token {
             let provided = params.get("apiToken").and_then(|t| t.as_str());
             match provided {
-                Some(token) if constant_time_eq(token.as_bytes(), expected_token.as_bytes()) => {
+                Some(token) if self.validate_token(token, expected_token) => {
                     *self.authenticated.lock().await = true;
                     info!(session_id = %self.session_id, "API token validated");
                 }
@@ -695,6 +699,22 @@ impl McpServer {
         }
     }
 
+    /// Validate a provided token against expected token(s).
+    /// Supports comma-separated tokens for rotation grace period
+    /// (e.g., "new-token,old-token" allows both during transition).
+    #[allow(clippy::unused_self)]
+    fn validate_token(&self, provided: &str, expected: &str) -> bool {
+        // Check if expected contains multiple tokens (comma-separated)
+        for candidate in expected.split(',') {
+            let candidate = candidate.trim();
+            if !candidate.is_empty() && constant_time_eq(provided.as_bytes(), candidate.as_bytes())
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Record an audit entry for this session.
     async fn record_audit(&self, command: &str, response: &Response, reason: Option<&str>) {
         let (decision, matched_rule, exit_code) = match &response.result {
@@ -756,6 +776,26 @@ impl McpServer {
             }
         }
 
+        // Send webhook alert for anomaly events
+        if !anomalies.is_empty() {
+            if let Some(ref webhook_url) = self.alert_webhook {
+                let payload = json!({
+                    "type": "anomaly_alert",
+                    "session_id": self.session_id,
+                    "command": command,
+                    "anomaly_count": anomalies.len(),
+                    "events": anomalies.iter().map(|e| json!({
+                        "type": format!("{:?}", e.anomaly_type),
+                        "score": e.score,
+                        "description": e.description,
+                    })).collect::<Vec<_>>(),
+                    "cumulative_score": self.anomaly_tracker.lock().await.score(),
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                });
+                self.send_webhook_alert(webhook_url, &payload).await;
+            }
+        }
+
         // Check if anomaly score warrants session termination
         let response_action = self.anomaly_tracker.lock().await.recommended_response();
         if response_action == AnomalyResponse::TerminateSession {
@@ -764,6 +804,46 @@ impl McpServer {
                 "anomaly score exceeded termination threshold — session should be terminated"
             );
         }
+    }
+
+    /// Send a webhook alert (fire-and-forget, errors only logged).
+    async fn send_webhook_alert(&self, url: &str, payload: &Value) {
+        let body = serde_json::to_vec(payload).unwrap_or_default();
+        // Use a simple TCP connection to avoid adding HTTP client dependency.
+        // Parse URL and make a basic HTTP POST.
+        match Self::http_post(url, &body).await {
+            Ok(()) => {
+                debug!(url = %url, "webhook alert sent");
+            }
+            Err(e) => {
+                warn!(url = %url, error = %e, "failed to send webhook alert");
+            }
+        }
+    }
+
+    /// Minimal HTTP POST implementation (no external HTTP client dependency).
+    async fn http_post(url: &str, body: &[u8]) -> anyhow::Result<()> {
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpStream;
+
+        // Parse URL (supports http://host:port/path)
+        let url = url.strip_prefix("http://").unwrap_or(url);
+        let (host_port, path) = url.split_once('/').unwrap_or((url, ""));
+        let path = format!("/{path}");
+
+        let stream = TcpStream::connect(host_port).await?;
+        let request = format!(
+            "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            path,
+            host_port,
+            body.len()
+        );
+
+        let (_, mut writer) = tokio::io::split(stream);
+        writer.write_all(request.as_bytes()).await?;
+        writer.write_all(body).await?;
+        writer.flush().await?;
+        Ok(())
     }
 }
 
@@ -813,15 +893,29 @@ mod tests {
     #[tokio::test]
     async fn test_server_creation() {
         let policy_file = create_test_policy();
-        let server = McpServer::new(Some(policy_file.path()), None, "test-caller", None, None);
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        );
         assert!(server.is_ok());
     }
 
     #[tokio::test]
     async fn test_handle_initialize() {
         let policy_file = create_test_policy();
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -840,8 +934,15 @@ mod tests {
     #[tokio::test]
     async fn test_handle_tools_list() {
         let policy_file = create_test_policy();
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -859,8 +960,15 @@ mod tests {
     #[tokio::test]
     async fn test_tool_query_policy_allowed() {
         let policy_file = create_test_policy();
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let result = server
             .tool_query_policy(&json!({"command": "echo hello"}))
@@ -874,8 +982,15 @@ mod tests {
     #[tokio::test]
     async fn test_tool_query_policy_denied() {
         let policy_file = create_test_policy();
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let result = server
             .tool_query_policy(&json!({"command": "rm -rf /"}))
@@ -889,8 +1004,15 @@ mod tests {
     #[tokio::test]
     async fn test_tool_exec_denied_command() {
         let policy_file = create_test_policy();
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let result = server
             .tool_exec(&json!({"command": "rm -rf /tmp/important"}))
@@ -904,8 +1026,15 @@ mod tests {
     #[tokio::test]
     async fn test_tool_audit_query_empty() {
         let policy_file = create_test_policy();
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let result = server.tool_audit_query(&json!({})).await;
         assert!(result.is_ok());
@@ -917,8 +1046,15 @@ mod tests {
     #[tokio::test]
     async fn test_unknown_method() {
         let policy_file = create_test_policy();
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".into(),
@@ -941,6 +1077,7 @@ mod tests {
             "test-caller",
             Some("secret-token-123".into()),
             None,
+            None,
         )
         .unwrap();
 
@@ -957,6 +1094,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_api_token_rotation_accepts_old_and_new() {
+        let policy_file = create_test_policy();
+        // Configure with comma-separated tokens (new,old) for rotation grace period
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            Some("new-token-456,old-token-123".into()),
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Old token should still work
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "old-token-123"}),
+        };
+        let response = server.handle_request(&request).await;
+        assert!(response.result.is_some());
+        assert!(response.error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_api_token_rotation_accepts_new_token() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            Some("new-token-456,old-token-123".into()),
+            None,
+            None,
+        )
+        .unwrap();
+
+        // New token should work
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "new-token-456"}),
+        };
+        let response = server.handle_request(&request).await;
+        assert!(response.result.is_some());
+        assert!(response.error.is_none());
+    }
+
+    #[tokio::test]
     async fn test_api_token_invalid() {
         let policy_file = create_test_policy();
         let server = McpServer::new(
@@ -964,6 +1152,7 @@ mod tests {
             None,
             "test-caller",
             Some("secret-token-123".into()),
+            None,
             None,
         )
         .unwrap();
@@ -989,6 +1178,7 @@ mod tests {
             "test-caller",
             Some("secret-token-123".into()),
             None,
+            None,
         )
         .unwrap();
 
@@ -1012,6 +1202,7 @@ mod tests {
             None,
             "test-caller",
             Some("secret-token-123".into()),
+            None,
             None,
         )
         .unwrap();
@@ -1068,8 +1259,15 @@ mod tests {
     async fn test_rate_limit_applied_to_tool_calls() {
         let policy_file = create_test_policy();
         // Rate limit to 2 per minute
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, Some(2)).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            Some(2),
+            None,
+        )
+        .unwrap();
 
         // Authenticate first
         let init = JsonRpcRequest {
@@ -1111,8 +1309,15 @@ mod tests {
     async fn test_rate_limit_not_applied_to_tools_list() {
         let policy_file = create_test_policy();
         // Very low rate limit
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, Some(1)).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            Some(1),
+            None,
+        )
+        .unwrap();
 
         // Authenticate
         let init = JsonRpcRequest {
@@ -1140,8 +1345,15 @@ mod tests {
     #[tokio::test]
     async fn test_approval_workflow() {
         let policy_file = create_test_policy();
-        let server =
-            McpServer::new(Some(policy_file.path()), None, "test-caller", None, None).unwrap();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         // Authenticate
         let init = JsonRpcRequest {

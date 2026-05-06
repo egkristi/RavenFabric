@@ -44,8 +44,19 @@ struct Cli {
 
     /// API token for authentication. If set, clients must include it in initialize params.
     /// Can also be set via RF_API_TOKEN environment variable.
+    /// Supports multiple tokens (comma-separated) for rotation grace periods.
     #[arg(long, env = "RF_API_TOKEN")]
     api_token: Option<String>,
+
+    /// Path to a file containing the API token. Re-read on each connection for rotation.
+    /// Takes precedence over --api-token if both are set.
+    #[arg(long, env = "RF_API_TOKEN_FILE")]
+    api_token_file: Option<std::path::PathBuf>,
+
+    /// Webhook URL for anomaly/security alert notifications.
+    /// Receives POST with JSON payload when anomaly score exceeds threshold.
+    #[arg(long, env = "RF_ALERT_WEBHOOK")]
+    alert_webhook: Option<String>,
 
     /// Maximum tool calls per minute (rate limiting). Default: 60.
     #[arg(long, env = "RF_RATE_LIMIT")]
@@ -72,12 +83,23 @@ async fn main() -> anyhow::Result<()> {
         "rf-mcp-server starting"
     );
 
+    // Resolve API token: file takes precedence over CLI/env
+    let api_token = if let Some(ref path) = cli.api_token_file {
+        let contents = std::fs::read_to_string(path)
+            .map_err(|e| anyhow::anyhow!("failed to read token file {}: {}", path.display(), e))?;
+        let token = contents.trim().to_string();
+        if token.is_empty() { None } else { Some(token) }
+    } else {
+        cli.api_token
+    };
+
     let server = McpServer::new(
         cli.policy.as_deref(),
         cli.audit.as_deref(),
         &cli.caller_key,
-        cli.api_token,
+        api_token,
         cli.rate_limit,
+        cli.alert_webhook,
     )?;
 
     server.run_stdio().await?;

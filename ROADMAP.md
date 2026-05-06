@@ -361,7 +361,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Tool: `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
 - [x] API token authentication — `--api-token` / `RF_API_TOKEN` env, constant-time validation, reject unauthenticated requests
 - [ ] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
-- [ ] Token rotation — automatic token refresh with configurable TTL, old tokens grace period
+- [x] Token rotation — comma-separated tokens for grace period, --api-token-file for external rotation
 - [ ] RBAC per caller — map API tokens to policy profiles (different callers get different permissions)
 - [x] Rate limiting per session — sliding window request throttle (configurable max requests/minute)
 - [x] Agent reasoning capture — optional `reason` parameter recorded in audit log
@@ -529,7 +529,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Session anomaly scoring — cumulative risk score per session; high score triggers automatic capability reduction or session termination
 - [x] Anomaly types: velocity (too many commands), novelty (accessing paths never accessed before), timing (unusual hours), escalation (repeated denied-then-reformulated attempts)
 - [x] Integration with audit log — anomaly events enriched with baseline comparison data
-- [ ] Alert routing — anomaly alerts to Slack/webhook/email via existing notification infrastructure
+- [x] Alert routing — anomaly alerts to webhook via --alert-webhook / RF_ALERT_WEBHOOK
 
 ### AI Compliance Reporting
 - [x] EU AI Act traceability report — per-agent decision log with reasoning, human oversight records, risk classification
