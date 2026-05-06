@@ -935,6 +935,38 @@
             letter-spacing: 0.05em;
         }
 
+        /* === Try It Today === */
+        .try-section {
+            background: linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-surface) 100%);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .try-terminal {
+            max-width: 680px;
+            margin: var(--space-8) auto 0;
+        }
+
+        .try-note {
+            max-width: 600px;
+            margin: var(--space-6) auto 0;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .try-note code {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 0.15em 0.4em;
+            border-radius: 3px;
+        }
+
+        .try-note a {
+            color: var(--accent);
+        }
+
         /* === Status / GitHub === */
         .status-section {
             background:
@@ -1310,6 +1342,44 @@
                     <div class="spec-value">Zero. <span class="accent">Always.</span></div>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- ─── TRY IT TODAY ──────────────────────────────────────────── -->
+    <section id="try" class="content-section try-section">
+        <div class="container">
+            <div class="section-eyebrow">Try it today</div>
+            <h2 class="section-title">Running in <em>60 seconds</em>.</h2>
+            <div class="try-terminal">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots"><span></span><span></span><span></span></div>
+                        <div class="terminal-title">quickstart</div>
+                    </div>
+                    <div class="terminal-body">
+<pre><span class="comment"># Install</span>
+$ curl -sSL https://ravenfabric.io/install.sh | sh
+
+<span class="comment"># Start local relay + agent (dev mode, no config needed)</span>
+$ rf dev
+<span class="ok">✓ Local relay running on ws://127.0.0.1:9090</span>
+<span class="ok">✓ Agent "local" connected, policy: allow-all (dev)</span>
+
+<span class="comment"># Execute a command — E2E encrypted, policy-checked, audited</span>
+$ rf exec local "echo hello from RavenFabric"
+<span class="out">hello from RavenFabric</span>
+
+<span class="comment"># See what gets denied</span>
+$ rf exec local "rm -rf /"
+<span class="denied">✗ DENIED — matches immutable deny rule: .*rm.*-rf.*/</span></pre>
+                    </div>
+                </div>
+            </div>
+            <p class="try-note">
+                <code>rf dev</code> runs a full relay + agent in one process with no authentication required.
+                Production deployment uses mutual Noise XX authentication, OTP enrollment, and YAML policy files.
+                <a href="https://github.com/egkristi/RavenFabric#quick-start">Full setup guide →</a>
+            </p>
         </div>
     </section>
 

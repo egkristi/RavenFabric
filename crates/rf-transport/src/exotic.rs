@@ -1058,6 +1058,9 @@ impl MasqueTransport {
             MasqueMethod::ConnectIp => "connect-ip",
         };
 
+        let proxy = &self.proxy_endpoint;
+        let target = &self.target;
+
         // HTTP/3 extended CONNECT pseudo-headers (RFC 9220)
         let request = format!(
             ":method: CONNECT\r\n\
@@ -1066,8 +1069,6 @@ impl MasqueTransport {
              :path: /.well-known/masque/{method_str}/{target}/\r\n\
              capsule-protocol: ?1\r\n\
              \r\n",
-            proxy = self.proxy_endpoint,
-            target = self.target,
         );
         request.into_bytes()
     }
