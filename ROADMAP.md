@@ -302,6 +302,36 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Background exec with ID tracking + signal + wait~~ — fully working
 - [x] Real-time stdout/stderr streaming — fully working (`streaming.rs`)
 
+### Desired-State Convergence Engine
+- [x] `DesiredStateSpec` YAML parsing — full spec with packages, files, services, sysctl resources
+- [x] `ConvergenceEngine` — check actual vs desired state via `SystemProbe` trait
+- [x] Drift detection — per-resource `DriftItem` with `DriftStatus` (Converged/Drifted/Remediated/Failed)
+- [x] Remediation mode — `Remediator` trait, auto-fix drifted resources when `mode: remediate`
+- [x] Version constraint matching — exact, `>=`, `>`, `<`, `<=` operators
+- [x] `ConvergenceReport` — JSON-serializable report with `is_converged()`, `drift_count()`
+- [x] 18 unit tests covering all resource types, drift scenarios, remediation success/failure
+
+### Event System (Trigger-Based Execution)
+- [x] `EventTrigger` enum — Cron, FileWatch, ProcessExit, Webhook, Timer triggers
+- [x] `EventBus` — broadcast-based pub/sub, trigger registration/removal, fire by name
+- [x] `TimerScheduler` — background timer with repeat/one-shot, cancel support
+- [x] `Action` types — Exec, Converge, Notify
+- [x] 12 unit tests covering parsing, bus operations, timer firing
+
+### Result Parsing & Assertions
+- [x] Multi-format parser — JSON (flattened), YAML, CSV, key-value, lines, raw
+- [x] Assertion engine — Eq, Ne, Contains, NotContains, Matches (regex), Gt, Lt, Gte, Lte, Exists
+- [x] Nested JSON/YAML flattening with dot-notation paths
+- [x] `ParseResult` with `all_passed()` / `failure_count()`
+- [x] 18 unit tests covering all formats and assertion operators
+
+### Grains (System Facts Collection)
+- [x] `Grains::collect()` — OS, arch, hostname, env, pointer width
+- [x] `GrainValue` enum — String, Integer, Float, Bool, List
+- [x] Label selector matching — `matches_labels()` for targeting
+- [x] Merge support — overlay custom grains on system-collected facts
+- [x] 10 unit tests covering collection, matching, serialization
+
 ### File Operations
 - [x] ~~Push/pull file + atomic writes~~ — fully working (Read/Write/List actions)
 

@@ -1,4 +1,7 @@
 pub mod command;
+pub mod desired_state;
+pub mod events;
+pub mod grains;
 pub mod health;
 pub mod logtail;
 pub mod metrics;
@@ -6,5 +9,6 @@ pub mod metrics_server;
 pub mod orchestrator;
 pub mod plugin;
 pub mod pty;
+pub mod result_parser;
 pub mod scrape;
 pub mod streaming;

@@ -27,7 +27,7 @@ Cargo workspace with 13 crates:
 | `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~5,700 LOC, 106 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (~530 LOC, 14 tests) |
 | `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection | **Done** (~3,400 LOC, 97 tests) |
-| `rf-executor` | Command execution + streaming under policy control with timeout and output limiting | **Done** (~6,400 LOC, 105 tests) |
+| `rf-executor` | Command execution + streaming under policy control with timeout and output limiting, desired-state convergence, event triggers, result parsing, grains | **Done** (~9,200 LOC, 163 tests) |
 | `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff, single-threaded mode) | **Done** (~380 LOC) |
@@ -36,7 +36,7 @@ Cargo workspace with 13 crates:
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (240 LOC, 2 tests) |
 
-**Total: ~40,700 LOC, 740 tests, 0 clippy warnings.**
+**Total: ~43,400 LOC, 798 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
