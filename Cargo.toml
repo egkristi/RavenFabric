@@ -11,6 +11,7 @@ members = [
     "crates/rf-relay",
     "crates/rf-agent",
     "crates/rf-cli",
+    "crates/rf-mcp-server",
     "crates/rf-integration-tests",
 ]
 

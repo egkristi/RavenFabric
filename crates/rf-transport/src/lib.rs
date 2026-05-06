@@ -1,3 +1,5 @@
+pub mod abstract_ns;
+pub mod auto_select;
 pub mod catalog;
 pub mod conn_runner;
 pub mod connmgr;
@@ -12,6 +14,7 @@ pub mod latency;
 pub mod memory;
 pub mod mesh;
 pub mod migration;
+pub mod named_pipe;
 pub mod nat;
 pub mod netwatch;
 pub mod obfuscation;
@@ -28,6 +31,7 @@ pub mod tun;
 pub mod turn_relay;
 #[cfg(unix)]
 pub mod unix_socket;
+pub mod vsock;
 #[cfg(feature = "websocket")]
 pub mod websocket;
 pub mod wg_tunnel;

@@ -1,0 +1,36 @@
+[package]
+name = "rf-mcp-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+description = "RavenFabric MCP (Model Context Protocol) server — policy-controlled AI agent access"
+
+[features]
+default = ["full"]
+full = ["rf-executor/sysinfo"]
+minimal = []
+
+[dependencies]
+rf-policy = { path = "../rf-policy", version = "0.1.0" }
+rf-audit = { path = "../rf-audit", version = "0.1.0" }
+rf-executor = { path = "../rf-executor", version = "0.1.0" }
+rf-rpc = { path = "../rf-rpc", version = "0.1.0" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { version = "4", features = ["derive", "env"] }
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

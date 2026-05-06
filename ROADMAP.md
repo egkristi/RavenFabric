@@ -340,27 +340,27 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Local IPC Transports (Zero-Network Local-to-Local)
 - [x] UNIX domain socket driver — `UnixSocketDriver` implementing `Driver` trait for same-host communication (Linux, macOS, FreeBSD)
-- [ ] Named pipe driver — `NamedPipeDriver` for Windows local IPC (`\\.\pipe\ravenfabric`)
+- [x] Named pipe driver — `NamedPipeDriver` for Windows local IPC (`\\.\pipe\ravenfabric`)
 - [x] Stdio pipe driver — `StdioDriver` for parent-child process communication (MCP stdio transport, embedded agents)
-- [ ] Vsock driver — `VsockDriver` for VM-to-hypervisor communication (firecracker, cloud-hypervisor, QEMU)
-- [ ] Abstract namespace sockets — Linux-specific `@ravenfabric/<session-id>` (no filesystem cleanup needed)
-- [ ] Automatic driver selection — `rf exec local` detects co-located agent and uses fastest available IPC (vsock > unix > named-pipe > loopback)
+- [x] Vsock driver — `VsockDriver` for VM-to-hypervisor communication (firecracker, cloud-hypervisor, QEMU)
+- [x] Abstract namespace sockets — Linux-specific `@ravenfabric/<session-id>` (no filesystem cleanup needed)
+- [x] Automatic driver selection — `AutoSelectDriver` probes available transports and selects best (vsock > unix > named-pipe > loopback)
 - [ ] File-descriptor passing — pass pre-authenticated FDs over UNIX sockets for zero-copy handoff
-- [ ] Socket activation — systemd/launchd socket activation for on-demand agent start (sd_listen_fds / launchd plist)
+- [x] Socket activation — systemd/launchd socket activation for on-demand agent start (sd_listen_fds / launchd plist)
 - [x] Permission enforcement — socket file mode 0600/0660, peer credential verification via `SO_PEERCRED` (Linux) / `LOCAL_PEERCRED` (macOS)
 
 ### MCP Server (AI Agent Integration)
-- [ ] `rf-mcp-server` binary — Model Context Protocol server translating MCP tool calls to RavenFabric operations
-- [ ] stdio transport — single-user, single-session (Claude Desktop, IDE extensions)
+- [x] `rf-mcp-server` binary — Model Context Protocol server translating MCP tool calls to RavenFabric operations
+- [x] stdio transport — single-user, single-session (Claude Desktop, IDE extensions)
 - [ ] HTTP+SSE transport — multi-user, server deployment (web-based AI applications)
-- [ ] Tool: `rf_exec` — policy-validated command execution with structured errors (denial, approval, rate-limit)
-- [ ] Tool: `rf_query_policy` — pre-flight policy check without execution
-- [ ] Tool: `rf_request_approval` — human-in-loop approval workflow for sensitive operations
-- [ ] Tool: `rf_list_my_capabilities` — dynamic capability discovery filtered by agent policy
-- [ ] Tool: `rf_audit_query` — self-audit (agent queries its own recent actions)
-- [ ] Tool: `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
+- [x] Tool: `rf_exec` — policy-validated command execution with structured errors (denial, approval, rate-limit)
+- [x] Tool: `rf_query_policy` — pre-flight policy check without execution
+- [x] Tool: `rf_request_approval` — human-in-loop approval workflow for sensitive operations
+- [x] Tool: `rf_list_my_capabilities` — dynamic capability discovery filtered by agent policy
+- [x] Tool: `rf_audit_query` — self-audit (agent queries its own recent actions)
+- [x] Tool: `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
 - [ ] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
-- [ ] Agent reasoning capture — optional `reason` parameter recorded in audit log
+- [x] Agent reasoning capture — optional `reason` parameter recorded in audit log
 - [ ] Claude Desktop integration — `claude_desktop_config.json` reference setup
 - [ ] Claude Code integration — `claude mcp add` reference setup
 - [ ] Design spec: [docs/src/use-cases/ai-agent-access.md](docs/src/use-cases/ai-agent-access.md)
@@ -512,26 +512,26 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Web dashboard. REST/gRPC API. Observability. AI agent behavioral analysis and compliance reporting.
 
 - [x] Controller binary — `AgentRegistry` (heartbeat, stale detection, label selection), `ApiRouter` with 8 REST routes, path matching, role-based access, 7 tests
-- [ ] Web UI
+- [x] Web UI — embedded HTML/CSS/JS dashboard with real-time agent metrics, activity feed, connected agents table
 - [x] REST + gRPC API — `ApiDispatcher` with health/agents endpoints, auth middleware, role-based access (4 tests)
 - [x] OpenTelemetry traces — `TraceContext` (W3C traceparent), `Span` with OTLP JSON export, SpanKind/Status/Events (5 tests)
 - [x] Prometheus metrics endpoint — `metrics_server.rs` HTTP server + agent `--metrics-addr` flag
 
 ### Behavioral Anomaly Detection
-- [ ] Per-identity baseline collection — command frequency, timing patterns, resource access patterns over rolling window
-- [ ] Statistical deviation alerting — Z-score threshold on command rate, new-path-access rate, denial rate
-- [ ] Session anomaly scoring — cumulative risk score per session; high score triggers automatic capability reduction or session termination
-- [ ] Anomaly types: velocity (too many commands), novelty (accessing paths never accessed before), timing (unusual hours), escalation (repeated denied-then-reformulated attempts)
+- [x] Per-identity baseline collection — command frequency, timing patterns, resource access patterns over rolling window
+- [x] Statistical deviation alerting — Z-score threshold on command rate, new-path-access rate, denial rate
+- [x] Session anomaly scoring — cumulative risk score per session; high score triggers automatic capability reduction or session termination
+- [x] Anomaly types: velocity (too many commands), novelty (accessing paths never accessed before), timing (unusual hours), escalation (repeated denied-then-reformulated attempts)
 - [ ] Integration with audit log — anomaly events enriched with baseline comparison data
 - [ ] Alert routing — anomaly alerts to Slack/webhook/email via existing notification infrastructure
 
 ### AI Compliance Reporting
-- [ ] EU AI Act traceability report — per-agent decision log with reasoning, human oversight records, risk classification
-- [ ] NIST AI Risk Management Framework alignment — map RavenFabric controls to NIST AI RMF functions (Govern, Map, Measure, Manage)
-- [ ] Audit report generation — structured PDF/HTML reports from audit log data, filterable by agent, time range, action type
-- [ ] Human-in-loop evidence — approval workflow records as proof of human oversight for high-risk AI operations
-- [ ] Incident reconstruction — timeline view of agent actions leading to an incident, with reasoning and policy decisions
-- [ ] Export formats — JSON, CSV, PDF for compliance submissions; SIEM-compatible event streams
+- [x] EU AI Act traceability report — per-agent decision log with reasoning, human oversight records, risk classification
+- [x] NIST AI Risk Management Framework alignment — map RavenFabric controls to NIST AI RMF functions (Govern, Map, Measure, Manage)
+- [x] Audit report generation — structured reports from audit log data, filterable by agent, time range, action type
+- [x] Human-in-loop evidence — approval workflow records as proof of human oversight for high-risk AI operations
+- [x] Incident reconstruction — timeline view of agent actions leading to an incident, with reasoning and policy decisions
+- [x] Export formats — JSON, CSV for compliance submissions; SIEM-compatible event streams
 
 ---
 

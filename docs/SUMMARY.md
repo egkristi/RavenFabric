@@ -21,11 +21,14 @@
 
 ## Use Cases
 
-- [CloudNativePG Database Access](usecase-cloudnativepg.md)
-- [Edge & IoT Fleet Management](usecase-edge-iot-fleet.md)
-- [Multi-Cluster Kubernetes](usecase-multi-cluster-kubernetes.md)
-- [Air-Gapped Industrial Systems](usecase-airgapped-ics.md)
-- [MSP Multi-Tenant Operations](usecase-msp-multitenant.md)
+- [Use Cases Overview](src/use-cases/README.md)
+- [CloudNativePG Database Access](src/use-cases/cloudnativepg.md)
+- [Edge & IoT Fleet Management](src/use-cases/edge-iot-fleet.md)
+- [Multi-Cluster Kubernetes](src/use-cases/multi-cluster-kubernetes.md)
+- [Air-Gapped Industrial Systems](src/use-cases/airgapped-ics.md)
+- [MSP Multi-Tenant Operations](src/use-cases/msp-multitenant.md)
+- [Maritime & Offshore](src/use-cases/maritime-offshore.md)
+- [Secure AI Agent Access](src/use-cases/ai-agent-access.md)
 
 ## Compliance
 

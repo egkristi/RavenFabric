@@ -201,6 +201,13 @@ cargo fmt --check        # Format check
 - **If pipeline fails**: Create a GitHub Issue for each distinct problem so nothing is forgotten, then fix it
 - **Issue tracking**: When you discover work that should be done but is out of scope for the current task, create a GitHub Issue for it rather than ignoring it
 
+## Feature Completion Checklist
+
+Every new feature **must** include the following before it is considered done:
+
+1. **Changelog updated** — add entry to `CHANGELOG.md` describing the feature
+2. **Relevant documentation updated** — update `README.md`, `ROADMAP.md`, and any other affected docs to reflect the new functionality
+
 ## Policy YAML Format
 
 ```yaml

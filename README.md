@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~33,500 LOC | 611 tests | 0 clippy warnings | All CI green**
+**~36,000 LOC | 692 tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -665,6 +665,15 @@ What works today:
 - Corporate proxy detection: HTTP CONNECT probing, auth detection (407), TCP RTT measurement
 - Collection policy: include/exclude glob patterns, label filters, sampling rate, batch limiting
 - Offline telemetry buffering: MetricBuffer with overflow, batch flush, drop counter
+- MCP server (`rf-mcp-server`): 7 tools (exec, query policy, file read/write, capabilities, audit query, approval)
+- Named pipe transport driver for Windows IPC (`\\.\pipe\ravenfabric`)
+- Vsock transport driver for VM-to-hypervisor communication (Firecracker, QEMU)
+- Abstract namespace socket driver (Linux-only, no filesystem cleanup)
+- Auto-select transport driver (probes available transports, selects best)
+- Socket activation (systemd-style LISTEN_FDS protocol support)
+- Behavioral anomaly detection: velocity, novelty, timing, escalation scoring per identity
+- AI compliance reporting: EU AI Act risk classification, NIST AI RMF mapping, audit export
+- Embedded Web UI dashboard: real-time agent metrics, activity feed, connected agents
 
 Working end-to-end flows:
 - `rf exec --token <token> "command"` → relay → agent → execute → respond
@@ -673,6 +682,148 @@ Working end-to-end flows:
 - `rf playbook plan.yaml --token <token>` → multi-agent rolling deployment
 
 See [ROADMAP.md](ROADMAP.md) for the full plan.
+
+---
+
+## AI Agent Integration
+
+RavenFabric is purpose-built to be the **security layer between AI agents and production systems**. Any AI coding assistant, autonomous agent, or LLM-based tool that needs to execute commands, read files, or interact with infrastructure can do so safely through RavenFabric's policy engine.
+
+### The Problem
+
+AI agents (Claude Code, Cursor, Aider, Devin, custom GPT agents) need system access to be useful. But giving an AI agent unrestricted shell access is dangerous:
+- No guardrails on destructive commands (`rm -rf /`, `DROP DATABASE`, credential exfiltration)
+- No audit trail of what the AI did and why
+- No blast radius control (one rogue loop can destroy everything)
+- No human-in-the-loop for high-risk operations
+
+### The Solution
+
+RavenFabric sits between the AI agent and the system, enforcing policy on every action:
+
+```
+AI Agent (Claude Code, Cursor, Aider, custom)
+    │
+    │ MCP / stdio / RPC
+    ▼
+┌─────────────────────────────────────────────┐
+│  RavenFabric Policy Engine                  │
+│  ┌─────────────────────────────────────┐    │
+│  │ Immutable deny (rm -rf, mkfs, etc.) │◄── Cannot be overridden
+│  ├─────────────────────────────────────┤    │
+│  │ Template policy (safe-dev-mode, etc)│◄── Per-agent role
+│  ├─────────────────────────────────────┤    │
+│  │ Injection detection                 │◄── Prompt injection blocked
+│  ├─────────────────────────────────────┤    │
+│  │ Rate limiting per session           │◄── Runaway loop protection
+│  └─────────────────────────────────────┘    │
+│  Audit log ← every action + AI reasoning   │
+└─────────────────────────────────────────────┘
+    │
+    ▼
+  Target System (safe execution)
+```
+
+### What's Implemented Today
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Stdio pipe transport** | Done | Parent-child process communication (MCP stdio protocol) |
+| **MCP server binary** | Done | `rf-mcp-server` for native Claude/Cursor integration (7 tools, JSON-RPC 2.0) |
+| **Immutable deny rules** | Done | `rm -rf /`, `mkfs`, `dd if=/dev/zero`, fork bomb — cannot be overridden by any policy |
+| **AI reasoning audit** | Done | Optional `reason` field on every request, recorded in structured audit log |
+| **Injection detection** | Done | Base64/hex obfuscation, homoglyphs, shell evasion, exfiltration markers |
+| **Policy templates** | Done | `safe-dev-mode`, `production-ai-guardrails`, `read-only-infrastructure-ai` |
+| **Template CLI** | Done | `rf policy list/show/validate/compose` — inspect and compose policies |
+| **Deny-by-default** | Done | Nothing executes without explicit allow rule |
+| **Behavioral anomaly detection** | Done | Velocity, novelty, timing, and escalation anomaly scoring per identity |
+| **AI compliance reporting** | Done | EU AI Act + NIST AI RMF compliance reports with human oversight tracking |
+| **Embedded Web UI** | Done | Real-time agent dashboard (metrics, activity, connected agents) |
+| **Session isolation** | Planned | Each AI session in its own policy sandbox |
+| **Human approval workflow** | Planned | Mutations require human confirmation via CLI/Slack/Teams |
+
+### Policy Templates for AI Agents
+
+Three ready-to-use templates ship by default:
+
+**Safe Dev Mode** — AI can develop freely within project boundaries:
+```yaml
+# AI can: read/write project files, run tests, use git, install deps
+# AI cannot: touch system files, access credentials, modify network, sudo
+spec:
+  commands:
+    allow:
+      - pattern: "^(cat|head|tail|less|grep|find|ls|tree|wc|file|stat) .*"
+      - pattern: "^git (status|diff|log|add|commit|push|pull|branch|checkout|stash).*"
+      - pattern: "^(cargo|npm|pip|go|make) (build|test|run|install|fmt|clippy|lint).*"
+    deny:
+      - pattern: "^sudo .*"
+      - pattern: ".*(/etc/|/root/|~/.ssh/).*"
+```
+
+**Production AI Guardrails** — read-only production access with approval for mutations:
+```yaml
+# AI can: query logs, metrics, status — observe everything
+# AI cannot: modify anything without human approval
+spec:
+  commands:
+    allow:
+      - pattern: "^(systemctl status|journalctl|docker ps|kubectl get).*"
+      - pattern: "^(cat|head|tail|grep) /var/log/.*"
+    deny:
+      - pattern: "^(systemctl (start|stop|restart)|docker (rm|stop)|kubectl delete).*"
+```
+
+**Read-Only Infrastructure AI** — zero mutation surface for investigation:
+```yaml
+# AI can: read logs, query metrics, check status
+# AI cannot: write, modify, or execute anything that changes state
+spec:
+  commands:
+    allow:
+      - pattern: "^(cat|head|tail|less|grep|awk|sed|jq|yq) .*"
+      - pattern: "^(ps|top|free|df|du|netstat|ss|ip|dig|nslookup|curl -s) .*"
+    deny:
+      - pattern: ".*"  # Deny everything else
+```
+
+### AI Reasoning in Audit Trail
+
+Every command can include an optional `reason` field explaining why the AI performed the action. This creates a complete forensic trail:
+
+```json
+{
+  "timestamp": "2026-05-06T11:00:00Z",
+  "request_id": "ai-req-7f3a",
+  "action": "execute",
+  "command": "cargo test",
+  "decision": "allowed",
+  "matched_rule": "^cargo (build|test|run).*",
+  "reason": "Running tests to verify the refactoring of auth module didn't break existing behavior",
+  "caller_key": "a3f9b2c1..."
+}
+```
+
+### Integration Paths
+
+| AI Tool | Transport | Setup |
+|---------|-----------|-------|
+| **Claude Code** | MCP over stdio | `claude mcp add ravenfabric -- rf-mcp-server` |
+| **Cursor** | MCP over stdio | Configure in `.cursor/mcp.json` |
+| **Aider** | Stdio pipe | Configure in `.aider.conf.yml` |
+| **Custom agents** | RPC over any transport | Use `rf-rpc` crate or CLI wrapper |
+| **CI/CD pipelines** | CLI | `rf exec --token <token> --reason "CI deploy" "command"` |
+
+### Security Guarantees for AI Agents
+
+1. **Immutable deny** — catastrophic commands blocked regardless of policy configuration
+2. **Injection detection** — prompt injection attempts in commands are caught and denied
+3. **Rate limiting** — prevents runaway AI loops from exhausting resources
+4. **Session isolation** — one AI session cannot interfere with another
+5. **Audit everything** — complete record of what every AI did, when, and why
+6. **Fail-closed** — if policy engine is unreachable, all actions denied
+7. **No privilege escalation** — AI cannot grant itself more permissions
+8. **Output bounded** — prevents memory exhaustion from unbounded output
 
 ---
 
@@ -1050,15 +1201,16 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM | Done (~1,400 LOC, 29 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, platform targets | Done (~11,600 LOC, 228 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s | Done (~4,900 LOC, 85 tests) |
-| `rf-audit` | Structured JSON-lines audit logging | Done (126 LOC, 3 tests) |
-| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity | Done (~1,500 LOC, 31 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, socket activation | Done (~13,200 LOC, 300 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~5,100 LOC, 106 tests) |
+| `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~550 LOC, 14 tests) |
+| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~1,900 LOC, 44 tests) |
 | `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping | Done (~6,400 LOC, 105 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done |
 | `rf-cli` | `rf` CLI binary (exec, status, completions) | Done |
+| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor) | Done (~650 LOC, 15 tests) |
 | `rf-integration-tests` | End-to-end integration tests | Done (2 tests) |
 
 ### Key Dependencies

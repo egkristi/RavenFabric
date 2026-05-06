@@ -1666,6 +1666,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "rf-mcp-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "rf-audit",
+ "rf-executor",
+ "rf-policy",
+ "rf-rpc",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "rf-policy"
 version = "0.1.0"
 dependencies = [

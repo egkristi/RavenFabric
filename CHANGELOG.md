@@ -23,3 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Cross-platform release workflow (Linux, macOS, ARM64)
 - **CI**: CodeQL security scanning
 - **CI**: Dependabot for Cargo and GitHub Actions
+- **MCP Server**: `rf-mcp-server` binary with JSON-RPC 2.0 over stdio (7 tools: exec, query_policy, file_read, file_write, list_capabilities, audit_query, request_approval)
+- **Transport**: Named pipe driver for Windows local IPC (`\\.\pipe\ravenfabric`)
+- **Transport**: Vsock driver for VM-to-hypervisor communication (Firecracker, QEMU, cloud-hypervisor)
+- **Transport**: Abstract namespace socket driver (Linux-only, kernel-managed, no filesystem cleanup)
+- **Transport**: Auto-select driver (probes available transports, selects best by priority)
+- **Transport**: Socket activation support (systemd-style LISTEN_FDS protocol)
+- **Policy**: Behavioral anomaly detection — velocity, novelty, timing, and escalation scoring per identity with automatic capability reduction
+- **Audit**: AI compliance reporting — EU AI Act risk classification, NIST AI RMF mapping, human oversight tracking, report generation (JSON/CSV export)
+- **RPC**: Embedded Web UI dashboard — real-time agent metrics, connected agents table, activity feed (self-contained HTML/CSS/JS, no external dependencies)

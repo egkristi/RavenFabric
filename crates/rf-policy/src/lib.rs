@@ -1,3 +1,4 @@
+pub mod anomaly;
 pub mod capability;
 pub mod collection;
 pub mod decision;

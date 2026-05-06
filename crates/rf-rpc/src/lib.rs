@@ -10,4 +10,5 @@ pub mod mux;
 pub mod routing;
 pub mod socks5;
 pub mod types;
+pub mod webui;
 pub mod yamux_mux;
