@@ -132,3 +132,21 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross
       - name: Cross-check
         run: cross check --target ${{ matrix.target }} -p rf-crypto -p rf-transport -p rf-rpc -p rf-audit -p rf-policy -p rf-executor -p rf-bootstrap
+
+  no-std-wasm:
+    name: no_std + WASM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: no-std-wasm
+      - name: Check rf-crypto no_std
+        run: cargo check -p rf-crypto --no-default-features
+      - name: Check rf-crypto WASM
+        run: cargo check -p rf-crypto --no-default-features --target wasm32-wasip1

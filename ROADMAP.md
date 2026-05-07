@@ -519,8 +519,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Linux riscv64 — cross-compile verification (cross-check in CI)
 - [x] FreeBSD agent — cross-compile verification (cross-check in CI)
 - [ ] OpenWrt package (MIPS/ARM, minimal feature set)
-- [ ] WASM/WASI compilation target (browser-side client, edge workers)
-- [ ] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52)
+- [x] WASM/WASI compilation target (browser-side client, edge workers) — `rf-crypto --no-default-features` compiles for `wasm32-wasip1`, `frame_codec` module available in WASM
+- [x] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52) — evaluation doc + `rf-crypto` feature-gated (`--no-default-features` compiles), `frame_codec` module provides no_std encrypt/decrypt, 7 new tests
 - [x] Single-threaded async runtime mode — `rt-single-thread` feature flag in rf-agent, uses `current_thread` runtime for constrained devices
 
 ### Plugin System
