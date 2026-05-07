@@ -1,0 +1,40 @@
+{{- if .Values.agent.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ravenfabric.fullname" . }}-config
+  labels:
+    app.kubernetes.io/name: {{ include "ravenfabric.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: agent
+data:
+  raven.toml: |
+    [agent]
+    relay = "{{ .Values.agent.relayUrl }}"
+    policy_path = "{{ .Values.agent.policyPath }}"
+    audit_path = "/var/log/ravenfabric/audit.jsonl"
+
+    [transport]
+    driver = "websocket"
+    reconnect_interval = 5
+    max_retries = 0
+  policy.yaml: |
+    spec:
+      commands:
+        allow:
+          - pattern: "^(systemctl status|journalctl|kubectl get|df|uptime|free|ps aux).*"
+        deny:
+          - pattern: ".*rm.*-rf.*"
+          - pattern: ".*reboot.*"
+          - pattern: ".*shutdown.*"
+      filesystem:
+        allow:
+          - path: /tmp
+          - path: /var/log
+        deny:
+          - path: /etc/shadow
+          - path: /etc/passwd
+      resources:
+        maxOutputBytes: 10485760
+        timeoutSeconds: 300
+{{- end }}

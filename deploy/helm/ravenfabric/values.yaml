@@ -32,6 +32,13 @@ agent:
   relayUrl: ""
   policyPath: /etc/ravenfabric/policy.yaml
 
+ingress:
+  enabled: false
+  className: ""
+  host: relay.ravenfabric.io
+  annotations: {}
+  tls: []
+
 resources:
   relay:
     limits:

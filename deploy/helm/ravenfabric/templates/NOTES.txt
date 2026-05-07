@@ -1,0 +1,25 @@
+RavenFabric has been deployed to your cluster.
+
+{{- if .Values.ingress.enabled }}
+The relay is accessible at:
+  https://{{ .Values.ingress.host }}
+{{- else }}
+Get the relay URL by running:
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=relay" -o jsonpath="{.items[0].metadata.name}")
+  kubectl port-forward $POD_NAME 9090:9090
+  # Relay available at ws://localhost:9090
+{{- end }}
+
+{{- if .Values.agent.enabled }}
+
+Agents are deployed as a DaemonSet on all nodes.
+Check agent status:
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=agent"
+{{- else }}
+
+Agent DaemonSet is disabled. Enable with:
+  helm upgrade {{ .Release.Name }} ravenfabric --set agent.enabled=true --set agent.relayUrl=ws://{{ include "ravenfabric.fullname" . }}-relay:9090
+{{- end }}
+
+To execute a command on an agent:
+  rf exec <agent-id> "uname -a" --relay ws://localhost:9090

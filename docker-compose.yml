@@ -37,11 +37,11 @@ services:
       - no-new-privileges:true
 
   cli:
-    image: ghcr.io/egkristi/ravenfabric-agent:latest
+    image: ghcr.io/egkristi/ravenfabric-cli:latest
     build:
       context: .
       dockerfile: Dockerfile
-      target: agent
+      target: cli
     depends_on:
       - relay
       - agent
