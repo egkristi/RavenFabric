@@ -143,6 +143,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip1
+      - run: rustup target add wasm32-wasip1
       - uses: Swatinem/rust-cache@v2
         with:
           key: no-std-wasm
