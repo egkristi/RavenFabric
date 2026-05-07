@@ -1203,7 +1203,7 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
-| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM, no_std frame_codec (WASM/bare-metal) | Done (~1,700 LOC, 42 tests) |
+| `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM, no_std frame_codec (WASM/bare-metal) | Done (~1,900 LOC, 42 tests) |
 | `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, socket activation, fd-passing, MASQUE, ECH | Done (~15,700 LOC, 318 tests) |
 | `rf-mcp-client` | MCP client SDK — stdio transport, typed tool wrappers for exec/policy/files/capabilities | Done (~720 LOC, 14 tests) |
 | `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~5,800 LOC, 106 tests) |
@@ -1214,9 +1214,9 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | `rf-relay` | Stateless encrypted relay broker binary | Done (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done (~370 LOC) |
 | `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, completions) | Done (~1,080 LOC) |
-| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~2,500 LOC, 34 tests) |
+| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~2,500 LOC, 30 tests) |
 | `rf-integration-tests` | End-to-end integration tests | Done (2 tests) |
-| `sdks/python` | Python MCP client SDK — pip-installable, async + sync API, LangChain + CrewAI integrations | Done (30 tests) |
+| `sdks/python` | Python MCP client SDK — pip-installable, async + sync API, LangChain + CrewAI + OpenAI + Anthropic + AutoGen integrations | Done (41 tests) |
 | `sdks/typescript` | TypeScript MCP client SDK — npm package, fully typed async API | Done (12 tests) |
 
 ### Key Dependencies
@@ -1269,7 +1269,7 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | Wire protocol versioning | Version byte in handshake | Enables rolling upgrades without breaking deployed agents |
 | Key trust model | Trust-on-first-use (TOFU) + OTP | First enrollment via OTP, subsequent connections via cached static key |
 | Policy transitions | Atomic swap + grace period | In-flight executions complete under old policy. New connections get new policy |
-| Cargo workspace | 12 focused crates | Compile-time isolation, clear boundaries, parallel compilation |
+| Cargo workspace | 13 focused crates | Compile-time isolation, clear boundaries, parallel compilation |
 | CLI name | `rf` (not `ravenfabric`) | Short, memorable, fast to type. `rf exec`, `rf dev`, `rf status` |
 | Identity model | Key-derived address | Address = hash(pubkey). No DNS/DHCP dependency. Reticulum-inspired |
 | Disconnection model | DTN store-carry-forward | Offline is normal. Commands queue, deliver when path exists. NASA Bundle Protocol inspired |

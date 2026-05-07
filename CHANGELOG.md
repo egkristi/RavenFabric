@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Cross-platform release workflow (Linux, macOS, ARM64)
 - **CI**: CodeQL security scanning
 - **CI**: Dependabot for Cargo and GitHub Actions
-- **MCP Server**: `rf-mcp-server` binary with JSON-RPC 2.0 over stdio (7 tools: exec, query_policy, file_read, file_write, list_capabilities, audit_query, request_approval)
+- **MCP Server**: `rf-mcp-server` binary with JSON-RPC 2.0 over stdio (8 tools: exec, query_policy, file_read, file_write, list_capabilities, audit_query, request_approval, check_approval)
 - **Transport**: Named pipe driver for Windows local IPC (`\\.\pipe\ravenfabric`)
 - **Transport**: Vsock driver for VM-to-hypervisor communication (Firecracker, QEMU, cloud-hypervisor)
 - **Transport**: Abstract namespace socket driver (Linux-only, kernel-managed, no filesystem cleanup)
@@ -52,5 +52,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Executor**: Event system — trigger-based execution with Cron, FileWatch, ProcessExit, Webhook, Timer triggers, broadcast-based `EventBus`, `TimerScheduler` (12 tests)
 - **Executor**: Result parsing and assertions — multi-format parser (JSON, YAML, CSV, key-value, lines, regex) with assertion engine (Eq, Ne, Contains, Matches, Gt/Lt/Gte/Lte, Exists) (18 tests)
 - **Executor**: Grains auto-collection — Salt-like system facts (OS, arch, hostname, env) with label selector matching for agent targeting (10 tests)
-- **SDK**: Python MCP client (`sdks/python/`) — pip-installable package with async + sync API, StdioTransport, JSON-RPC 2.0, LangChain + CrewAI integrations, typed dataclasses, 30 tests
+- **SDK**: Python MCP client (`sdks/python/`) — pip-installable package with async + sync API, StdioTransport, JSON-RPC 2.0, LangChain + CrewAI + OpenAI + Anthropic + AutoGen integrations, typed dataclasses, 41 tests
 - **SDK**: TypeScript MCP client (`sdks/typescript/`) — npm package with fully typed async API, StdioTransport, Promise-based JSON-RPC, 12 tests
+- **SDK**: Agent framework benchmark suite (`sdks/python/benchmarks/`)
+- **Crypto**: `no_std` feature gate — `rf-crypto --no-default-features` compiles without std, exposes `frame_codec` module (ChaCha20-Poly1305 encrypt/decrypt, 7 tests)
+- **Crypto**: WASM target support — `rf-crypto` compiles for `wasm32-wasip1`
+- **CI**: `no_std + WASM` job validates both compilation targets
+- **Deploy**: OpenWrt package (`deploy/openwrt/`) — Makefile + procd init script
+- **Deploy**: macOS DMG build script (`deploy/macos/build-dmg.sh`)
+- **Deploy**: Alpine APKBUILD (`deploy/alpine/`) with OpenRC init scripts
+- **Deploy**: Android NDK cross-compile config (`deploy/android/`) + AndroidManifest.xml
+- **Deploy**: iOS Network Extension guide (`deploy/ios/`) + cargo config
+- **Docs**: Asciinema demo recording script (`docs/demo/demo-record.sh`)
+- **Docs**: `no_std` evaluation for bare-metal ARM (`docs/evaluations/no-std-evaluation.md`)
+- **Transport**: MASQUE proxy transport (HTTP/3 CONNECT-UDP tunneling)
+- **Transport**: ECH (Encrypted Client Hello) transport for censorship resistance
+- **MCP Client**: Rust MCP client SDK (`rf-mcp-client`) — stdio transport, typed tool wrappers (720 LOC, 14 tests)
+- **MCP Server**: Fuzz target `fuzz_mcp_protocol` for protocol fuzzing
+- **Transport**: File-descriptor passing via SCM_RIGHTS

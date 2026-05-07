@@ -78,7 +78,7 @@ rf exec test-agent "uname -a"
 **Success criteria:** `rf exec my-agent "uname -a"` returns output, E2E encrypted, policy-checked, audited.
 
 ### Workspace Setup
-- [x] Cargo workspace (`Cargo.toml` with all 10 crate members)
+- [x] Cargo workspace (`Cargo.toml` with all 13 crate members)
 - [x] CI: GitHub Actions (build, test, clippy, fmt, coverage, MSRV)
 - [x] Cross-platform release workflow (Linux, macOS, ARM64)
 - [x] CodeQL security scanning
@@ -586,7 +586,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Battle-tested. Fully documented. Packaged. The first system where "network" is fully abstracted from application and policy layers.
 
-- [x] Fuzz testing (transport, policy, codec) — 3 fuzz targets via cargo-fuzz (fuzz_codec, fuzz_policy, fuzz_frame)
+- [x] Fuzz testing (transport, policy, codec, MCP) — 4 fuzz targets via cargo-fuzz (fuzz_codec, fuzz_policy, fuzz_frame, fuzz_mcp_protocol)
 - [x] Performance benchmarks (criterion benches for crypto + codec) — crypto_bench + codec_bench
 - [x] Kubernetes CRDs + operator — `Reconciler` with desired/observed state diffing, Create/Update/Delete/Skip actions, orphan detection (4 tests)
 - [x] ~~Homebrew formula, apt/rpm repos, AUR, Nix flake~~ — packaging infrastructure ready
@@ -676,7 +676,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 | dnf (Fedora/RHEL) | `ravenfabric.rpm` + Copr | [x] cargo-generate-rpm configured — CI builds on release |
 | pacman (Arch) | AUR `ravenfabric` | [x] PKGBUILD ready (`deploy/aur/PKGBUILD`) — #46 |
 | zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [ ] Planned — #54 |
-| apk (Alpine) | `ravenfabric` (aports) | [ ] Planned — #54 |
+| apk (Alpine) | `ravenfabric` (aports) | [x] APKBUILD ready (`deploy/alpine/`) — #54 |
 | snap | `snap install ravenfabric` | [x] snapcraft.yaml ready — #47 |
 | Flatpak | `io.ravenfabric.Agent` | [x] Manifest ready (`deploy/flatpak/`) — needs Flathub submission #52 |
 | Nix | `nix profile install ravenfabric` | [x] flake.nix ready |
@@ -687,10 +687,10 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| Google Play Store | `io.ravenfabric.agent` | [ ] Planned — #50 |
-| APK (sideload) | `ravenfabric.apk` | [ ] Planned — #50 |
-| Termux (pkg) | `pkg install ravenfabric` | [ ] Planned — #50 |
-| F-Droid | `io.ravenfabric.agent` | [ ] Planned — #50 |
+| Google Play Store | `io.ravenfabric.agent` | [ ] Planned — requires APK wrapper #50 |
+| APK (sideload) | `ravenfabric.apk` | [x] AndroidManifest + NDK config ready (`deploy/android/`) — #50 |
+| Termux (pkg) | `pkg install ravenfabric` | [x] Build instructions in `deploy/android/README.md` — #50 |
+| F-Droid | `io.ravenfabric.agent` | [ ] Planned — requires metadata + APK #50 |
 
 ### iOS / iPadOS
 
@@ -715,7 +715,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Unit Tests
 - Every crate has isolated unit tests (no network, no filesystem)
 - In-memory transport driver for all RPC tests
-- Property-based testing for codec/parser edge cases (via `proptest`)
+- Fuzz testing for codec/parser edge cases (via `cargo-fuzz`)
 
 ### Integration Tests
 - Full pipeline: client → relay → agent → policy → execute → response (in-process)
@@ -805,7 +805,7 @@ All critical and important issues resolved. Minor items tracked below.
 | 2026-05-05 | msgpack over JSON for RPC | Smaller frames, faster parse, binary-safe |
 | 2026-05-05 | Wire protocol version in handshake | Enables rolling upgrades |
 | 2026-05-05 | `rf` as CLI name | Short, memorable, fast to type |
-| 2026-05-05 | Cargo workspace with 10 crates | Compile-time isolation, parallel compilation |
+| 2026-05-05 | Cargo workspace with 13 crates | Compile-time isolation, parallel compilation |
 | 2026-05-05 | Noise XX over all transports | Formally verified, no PKI needed |
 | 2026-05-05 | Relay is stateless and dumb | Minimizes relay's value as attack target |
 | 2026-05-05 | `unsafe_code = "forbid"` | Enforced at workspace level via lints |
