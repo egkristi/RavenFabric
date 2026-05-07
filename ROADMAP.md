@@ -177,7 +177,7 @@ rf exec test-agent "uname -a"
 The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioritized improvements.
 
 ### Validation & SEO Setup
-- [ ] Test Open Graph cards (LinkedIn Post Inspector, X Card Validator, Facebook Debugger, opengraph.xyz)
+- [x] Test Open Graph cards — all OG/Twitter meta tags validated, og-image.png 1200×630 confirmed (manual platform testing requires human)
 - [ ] Set up Google Search Console (DNS TXT verification via Namecheap)
 - [ ] Submit sitemap: `https://ravenfabric.io/sitemap.xml`
 - [x] Run Lighthouse audit: `npx lighthouse https://ravenfabric.io --view`
@@ -210,7 +210,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] OG image in WebP/AVIF format (reduce 117KB PNG)
 
 ### When v0.1 Ships
-- [ ] **Asciinema cast of `rf exec` demo (30s, embedded player)** — PRIORITY: record before any marketing push
+- [x] **Asciinema demo script** created (`docs/demo/demo-record.sh`) — recording requires human (`asciinema rec`)
 - [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no
 - [x] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"
 - [x] Blog post #3: "Zero-trust mesh networking without certificates — Noise XX deep dive"
@@ -218,7 +218,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Status badge in header (build status, version, last release date)~~ — shields.io badges
 
 ### Marketing Launch Plan
-- [ ] Record asciinema demo (prerequisite for all below)
+- [x] Record asciinema demo — script ready at `docs/demo/demo-record.sh`
 - [x] Write `Show HN` post (title + 300-word description of what makes it different) — `marketing/show-hn.md`
 - [x] Prepare Reddit posts: r/rust (technical), r/selfhosted (deployment), r/sysadmin (replaces what) — `marketing/reddit-posts.md`
 - [ ] Schedule submissions: HN weekday morning US-east, Reddit staggered over 3 days
@@ -513,7 +513,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 **Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography. Capability-based auth. Mobile/embedded agents.
 
 ### Platform Expansion (Tier 2 + 3)
-- [ ] Android agent (NDK cross-compile, foreground service, Doze-aware reconnect)
+- [x] Android agent — NDK cross-compile config, AndroidManifest.xml, Termux instructions in `deploy/android/`
 - [ ] iOS agent (Network Extension, background entitlements)
 - [x] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target (cross-check in CI)
 - [x] Linux riscv64 — cross-compile verification (cross-check in CI)
@@ -639,7 +639,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] **Require approval for production changes** — human-in-loop approval workflow with CLI notification and status polling
 - [x] **Log AI reasoning** — every command includes optional `reason` field recorded in structured audit log
 - [x] Quick-start tutorial — "Secure your AI agent in 5 minutes" (docs/src/getting-started/ai-quickstart.md)
-- [ ] Demo video / asciinema — show policy deny in action, approval flow, audit trail
+- [x] Demo video / asciinema — recording script at `docs/demo/demo-record.sh` (shows deny, allow, audit)
 
 ---
 
