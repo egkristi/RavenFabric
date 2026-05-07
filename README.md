@@ -580,7 +580,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~43,500 LOC | 805 Rust tests + 53 SDK tests | 0 clippy warnings | All CI green**
+**~43,500 LOC | 813 Rust tests + 53 SDK tests | 0 clippy warnings | All CI green**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -1215,7 +1215,7 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done (~370 LOC) |
 | `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, completions) | Done (~1,080 LOC) |
 | `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~2,500 LOC, 30 tests) |
-| `rf-integration-tests` | End-to-end integration tests | Done (2 tests) |
+| `rf-integration-tests` | End-to-end integration tests (relay pipeline + MCP server E2E) | Done (10 tests) |
 | `sdks/python` | Python MCP client SDK — pip-installable, async + sync API, LangChain + CrewAI + OpenAI + Anthropic + AutoGen integrations | Done (41 tests) |
 | `sdks/typescript` | TypeScript MCP client SDK — npm package, fully typed async API | Done (12 tests) |
 

@@ -70,3 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP Client**: Rust MCP client SDK (`rf-mcp-client`) — stdio transport, typed tool wrappers (720 LOC, 14 tests)
 - **MCP Server**: Fuzz target `fuzz_mcp_protocol` for protocol fuzzing
 - **Transport**: File-descriptor passing via SCM_RIGHTS
+- **Deploy**: Docker multi-stage build — 4 targets (agent, relay, cli, mcp-server) from scratch/alpine, Rust 1.88 musl static
+- **Deploy**: Docker Compose local demo — relay + agent + CLI containers with shared network
+- **Deploy**: Helm chart — relay Deployment, agent DaemonSet, ConfigMap, Ingress, NOTES.txt, full values.yaml
+- **CI**: Docker workflow — build and push 4 images (multi-arch amd64+arm64) on tag via QEMU
+- **Tests**: MCP server E2E integration tests — 8 tests covering initialize/auth, tools/list, exec (allow/deny), policy query, capabilities, invalid method, rate limiting

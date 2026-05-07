@@ -720,6 +720,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Integration Tests
 - Full pipeline: client → relay → agent → policy → execute → response (in-process)
 - Policy denial verification (E2E denied flows)
+- MCP server E2E: initialize, auth, tools/list, exec (allow/deny), policy query, rate limiting (8 tests)
 - Reconnect after relay restart
 - Hot-reload policy during active session
 
