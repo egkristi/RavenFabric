@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+
+name="RavenFabric Agent"
+description="Secure remote execution and mesh networking agent"
+command="/usr/bin/rf-agent"
+command_args="--config /etc/ravenfabric/raven.toml"
+command_user="ravenfabric:ravenfabric"
+command_background="yes"
+pidfile="/run/$RC_SVCNAME.pid"
+output_log="/var/log/ravenfabric/agent.log"
+error_log="/var/log/ravenfabric/agent.err"
+
+depend() {
+	need net
+	after firewall
+}

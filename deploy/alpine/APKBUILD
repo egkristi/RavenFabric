@@ -1,0 +1,55 @@
+# Contributor: RavenFabric <security@ravenfabric.io>
+# Maintainer: RavenFabric <security@ravenfabric.io>
+pkgname=ravenfabric
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="Secure remote execution and mesh networking agent with Noise XX authentication"
+url="https://ravenfabric.io"
+arch="x86_64 aarch64"
+license="MIT"
+makedepends="cargo"
+install="$pkgname.pre-install"
+subpackages="$pkgname-openrc"
+source="$pkgname-$pkgver.tar.gz::https://github.com/egkristi/RavenFabric/archive/v$pkgver.tar.gz
+	rf-agent.initd
+	rf-agent.confd
+	rf-relay.initd
+	rf-relay.confd
+	"
+builddir="$srcdir/RavenFabric-$pkgver"
+
+build() {
+	cargo build --release --locked --bin rf-agent --bin rf-relay --bin rf
+}
+
+check() {
+	cargo test --release --locked
+}
+
+package() {
+	install -Dm755 target/release/rf-agent "$pkgdir"/usr/bin/rf-agent
+	install -Dm755 target/release/rf-relay "$pkgdir"/usr/bin/rf-relay
+	install -Dm755 target/release/rf "$pkgdir"/usr/bin/rf
+	install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+
+	install -Dm644 deploy/raven.toml.example \
+		"$pkgdir"/etc/ravenfabric/raven.toml
+
+	install -dm750 "$pkgdir"/var/log/ravenfabric
+}
+
+openrc() {
+	default_openrc
+	install -Dm755 "$srcdir"/rf-agent.initd "$subpkgdir"/etc/init.d/rf-agent
+	install -Dm644 "$srcdir"/rf-agent.confd "$subpkgdir"/etc/conf.d/rf-agent
+	install -Dm755 "$srcdir"/rf-relay.initd "$subpkgdir"/etc/init.d/rf-relay
+	install -Dm644 "$srcdir"/rf-relay.confd "$subpkgdir"/etc/conf.d/rf-relay
+}
+
+sha512sums="
+SKIP  ravenfabric-0.1.0.tar.gz
+SKIP  rf-agent.initd
+SKIP  rf-agent.confd
+SKIP  rf-relay.initd
+SKIP  rf-relay.confd
+"

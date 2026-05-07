@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+
+name="RavenFabric Relay"
+description="Stateless encrypted relay broker for RavenFabric"
+command="/usr/bin/rf-relay"
+command_args="--config /etc/ravenfabric/raven.toml"
+command_user="ravenfabric:ravenfabric"
+command_background="yes"
+pidfile="/run/$RC_SVCNAME.pid"
+output_log="/var/log/ravenfabric/relay.log"
+error_log="/var/log/ravenfabric/relay.err"
+
+depend() {
+	need net
+	after firewall
+}
