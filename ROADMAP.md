@@ -609,7 +609,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Custom MCP client SDK (TypeScript) — npm package (`sdks/typescript/`): fully typed async API, StdioTransport, 12 tests
 - [x] OpenAI function-calling adapter — `OpenAIAdapter` with tool definitions in `sdks/python/src/ravenfabric/integrations/openai.py`
 - [x] Anthropic tool-use adapter — `AnthropicAdapter` with tool definitions in `sdks/python/src/ravenfabric/integrations/anthropic.py`
-- [ ] Agent framework benchmark suite — standardized tests measuring policy overhead, latency, throughput across frameworks
+- [x] Agent framework benchmark suite — `sdks/python/benchmarks/run.py`: measures policy overhead, latency, throughput across all frameworks
 
 ---
 
