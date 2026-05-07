@@ -67,7 +67,11 @@ async fn authenticate(server: &McpServer) {
         }),
     );
     let response = server.handle_request(&request).await;
-    assert!(response.error.is_none(), "authenticate should succeed: {:?}", response.error);
+    assert!(
+        response.error.is_none(),
+        "authenticate should succeed: {:?}",
+        response.error
+    );
 }
 
 #[tokio::test]
@@ -88,7 +92,11 @@ async fn test_mcp_initialize() {
     );
 
     let response = server.handle_request(&request).await;
-    assert!(response.error.is_none(), "initialize should succeed: {:?}", response.error);
+    assert!(
+        response.error.is_none(),
+        "initialize should succeed: {:?}",
+        response.error
+    );
     let result = response.result.unwrap();
     assert_eq!(result["protocolVersion"], "2024-11-05");
     assert!(result["capabilities"]["tools"].is_object());
@@ -102,20 +110,34 @@ async fn test_mcp_tools_list() {
 
     let request = make_request("tools/list", json!({}));
     let response = server.handle_request(&request).await;
-    assert!(response.error.is_none(), "tools/list should succeed: {:?}", response.error);
+    assert!(
+        response.error.is_none(),
+        "tools/list should succeed: {:?}",
+        response.error
+    );
 
     let result = response.result.unwrap();
     let tools = result["tools"].as_array().unwrap();
-    assert!(tools.len() >= 7, "should have at least 7 tools, got {}", tools.len());
+    assert!(
+        tools.len() >= 7,
+        "should have at least 7 tools, got {}",
+        tools.len()
+    );
 
-    let tool_names: Vec<&str> = tools
-        .iter()
-        .map(|t| t["name"].as_str().unwrap())
-        .collect();
+    let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(tool_names.contains(&"rf_exec"), "should have rf_exec tool");
-    assert!(tool_names.contains(&"rf_query_policy"), "should have rf_query_policy tool");
-    assert!(tool_names.contains(&"rf_file_read"), "should have rf_file_read tool");
-    assert!(tool_names.contains(&"rf_list_my_capabilities"), "should have rf_list_my_capabilities tool");
+    assert!(
+        tool_names.contains(&"rf_query_policy"),
+        "should have rf_query_policy tool"
+    );
+    assert!(
+        tool_names.contains(&"rf_file_read"),
+        "should have rf_file_read tool"
+    );
+    assert!(
+        tool_names.contains(&"rf_list_my_capabilities"),
+        "should have rf_list_my_capabilities tool"
+    );
 }
 
 #[tokio::test]
@@ -134,14 +156,21 @@ async fn test_mcp_exec_allowed() {
     );
 
     let response = server.handle_request(&request).await;
-    assert!(response.error.is_none(), "exec should succeed for allowed command: {:?}", response.error);
+    assert!(
+        response.error.is_none(),
+        "exec should succeed for allowed command: {:?}",
+        response.error
+    );
 
     let result = response.result.unwrap();
     let content = result["content"].as_array().unwrap();
     assert!(!content.is_empty(), "should have output content");
 
     let text = content[0]["text"].as_str().unwrap();
-    assert!(text.contains("integration-test"), "output should contain 'integration-test', got: {text}");
+    assert!(
+        text.contains("integration-test"),
+        "output should contain 'integration-test', got: {text}"
+    );
 }
 
 #[tokio::test]
@@ -162,7 +191,10 @@ async fn test_mcp_exec_denied() {
     let response = server.handle_request(&request).await;
     // Denied commands should return an error or isError content
     if let Some(result) = &response.result {
-        let is_error = result.get("isError").and_then(|v| v.as_bool()).unwrap_or(false);
+        let is_error = result
+            .get("isError")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if !is_error {
             let content = result["content"].as_array().unwrap();
             let text = content[0]["text"].as_str().unwrap_or("");
@@ -191,7 +223,11 @@ async fn test_mcp_query_policy() {
     );
 
     let response = server.handle_request(&request).await;
-    assert!(response.error.is_none(), "query_policy should succeed: {:?}", response.error);
+    assert!(
+        response.error.is_none(),
+        "query_policy should succeed: {:?}",
+        response.error
+    );
 
     let result = response.result.unwrap();
     let content = result["content"].as_array().unwrap();
@@ -216,7 +252,11 @@ async fn test_mcp_list_capabilities() {
     );
 
     let response = server.handle_request(&request).await;
-    assert!(response.error.is_none(), "list_capabilities should succeed: {:?}", response.error);
+    assert!(
+        response.error.is_none(),
+        "list_capabilities should succeed: {:?}",
+        response.error
+    );
 
     let result = response.result.unwrap();
     let content = result["content"].as_array().unwrap();
@@ -230,7 +270,10 @@ async fn test_mcp_invalid_method() {
 
     let request = make_request("nonexistent/method", json!({}));
     let response = server.handle_request(&request).await;
-    assert!(response.error.is_some(), "invalid method should return error");
+    assert!(
+        response.error.is_some(),
+        "invalid method should return error"
+    );
 
     let error = response.error.unwrap();
     assert_eq!(error.code, -32601, "should be method not found error");
@@ -270,7 +313,11 @@ async fn test_mcp_rate_limiting() {
         }),
     );
     let resp = server.handle_request(&init_request).await;
-    assert!(resp.error.is_none(), "rate-limit auth failed: {:?}", resp.error);
+    assert!(
+        resp.error.is_none(),
+        "rate-limit auth failed: {:?}",
+        resp.error
+    );
 
     // Send requests rapidly — should eventually get rate-limited
     let mut rate_limited = false;
