@@ -336,11 +336,9 @@ fn evaluate_assertion(assertion: &Assertion, fields: &HashMap<String, String>) -
                 AssertOp::Ne => actual_val != &assertion.value,
                 AssertOp::Contains => actual_val.contains(&assertion.value),
                 AssertOp::NotContains => !actual_val.contains(&assertion.value),
-                AssertOp::Matches => {
-                    regex::Regex::new(&assertion.value)
-                        .map(|re| re.is_match(actual_val))
-                        .unwrap_or(false)
-                }
+                AssertOp::Matches => regex::Regex::new(&assertion.value)
+                    .map(|re| re.is_match(actual_val))
+                    .unwrap_or(false),
                 AssertOp::Gt => numeric_cmp(actual_val, &assertion.value, |a, b| a > b),
                 AssertOp::Lt => numeric_cmp(actual_val, &assertion.value, |a, b| a < b),
                 AssertOp::Gte => numeric_cmp(actual_val, &assertion.value, |a, b| a >= b),

@@ -10,8 +10,10 @@ on:
 
 jobs:
   analyze:
-    name: Analyze
+    name: Analyze (${{ matrix.language }}, ${{ matrix.build-mode }})
     runs-on: ubuntu-latest
+    # CodeQL requires Advanced Security on private repos; skip if unavailable
+    if: github.event.repository.visibility == 'public' || vars.CODEQL_ENABLED == 'true'
     permissions:
       security-events: write
       actions: read

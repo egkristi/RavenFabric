@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 use tracing::{info, warn};
 
 /// Maximum number of events buffered in the broadcast channel.
@@ -87,7 +87,10 @@ pub enum Action {
     /// Run a desired-state convergence check.
     Converge { spec: String },
     /// Send a webhook notification.
-    Notify { url: String, payload: Option<String> },
+    Notify {
+        url: String,
+        payload: Option<String>,
+    },
 }
 
 /// A fired event with metadata.
@@ -104,7 +107,9 @@ impl Event {
     /// Create a new event from a trigger firing.
     pub fn from_trigger(trigger: &EventTrigger, metadata: HashMap<String, String>) -> Self {
         let (trigger_name, trigger_type, action) = match trigger {
-            EventTrigger::Cron { name, action, .. } => (name.clone(), "cron".to_string(), action.clone()),
+            EventTrigger::Cron { name, action, .. } => {
+                (name.clone(), "cron".to_string(), action.clone())
+            }
             EventTrigger::FileWatch { name, action, .. } => {
                 (name.clone(), "file_watch".to_string(), action.clone())
             }
@@ -312,7 +317,10 @@ action:
 "#;
         let trigger: EventTrigger = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(trigger.name(), "hourly-check");
-        if let EventTrigger::Cron { schedule, action, .. } = &trigger {
+        if let EventTrigger::Cron {
+            schedule, action, ..
+        } = &trigger
+        {
             assert_eq!(schedule, "0 * * * *");
             assert!(matches!(action, Action::Exec { .. }));
         } else {
@@ -488,7 +496,10 @@ action:
         let bus = EventBus::new();
         let result = bus.fire_trigger("nonexistent", HashMap::new()).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), EventError::TriggerNotFound(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            EventError::TriggerNotFound(_)
+        ));
     }
 
     #[tokio::test]
@@ -509,13 +520,10 @@ action:
         scheduler.start_timer(trigger).await.unwrap();
 
         // Wait for the timer to fire
-        let event = tokio::time::timeout(
-            tokio::time::Duration::from_secs(3),
-            rx.recv(),
-        )
-        .await
-        .expect("timer should fire within 3s")
-        .unwrap();
+        let event = tokio::time::timeout(tokio::time::Duration::from_secs(3), rx.recv())
+            .await
+            .expect("timer should fire within 3s")
+            .unwrap();
 
         assert_eq!(event.trigger_name, "fast-timer");
         scheduler.cancel_all().await;

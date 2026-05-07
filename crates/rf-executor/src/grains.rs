@@ -287,7 +287,7 @@ mod tests {
     fn test_grain_value_as_str() {
         assert_eq!(GrainValue::String("hello".into()).as_str(), "hello");
         assert_eq!(GrainValue::Integer(42).as_str(), "42");
-        assert_eq!(GrainValue::Float(3.14).as_str(), "3.14");
+        assert_eq!(GrainValue::Float(2.71).as_str(), "2.71");
         assert_eq!(GrainValue::Bool(true).as_str(), "true");
         assert_eq!(
             GrainValue::List(vec!["a".into(), "b".into()]).as_str(),

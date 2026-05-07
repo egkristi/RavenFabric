@@ -227,9 +227,9 @@ pub struct ConvergenceReport {
 impl ConvergenceReport {
     /// Returns true if all resources are converged (or successfully remediated).
     pub fn is_converged(&self) -> bool {
-        self.items.iter().all(|i| {
-            matches!(i.status, DriftStatus::Converged | DriftStatus::Remediated)
-        })
+        self.items
+            .iter()
+            .all(|i| matches!(i.status, DriftStatus::Converged | DriftStatus::Remediated))
     }
 
     /// Count of drifted or failed items.
@@ -324,7 +324,11 @@ impl ConvergenceEngine {
     }
 
     /// Perform convergence: check + remediate if mode is Remediate.
-    pub fn converge(&self, probe: &dyn SystemProbe, remediator: &dyn Remediator) -> ConvergenceReport {
+    pub fn converge(
+        &self,
+        probe: &dyn SystemProbe,
+        remediator: &dyn Remediator,
+    ) -> ConvergenceReport {
         let mut report = self.check(probe);
 
         if self.spec.spec.convergence.mode == ConvergenceMode::Report {
@@ -358,12 +362,21 @@ impl ConvergenceEngine {
 
     fn check_package(&self, pkg: &PackageState, probe: &dyn SystemProbe) -> DriftItem {
         let installed = probe.is_package_installed(&pkg.name);
-        let should_exist = matches!(pkg.state, ResourcePresence::Installed | ResourcePresence::Present);
+        let should_exist = matches!(
+            pkg.state,
+            ResourcePresence::Installed | ResourcePresence::Present
+        );
 
         let (status, detail) = if should_exist && !installed {
-            (DriftStatus::Drifted, format!("package '{}' should be installed but is not", pkg.name))
+            (
+                DriftStatus::Drifted,
+                format!("package '{}' should be installed but is not", pkg.name),
+            )
         } else if !should_exist && installed {
-            (DriftStatus::Drifted, format!("package '{}' should be absent but is installed", pkg.name))
+            (
+                DriftStatus::Drifted,
+                format!("package '{}' should be absent but is installed", pkg.name),
+            )
         } else if should_exist && installed {
             // Check version constraint if specified
             if let Some(ref version_constraint) = pkg.version {
@@ -377,16 +390,28 @@ impl ConvergenceEngine {
                             ),
                         )
                     } else {
-                        (DriftStatus::Converged, format!("package '{}' version {actual_version} OK", pkg.name))
+                        (
+                            DriftStatus::Converged,
+                            format!("package '{}' version {actual_version} OK", pkg.name),
+                        )
                     }
                 } else {
-                    (DriftStatus::Converged, format!("package '{}' installed (version unknown)", pkg.name))
+                    (
+                        DriftStatus::Converged,
+                        format!("package '{}' installed (version unknown)", pkg.name),
+                    )
                 }
             } else {
-                (DriftStatus::Converged, format!("package '{}' installed", pkg.name))
+                (
+                    DriftStatus::Converged,
+                    format!("package '{}' installed", pkg.name),
+                )
             }
         } else {
-            (DriftStatus::Converged, format!("package '{}' absent as desired", pkg.name))
+            (
+                DriftStatus::Converged,
+                format!("package '{}' absent as desired", pkg.name),
+            )
         };
 
         DriftItem {
@@ -399,7 +424,10 @@ impl ConvergenceEngine {
 
     fn check_file(&self, file: &FileState, probe: &dyn SystemProbe) -> DriftItem {
         let exists = probe.file_exists(&file.path);
-        let should_exist = matches!(file.state, ResourcePresence::Present | ResourcePresence::Installed);
+        let should_exist = matches!(
+            file.state,
+            ResourcePresence::Present | ResourcePresence::Installed
+        );
 
         if should_exist && !exists {
             return DriftItem {
@@ -449,7 +477,10 @@ impl ConvergenceEngine {
                         resource_type: ResourceType::File,
                         resource_name: file.path.clone(),
                         status: DriftStatus::Drifted,
-                        detail: format!("file '{}' mode is {actual_mode}, expected {expected_mode}", file.path),
+                        detail: format!(
+                            "file '{}' mode is {actual_mode}, expected {expected_mode}",
+                            file.path
+                        ),
                     };
                 }
             }
@@ -584,11 +615,8 @@ fn version_matches(actual: &str, constraint: &str) -> bool {
 
 /// Simple version comparison (splits on '.' and compares numerically).
 fn version_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    let parse = |s: &str| -> Vec<u64> {
-        s.split('.')
-            .filter_map(|p| p.parse::<u64>().ok())
-            .collect()
-    };
+    let parse =
+        |s: &str| -> Vec<u64> { s.split('.').filter_map(|p| p.parse::<u64>().ok()).collect() };
     let va = parse(a);
     let vb = parse(b);
     va.cmp(&vb)
@@ -893,7 +921,9 @@ spec:
 "#;
         let engine = ConvergenceEngine::from_yaml(yaml).unwrap();
         let mut probe = MockProbe::new();
-        probe.files.insert("/etc/config".into(), ("data".into(), "0777".into()));
+        probe
+            .files
+            .insert("/etc/config".into(), ("data".into(), "0777".into()));
 
         let report = engine.check(&probe);
         assert!(!report.is_converged());
@@ -925,7 +955,11 @@ spec:
 
         let report = engine.check(&probe);
         assert!(!report.is_converged());
-        assert!(report.items[0].detail.contains("should be running but is stopped"));
+        assert!(
+            report.items[0]
+                .detail
+                .contains("should be running but is stopped")
+        );
     }
 
     #[test]
@@ -948,7 +982,9 @@ spec:
 "#;
         let engine = ConvergenceEngine::from_yaml(yaml).unwrap();
         let mut probe = MockProbe::new();
-        probe.sysctls.insert("net.ipv4.ip_forward".into(), "1".into());
+        probe
+            .sysctls
+            .insert("net.ipv4.ip_forward".into(), "1".into());
 
         let report = engine.check(&probe);
         assert!(!report.is_converged());
