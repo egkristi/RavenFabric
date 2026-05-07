@@ -219,12 +219,12 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Marketing Launch Plan
 - [ ] Record asciinema demo (prerequisite for all below)
-- [ ] Write `Show HN` post (title + 300-word description of what makes it different)
-- [ ] Prepare Reddit posts: r/rust (technical), r/selfhosted (deployment), r/sysadmin (replaces what)
+- [x] Write `Show HN` post (title + 300-word description of what makes it different) — `marketing/show-hn.md`
+- [x] Prepare Reddit posts: r/rust (technical), r/selfhosted (deployment), r/sysadmin (replaces what) — `marketing/reddit-posts.md`
 - [ ] Schedule submissions: HN weekday morning US-east, Reddit staggered over 3 days
 - [ ] Lobsters invite + submission (needs existing member invite)
 - [ ] kode24.no pitch (Norwegian tech press)
-- [ ] Conference pitch: prepare 5-min lightning talk proposal (NDC Oslo, RustConf, FOSDEM Security devroom)
+- [x] Conference pitch: prepare 5-min lightning talk proposal (NDC Oslo, RustConf, FOSDEM Security devroom) — `marketing/conference-pitch.md`
 
 ### Medium-Term
 - [x] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
