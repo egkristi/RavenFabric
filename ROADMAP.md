@@ -601,14 +601,14 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 **Goal:** Native integration with AI agent frameworks beyond MCP. SDK-level access for framework authors.
 
-- [ ] LangChain integration — `RavenFabricTool` class wrapping MCP client, published to PyPI
-- [ ] CrewAI integration — agent tool definition compatible with CrewAI task delegation
-- [ ] AutoGen integration — `RavenFabricExecutor` for Microsoft AutoGen multi-agent orchestration
+- [x] LangChain integration — `LangChainTool` class in `sdks/python/src/ravenfabric/integrations/langchain.py`
+- [x] CrewAI integration — `CrewAITool` class in `sdks/python/src/ravenfabric/integrations/crewai.py`
+- [x] AutoGen integration — `AutoGenExecutor` in `sdks/python/src/ravenfabric/integrations/autogen.py`
 - [x] Custom MCP client SDK (Rust) — `rf-mcp-client` library crate: stdio transport, typed tool wrappers (exec, query_policy, file_read/write, list_capabilities, request_approval), 14 tests
-- [x] Custom MCP client SDK (Python) — pip-installable client (`sdks/python/`): async + sync API, StdioTransport, LangChain + CrewAI integrations, 30 tests
+- [x] Custom MCP client SDK (Python) — pip-installable client (`sdks/python/`): async + sync API, StdioTransport, LangChain + CrewAI + OpenAI + Anthropic integrations, 40 tests
 - [x] Custom MCP client SDK (TypeScript) — npm package (`sdks/typescript/`): fully typed async API, StdioTransport, 12 tests
-- [ ] OpenAI function-calling adapter — translate OpenAI tool schemas to RavenFabric MCP calls
-- [ ] Anthropic tool-use adapter — native Claude API tool definitions backed by RavenFabric
+- [x] OpenAI function-calling adapter — `OpenAIAdapter` with tool definitions in `sdks/python/src/ravenfabric/integrations/openai.py`
+- [x] Anthropic tool-use adapter — `AnthropicAdapter` with tool definitions in `sdks/python/src/ravenfabric/integrations/anthropic.py`
 - [ ] Agent framework benchmark suite — standardized tests measuring policy overhead, latency, throughput across frameworks
 
 ---
