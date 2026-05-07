@@ -1,0 +1,32 @@
+{
+  "name": "ravenfabric",
+  "version": "0.1.0",
+  "description": "TypeScript MCP client SDK for RavenFabric secure remote execution",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["mcp", "remote-execution", "security", "ravenfabric", "model-context-protocol"],
+  "author": "RavenFabric Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/egkristi/RavenFabric.git",
+    "directory": "sdks/typescript"
+  },
+  "homepage": "https://ravenfabric.io",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.0",
+    "@types/node": "^22.0.0"
+  }
+}

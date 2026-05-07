@@ -605,8 +605,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [ ] CrewAI integration — agent tool definition compatible with CrewAI task delegation
 - [ ] AutoGen integration — `RavenFabricExecutor` for Microsoft AutoGen multi-agent orchestration
 - [x] Custom MCP client SDK (Rust) — `rf-mcp-client` library crate: stdio transport, typed tool wrappers (exec, query_policy, file_read/write, list_capabilities, request_approval), 14 tests
-- [ ] Custom MCP client SDK (Python) — pip-installable client for Python agent frameworks
-- [ ] Custom MCP client SDK (TypeScript) — npm package for JS/TS agent frameworks
+- [x] Custom MCP client SDK (Python) — pip-installable client (`sdks/python/`): async + sync API, StdioTransport, LangChain + CrewAI integrations, 30 tests
+- [x] Custom MCP client SDK (TypeScript) — npm package (`sdks/typescript/`): fully typed async API, StdioTransport, 12 tests
 - [ ] OpenAI function-calling adapter — translate OpenAI tool schemas to RavenFabric MCP calls
 - [ ] Anthropic tool-use adapter — native Claude API tool definitions backed by RavenFabric
 - [ ] Agent framework benchmark suite — standardized tests measuring policy overhead, latency, throughput across frameworks

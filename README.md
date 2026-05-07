@@ -1216,6 +1216,8 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 | `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, completions) | Done (~1,080 LOC) |
 | `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~2,500 LOC, 34 tests) |
 | `rf-integration-tests` | End-to-end integration tests | Done (2 tests) |
+| `sdks/python` | Python MCP client SDK — pip-installable, async + sync API, LangChain + CrewAI integrations | Done (30 tests) |
+| `sdks/typescript` | TypeScript MCP client SDK — npm package, fully typed async API | Done (12 tests) |
 
 ### Key Dependencies
 
@@ -1417,6 +1419,9 @@ RavenFabric/
 │   ├── rf-cli/             # `rf` CLI binary
 │   ├── rf-mcp-server/     # MCP server for AI agents
 │   └── rf-mcp-client/     # MCP client SDK (Rust library)
+├── sdks/
+│   ├── python/             # Python MCP client SDK (pip)
+│   └── typescript/         # TypeScript MCP client SDK (npm)
 ├── docs/                   # Documentation (mdBook)
 ├── website/                # Landing page (ravenfabric.io)
 ├── .github/workflows/      # CI/CD (check, fmt, clippy, test, coverage, release)
