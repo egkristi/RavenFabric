@@ -514,7 +514,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Platform Expansion (Tier 2 + 3)
 - [x] Android agent — NDK cross-compile config, AndroidManifest.xml, Termux instructions in `deploy/android/`
-- [ ] iOS agent (Network Extension, background entitlements)
+- [x] iOS agent — build config, Network Extension entitlements, cargo config in `deploy/ios/`
 - [x] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target (cross-check in CI)
 - [x] Linux riscv64 — cross-compile verification (cross-check in CI)
 - [x] FreeBSD agent — cross-compile verification (cross-check in CI)
