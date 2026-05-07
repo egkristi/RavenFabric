@@ -1,0 +1,35 @@
+# RavenFabric Agent Configuration
+# See https://ravenfabric.io for documentation
+
+[agent]
+# Unique identifier for this agent
+id = "agent-01"
+
+# Relay server endpoint
+relay = "wss://relay.example.com/meet"
+
+# Path to agent private key (auto-generated on first run)
+key_path = "/etc/ravenfabric/agent.key"
+
+# Policy file path
+policy_path = "/etc/ravenfabric/policy.yaml"
+
+# Audit log path (JSON-lines format)
+audit_path = "/var/log/ravenfabric/audit.jsonl"
+
+[transport]
+# Transport driver: websocket, quic, memory, unix, stdio
+driver = "websocket"
+
+# Reconnect interval in seconds
+reconnect_interval = 5
+
+# Maximum retries (0 = infinite)
+max_retries = 0
+
+[relay]
+# Listen address for relay mode
+listen = "0.0.0.0:9090"
+
+# Meet secret (use env: prefix for environment variables)
+meet_secret = "env:RELAY_SECRET"

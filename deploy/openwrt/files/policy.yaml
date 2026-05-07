@@ -1,0 +1,26 @@
+spec:
+  commands:
+    allow:
+      - pattern: "^uci show.*"
+      - pattern: "^uci get.*"
+      - pattern: "^ifconfig.*"
+      - pattern: "^ip addr.*"
+      - pattern: "^logread.*"
+      - pattern: "^uptime$"
+      - pattern: "^free$"
+      - pattern: "^df.*"
+    deny:
+      - pattern: ".*rm.*-rf.*"
+      - pattern: ".*reboot.*"
+      - pattern: ".*halt.*"
+      - pattern: ".*poweroff.*"
+  filesystem:
+    allow:
+      - path: /tmp
+      - path: /var/log
+    deny:
+      - path: /etc/shadow
+      - path: /etc/passwd
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30

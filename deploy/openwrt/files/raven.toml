@@ -1,0 +1,11 @@
+[agent]
+id = "openwrt-01"
+relay = "wss://relay.example.com/meet"
+key_path = "/etc/ravenfabric/agent.key"
+policy_path = "/etc/ravenfabric/policy.yaml"
+audit_path = "/tmp/ravenfabric/audit.jsonl"
+
+[transport]
+driver = "websocket"
+reconnect_interval = 10
+max_retries = 0

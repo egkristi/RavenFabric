@@ -518,7 +518,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target (cross-check in CI)
 - [x] Linux riscv64 — cross-compile verification (cross-check in CI)
 - [x] FreeBSD agent — cross-compile verification (cross-check in CI)
-- [ ] OpenWrt package (MIPS/ARM, minimal feature set)
+- [x] OpenWrt package (MIPS/ARM, minimal feature set) — Makefile + init script in `deploy/openwrt/`
 - [x] WASM/WASI compilation target (browser-side client, edge workers) — `rf-crypto --no-default-features` compiles for `wasm32-wasip1`, `frame_codec` module available in WASM
 - [x] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52) — evaluation doc + `rf-crypto` feature-gated (`--no-default-features` compiles), `frame_codec` module provides no_std encrypt/decrypt, 7 new tests
 - [x] Single-threaded async runtime mode — `rt-single-thread` feature flag in rf-agent, uses `current_thread` runtime for constrained devices
@@ -665,7 +665,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
 | Homebrew | `brew install egkristi/tap/ravenfabric` | [x] Formula ready (`deploy/ravenfabric.rb`) — tap: [egkristi/homebrew-tap](https://github.com/egkristi/homebrew-tap) — #45 |
-| DMG | `RavenFabric.dmg` (universal binary) | [ ] Planned — #49 |
+| DMG | `RavenFabric.dmg` (universal binary) | [x] Build script ready (`deploy/macos/build-dmg.sh`) — needs code signing #49 |
 | pkg installer | `RavenFabric.pkg` (signed) | [ ] Planned — #49 |
 
 ### Linux
