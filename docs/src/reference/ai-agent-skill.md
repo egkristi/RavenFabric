@@ -378,8 +378,8 @@ rf audit my-recent                          What have I done?
 rf audit show <event-id>                    Detail on one action
 rf audit my-recent --filter denied          What was denied?
 
-rf shell <target>                           Interactive shell (when allowed)
-rf tunnel -L <local>:<remote>:<port>        Port forward (when allowed)
+rf shell --token <token>                    Interactive shell (when allowed)
+rf forward -L <local> -R <remote>           Port forward (when allowed)
 rf transfer push <local> <target> <remote>  Send file
 rf transfer pull <target> <remote> <local>  Get file
 ```

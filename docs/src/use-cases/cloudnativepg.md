@@ -22,9 +22,9 @@
 
 ```
 DBA workstation (anywhere)
-    │  rf exec prod-pg-1 "psql -c 'SELECT ...'"
-    │  rf shell prod-pg-1
-    │  rf tunnel -L 5432:cnpg-rw:5432
+    │  rf exec --token <token> "psql -c 'SELECT ...'"
+    │  rf shell --token <token>
+    │  rf forward -L 127.0.0.1:5432 -R cnpg-rw:5432 --token <token>
     ▼
 rf-relay (E2E encrypted, sees only ciphertext)
     ▼
@@ -60,7 +60,7 @@ metadata:
   name: prod-pg-1
 spec:
   instances: 3
-  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
 
   inheritedMetadata:
     annotations:
@@ -164,7 +164,7 @@ spec:
 ### Health check
 
 ```bash
-$ rf exec prod-pg-1 "kubectl cnpg status prod-pg-1"
+$ rf exec --token <token> "kubectl cnpg status prod-pg-1"
 
 Cluster Summary
 Name:       prod-pg-1
@@ -178,7 +178,7 @@ Primary:    prod-pg-1-1
 ### Interactive psql
 
 ```bash
-$ rf shell prod-pg-1
+$ rf shell --token <token>
 [noise-xx handshake complete]
 [policy: cnpg-prod-dba-policy]
 [session recording: sess-abc123]
@@ -197,8 +197,8 @@ ERROR: command requires approval
 ### Port-forward for local tooling
 
 ```bash
-$ rf tunnel -L 5432:prod-pg-1-rw:5432
-[tunnel: localhost:5432 → prod-pg-1-rw:5432]
+$ rf forward -L 127.0.0.1:5432 -R prod-pg-1-rw:5432 --token <token>
+[forward: localhost:5432 → prod-pg-1-rw:5432]
 
 # Use any PostgreSQL tool locally
 $ pgcli -h localhost -p 5432 -U dba_readonly prod_db
@@ -230,7 +230,7 @@ $ pgcli -h localhost -p 5432 -U dba_readonly prod_db
 | Deny-by-default command policy | Done | Regex allow/deny |
 | WebSocket relay transport | Done | Stateless |
 | Interactive shell (`rf shell`) | Done | PTY + session recording |
-| Port forwarding (`rf tunnel -L/-R`) | Done | TCP bidirectional |
+| Port forwarding (`rf forward -L/-R`) | Done | TCP bidirectional |
 | Streaming stdout/stderr | Done | Real-time |
 | WireGuard direct path | Done | Userspace |
 | QUIC transport | Done | 0-RTT, mux |
@@ -242,7 +242,7 @@ $ pgcli -h localhost -p 5432 -U dba_readonly prod_db
 | Desired-state convergence | Done | `ConvergenceEngine` |
 | MagicDNS | Done | UDP DNS server |
 | WebAuthn MFA per command | Planned | |
-| Sealed secrets injection | Planned | |
+| Sealed secrets injection | Done | ChaCha20-Poly1305 `SecretStore` |
 
 ---
 
