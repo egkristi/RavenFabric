@@ -6,10 +6,10 @@
 **Status: Alpha** — v0.1 foundation complete. End-to-end execution working (`rf exec`).
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSES/AGPLv3.txt)
+[![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
 [![CI](https://github.com/egkristi/RavenFabric/actions/workflows/ci.yml/badge.svg)](https://github.com/egkristi/RavenFabric/actions/workflows/ci.yml)
 
-**Language:** Rust | **License:** AGPLv3 (core) + Commercial (enterprise)
+**Language:** Rust | **License:** AGPL-3.0-or-later (core) + Commercial (enterprise)
 
 ---
 
@@ -100,78 +100,28 @@ Noise_XX_25519_ChaChaPoly_BLAKE2s
 
 ## Execution Modes
 
-### Fire and Forget
-```yaml
-apiVersion: ravenfabric.io/v1alpha1
-kind: Execution
-spec:
-  mode: fire-and-forget
-  target:
-    agent: prod-server-1
-  task:
-    command: "touch /workspace/.heartbeat"
+### Single command
+```bash
+# Fire and forget (no output needed)
+rf exec prod-server-1 "touch /workspace/.heartbeat"
+
+# Fire and verify (wait for result)
+rf exec prod-server-1 "git -C /workspace pull --rebase origin main"
 ```
 
-### Fire and Verify
+### Playbook (multi-agent orchestration with rollback)
 ```yaml
-apiVersion: ravenfabric.io/v1alpha1
-kind: Execution
-spec:
-  mode: fire-and-verify
-  target:
-    agent: prod-server-1
-  task:
-    command: "git -C /workspace pull --rebase origin main"
-    timeoutSeconds: 60
-```
-
-### Task (ordered steps with conditions)
-```yaml
-apiVersion: ravenfabric.io/v1alpha1
-kind: Execution
-spec:
-  mode: task
-  target:
-    agent: prod-server-1
-  task:
-    name: deploy
-    workdir: /workspace/app
-    steps:
-      - name: pull latest
-        command: "git pull --rebase origin main"
-      - name: install deps
-        command: "npm ci --production"
-      - name: test
-        command: "npm test"
-        onFailure: abort
-      - name: restart
-        command: "systemctl restart myapp"
-        condition: "{{ steps.test.exitCode == 0 }}"
-```
-
-### Playbook (multi-agent, rolling, rollback)
-```yaml
-apiVersion: ravenfabric.io/v1alpha1
-kind: Playbook
-metadata:
-  name: rolling-deploy
-spec:
-  strategy:
-    kind: rolling
-    batchSize: 1
-    pauseOnFailure: true
-  plays:
-    - name: update web servers
-      targets:
-        selector:
-          labels:
-            role: web-server
-      tasks:
-        - command: "git -C /app pull --rebase origin main"
-        - command: "systemctl restart nginx"
-      rollback:
-        - command: "git -C /app reset --hard HEAD~1"
-        - command: "systemctl restart nginx"
+# playbook.yaml — loaded by `rf playbook plan.yaml --token <token>`
+command: "systemctl restart nginx"
+target:
+  agents: ["web-01", "web-02", "web-03"]
+strategy:
+  rolling:
+    batch_percent: 33
+on_failure:
+  rollback:
+    command: "systemctl restart nginx-old"
+timeout_secs: 60
 ```
 
 ### Desired State (declarative convergence + drift detection)
@@ -181,83 +131,43 @@ kind: DesiredState
 metadata:
   name: web-server-baseline
 spec:
-  targets:
-    selector:
-      labels:
-        role: web-server
+  packages:
+    - name: nginx
+      state: installed
+      version: ">=1.24.0"
+    - name: telnet
+      state: absent
 
-  state:
-    packages:
-      - name: nginx
-        state: installed
-        version: ">=1.24.0"
-      - name: telnet
-        state: absent
+  files:
+    - path: /etc/nginx/nginx.conf
+      content: |
+        worker_processes auto;
+      mode: "0644"
+      owner: root
 
-    files:
-      - path: /etc/nginx/nginx.conf
-        content: |
-          worker_processes auto;
-          ...
-        mode: "0644"
-        owner: root
+  services:
+    - name: nginx
+      state: running
+      enabled: true
+    - name: telnetd
+      state: stopped
+      enabled: false
 
-    services:
-      - name: nginx
-        state: running
-        enabled: true
-      - name: telnetd
-        state: stopped
-        enabled: false
-
-    sysctl:
-      - key: net.ipv4.ip_forward
-        value: "0"
+  sysctl:
+    - key: net.ipv4.ip_forward
+      value: "0"
 
   convergence:
     mode: remediate       # report | remediate
-    intervalSeconds: 300  # Continuous drift detection
+    interval_seconds: 300
 ```
 
 ---
 
 ## Policy (Security First)
 
-### SecurityPolicy — top level, some rules immutable
+### RPCPolicy — commands, filesystem, resources
 ```yaml
-apiVersion: ravenfabric.io/v1alpha1
-kind: SecurityPolicy
-metadata:
-  name: cluster-default
-spec:
-  allowedModes: [fire-and-forget, fire-and-verify, task, playbook, desired-state]
-
-  authorization:
-    allowedCallers:
-      - kind: Operator
-        tenant: "*"
-
-  blastRadius:
-    maxConcurrentAgents: 10
-    maxAffectedAgents: 50
-
-  # These cannot be overridden by any tenant or agent policy
-  immutable:
-    neverAllowAsRoot: true
-    neverAllowNetworkReconfigure: true
-    neverAllowPackageRemove: [ssh, ravenfabric]
-    neverAllowFileModify:
-      - /etc/ravenfabric/*
-      - /etc/ssh/sshd_config
-    alwaysAudit: true
-```
-
-### RPCPolicy — commands, filesystem, services
-```yaml
-apiVersion: ravenfabric.io/v1alpha1
-kind: RPCPolicy
-metadata:
-  name: default
 spec:
   commands:
     allow:
@@ -271,17 +181,23 @@ spec:
   filesystem:
     allow:
       - path: /workspace
-        operations: [read, write, list]
+      - path: /var/log
     deny:
-      - path: /etc/ravenfabric
-      - path: /etc/ssh
+      - path: /etc/shadow
       - path: /root
   resources:
-    maxCPUPercent: 50
-    maxMemoryMB: 512
     maxOutputBytes: 10485760  # 10MB
-    taskTimeoutSeconds: 300
+    timeoutSeconds: 300
 ```
+
+### SecurityPolicy — immutable rules
+
+The `SecurityPolicy` enforces rules that cannot be overridden by any RBAC role, capability token, or policy merge:
+
+- Immutable deny patterns (rm -rf, mkfs, dd, fork bomb) — always blocked
+- Maximum delegation depth for capability tokens
+- Minimum roles required for policy changes
+- Post-quantum crypto requirements
 
 ---
 
@@ -540,27 +456,7 @@ Use cases: fishing boats, oil platforms, remote cabins, military forward positio
 
 ### Transport-Aware Policy
 
-The policy engine doesn't just decide *what* can execute — it decides *how* it may travel:
-
-```yaml
-spec:
-  transport_policy:
-    # High-sensitivity commands require strong transport
-    high_sensitivity:
-      require_transport: [wireguard, quic]
-      require_post_quantum: true
-      deny_transport: [dns-tunnel, lora, relay]
-
-    # Status reporting can use any channel
-    low_sensitivity:
-      allow_transport: [any]
-      allow_delay_tolerant: true
-
-    # Air-gapped zones accept physical media
-    air_gapped:
-      allow_transport: [serial, bluetooth, usb, nncp]
-      require_dual_signature: true
-```
+The policy engine considers transport characteristics when making decisions. Sensitive commands may require stronger transports, while routine telemetry can use any available channel.
 
 ### Cryptographic Identity
 
@@ -829,129 +725,6 @@ Every command can include an optional `reason` field explaining why the AI perfo
 
 ---
 
-## Capabilities (Planned)
-
-> The following capabilities describe the target architecture. See [Current Implementation Status](#current-implementation-status) above for what exists today.
-
-### Full Mesh VPN (Layer 3)
-What Tailscale/ZeroTier/NetBird do — but over any transport, not just WireGuard:
-- **TUN device** — full L3 network access between agents
-- **Subnet routing** — expose LAN segments through agents
-- **Exit nodes** — route internet traffic through a specific agent
-- **Split tunneling** — policy controls which traffic enters the mesh
-- **MagicDNS** — automatic DNS for all agents (`agent-name.rf.local`)
-- **Multicast/mDNS relay** — service discovery across the mesh
-- All VPN traffic: policy-checked, auditable, revocable per-agent
-
-### Interactive Shell
-What SSH/Teleport/Boundary do — but without SSH, without ports, through any transport:
-- **`rf shell <agent>`** — interactive terminal session through the fabric
-- **Session recording** — full terminal capture (asciinema format), policy-controlled
-- **Session replay** — auditors can replay any session
-- **Live session monitoring** — attach read-only to active sessions
-- **Session sharing** — multiple users in one session (pair programming)
-- **Forced commands** — policy can restrict shell to specific commands only
-- **No SSH daemon required** — agent handles PTY allocation natively
-
-### Remote Execution (RPC)
-What Ansible/Salt do — but E2E encrypted, policy-first:
-- **fire-and-forget** — send, no reply needed
-- **fire-and-verify** — send, wait for exit code
-- **task** — ordered steps with conditions, retry, abort
-- **playbook** — multi-agent orchestration with rolling/canary/parallel strategies, rollback
-- **desired-state** — declarative convergence + continuous drift detection + remediation
-
-### File Operations
-What scp/rsync do — but policy-checked, encrypted, audited:
-- **push** — orchestrator → agent (single file or directory)
-- **pull** — agent → orchestrator
-- **agent-to-agent transfer** — via encrypted relay
-- **sync** — rsync-style incremental with checksums, delta transfer
-- **file.watch** — streaming tail with regex filters
-- **atomic writes** — write to temp + rename (no partial files)
-
-### Port Forwarding / Tunneling
-What `ssh -L/-R/-D` and ngrok do — but policy-controlled:
-- **local-forward** (`ssh -L` equivalent) — expose remote port locally
-- **remote-forward** (`ssh -R` equivalent) — expose local port on remote (disabled by default)
-- **dynamic-forward / SOCKS5** (`ssh -D` equivalent) — full proxy
-- **agent-to-agent tunnel** — orchestrator as encrypted relay
-- **HTTP proxy** through agent
-- **TCP/UDP forwarding** — any protocol, not just TCP
-- All tunnels: policy-checked per port/host/protocol, time-limited, audited
-
-### Process Management
-- **background exec** with ID-based tracking
-- **streaming exec** (real-time stdout/stderr via multiplexed channel)
-- **signal** (SIGTERM/SIGHUP/etc — SIGKILL may be denied by policy)
-- **pid-wait** — wait for process exit
-- **process inventory** — list running processes (policy-filtered)
-
-### Secrets Injection
-What Vault/SOPS do at execution time — built into the fabric:
-- **`{{ secrets.KEY }}`** — inject secrets into commands/files at execution time
-- **Agent-side resolution** — secrets never transit the network in plaintext
-- **Sealed secrets** — encrypted at rest, decrypted only on target agent
-- **Rotation support** — secrets can be rotated without re-deploying tasks
-- **No secret in audit log** — masked automatically
-
-### Result Parsing
-- Structured parsers: `raw`, `trim`, `trim-int`, `json`, `yaml`, `csv`, `regex`, `lines`, `table`
-- Assertions on parsed output (`gt`, `eq`, `lt`, `semver`, `regex`, `contains`)
-- Expose parsed values to subsequent steps via `{{ steps.NAME.parsed.FIELD }}`
-
-### Event System
-- **file-created**, **file-modified**, **file-deleted** — inotify/kqueue
-- **process-exit**, **process-started**
-- **service-state-changed**
-- **cron-like schedules** — agent-local, no external cron needed
-- **webhook triggers** — agent can emit events to external systems
-
-### Data Collection Agent
-What Telegraf, Metricbeat, collectd, node_exporter, and OpenTelemetry Collector do — built into every agent:
-
-**Metrics:**
-- Built-in system metrics (CPU, memory, disk, network, load, processes, filesystems)
-- Prometheus-compatible `/metrics` endpoint (pull mode) or push to remote
-- Custom metric plugins via policy-defined commands (scrape output of any command)
-- Application metrics scraping (Prometheus endpoints on localhost)
-- Continuous streaming to OTLP, Prometheus remote-write, InfluxDB, StatsD, Datadog
-- Per-metric labels (agent ID, grains, custom tags)
-
-**Logs:**
-- File tailing with glob patterns (`/var/log/**/*.log`)
-- Journald integration (systemd journal forwarding)
-- Structured log parsing (JSON, logfmt, regex, grok patterns)
-- Forward to OTLP, Loki, Elasticsearch, S3, local file rotation
-- Policy-controlled: which logs can be collected, redaction rules
-
-**Traces:**
-- OTLP receiver (accept traces from local applications)
-- Forward to Jaeger, Tempo, OTLP endpoint
-- Trace context injection for RavenFabric RPC calls (built-in)
-
-**Health checks:**
-- HTTP/TCP/UDP endpoint probes (up/down, latency, cert expiry)
-- Process alive checks (by name, PID file, systemd unit)
-- Custom health commands with exit-code semantics
-- Anomaly detection (threshold alerts on any metric)
-
-**Key differentiator:** No separate collection agent needed. The same binary that executes commands and enforces policy also ships telemetry — through the same encrypted channel, under the same policy controls, with the same audit trail. Zero additional attack surface.
-
-### Offline Queue & Delay-Tolerant Delivery
-What no other tool does — handle disconnected agents as a first-class concern:
-- **Store-carry-forward** — commands traverse intermediate nodes, each taking custody
-- **Queue commands** while agent is offline (SQLite-backed, persistent across restart)
-- **Deliver on reconnect** with policy-controlled TTL
-- **Opportunistic sync** — agents exchange queued messages when they meet (BLE, Wi-Fi, physical)
-- **Schedule-aware routing** — route via known contact windows (satellite passes, shift changes)
-- **Idempotency tokens** — duplicate delivery (via multiple paths) is safe
-- **Priority queue** — urgent commands route preferentially
-- **Expiry** — stale commands auto-discarded after TTL
-- **Physical media transport** — commands can travel via USB, SD card, or any file-moving mechanism (NNCP-style)
-
-All capabilities: policy-checked, audited, E2E encrypted — regardless of how many hops or how long the journey.
-
 ---
 
 ## Grains: Agent Self-Reporting
@@ -968,47 +741,28 @@ ram_gb: 16
 ravenfabric_version: "0.1.0"
 role: web-server              # Custom grain
 environment: production       # Custom grain
-packages:
-  nginx: "1.24.0"
-services:
-  nginx: running
 ```
 
-```yaml
-# Use in playbook:
-targets:
-  where:
-    grains.os_family: debian
-    grains.distro_version: ">= 22.04"
-```
+Grains support label-matching (`matches_labels()`) for selective targeting in playbooks.
 
 ---
 
 ## Bootstrap: OTP Identity Enrollment
 
 ```
-1. Admin generates token:
-   $ ravenfabric token generate --agent=prod-server-1 --ttl=1h
+1. Generate OTP token (programmatic or admin API)
    → Token: rf-otp-a3f9b2c1d4e5f6...
 
 2. Token delivered out-of-band (SSH, cloud-init, etc.)
 
 3. Agent generates Curve25519 key pair locally (private key never leaves)
 
-4. Agent sends to bootstrap endpoint:
-   POST https://relay.example.com/agent/bootstrap
-   {
-     "token": "rf-otp-a3f9b2c1d4e5f6...",
-     "agentId": "prod-server-1",
-     "publicKey": "hex-encoded-32-bytes"
-   }
+4. Agent presents token to relay/bootstrap endpoint
+   - Token validated: exists, not expired, not already used
+   - Token marked as used (single-use, hash-stored)
+   - Agent registered with public key
 
-5. Server validates:
-   - Token exists + not expired + not already used
-   - Mark as used (single-use)
-   - Register agent → tenant mapping
-
-6. Agent stores identity + relay addresses
+5. Agent stores identity + relay addresses
    All future connections use Noise XX + static key
    Bootstrap endpoint never used again
 ```
@@ -1038,124 +792,25 @@ NOT observable: command content, file content, agent identity, traffic type
 
 ---
 
-## Why RavenFabric Wins
-
-### vs. Tailscale / Headscale / NetBird / ZeroTier (Mesh VPN)
-These tools give you encrypted connectivity. Period. You still need SSH for commands, Ansible for automation, Telegraf/Prometheus for metrics, and a separate ZTNA product for application access. RavenFabric gives you the mesh **plus** everything that runs on top of it — in one agent, one policy layer, one audit trail.
-
-**Specific advantages:**
-- Multi-transport (not locked to WireGuard) — works through corporate proxies, air-gaps, Tor
-- Cross-protocol upgrade (not just DERP→WG — any driver→any driver)
-- Command-level policy (not just IP:port ACLs)
-- Built-in execution — no SSH, no Ansible, no separate tools
-- Built-in data collection — no Telegraf, no node_exporter, no Fluent Bit
-- Session recording — auditors can replay everything
-- Offline queue — disconnected agents catch up automatically
-
-### vs. Twingate / Pomerium / Cloudflare Access (ZTNA)
-These tools control who can reach which application. They're glorified reverse proxies with identity. They can't execute commands, manage state, or work without internet. RavenFabric provides the same application-level access **plus** command execution, config management, and air-gap support.
-
-**Specific advantages:**
-- Command-level granularity (not just "can access web app")
-- No TLS termination — E2E encrypted even through the access layer
-- Desired state + drift detection — active management, not just access gating
-- Works without internet (Reticulum, serial)
-- Self-hosted only — no vendor cloud dependency
-
-### vs. Ansible / Salt / Puppet (Config Management)
-These tools assume SSH/ZeroMQ connectivity already exists. They have no answer for NAT, firewalls, or air-gaps. Their security model is "whoever has SSH access can do anything." RavenFabric starts with the connectivity problem solved, then layers policy-controlled execution on top.
-
-**Specific advantages:**
-- No SSH required — agent connects outbound through any transport
-- Command-level deny rules — not just "can run playbook" but "cannot run rm -rf"
-- Immutable rules — even admins cannot override certain protections
-- Blast radius control — max concurrent/affected agents enforced
-- Double policy check — controller + agent, neither trusts the other
-- Streaming execution — real-time stdout/stderr (Ansible shows nothing until complete)
-- Air-gap execution — over Reticulum mesh, LoRa, serial
-
-### vs. SoftEther (Multi-protocol VPN)
-SoftEther is a VPN server — client/server topology, no mesh, server terminates encryption, written in C (CVE-prone). RavenFabric is a mesh with E2E encryption where the relay sees nothing, written in memory-safe Rust.
-
-### vs. Telegraf / Metricbeat / OpenTelemetry Collector / collectd (Data Collection)
-These tools are dedicated collection agents. Each one is **another binary to deploy, configure, update, and secure** on every host. They have no policy engine, no E2E encryption to the backend, no execution capability, and no awareness of each other.
-
-**Specific advantages:**
-- One agent instead of three (execution + collection + VPN in one binary)
-- Same E2E encrypted channel for telemetry — no separate TLS config, no cert management
-- Policy-controlled collection — what gets collected is governed by the same deny-by-default policy
-- Audited collection — every scrape/forward is logged
-- Air-gap telemetry — metrics/logs ship over Reticulum, serial, or any transport
-- No additional attack surface — no extra listening ports, no separate auth systems
-- Offline buffering — telemetry queued when disconnected, delivered on reconnect
-
-### vs. SSH + Bastion / Teleport / Boundary (Secure Access)
-These tools solve "how do I SSH securely." RavenFabric solves "how do I securely do anything on a remote system." Shell sessions are one capability among many, not the entire product. Plus: no SSH daemon needed, no port 22, no bastion hosts.
-
----
-
-## Comparison
-
-### vs. Config Management / Execution
-
-| | Ansible | Salt | Puppet | RavenFabric |
-|---|---|---|---|---|
-| **Primary purpose** | Config mgmt | Config mgmt | Config mgmt | Secure execution engine |
-| Language | Python | Python | Ruby | **Rust** |
-| Transport security | SSH | AES+HMAC | SSL/TLS | **Noise XX (E2E)** |
-| NAT traversal | ❌ | ❌ | ❌ | **✅ Multi-transport** |
-| Air-gap support | ❌ | ❌ | ❌ | **✅ Reticulum/serial** |
-| Transport diversity | SSH only | ZeroMQ only | HTTPS only | **Any (WG/QUIC/WS/Tor/mesh)** |
-| Desired state | ✅ | ✅ | ✅ | **✅** |
-| Drift detection | ⚠️ | ✅ | ✅ | **✅ continuous** |
-| Command execution | ✅ | ✅ | ✅ | **✅ Built-in + policy** |
-| Policy engine | Minimal | Reactor | Catalog | **Security-first (command-level)** |
-| Immutable rules | ❌ | ❌ | ❌ | **✅ neverAllow*** |
-| Blast radius control | ⚠️ | ⚠️ | ⚠️ | **✅ Policy-enforced** |
-| Double policy check | ❌ | ❌ | ❌ | **✅ Controller + Agent** |
-| Memory safety | ❌ | ❌ | ❌ | **✅ (Rust)** |
-
-### vs. Mesh VPN / ZTNA
-
-| | Tailscale | Headscale | NetBird | ZeroTier | SoftEther | Twingate | Pomerium | RavenFabric |
-|---|---|---|---|---|---|---|---|---|
-| **Primary purpose** | Mesh VPN | Mesh VPN (self-hosted) | Mesh VPN + ACL | Mesh VPN | VPN server | ZTNA proxy | ZTNA proxy | **Secure execution + VPN** |
-| Open source | Partial (client) | ✅ | ✅ | Partial | ✅ (GPLv2) | ❌ | ✅ (core) | **✅ (AGPLv3)** |
-| Self-hosted control plane | ❌ (SaaS) | ✅ | ✅ | ❌ (SaaS) | ✅ | ❌ (SaaS) | ✅ | **✅** |
-| Transport protocol | WireGuard | WireGuard | WireGuard | Custom (ChaCha) | OpenVPN/SSL/L2TP | WireGuard | HTTPS | **Noise XX over any** |
-| E2E encryption | ✅ (WG) | ✅ (WG) | ✅ (WG) | ✅ | ⚠️ (server terminates) | ✅ (WG) | ❌ (TLS termination) | **✅ (Noise XX)** |
-| NAT traversal | ✅ STUN/DERP | ✅ STUN/DERP | ✅ STUN/TURN | ✅ (root servers) | ⚠️ (manual) | ✅ | ✅ | **✅ Multi-method** |
-| Relay fallback | DERP only | DERP only | TURN only | Root servers | ❌ | Connector | ❌ | **Any (WS/QUIC/mesh)** |
-| Transport diversity | WG only | WG only | WG only | Custom only | Multi-protocol | WG only | HTTPS only | **WG/QUIC/WS/Tor/Reticulum/serial** |
-| Air-gap support | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Reticulum/serial** |
-| Cross-protocol upgrade | ❌ (DERP→WG) | ❌ (DERP→WG) | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Any→Any** |
-| Command execution | ❌ (SSH needed) | ❌ (SSH needed) | ❌ (SSH needed) | ❌ (SSH needed) | ❌ | ❌ | ❌ | **✅ Built-in + policy** |
-| Desired state | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅** |
-| Drift detection | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ continuous** |
-| Command-level policy | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ regex allow/deny** |
-| Network-level ACL | ✅ | ✅ | ✅ | ✅ (rules) | ⚠️ (routing) | ✅ (resource) | ✅ (route) | **✅ + command-level** |
-| Immutable rules | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ neverAllow*** |
-| Identity provider | OIDC | OIDC | OIDC/SAML | Custom | RADIUS/LDAP | IdP (SCIM) | IdP (OIDC) | **OTP bootstrap + Noise keys** |
-| Per-app access | ❌ (network-level) | ❌ (network-level) | ⚠️ (network ACL) | ❌ (network-level) | ❌ | ✅ (resource-level) | ✅ (route-level) | **✅ (command-level)** |
-| Audit trail | ⚠️ (network) | ⚠️ (network) | ⚠️ (network) | ⚠️ (network) | ⚠️ (conn log) | ✅ (access log) | ✅ (access log) | **✅ (every command)** |
-| Data collection agent | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Built-in (metrics/logs/traces)** |
-| K8s native | ⚠️ Operator | ❌ | ❌ | ❌ | ❌ | ⚠️ Connector | ⚠️ Ingress | **✅ CRD** |
-| Memory safety | ✅ (Go) | ✅ (Go) | ✅ (Go) | ⚠️ (C++) | ❌ (C) | N/A (SaaS) | ✅ (Go) | **✅ (Rust)** |
-| No GC pauses | ❌ | ❌ | ❌ | ❌ | ✅ | N/A | ❌ | **✅** |
-
-### Key Differentiators
-
-> **Tailscale/Headscale/NetBird/ZeroTier** solve connectivity (mesh VPN). **Twingate/Pomerium** solve application-level zero-trust access. **Ansible/Salt** solve config management. **Telegraf/Metricbeat/OTEL** solve data collection. **RavenFabric** combines all four: **secure connectivity + command execution + policy enforcement + data collection** in a single agent with transport-agnostic E2E encryption and no GC pauses.
+## Why RavenFabric
 
 | Capability gap | Existing tools need | RavenFabric |
 |---|---|---|
 | Execute commands on remote host | Tailscale + SSH + Ansible | Built-in |
 | Encrypted mesh + config management | ZeroTier + Salt | Built-in |
 | ZTNA + drift detection | Twingate + Puppet | Built-in |
-| Air-gap remote execution | SoftEther + manual | Built-in (Reticulum/serial) |
+| Air-gap remote execution | Manual + sneakernet | Built-in (DTN/serial) |
 | Command-level policy (not just network ACL) | None available | Built-in |
-| Metrics + logs from managed hosts | Tailscale + Telegraf + Fluent Bit | Built-in |
-| Secure telemetry from air-gapped hosts | VPN + Prometheus + manual | Built-in (same encrypted channel) |
+| Metrics + logs from managed hosts | Telegraf + Fluent Bit + VPN | Built-in (same encrypted channel) |
+| AI agent access control | None available | Built-in (MCP server + policy templates) |
+
+**vs. Mesh VPN (Tailscale, Headscale, NetBird, ZeroTier):** These give encrypted connectivity — you still need SSH for commands, Ansible for automation, Telegraf for metrics. RavenFabric combines mesh VPN + execution + policy + data collection. Multi-transport (not locked to WireGuard), works through air-gaps.
+
+**vs. ZTNA (Twingate, Pomerium, Cloudflare Access):** These control who can reach applications — glorified reverse proxies with identity. They can't execute commands, manage state, or work offline. RavenFabric provides application-level access plus command execution and config management.
+
+**vs. Config Management (Ansible, Salt, Puppet):** These assume SSH/ZeroMQ connectivity exists. No answer for NAT, firewalls, or air-gaps. Security model is "whoever has SSH access can do anything." RavenFabric starts with connectivity solved, then layers policy-controlled execution.
+
+**vs. Data Collection (Telegraf, OTEL Collector, Fluent Bit):** Each is another binary to deploy, configure, update, and secure on every host. RavenFabric's agent collects metrics, logs, and traces through the same encrypted channel, under the same policy controls.
 
 ---
 
@@ -1261,21 +916,16 @@ These tools solve "how do I SSH securely." RavenFabric solves "how do I securely
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Language | Rust | Memory safety without GC. No pause-the-world. Single static binary. Fearless concurrency |
+| Language | Rust | Memory safety without GC. Single static binary. Fearless concurrency |
 | Crypto | Noise XX (via `snow`) | Same core as WireGuard. Formally verified. Mutual auth built-in. No PKI needed |
-| Multiplexing | yamux over SecureChannel | Concurrent streams (shell + exec + tunnel) over one Noise session. Battle-tested (libp2p) |
-| RPC serialization | msgpack | Smaller frames, faster parse, binary-safe. JSON fallback via `--format json` CLI flag |
-| Async runtime | tokio | Industry standard, multi-threaded, io_uring support on Linux |
-| Wire protocol versioning | Version byte in handshake | Enables rolling upgrades without breaking deployed agents |
-| Key trust model | Trust-on-first-use (TOFU) + OTP | First enrollment via OTP, subsequent connections via cached static key |
-| Policy transitions | Atomic swap + grace period | In-flight executions complete under old policy. New connections get new policy |
-| Cargo workspace | 13 focused crates | Compile-time isolation, clear boundaries, parallel compilation |
-| CLI name | `rf` (not `ravenfabric`) | Short, memorable, fast to type. `rf exec`, `rf dev`, `rf status` |
-| Identity model | Key-derived address | Address = hash(pubkey). No DNS/DHCP dependency. Reticulum-inspired |
-| Disconnection model | DTN store-carry-forward | Offline is normal. Commands queue, deliver when path exists. NASA Bundle Protocol inspired |
-| Authorization (future) | Capability tokens (biscuit) | Commands carry own permission. Scales better than centralized ACL in distributed systems |
-| State sync (future) | CRDT convergence | Desired-state converges without master. Automerge-inspired. Works over intermittent links |
-| Content integrity | Hash-addressed payloads | Policies/payloads identified by content hash. Natural dedup, cache, verify. Git/IPFS-inspired |
+| Multiplexing | yamux over SecureChannel | Concurrent streams over one Noise session. Battle-tested (libp2p) |
+| RPC serialization | msgpack | Smaller frames, faster parse, binary-safe |
+| Async runtime | tokio | Industry standard, multi-threaded, io_uring on Linux |
+| Key trust model | TOFU + OTP | First enrollment via OTP, subsequent connections via cached static key |
+| Identity model | Key-derived address | Address = hash(pubkey). Reticulum-inspired. No DNS/DHCP dependency |
+| Authorization | Capability tokens (Biscuit) | Commands carry own permission. Scales better than centralized ACL |
+| State sync | CRDT convergence | Desired-state converges without master. Works over intermittent links |
+| Content integrity | Hash-addressed payloads | Natural dedup, cache, verify. Git/IPFS-inspired |
 
 ---
 
@@ -1439,8 +1089,8 @@ RavenFabric/
 
 RavenFabric uses a dual-license model:
 
-- **AGPLv3** — open source core (transport, crypto, RPC, policy). Free for personal use, OSS projects, and commercial use up to 50 agents / $5M revenue.
-- **Commercial** — enterprise features (playbooks, desired state, RBAC, SSO, compliance). Required for large commercial deployments or embedding without AGPLv3 obligations.
+- **AGPL-3.0-or-later** — open source core. Free for personal use, OSS projects, and commercial use up to 50 agents / $5M revenue.
+- **Commercial** — for large commercial deployments or embedding without AGPL obligations.
 
 See [LICENSING.md](LICENSING.md) for the full breakdown.
 

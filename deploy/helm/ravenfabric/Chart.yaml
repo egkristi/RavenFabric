@@ -17,4 +17,5 @@ keywords:
   - ztna
 
 maintainers:
-  - Erling Kristiansen <erling@ravenfabric.io>
+  - name: Erling Kristiansen
+    email: erling@ravenfabric.io
