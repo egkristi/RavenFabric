@@ -60,9 +60,7 @@ impl YggdrasilDriver {
             })?;
 
         // Strip protocol prefix
-        let addr_clean = addr_str
-            .strip_prefix("ygg://")
-            .unwrap_or(addr_str);
+        let addr_clean = addr_str.strip_prefix("ygg://").unwrap_or(addr_str);
 
         // Handle [ipv6]:port format
         let (host_str, port) = if addr_clean.starts_with('[') {
@@ -168,9 +166,11 @@ struct YggdrasilListener {
 #[async_trait::async_trait]
 impl Listener for YggdrasilListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
-        let (stream, _peer_addr) = self.listener.accept().await.map_err(|e| {
-            TransportError::Connection(format!("Yggdrasil accept failed: {e}"))
-        })?;
+        let (stream, _peer_addr) = self
+            .listener
+            .accept()
+            .await
+            .map_err(|e| TransportError::Connection(format!("Yggdrasil accept failed: {e}")))?;
         Ok(Box::new(stream))
     }
 }
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_available() {
-        let driver = YggdrasilDriver::default();
+        let driver = YggdrasilDriver;
         assert!(driver.available());
     }
 
@@ -227,7 +227,13 @@ mod tests {
         let config = DriverConfig::new();
         let result = driver.dial(&target, &config).await;
         assert!(result.is_err());
-        assert!(result.err().expect("expected error").to_string().contains("no ygg_addr"));
+        assert!(
+            result
+                .err()
+                .expect("expected error")
+                .to_string()
+                .contains("no ygg_addr")
+        );
     }
 
     #[tokio::test]
@@ -241,7 +247,13 @@ mod tests {
         let config = DriverConfig::new();
         let result = driver.dial(&target, &config).await;
         assert!(result.is_err());
-        assert!(result.err().expect("expected error").to_string().contains("not in Yggdrasil range"));
+        assert!(
+            result
+                .err()
+                .expect("expected error")
+                .to_string()
+                .contains("not in Yggdrasil range")
+        );
     }
 
     #[tokio::test]
@@ -255,7 +267,13 @@ mod tests {
         let config = DriverConfig::new();
         let result = driver.dial(&target, &config).await;
         assert!(result.is_err());
-        assert!(result.err().expect("expected error").to_string().contains("invalid IPv6"));
+        assert!(
+            result
+                .err()
+                .expect("expected error")
+                .to_string()
+                .contains("invalid IPv6")
+        );
     }
 
     #[tokio::test]
@@ -270,7 +288,13 @@ mod tests {
         let result = driver.dial(&target, &config).await;
         // Should fail at TCP connect (no Yggdrasil running), not at parsing
         assert!(result.is_err());
-        assert!(result.err().expect("expected error").to_string().contains("failed to connect"));
+        assert!(
+            result
+                .err()
+                .expect("expected error")
+                .to_string()
+                .contains("failed to connect")
+        );
     }
 
     #[tokio::test]
@@ -284,7 +308,13 @@ mod tests {
         let config = DriverConfig::new();
         let result = driver.dial(&target, &config).await;
         assert!(result.is_err());
-        assert!(result.err().expect("expected error").to_string().contains("failed to connect"));
+        assert!(
+            result
+                .err()
+                .expect("expected error")
+                .to_string()
+                .contains("failed to connect")
+        );
     }
 
     #[tokio::test]

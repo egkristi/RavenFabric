@@ -160,9 +160,7 @@ impl TorDriver {
                 if domain_len > 4 {
                     let mut extra = vec![0u8; domain_len - 4 + 2];
                     stream.read_exact(&mut extra).await.map_err(|e| {
-                        TransportError::Connection(format!(
-                            "SOCKS5 domain bind read failed: {e}"
-                        ))
+                        TransportError::Connection(format!("SOCKS5 domain bind read failed: {e}"))
                     })?;
                 }
             }
