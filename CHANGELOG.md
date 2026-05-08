@@ -5,6 +5,18 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] — 2026-05-08
+
+### Added
+- **Packaging**: macOS `.pkg` installer build script (`deploy/macos/build-pkg.sh`) — universal binary support, launchd integration, pre/post install scripts
+- **Packaging**: openSUSE OBS spec file (`deploy/obs/ravenfabric.spec`) — RPM packaging for zypper/OBS, systemd integration, dedicated user/group
+- **Packaging**: F-Droid metadata (`deploy/fdroid/`) — full app listing with descriptions, changelog, build recipe for aarch64 Android
+
+### Fixed
+- **Docs**: Fixed README post-quantum wording from "(planned)" to reflect actual implementation (`HybridKemContext` + `PqxdhRatchet`)
+- **Docs**: Updated `MANUAL-TASKS-TODO.md` — marked transport drivers section as completed, updated issue #89 reference
+- **Docs**: Updated ROADMAP — pkg installer, zypper, F-Droid changed from `[ ] Planned` to `[x]` with packaging files
+
 ## [0.1.3] — 2026-05-08
 
 ### Added

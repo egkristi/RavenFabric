@@ -1,0 +1,25 @@
+RavenFabric is a secure remote execution and mesh networking agent written in Rust. It replaces Tailscale, Headscale, Ansible, Salt, NetBird, ZeroTier, and similar tools with a single, cryptographically verified binary.
+
+Key Features:
+
+- Noise XX Mutual Authentication: Every connection is mutually authenticated using Noise protocol. No certificates, no TLS, no certificate authorities.
+
+- Deny-by-Default Policy: The policy engine denies anything not explicitly allowed. Commands, filesystem access, and resource limits are all policy-controlled.
+
+- Structured Audit Logging: Every action produces a structured JSON-lines audit entry. Append-only, tamper-evident.
+
+- 30+ Transport Drivers: WebSocket, QUIC, LoRa, BLE, Wi-Fi Direct, satellite, audio modem, QR stream, I2P, Veilid, Reticulum, mixnet, and more.
+
+- Post-Quantum Cryptography: Hybrid key exchange with ML-KEM for quantum resistance.
+
+- Universal Deployment: Single static binary with no runtime dependencies. Runs on Linux, macOS, Windows, Android, iOS, embedded devices, and more.
+
+- Mesh Networking: Agents can form mesh networks, relaying traffic through multiple hops. Store-carry-forward for delay-tolerant networking.
+
+Android Usage:
+
+RavenFabric runs natively on Android either as a foreground service or in Termux. The agent connects to a relay or mesh peers and executes policy-controlled commands with full cryptographic verification.
+
+Privacy:
+
+RavenFabric collects no telemetry, no analytics, and no personal data. All network traffic is end-to-end encrypted. The relay never decrypts payload content.

@@ -1,0 +1,3 @@
+Secure remote execution and mesh networking agent.
+Replaces Tailscale, Ansible, and Salt with a single
+cryptographically verified binary.

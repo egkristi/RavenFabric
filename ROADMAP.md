@@ -666,7 +666,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 |--------|--------------------|--------|
 | Homebrew | `brew install egkristi/tap/ravenfabric` | [x] Formula ready (`deploy/ravenfabric.rb`) — tap: [egkristi/homebrew-tap](https://github.com/egkristi/homebrew-tap) |
 | DMG | `RavenFabric.dmg` (universal binary) | [x] Build script ready (`deploy/macos/build-dmg.sh`) — needs code signing |
-| pkg installer | `RavenFabric.pkg` (signed) | [ ] Planned — needs Apple signing |
+| pkg installer | `RavenFabric.pkg` (signed) | [x] Build script ready (`deploy/macos/build-pkg.sh`) — needs Apple signing |
 
 ### Linux
 
@@ -675,7 +675,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 | apt (Debian/Ubuntu) | `ravenfabric.deb` + PPA | [x] cargo-deb configured — CI builds on release |
 | dnf (Fedora/RHEL) | `ravenfabric.rpm` + Copr | [x] cargo-generate-rpm configured — CI builds on release |
 | pacman (Arch) | AUR `ravenfabric` | [x] PKGBUILD ready (`deploy/aur/PKGBUILD`) — needs AUR submission |
-| zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [ ] Planned — needs OBS submission |
+| zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [x] Spec ready (`deploy/obs/`) — needs OBS submission |
 | apk (Alpine) | `ravenfabric` (aports) | [x] APKBUILD ready (`deploy/alpine/`) — needs aports submission |
 | snap | `snap install ravenfabric` | [x] snapcraft.yaml ready — needs Snapcraft submission |
 | Flatpak | `io.ravenfabric.Agent` | [x] Manifest ready (`deploy/flatpak/`) — needs Flathub submission |
@@ -690,7 +690,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 | Google Play Store | `io.ravenfabric.agent` | [ ] Planned — requires APK wrapper |
 | APK (sideload) | `ravenfabric.apk` | [x] AndroidManifest + NDK config ready (`deploy/android/`) |
 | Termux (pkg) | `pkg install ravenfabric` | [x] Build instructions in `deploy/android/README.md` |
-| F-Droid | `io.ravenfabric.agent` | [ ] Planned — requires metadata + APK |
+| F-Droid | `io.ravenfabric.agent` | [x] Metadata ready (`deploy/fdroid/`) — needs F-Droid submission |
 
 ### iOS / iPadOS
 

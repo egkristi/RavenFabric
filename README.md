@@ -469,7 +469,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 - **Address = key hash** — no DHCP, no DNS required for identity. Inspired by Reticulum's destination addressing.
 - **IP is a routing hint** — not identity. Agent can change IP, network, transport — identity persists.
 - **TOFU + OTP enrollment** — first contact bootstrapped via one-time token, then TOFU for all future connections.
-- **Post-quantum hybrid** — ML-KEM + X25519 for harvest-now-decrypt-later resistance (planned).
+- **Post-quantum hybrid** — ML-KEM + X25519 for harvest-now-decrypt-later resistance (`HybridKemContext` + `PqxdhRatchet`).
 - **Petname system** — agents are locally named (`web-01`) mapping to cryptographic identifiers. No global namespace required.
 
 ---

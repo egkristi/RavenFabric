@@ -1,0 +1,58 @@
+Categories:
+  - Security
+  - System
+  - Connectivity
+
+License: AGPL-3.0-only
+
+AuthorName: RavenFabric Team
+AuthorEmail: security@ravenfabric.io
+AuthorWebSite: https://ravenfabric.io
+
+WebSite: https://ravenfabric.io
+SourceCode: https://github.com/egkristi/RavenFabric
+IssueTracker: https://github.com/egkristi/RavenFabric/issues
+Changelog: https://github.com/egkristi/RavenFabric/blob/main/CHANGELOG.md
+
+Name: RavenFabric Agent
+AutoName: RavenFabric
+
+Summary: Secure remote execution and mesh networking agent
+
+Description: |
+  RavenFabric is a secure remote execution and mesh networking agent written in
+  Rust. It replaces Tailscale, Ansible, Salt, and similar tools with a single,
+  cryptographically verified binary.
+
+  Features:
+  * Noise XX mutual authentication (no certificates, no TLS)
+  * Deny-by-default policy engine
+  * Structured JSON-lines audit logging
+  * 30+ transport drivers (WebSocket, QUIC, LoRa, BLE, satellite, mixnet)
+  * Post-quantum hybrid key exchange
+  * Single static binary, no runtime dependencies
+  * Works on Android natively (Termux or foreground service)
+
+  The agent connects to a relay or mesh peers and executes policy-controlled
+  commands. All actions are cryptographically authenticated and audit-logged.
+
+RepoType: git
+Repo: https://github.com/egkristi/RavenFabric.git
+
+Builds:
+  - versionName: 0.1.3
+    versionCode: 3
+    commit: v0.1.3
+    subdir: .
+    sudo:
+      - apt-get update
+      - apt-get install -y cargo rustc
+    build:
+      - cargo build --release --target aarch64-linux-android --bin rf-agent
+    ndk: r27
+    target: aarch64-linux-android
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 0.1.3
+CurrentVersionCode: 3

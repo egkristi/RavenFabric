@@ -118,8 +118,8 @@ Marketing posts are pre-written in `marketing/`:
 - [ ] **iOS**: Xcode build, publish to App Store
 - Closes [#90](https://github.com/egkristi/RavenFabric/issues/90)
 
-### Remaining transport drivers
-12 of 14 exotic transport drivers need external libraries or hardware:
-BLE, Wi-Fi Direct, Audio modem, QR-stream, LoRa/Meshtastic, AX.25, HF radio, Satellite, Reticulum, I2P, Veilid, Mixnet.
-- [ ] Implement as resources and protocol libraries become available
-- Closes [#89](https://github.com/egkristi/RavenFabric/issues/89)
+### ~~Remaining transport drivers~~
+~~12 of 14 exotic transport drivers need external libraries or hardware:~~
+~~BLE, Wi-Fi Direct, Audio modem, QR-stream, LoRa/Meshtastic, AX.25, HF radio, Satellite, Reticulum, I2P, Veilid, Mixnet.~~
+- [x] All 12 transport drivers implemented with protocol-specific framing, validation, and tests (196 new tests)
+- Closed [#89](https://github.com/egkristi/RavenFabric/issues/89)
