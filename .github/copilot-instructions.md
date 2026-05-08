@@ -218,6 +218,25 @@ cargo fmt --check        # Format check
 - **If pipeline fails**: Create a GitHub Issue for each distinct problem so nothing is forgotten, then fix it
 - **Issue tracking**: When you discover work that should be done but is out of scope for the current task, create a GitHub Issue for it rather than ignoring it
 
+## GitHub Actions Minutes
+
+The repository is **private** by default. Private repos on the GitHub Free plan have **2,000 Actions minutes/month** (3,000 with promotion). When minutes are exhausted, CI pipelines will fail with "0 steps" or refuse to start.
+
+**If Actions minutes are low or exhausted:**
+
+1. Temporarily make the repo public:
+   ```bash
+   gh repo edit egkristi/RavenFabric --visibility public --accept-visibility-change-consequences
+   ```
+2. Push or re-run the failing workflows (public repos get unlimited free Actions minutes)
+3. Wait for **all pipelines to complete** (Check, Test, Clippy, Format, MSRV, Cross-compile, Coverage, CodeQL)
+4. Make the repo private again:
+   ```bash
+   gh repo edit egkristi/RavenFabric --visibility private --accept-visibility-change-consequences
+   ```
+
+**Important:** Do not leave the repo public longer than necessary. Make it private again as soon as all pipelines finish.
+
 ## Versioning (Semantic Versioning)
 
 Follow [SemVer 2.0.0](https://semver.org/). The version is defined in `[workspace.package].version` in the root `Cargo.toml` and inherited by all crates.
