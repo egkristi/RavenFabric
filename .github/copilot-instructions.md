@@ -155,6 +155,12 @@ These are tracked in [`MANUAL-TASKS-TODO.md`](../MANUAL-TASKS-TODO.md) at the re
 
 **Before implementing a feature that depends on a secret or external service**, check that file to see if the prerequisite is marked done. Do not attempt to automate tasks listed there — they require human credentials or UI interaction.
 
+## Published Binaries Repository
+
+Pre-built binaries are published to [`egkristi/RavenFabric-Published`](https://github.com/egkristi/RavenFabric-Published).
+
+**Under NO circumstances should anything but compiled binaries be published to that repository.** No source code, no configuration files, no documentation, no Cargo.toml, no .rs files — only executable binaries and checksums. The release workflow includes a safety check that aborts if any source files are detected in the artifacts.
+
 ## Known Technical Debt
 
 All previously tracked debt items have been resolved:
