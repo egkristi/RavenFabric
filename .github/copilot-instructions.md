@@ -148,6 +148,13 @@ RavenFabric runs **everywhere**. The agent must compile and operate on any devic
 13. Tamper detection triggers automatic transport migration — compromised paths are abandoned immediately
 14. Connection metrics propagate even over DTN/mesh — no blind spots regardless of topology
 
+## Manual Tasks
+
+Some tasks require human action (account creation, secret provisioning, external submissions).
+These are tracked in [`MANUAL-TASKS-TODO.md`](../MANUAL-TASKS-TODO.md) at the repo root.
+
+**Before implementing a feature that depends on a secret or external service**, check that file to see if the prerequisite is marked done. Do not attempt to automate tasks listed there — they require human credentials or UI interaction.
+
 ## Known Technical Debt
 
 All previously tracked debt items have been resolved:
