@@ -2,8 +2,8 @@ apiVersion: v2
 name: ravenfabric
 description: RavenFabric — Security-first distributed execution engine
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.1.1
+appVersion: "0.1.1"
 
 home: https://ravenfabric.io
 sources:

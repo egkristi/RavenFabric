@@ -18,7 +18,7 @@ quic = ["dep:quinn", "dep:rustls", "dep:rcgen"]
 wireguard = []
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "0.1.0" }
+rf-crypto = { path = "../rf-crypto", version = "0.1.1" }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
