@@ -23,7 +23,7 @@ sudo mv rf /usr/local/bin/
 ## Install Script
 
 ```bash
-curl -fsSL https://get.ravenfabric.io | sh
+curl -fsSL https://raw.githubusercontent.com/egkristi/RavenFabric/main/deploy/install.sh | sh
 ```
 
 ## Package Managers

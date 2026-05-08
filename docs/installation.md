@@ -23,7 +23,7 @@ sudo mv ravenfabric-linux-amd64-musl-cli /usr/local/bin/rf
 ## Install Script
 
 ```bash
-curl -fsSL https://get.ravenfabric.io | sh
+curl -fsSL https://raw.githubusercontent.com/egkristi/RavenFabric/main/deploy/install.sh | sh
 ```
 
 ## Package Managers

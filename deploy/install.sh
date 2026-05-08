@@ -1,6 +1,6 @@
 #!/bin/bash
 # RavenFabric install script
-# Usage: curl -fsSL https://get.ravenfabric.io | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/egkristi/RavenFabric/main/deploy/install.sh | sh
 # Or:    curl -fsSL https://raw.githubusercontent.com/egkristi/RavenFabric/main/deploy/install.sh | sh
 
 set -euo pipefail
