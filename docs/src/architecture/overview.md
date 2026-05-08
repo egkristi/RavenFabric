@@ -33,20 +33,21 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 
 | Crate | Purpose | LOC | Tests |
 |-------|---------|-----|-------|
-| `rf-crypto` | Noise XX handshake, SecureChannel, key management, PQ hybrid KEM | ~1,600 | 35 |
-| `rf-transport` | Driver trait, WebSocket/QUIC/Memory/WireGuard/Vsock/Unix/Stdio, NAT traversal, mesh, auto-selection, MASQUE, ECH | ~15,700 | 318 |
-| `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller API | ~5,800 | 106 |
+| `rf-crypto` | Noise XX handshake, SecureChannel, key management, PQ hybrid KEM | ~1,900 | 42 |
+| `rf-transport` | Driver trait, WebSocket/QUIC/Memory/WireGuard/Vsock/Unix/Stdio, NAT traversal, mesh, auto-selection, MASQUE, ECH | ~16,400 | 337 |
+| `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller API | ~5,900 | 106 |
 | `rf-audit` | Structured JSON-lines audit logging, anomaly event integration | ~650 | 14 |
 | `rf-policy` | Policy enforcement, RBAC, capabilities, CRDT convergence, anomaly detection, injection detection | ~4,500 | 97 |
-| `rf-executor` | Command execution, streaming, orchestration, PTY, plugins | ~6,500 | 105 |
+| `rf-executor` | Command execution, streaming, orchestration, PTY, plugins, desired-state convergence | ~9,200 | 163 |
 | `rf-bootstrap` | OTP enrollment, TrustStore, relay pairing | ~430 | 11 |
 | `rf-relay` | Stateless encrypted relay broker with per-IP rate limiting | ~390 | 7 |
-| `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff) | ~370 | — |
-| `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions) | ~1,080 | — |
-| `rf-mcp-server` | MCP server for AI agent integration (Claude, Cursor, Aider) | ~2,500 | 34 |
-| `rf-integration-tests` | End-to-end integration tests | ~240 | 2 |
+| `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff) | ~380 | — |
+| `rf-cli` | CLI client `rf` (exec, dev, status, shell, forward, playbook, policy, completions) | ~1,080 | — |
+| `rf-mcp-server` | MCP server for AI agent integration (Claude, Cursor, Aider) | ~2,500 | 30 |
+| `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | ~720 | 15 |
+| `rf-integration-tests` | End-to-end integration tests | ~590 | 10 |
 
-**Total: ~40,700 LOC | 740 tests | 0 clippy warnings**
+**Total: ~44,500 LOC | 832 tests | 0 clippy warnings**
 
 ## Data Flow
 

@@ -476,7 +476,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~43,800 LOC | 813 Rust tests + 53 SDK tests | 0 clippy warnings | All CI green**
+**~44,500 LOC | 832 Rust tests + 53 SDK tests | 0 clippy warnings**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -738,7 +738,7 @@ distro: ubuntu
 distro_version: "24.04"
 cpu_count: 8
 ram_gb: 16
-ravenfabric_version: "0.1.2"
+ravenfabric_version: "0.1.3"
 role: web-server              # Custom grain
 environment: production       # Custom grain
 ```
@@ -859,8 +859,8 @@ NOT observable: command content, file content, agent identity, traffic type
 | Crate | Responsibility | Status |
 |-------|---------------|--------|
 | `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM, no_std frame_codec (WASM/bare-metal) | Done (~1,900 LOC, 42 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, socket activation, fd-passing, MASQUE, ECH | Done (~15,700 LOC, 318 tests) |
-| `rf-mcp-client` | MCP client SDK — stdio transport, typed tool wrappers for exec/policy/files/capabilities | Done (~720 LOC, 14 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, socket activation, fd-passing, MASQUE, ECH | Done (~16,400 LOC, 337 tests) |
+| `rf-mcp-client` | MCP client SDK — stdio transport, typed tool wrappers for exec/policy/files/capabilities | Done (~720 LOC, 15 tests) |
 | `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~5,900 LOC, 106 tests) |
 | `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~650 LOC, 14 tests) |
 | `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~4,500 LOC, 97 tests) |

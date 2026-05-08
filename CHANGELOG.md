@@ -5,6 +5,18 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] — 2026-05-08
+
+### Fixed
+- **CI**: Fixed branch protection MSRV check name from "MSRV (1.85)" to "MSRV (1.88)" to match actual Rust MSRV
+- **Docs**: Updated LOC counts to match actual codebase (~44,500 total, rf-transport ~16,400)
+- **Docs**: Updated test counts to match actual test suite (832 Rust tests, rf-transport 337, rf-mcp-client 15)
+- **Docs**: Updated `docs/src/architecture/overview.md` with accurate per-crate stats (was showing stale 740 tests / ~40,700 LOC)
+- **Docs**: Updated `MANUAL-TASKS-TODO.md` with detailed diagnosis of 0-step workflow failures
+
+### Added
+- **CI**: Created GitHub issue #92 tracking Actions 0-step workflow failures (suspected exhausted minutes)
+
 ## [0.1.2] — 2026-05-08
 
 ### Added

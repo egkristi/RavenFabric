@@ -5,16 +5,18 @@ Tasks that require human action — accounts, secrets, external submissions, or 
 ## Priority 1 — Blocking (pipelines won't work without these)
 
 ### GitHub Actions: 0-step failures
-All workflows (CI, Release, Docker, CodeQL, Pages) are failing with 0 steps executed. This is a GitHub Actions transient/platform issue.
+All workflows (CI, Release, Docker, CodeQL, Pages) are failing with 0 steps executed. Suspected cause: exhausted GitHub Actions minutes for private repo on Pro plan (3,000 min/month).
 
-- [ ] Go to **Settings > Actions > General** and verify "Allow all actions" is selected
-- [ ] Check if the repo has any required workflow restrictions or branch protection rules blocking runners
-- [ ] Try: **Actions tab > select a failed run > Re-run all jobs**
-- [ ] If still failing, check [GitHub Status](https://www.githubstatus.com/) for incidents
-- [ ] As a last resort, push an empty commit to trigger fresh runs:
-  ```bash
-  git commit --allow-empty -m "ci: trigger fresh workflow runs" && git push
-  ```
+- [x] Verified "Allow all actions" is selected
+- [x] No required workflow restrictions or rulesets blocking runners
+- [x] Confirmed issue is NOT YAML syntax (minimal `echo` workflow also fails)
+- [x] GitHub Status is all-green (not an incident)
+- [x] Public repos on the same account work fine (confirms private-repo-specific issue)
+- [x] Fixed branch protection MSRV check name from "MSRV (1.85)" to "MSRV (1.88)"
+- [ ] **Verify at https://github.com/settings/billing/summary** — check Actions minutes usage
+- [ ] Set a spending limit at Settings > Billing > Actions if minutes are exhausted
+- [ ] OR: wait for billing cycle to reset
+- Tracked in [#92](https://github.com/egkristi/RavenFabric/issues/92)
 
 ### ~~Add `PUBLISH_BIN_TAP_TOKEN` secret~~
 ~~The `publish-binaries` job in `release.yml` needs a PAT to push to `egkristi/RavenFabric-Published`.~~

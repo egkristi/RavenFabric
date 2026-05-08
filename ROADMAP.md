@@ -604,7 +604,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] LangChain integration — `LangChainTool` class in `sdks/python/src/ravenfabric/integrations/langchain.py`
 - [x] CrewAI integration — `CrewAITool` class in `sdks/python/src/ravenfabric/integrations/crewai.py`
 - [x] AutoGen integration — `AutoGenExecutor` in `sdks/python/src/ravenfabric/integrations/autogen.py`
-- [x] Custom MCP client SDK (Rust) — `rf-mcp-client` library crate: stdio transport, typed tool wrappers (exec, query_policy, file_read/write, list_capabilities, request_approval), 14 tests
+- [x] Custom MCP client SDK (Rust) — `rf-mcp-client` library crate: stdio transport, typed tool wrappers (exec, query_policy, file_read/write, list_capabilities, request_approval), 15 tests
 - [x] Custom MCP client SDK (Python) — pip-installable client (`sdks/python/`): async + sync API, StdioTransport, LangChain + CrewAI + OpenAI + Anthropic integrations, 40 tests
 - [x] Custom MCP client SDK (TypeScript) — npm package (`sdks/typescript/`): fully typed async API, StdioTransport, 12 tests
 - [x] OpenAI function-calling adapter — `OpenAIAdapter` with tool definitions in `sdks/python/src/ravenfabric/integrations/openai.py`
