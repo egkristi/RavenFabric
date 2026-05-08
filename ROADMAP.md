@@ -706,7 +706,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 | Cargo | `cargo install ravenfabric` | [x] Metadata ready — needs `cargo publish` (#44) |
 | Container (Docker/OCI) | `ghcr.io/egkristi/ravenfabric` | [x] Dockerfile + CI workflow ready |
 | Helm chart | `helm install ravenfabric` | [x] Chart ready (`deploy/helm/`) |
-| curl \| sh | `curl -fsSL https://get.ravenfabric.io \| sh` | [x] Script ready (`deploy/install.sh`) |
+| curl \| sh | `curl -fsSL https://ravenfabric.io/install.sh \| sh` | [x] Script ready (`deploy/install.sh`) |
 
 ---
 

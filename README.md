@@ -994,7 +994,7 @@ See [ROADMAP.md](ROADMAP.md) for the detailed roadmap with implementation checkl
 
 ```bash
 # Quick install (Linux/macOS)
-curl -fsSL https://get.ravenfabric.io | sh
+curl -fsSL https://ravenfabric.io/install.sh | sh
 
 # Homebrew (macOS/Linux) — https://github.com/egkristi/homebrew-tap
 brew install egkristi/tap/ravenfabric

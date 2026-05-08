@@ -23,7 +23,7 @@ sudo mv rf /usr/local/bin/
 ## Install Script
 
 ```bash
-curl -fsSL https://get.ravenfabric.io | sh
+curl -fsSL https://ravenfabric.io/install.sh | sh
 ```
 
 ## Package Managers
