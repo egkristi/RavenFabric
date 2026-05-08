@@ -254,9 +254,7 @@ impl Listener for QrStreamListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
         let stream = tokio::net::TcpStream::connect(&self.proxy_addr)
             .await
-            .map_err(|e| {
-                TransportError::Connection(format!("QR stream accept failed: {e}"))
-            })?;
+            .map_err(|e| TransportError::Connection(format!("QR stream accept failed: {e}")))?;
         Ok(Box::new(stream))
     }
 }
@@ -397,7 +395,10 @@ mod tests {
         let config = DriverConfig::new();
         let result = driver.dial(&target, &config).await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to QR stream proxy")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to QR stream proxy")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }
@@ -407,7 +408,10 @@ mod tests {
         let driver = QrStreamDriver::with_proxy("127.0.0.1:19999");
         let result = driver.listen("test").await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to QR stream proxy")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to QR stream proxy")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }

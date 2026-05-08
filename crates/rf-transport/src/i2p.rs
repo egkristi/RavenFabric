@@ -69,9 +69,7 @@ impl I2pDriver {
     }
 
     /// Perform SAM HELLO handshake to establish protocol version.
-    async fn sam_hello(
-        stream: &mut BufReader<TcpStream>,
-    ) -> Result<(), TransportError> {
+    async fn sam_hello(stream: &mut BufReader<TcpStream>) -> Result<(), TransportError> {
         let hello_cmd = format!("HELLO VERSION MIN={SAM_VERSION} MAX={SAM_VERSION}\n");
         stream
             .get_mut()
@@ -130,10 +128,7 @@ impl I2pDriver {
         }
 
         let reply = Self::parse_sam_reply(&response);
-        let destination = reply
-            .get("DESTINATION")
-            .cloned()
-            .unwrap_or_default();
+        let destination = reply.get("DESTINATION").cloned().unwrap_or_default();
 
         Ok(destination)
     }
@@ -144,9 +139,8 @@ impl I2pDriver {
         session_name: &str,
         destination: &str,
     ) -> Result<(), TransportError> {
-        let cmd = format!(
-            "STREAM CONNECT ID={session_name} DESTINATION={destination} SILENT=false\n"
-        );
+        let cmd =
+            format!("STREAM CONNECT ID={session_name} DESTINATION={destination} SILENT=false\n");
         stream
             .get_mut()
             .write_all(cmd.as_bytes())
@@ -156,12 +150,9 @@ impl I2pDriver {
             })?;
 
         let mut response = String::new();
-        stream
-            .read_line(&mut response)
-            .await
-            .map_err(|e| {
-                TransportError::Connection(format!("SAM stream connect read failed: {e}"))
-            })?;
+        stream.read_line(&mut response).await.map_err(|e| {
+            TransportError::Connection(format!("SAM stream connect read failed: {e}"))
+        })?;
 
         // Expected: "STREAM STATUS RESULT=OK\n"
         if !response.contains("RESULT=OK") {
@@ -193,12 +184,9 @@ impl I2pDriver {
             })?;
 
         let mut response = String::new();
-        stream
-            .read_line(&mut response)
-            .await
-            .map_err(|e| {
-                TransportError::Connection(format!("SAM stream accept read failed: {e}"))
-            })?;
+        stream.read_line(&mut response).await.map_err(|e| {
+            TransportError::Connection(format!("SAM stream accept read failed: {e}"))
+        })?;
 
         // Expected: "STREAM STATUS RESULT=OK\n"
         if !response.contains("RESULT=OK") {
@@ -226,9 +214,9 @@ impl I2pDriver {
         }
 
         // Basic base64 character validation (I2P uses a modified base64)
-        let valid = dest
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=' || c == '-' || c == '~');
+        let valid = dest.chars().all(|c| {
+            c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=' || c == '-' || c == '~'
+        });
         if !valid {
             return Err(TransportError::Connection(
                 "I2P destination contains invalid characters (expected base64)".to_string(),
@@ -517,7 +505,10 @@ mod tests {
         config.insert("destination".to_string(), "A".repeat(520));
         let result = driver.dial(&target, &config).await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to I2P SAM bridge")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to I2P SAM bridge")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }

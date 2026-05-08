@@ -91,7 +91,10 @@ impl HfRadioDriver {
                 call.len()
             )));
         }
-        if !call.chars().all(|c| c.is_ascii_alphanumeric() || c == '/' || c == '-') {
+        if !call
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '/' || c == '-')
+        {
             return Err(TransportError::Connection(format!(
                 "HF callsign contains invalid characters: '{call}'"
             )));
@@ -200,52 +203,57 @@ impl Driver for HfRadioDriver {
         Self::validate_callsign(&dest_call)?;
 
         // Connect to VARA command port
-        let mut cmd_stream =
-            TcpStream::connect(&self.vara_cmd_addr)
-                .await
-                .map_err(|e| TransportError::Connection(format!(
-                    "failed to connect to VARA modem at {}: {e}",
-                    self.vara_cmd_addr
-                )))?;
+        let mut cmd_stream = TcpStream::connect(&self.vara_cmd_addr).await.map_err(|e| {
+            TransportError::Connection(format!(
+                "failed to connect to VARA modem at {}: {e}",
+                self.vara_cmd_addr
+            ))
+        })?;
 
         // Set MYCALL
         if !self.mycall.is_empty() {
             let mycall_cmd = Self::format_vara_mycall(&self.mycall);
-            cmd_stream.write_all(mycall_cmd.as_bytes()).await.map_err(|e| {
-                TransportError::Connection(format!("failed to set MYCALL: {e}"))
-            })?;
+            cmd_stream
+                .write_all(mycall_cmd.as_bytes())
+                .await
+                .map_err(|e| TransportError::Connection(format!("failed to set MYCALL: {e}")))?;
         }
 
         // Send CONNECT command
         let connect_cmd = Self::format_vara_connect(
-            if self.mycall.is_empty() { "NOCALL" } else { &self.mycall },
+            if self.mycall.is_empty() {
+                "NOCALL"
+            } else {
+                &self.mycall
+            },
             &dest_call,
         );
-        cmd_stream.write_all(connect_cmd.as_bytes()).await.map_err(|e| {
-            TransportError::Connection(format!("failed to send VARA CONNECT: {e}"))
-        })?;
+        cmd_stream
+            .write_all(connect_cmd.as_bytes())
+            .await
+            .map_err(|e| TransportError::Connection(format!("failed to send VARA CONNECT: {e}")))?;
 
         // Connect to VARA data port for actual data transfer
-        let data_stream =
-            TcpStream::connect(&self.vara_data_addr)
-                .await
-                .map_err(|e| TransportError::Connection(format!(
+        let data_stream = TcpStream::connect(&self.vara_data_addr)
+            .await
+            .map_err(|e| {
+                TransportError::Connection(format!(
                     "failed to connect to VARA data port at {}: {e}",
                     self.vara_data_addr
-                )))?;
+                ))
+            })?;
 
         Ok(Box::new(data_stream))
     }
 
     async fn listen(&self, _addr: &str) -> Result<Box<dyn Listener>, TransportError> {
         // Connect to VARA command port and set to listen mode
-        let mut cmd_stream =
-            TcpStream::connect(&self.vara_cmd_addr)
-                .await
-                .map_err(|e| TransportError::Connection(format!(
-                    "failed to connect to VARA modem at {} for listen: {e}",
-                    self.vara_cmd_addr
-                )))?;
+        let mut cmd_stream = TcpStream::connect(&self.vara_cmd_addr).await.map_err(|e| {
+            TransportError::Connection(format!(
+                "failed to connect to VARA modem at {} for listen: {e}",
+                self.vara_cmd_addr
+            ))
+        })?;
 
         // Set MYCALL and LISTEN ON
         if !self.mycall.is_empty() {
@@ -271,9 +279,7 @@ impl Listener for HfRadioListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
         let stream = TcpStream::connect(&self.vara_data_addr)
             .await
-            .map_err(|e| {
-                TransportError::Connection(format!("HF radio accept failed: {e}"))
-            })?;
+            .map_err(|e| TransportError::Connection(format!("HF radio accept failed: {e}")))?;
         Ok(Box::new(stream))
     }
 }
@@ -335,11 +341,23 @@ mod tests {
 
     #[test]
     fn test_parse_vara_status() {
-        assert_eq!(HfRadioDriver::parse_vara_status("CONNECTED W1AW"), VaraState::Connected);
-        assert_eq!(HfRadioDriver::parse_vara_status("CONNECTING"), VaraState::Connecting);
+        assert_eq!(
+            HfRadioDriver::parse_vara_status("CONNECTED W1AW"),
+            VaraState::Connected
+        );
+        assert_eq!(
+            HfRadioDriver::parse_vara_status("CONNECTING"),
+            VaraState::Connecting
+        );
         assert_eq!(HfRadioDriver::parse_vara_status("BUSY"), VaraState::Busy);
-        assert_eq!(HfRadioDriver::parse_vara_status("DISCONNECTED"), VaraState::Disconnected);
-        assert_eq!(HfRadioDriver::parse_vara_status("UNKNOWN"), VaraState::Disconnected);
+        assert_eq!(
+            HfRadioDriver::parse_vara_status("DISCONNECTED"),
+            VaraState::Disconnected
+        );
+        assert_eq!(
+            HfRadioDriver::parse_vara_status("UNKNOWN"),
+            VaraState::Disconnected
+        );
     }
 
     #[test]

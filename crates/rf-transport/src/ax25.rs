@@ -101,7 +101,6 @@ impl Callsign {
         bytes[6] = 0x60 | ((self.ssid & 0x0F) << 1);
         bytes
     }
-
 }
 
 impl std::fmt::Display for Callsign {
@@ -214,7 +213,11 @@ impl Ax25Driver {
     }
 
     /// Build an AX.25 UI frame.
-    pub fn build_ui_frame(dest: &Callsign, src: &Callsign, info: &[u8]) -> Result<Vec<u8>, TransportError> {
+    pub fn build_ui_frame(
+        dest: &Callsign,
+        src: &Callsign,
+        info: &[u8],
+    ) -> Result<Vec<u8>, TransportError> {
         if info.len() > MAX_INFO_SIZE {
             return Err(TransportError::Connection(format!(
                 "AX.25 info field too large: {} > {MAX_INFO_SIZE}",
@@ -314,9 +317,9 @@ struct Ax25Listener {
 #[async_trait::async_trait]
 impl Listener for Ax25Listener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
-        let stream = TcpStream::connect(&self.tnc_addr).await.map_err(|e| {
-            TransportError::Connection(format!("AX.25 accept failed: {e}"))
-        })?;
+        let stream = TcpStream::connect(&self.tnc_addr)
+            .await
+            .map_err(|e| TransportError::Connection(format!("AX.25 accept failed: {e}")))?;
         Ok(Box::new(stream))
     }
 }

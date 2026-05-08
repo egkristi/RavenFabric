@@ -83,14 +83,13 @@ impl VeilidDriver {
             .get_mut()
             .write_all(request.as_bytes())
             .await
-            .map_err(|e| {
-                TransportError::Connection(format!("Veilid API write failed: {e}"))
-            })?;
+            .map_err(|e| TransportError::Connection(format!("Veilid API write failed: {e}")))?;
 
         let mut response = String::new();
-        stream.read_line(&mut response).await.map_err(|e| {
-            TransportError::Connection(format!("Veilid API read failed: {e}"))
-        })?;
+        stream
+            .read_line(&mut response)
+            .await
+            .map_err(|e| TransportError::Connection(format!("Veilid API read failed: {e}")))?;
 
         // Check for JSON-RPC error
         if response.contains("\"error\"") && !response.contains("\"error\":null") {
@@ -121,8 +120,7 @@ impl VeilidDriver {
     async fn create_private_route(
         stream: &mut BufReader<TcpStream>,
     ) -> Result<String, TransportError> {
-        let response =
-            Self::api_call(stream, "new_private_route", "[]").await?;
+        let response = Self::api_call(stream, "new_private_route", "[]").await?;
 
         // Extract route_id from response
         // Response format: {"jsonrpc":"2.0","id":1,"result":{"route_id":"<hex>",...}}
@@ -216,13 +214,12 @@ fn base64_decode(input: &str) -> Result<Vec<u8>, TransportError> {
         if chunk.len() < 4 {
             break;
         }
-        let vals: Vec<u8> = chunk
-            .iter()
-            .map(|&b| char_to_val(b).unwrap_or(0))
-            .collect();
+        let vals: Vec<u8> = chunk.iter().map(|&b| char_to_val(b).unwrap_or(0)).collect();
 
-        let triple =
-            ((vals[0] as u32) << 18) | ((vals[1] as u32) << 12) | ((vals[2] as u32) << 6) | (vals[3] as u32);
+        let triple = ((vals[0] as u32) << 18)
+            | ((vals[1] as u32) << 12)
+            | ((vals[2] as u32) << 6)
+            | (vals[3] as u32);
 
         result.push((triple >> 16) as u8);
         if chunk[2] != b'=' {
@@ -360,9 +357,10 @@ impl Listener for VeilidListener {
 
         // Wait for incoming connection (blocking read for app_call event)
         let mut line = String::new();
-        stream.read_line(&mut line).await.map_err(|e| {
-            TransportError::Connection(format!("Veilid accept read failed: {e}"))
-        })?;
+        stream
+            .read_line(&mut line)
+            .await
+            .map_err(|e| TransportError::Connection(format!("Veilid accept read failed: {e}")))?;
 
         // Verify it's a RavenFabric connection request
         if !line.contains("RVNF_CONNECT") {

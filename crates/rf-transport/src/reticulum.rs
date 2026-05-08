@@ -121,19 +121,19 @@ impl ReticulumDriver {
             .write_all(&frame)
             .await
             .map_err(|e| TransportError::Connection(format!("failed to send link request: {e}")))?;
-        stream
-            .flush()
-            .await
-            .map_err(|e| TransportError::Connection(format!("failed to flush link request: {e}")))?;
+        stream.flush().await.map_err(|e| {
+            TransportError::Connection(format!("failed to flush link request: {e}"))
+        })?;
         Ok(())
     }
 
     /// Read a response frame from the Reticulum instance.
     async fn read_response(stream: &mut TcpStream) -> Result<Vec<u8>, TransportError> {
         let mut header = [0u8; 2];
-        stream.read_exact(&mut header).await.map_err(|e| {
-            TransportError::Connection(format!("failed to read frame header: {e}"))
-        })?;
+        stream
+            .read_exact(&mut header)
+            .await
+            .map_err(|e| TransportError::Connection(format!("failed to read frame header: {e}")))?;
         let len = Self::decode_frame_length(&header);
         if len > MAX_FRAME_SIZE {
             return Err(TransportError::Connection(format!(
@@ -193,13 +193,12 @@ impl Driver for ReticulumDriver {
         Self::validate_destination_hash(&dest_hash)?;
 
         // Connect to local Reticulum shared instance
-        let mut stream =
-            TcpStream::connect(&self.instance_addr)
-                .await
-                .map_err(|e| TransportError::Connection(format!(
-                    "failed to connect to Reticulum instance at {}: {e}",
-                    self.instance_addr
-                )))?;
+        let mut stream = TcpStream::connect(&self.instance_addr).await.map_err(|e| {
+            TransportError::Connection(format!(
+                "failed to connect to Reticulum instance at {}: {e}",
+                self.instance_addr
+            ))
+        })?;
 
         // Decode destination hash from hex
         let dest_bytes = hex_decode(&dest_hash).map_err(|e| {
@@ -223,13 +222,12 @@ impl Driver for ReticulumDriver {
 
     async fn listen(&self, addr: &str) -> Result<Box<dyn Listener>, TransportError> {
         // Connect to local Reticulum shared instance for listening
-        let mut stream =
-            TcpStream::connect(&self.instance_addr)
-                .await
-                .map_err(|e| TransportError::Connection(format!(
-                    "failed to connect to Reticulum instance at {}: {e}",
-                    self.instance_addr
-                )))?;
+        let mut stream = TcpStream::connect(&self.instance_addr).await.map_err(|e| {
+            TransportError::Connection(format!(
+                "failed to connect to Reticulum instance at {}: {e}",
+                self.instance_addr
+            ))
+        })?;
 
         // Generate identity hash from addr (used as announce identity)
         let identity_hash = simple_hash(addr.as_bytes());
@@ -252,12 +250,9 @@ struct ReticulumListener {
 impl Listener for ReticulumListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
         // Connect to instance and wait for incoming link
-        let mut stream =
-            TcpStream::connect(&self.instance_addr)
-                .await
-                .map_err(|e| TransportError::Connection(format!(
-                    "failed to connect to Reticulum instance: {e}",
-                )))?;
+        let mut stream = TcpStream::connect(&self.instance_addr).await.map_err(|e| {
+            TransportError::Connection(format!("failed to connect to Reticulum instance: {e}",))
+        })?;
 
         // Read incoming link request
         let mut header = [0u8; 2];
@@ -272,9 +267,10 @@ impl Listener for ReticulumListener {
 
         // Accept the link
         let accept_frame = ReticulumDriver::encode_frame(&[0x04]); // Link accept
-        stream.write_all(&accept_frame).await.map_err(|e| {
-            TransportError::Connection(format!("failed to send link accept: {e}"))
-        })?;
+        stream
+            .write_all(&accept_frame)
+            .await
+            .map_err(|e| TransportError::Connection(format!("failed to send link accept: {e}")))?;
 
         Ok(Box::new(stream))
     }
@@ -461,7 +457,10 @@ mod tests {
         config.insert("destination_hash".to_string(), "a".repeat(32));
         let result = driver.dial(&target, &config).await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to Reticulum instance")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to Reticulum instance")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }

@@ -203,34 +203,28 @@ impl Driver for LoraDriver {
                     .and_then(|u| u.strip_prefix("lora://"))
                     .map(|s| s.to_string())
             })
-            .ok_or_else(|| {
-                TransportError::Connection("LoRa node ID not specified".to_string())
-            })?;
+            .ok_or_else(|| TransportError::Connection("LoRa node ID not specified".to_string()))?;
 
         Self::validate_node_id(&node_id)?;
 
         // Connect to Meshtastic device TCP interface
-        let stream = TcpStream::connect(&self.device_addr)
-            .await
-            .map_err(|e| {
-                TransportError::Connection(format!(
-                    "failed to connect to Meshtastic device at {}: {e}",
-                    self.device_addr
-                ))
-            })?;
+        let stream = TcpStream::connect(&self.device_addr).await.map_err(|e| {
+            TransportError::Connection(format!(
+                "failed to connect to Meshtastic device at {}: {e}",
+                self.device_addr
+            ))
+        })?;
 
         Ok(Box::new(stream))
     }
 
     async fn listen(&self, _addr: &str) -> Result<Box<dyn Listener>, TransportError> {
-        let _stream = TcpStream::connect(&self.device_addr)
-            .await
-            .map_err(|e| {
-                TransportError::Connection(format!(
-                    "failed to connect to Meshtastic device at {} for listen: {e}",
-                    self.device_addr
-                ))
-            })?;
+        let _stream = TcpStream::connect(&self.device_addr).await.map_err(|e| {
+            TransportError::Connection(format!(
+                "failed to connect to Meshtastic device at {} for listen: {e}",
+                self.device_addr
+            ))
+        })?;
 
         Ok(Box::new(LoraListener {
             device_addr: self.device_addr.clone(),
@@ -248,9 +242,7 @@ impl Listener for LoraListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
         let stream = TcpStream::connect(&self.device_addr)
             .await
-            .map_err(|e| {
-                TransportError::Connection(format!("LoRa accept failed: {e}"))
-            })?;
+            .map_err(|e| TransportError::Connection(format!("LoRa accept failed: {e}")))?;
         Ok(Box::new(stream))
     }
 }
@@ -310,7 +302,12 @@ mod tests {
         let data = vec![0x00, 0x00, 0x01, 0x00, 0xAA];
         let result = LoraDriver::decode_frame(&data);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid Meshtastic magic"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("invalid Meshtastic magic")
+        );
     }
 
     #[test]

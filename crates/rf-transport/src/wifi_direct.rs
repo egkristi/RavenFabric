@@ -231,9 +231,10 @@ struct WifiDirectListener {
 #[async_trait::async_trait]
 impl Listener for WifiDirectListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
-        let (stream, _addr) = self.listener.accept().await.map_err(|e| {
-            TransportError::Connection(format!("Wi-Fi Direct accept failed: {e}"))
-        })?;
+        let (stream, _addr) =
+            self.listener.accept().await.map_err(|e| {
+                TransportError::Connection(format!("Wi-Fi Direct accept failed: {e}"))
+            })?;
         Ok(Box::new(stream))
     }
 }
@@ -296,7 +297,8 @@ mod tests {
 
     #[test]
     fn test_parse_peer_info() {
-        let response = "p2p_device_addr=AA:BB:CC:DD:EE:FF\ndevice_name=TestDevice\ngroup_capab=0x01\n";
+        let response =
+            "p2p_device_addr=AA:BB:CC:DD:EE:FF\ndevice_name=TestDevice\ngroup_capab=0x01\n";
         let peer = WifiDirectDriver::parse_peer_info(response).unwrap();
         assert_eq!(peer.device_addr, "AA:BB:CC:DD:EE:FF");
         assert_eq!(peer.device_name, "TestDevice");
@@ -358,12 +360,18 @@ mod tests {
             meet_token: None,
         };
         let mut config = DriverConfig::new();
-        config.insert("device_address".to_string(), "AA:BB:CC:DD:EE:FF".to_string());
+        config.insert(
+            "device_address".to_string(),
+            "AA:BB:CC:DD:EE:FF".to_string(),
+        );
         config.insert("peer_ip".to_string(), "127.0.0.1".to_string());
         config.insert("port".to_string(), "19999".to_string());
         let result = driver.dial(&target, &config).await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to Wi-Fi Direct peer")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to Wi-Fi Direct peer")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }

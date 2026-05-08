@@ -52,10 +52,11 @@ impl MixNodeId {
         }
         let mut bytes = [0u8; 32];
         for i in 0..32 {
-            bytes[i] = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16)
-                .map_err(|_| TransportError::Connection(
+            bytes[i] = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).map_err(|_| {
+                TransportError::Connection(
                     "mix node ID contains invalid hex characters".to_string(),
-                ))?;
+                )
+            })?;
         }
         Ok(Self(bytes))
     }
@@ -477,7 +478,10 @@ mod tests {
         config.insert("node_id".to_string(), "a".repeat(64));
         let result = driver.dial(&target, &config).await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to mixnet gateway")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to mixnet gateway")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }
@@ -487,7 +491,10 @@ mod tests {
         let driver = MixnetDriver::with_gateway("127.0.0.1:19999");
         let result = driver.listen("test").await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to mixnet gateway")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to mixnet gateway")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }

@@ -198,13 +198,12 @@ impl Driver for BleDriver {
         Self::validate_mac_address(&mac)?;
 
         // Connect to BLE proxy daemon
-        let mut stream =
-            TcpStream::connect(&self.proxy_addr)
-                .await
-                .map_err(|e| TransportError::Connection(format!(
-                    "failed to connect to BLE proxy at {}: {e}",
-                    self.proxy_addr
-                )))?;
+        let mut stream = TcpStream::connect(&self.proxy_addr).await.map_err(|e| {
+            TransportError::Connection(format!(
+                "failed to connect to BLE proxy at {}: {e}",
+                self.proxy_addr
+            ))
+        })?;
 
         // Send GATT connect command: CONNECT <MAC> <SERVICE_UUID>\n
         let cmd = format!("CONNECT {mac} {NUS_SERVICE_UUID}\n");
@@ -229,13 +228,12 @@ impl Driver for BleDriver {
 
     async fn listen(&self, _addr: &str) -> Result<Box<dyn Listener>, TransportError> {
         // Connect to BLE proxy and start GATT server
-        let mut stream =
-            TcpStream::connect(&self.proxy_addr)
-                .await
-                .map_err(|e| TransportError::Connection(format!(
-                    "failed to connect to BLE proxy at {}: {e}",
-                    self.proxy_addr
-                )))?;
+        let mut stream = TcpStream::connect(&self.proxy_addr).await.map_err(|e| {
+            TransportError::Connection(format!(
+                "failed to connect to BLE proxy at {}: {e}",
+                self.proxy_addr
+            ))
+        })?;
 
         // Register GATT service
         let cmd = format!("SERVE {NUS_SERVICE_UUID}\n");
@@ -257,11 +255,9 @@ struct BleListener {
 #[async_trait::async_trait]
 impl Listener for BleListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
-        let stream = TcpStream::connect(&self.proxy_addr)
-            .await
-            .map_err(|e| TransportError::Connection(format!(
-                "failed to connect to BLE proxy for accept: {e}",
-            )))?;
+        let stream = TcpStream::connect(&self.proxy_addr).await.map_err(|e| {
+            TransportError::Connection(format!("failed to connect to BLE proxy for accept: {e}",))
+        })?;
         Ok(Box::new(stream))
     }
 }

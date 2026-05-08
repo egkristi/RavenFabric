@@ -183,9 +183,7 @@ impl AudioModemDriver {
         // Simple zero-crossing rate frequency estimation
         let mut crossings = 0u32;
         for i in 1..samples.len() {
-            if (samples[i] > 0 && samples[i - 1] <= 0)
-                || (samples[i] <= 0 && samples[i - 1] > 0)
-            {
+            if (samples[i] > 0 && samples[i - 1] <= 0) || (samples[i] <= 0 && samples[i - 1] > 0) {
                 crossings += 1;
             }
         }
@@ -266,9 +264,7 @@ impl Listener for AudioModemListener {
     async fn accept(&self) -> Result<Box<dyn AsyncStream>, TransportError> {
         let stream = tokio::net::TcpStream::connect(&self.proxy_addr)
             .await
-            .map_err(|e| {
-                TransportError::Connection(format!("audio modem accept failed: {e}"))
-            })?;
+            .map_err(|e| TransportError::Connection(format!("audio modem accept failed: {e}")))?;
         Ok(Box::new(stream))
     }
 }
@@ -413,7 +409,10 @@ mod tests {
         let config = DriverConfig::new();
         let result = driver.dial(&target, &config).await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to audio modem proxy")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to audio modem proxy")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }
@@ -423,7 +422,10 @@ mod tests {
         let driver = AudioModemDriver::with_proxy("127.0.0.1:19999");
         let result = driver.listen("test").await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to audio modem proxy")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to audio modem proxy")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }

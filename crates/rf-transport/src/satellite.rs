@@ -206,10 +206,7 @@ impl SatelliteDriver {
             return false;
         }
         let data = &payload[..payload.len() - 2];
-        let expected = u16::from_be_bytes([
-            payload[payload.len() - 2],
-            payload[payload.len() - 1],
-        ]);
+        let expected = u16::from_be_bytes([payload[payload.len() - 2], payload[payload.len() - 1]]);
         let actual: u16 = data.iter().map(|&b| b as u16).sum();
         actual == expected
     }
@@ -391,11 +388,23 @@ mod tests {
 
     #[test]
     fn test_pass_window_usable() {
-        let good = PassWindow { elevation: 45.0, duration_secs: 300, signal_bars: 4 };
+        let good = PassWindow {
+            elevation: 45.0,
+            duration_secs: 300,
+            signal_bars: 4,
+        };
         assert!(good.is_usable());
-        let low_elev = PassWindow { elevation: 5.0, duration_secs: 300, signal_bars: 4 };
+        let low_elev = PassWindow {
+            elevation: 5.0,
+            duration_secs: 300,
+            signal_bars: 4,
+        };
         assert!(!low_elev.is_usable());
-        let low_signal = PassWindow { elevation: 45.0, duration_secs: 300, signal_bars: 1 };
+        let low_signal = PassWindow {
+            elevation: 45.0,
+            duration_secs: 300,
+            signal_bars: 1,
+        };
         assert!(!low_signal.is_usable());
     }
 
@@ -443,7 +452,10 @@ mod tests {
         config.insert("imei".to_string(), "300234065123456".to_string());
         let result = driver.dial(&target, &config).await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to satellite modem")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to satellite modem")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }
@@ -453,7 +465,10 @@ mod tests {
         let driver = SatelliteDriver::with_modem("127.0.0.1:19999");
         let result = driver.listen("test").await;
         match result {
-            Err(e) => assert!(e.to_string().contains("failed to connect to satellite modem")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("failed to connect to satellite modem")
+            ),
             Ok(_) => panic!("expected error"),
         }
     }
