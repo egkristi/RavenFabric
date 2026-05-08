@@ -213,29 +213,35 @@ cargo fmt --check        # Format check
 - Commit messages: `feat: <description>`, `fix: <description>`, `refactor: <description>`
 - Reference GitHub Issues in commits (e.g. `feat: add QUIC transport driver #5`)
 - Always run `cargo test` and `cargo clippy` before pushing
-- Format: `git add -A && git commit -m "<message>" && git push`
-- **After every push**: Check GitHub Actions for pipeline failures. If any workflow fails, diagnose and fix immediately
-- **If pipeline fails**: Create a GitHub Issue for each distinct problem so nothing is forgotten, then fix it
 - **Issue tracking**: When you discover work that should be done but is out of scope for the current task, create a GitHub Issue for it rather than ignoring it
 
-## GitHub Actions Minutes
+### Push Procedure (MANDATORY)
 
-The repository is **private** by default. Private repos on the GitHub Free plan have **2,000 Actions minutes/month** (3,000 with promotion). When minutes are exhausted, CI pipelines will fail with "0 steps" or refuse to start.
+The repository is **private** by default. Every push must follow this exact sequence:
 
-**If Actions minutes are low or exhausted:**
-
-1. Temporarily make the repo public:
+1. **Make repo public** before pushing:
    ```bash
    gh repo edit egkristi/RavenFabric --visibility public --accept-visibility-change-consequences
    ```
-2. Push or re-run the failing workflows (public repos get unlimited free Actions minutes)
-3. Wait for **all pipelines to complete** (Check, Test, Clippy, Format, MSRV, Cross-compile, Coverage, CodeQL)
-4. Make the repo private again:
+2. **Push**:
+   ```bash
+   git add -A && git commit -m "<message>" && git push
+   ```
+3. **Wait for ALL GitHub Actions pipelines to complete successfully** (Check, Test, Clippy, Format, MSRV, Cross-compile, Coverage, CodeQL, and any triggered release/docker workflows). Monitor with:
+   ```bash
+   gh run list --branch main --limit 5
+   ```
+4. **If any pipeline fails**: Diagnose and fix immediately. Create a GitHub Issue for each distinct problem. Push the fix (repo is still public).
+5. **Make repo private** only after all pipelines are green:
    ```bash
    gh repo edit egkristi/RavenFabric --visibility private --accept-visibility-change-consequences
    ```
 
-**Important:** Do not leave the repo public longer than necessary. Make it private again as soon as all pipelines finish.
+**Important:** Do not leave the repo public longer than necessary. Make it private again as soon as all pipelines finish. Never push without completing this full cycle.
+
+## GitHub Actions Minutes
+
+The repository uses the public-for-push workflow above because private repos on the GitHub Free plan have limited Actions minutes (2,000/month). Public repos get unlimited free Actions minutes.
 
 ## Versioning (Semantic Versioning)
 
