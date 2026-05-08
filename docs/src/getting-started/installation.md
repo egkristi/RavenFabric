@@ -31,7 +31,13 @@ curl -fsSL https://get.ravenfabric.io | sh
 ### macOS
 
 ```bash
+# Homebrew — https://github.com/egkristi/homebrew-tap
 brew install egkristi/tap/ravenfabric
+# Or tap first, then install by name:
+brew tap egkristi/tap
+brew install ravenfabric
+# Upgrade:
+brew update && brew upgrade ravenfabric
 ```
 
 ### Linux

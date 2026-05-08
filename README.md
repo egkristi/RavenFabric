@@ -996,8 +996,13 @@ See [ROADMAP.md](ROADMAP.md) for the detailed roadmap with implementation checkl
 # Quick install (Linux/macOS)
 curl -fsSL https://raw.githubusercontent.com/egkristi/RavenFabric/main/deploy/install.sh | sh
 
-# Homebrew (macOS/Linux)
+# Homebrew (macOS/Linux) — https://github.com/egkristi/homebrew-tap
 brew install egkristi/tap/ravenfabric
+# Or tap first, then install by name:
+brew tap egkristi/tap
+brew install ravenfabric
+# Upgrade:
+brew update && brew upgrade ravenfabric
 
 # Nix
 nix profile install github:egkristi/RavenFabric
