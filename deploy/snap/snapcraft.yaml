@@ -1,0 +1,89 @@
+name: ravenfabric
+base: core22
+version: '0.1.2'
+summary: Secure remote execution and mesh networking agent
+description: |
+  RavenFabric is a secure remote execution and mesh networking agent written in
+  Rust. It replaces Tailscale, Ansible, Salt, and similar tools with a single,
+  cryptographically verified binary. Noise XX mutual authentication,
+  deny-by-default policy, and structured audit logging are non-negotiable
+  foundations.
+
+  Features:
+  - Zero-trust networking (Noise XX, no certificates)
+  - Deny-by-default policy engine
+  - Structured JSON audit logging
+  - Multi-transport (WebSocket, QUIC, WireGuard, UNIX socket, etc.)
+  - Cross-platform (Linux, macOS, Windows, ARM, RISC-V)
+  - Single static binary, < 15 MB
+
+grade: stable
+confinement: strict
+license: AGPL-3.0-or-later
+
+website: https://ravenfabric.io
+source-code: https://github.com/egkristi/RavenFabric
+issues: https://github.com/egkristi/RavenFabric/issues
+
+architectures:
+  - build-on: [amd64]
+    build-for: [amd64]
+  - build-on: [arm64]
+    build-for: [arm64]
+
+parts:
+  ravenfabric:
+    plugin: rust
+    source: .
+    source-type: git
+    source-tag: v0.1.2
+    rust-channel: "1.88"
+    rust-features: []
+    build-packages:
+      - pkg-config
+      - libssl-dev
+    override-build: |
+      cargo build --release -p rf-agent -p rf-relay -p rf-cli -p rf-mcp-server
+      install -Dm755 target/release/rf-agent $SNAPCRAFT_PART_INSTALL/bin/rf-agent
+      install -Dm755 target/release/rf-relay $SNAPCRAFT_PART_INSTALL/bin/rf-relay
+      install -Dm755 target/release/rf $SNAPCRAFT_PART_INSTALL/bin/rf
+      install -Dm755 target/release/rf-mcp-server $SNAPCRAFT_PART_INSTALL/bin/rf-mcp-server
+
+apps:
+  rf:
+    command: bin/rf
+    plugs:
+      - network
+      - network-bind
+
+  rf-agent:
+    command: bin/rf-agent
+    daemon: simple
+    restart-condition: on-failure
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - system-observe
+      - mount-observe
+      - hardware-observe
+
+  rf-relay:
+    command: bin/rf-relay
+    daemon: simple
+    restart-condition: on-failure
+    plugs:
+      - network
+      - network-bind
+
+  rf-mcp-server:
+    command: bin/rf-mcp-server
+    plugs:
+      - network
+      - network-bind
+
+layout:
+  /etc/ravenfabric:
+    bind: $SNAP_COMMON/config
+  /var/log/ravenfabric:
+    bind: $SNAP_COMMON/log

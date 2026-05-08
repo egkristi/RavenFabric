@@ -1024,6 +1024,9 @@ scoop install ravenfabric
 # Windows (Chocolatey)
 choco install ravenfabric
 
+# Snap (Linux)
+sudo snap install ravenfabric
+
 # Docker Compose (demo)
 docker compose up -d
 docker compose exec cli rf exec demo-agent "uname -a"

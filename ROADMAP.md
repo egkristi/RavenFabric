@@ -656,8 +656,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 | winget | `RavenFabric.RavenFabric` | [x] Manifest ready (`deploy/winget/`) — needs store submission |
 | Chocolatey | `ravenfabric` | [x] Nuspec ready (`deploy/chocolatey/`) — needs store submission |
 | Scoop | `extras/ravenfabric` | [x] Manifest ready (`deploy/scoop/`) — needs store submission |
-| MSI installer | `ravenfabric-x64.msi` | [ ] Planned — needs WiX toolset |
-| EXE installer | `ravenfabric-x64-setup.exe` | [ ] Planned — needs NSIS/Inno |
+| MSI installer | `ravenfabric-x64.msi` | [x] WiX manifest ready (`deploy/wix/`) — needs code signing |
+| EXE installer | `ravenfabric-x64-setup.exe` | [x] NSIS script ready (`deploy/nsis/`) — needs code signing |
 | Portable ZIP | `ravenfabric-windows-x64.zip` | [x] CI builds on release |
 
 ### macOS

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RavenFabric Windows MSI Installer
+  Build with: wix build deploy/wix/ravenfabric.wxs -o ravenfabric-x64.msi
+  Requires: WiX Toolset v5+ (https://wixtoolset.org/)
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="RavenFabric"
+    Version="0.1.2.0"
+    Manufacturer="Erling Kristiansen"
+    UpgradeCode="F8A3B2D1-4E5C-6F7A-8B9C-0D1E2F3A4B5C"
+    Scope="perMachine">
+
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of RavenFabric is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Installation directory -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="RavenFabric">
+        <Directory Id="BinFolder" Name="bin" />
+        <Directory Id="ConfigFolder" Name="config" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Binaries -->
+    <ComponentGroup Id="Binaries" Directory="BinFolder">
+      <Component Id="RfCli" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+        <File Id="RfExe" Source="!(bindpath.BinDir)\rf.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="RfAgent" Guid="B2C3D4E5-F6A7-8901-BCDE-F12345678901">
+        <File Id="RfAgentExe" Source="!(bindpath.BinDir)\rf-agent.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="RfRelay" Guid="C3D4E5F6-A7B8-9012-CDEF-123456789012">
+        <File Id="RfRelayExe" Source="!(bindpath.BinDir)\rf-relay.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="RfMcpServer" Guid="D4E5F6A7-B8C9-0123-DEF0-234567890123">
+        <File Id="RfMcpServerExe" Source="!(bindpath.BinDir)\rf-mcp-server.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Example configuration -->
+    <ComponentGroup Id="Config" Directory="ConfigFolder">
+      <Component Id="ExampleConfig" Guid="E5F6A7B8-C9D0-1234-EF01-345678901234">
+        <File Id="RavenTomlExample" Source="!(bindpath.SrcDir)\deploy\raven.toml.example"
+              Name="raven.toml.example" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- PATH environment variable -->
+    <Component Id="PathEnv" Directory="BinFolder" Guid="F6A7B8C9-D0E1-2345-F012-456789012345">
+      <Environment Id="PATH" Name="PATH" Value="[BinFolder]"
+                   Permanent="no" Part="last" Action="set" System="yes" />
+    </Component>
+
+    <!-- Windows Service: rf-agent -->
+    <Component Id="AgentService" Directory="BinFolder" Guid="17A8B9C0-D1E2-3456-0123-567890123456">
+      <ServiceInstall
+        Id="RfAgentService"
+        Name="RavenFabricAgent"
+        DisplayName="RavenFabric Agent"
+        Description="Secure remote execution agent — zero-trust, cryptographically verified"
+        Start="auto"
+        Type="ownProcess"
+        ErrorControl="normal"
+        Arguments="--config &quot;[ConfigFolder]raven.toml&quot;" />
+      <ServiceControl
+        Id="RfAgentServiceControl"
+        Name="RavenFabricAgent"
+        Start="install"
+        Stop="both"
+        Remove="uninstall"
+        Wait="yes" />
+    </Component>
+
+    <!-- Feature tree -->
+    <Feature Id="Core" Title="RavenFabric Core" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="Binaries" />
+      <ComponentGroupRef Id="Config" />
+      <ComponentRef Id="PathEnv" />
+    </Feature>
+
+    <Feature Id="AgentService" Title="Agent Windows Service" Level="1" AllowAbsent="yes">
+      <ComponentRef Id="AgentService" />
+    </Feature>
+
+    <!-- UI -->
+    <UI>
+      <UIRef Id="WixUI_InstallDir" />
+      <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    </UI>
+
+    <!-- License -->
+    <WixVariable Id="WixUILicenseRtf" Value="!(bindpath.SrcDir)\deploy\wix\license.rtf" />
+
+  </Package>
+</Wix>
