@@ -653,20 +653,20 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| winget | `RavenFabric.RavenFabric` | [x] Manifest ready (`deploy/winget/`) — needs submission #48 |
-| Chocolatey | `ravenfabric` | [x] Nuspec ready (`deploy/chocolatey/`) — needs submission #48 |
-| Scoop | `extras/ravenfabric` | [x] Manifest ready (`deploy/scoop/`) — needs submission #48 |
-| MSI installer | `ravenfabric-x64.msi` | [ ] Planned — needs WiX toolset #48 |
-| EXE installer | `ravenfabric-x64-setup.exe` | [ ] Planned — needs NSIS/Inno #48 |
+| winget | `RavenFabric.RavenFabric` | [x] Manifest ready (`deploy/winget/`) — needs store submission |
+| Chocolatey | `ravenfabric` | [x] Nuspec ready (`deploy/chocolatey/`) — needs store submission |
+| Scoop | `extras/ravenfabric` | [x] Manifest ready (`deploy/scoop/`) — needs store submission |
+| MSI installer | `ravenfabric-x64.msi` | [ ] Planned — needs WiX toolset |
+| EXE installer | `ravenfabric-x64-setup.exe` | [ ] Planned — needs NSIS/Inno |
 | Portable ZIP | `ravenfabric-windows-x64.zip` | [x] CI builds on release |
 
 ### macOS
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| Homebrew | `brew install egkristi/tap/ravenfabric` | [x] Formula ready (`deploy/ravenfabric.rb`) — tap: [egkristi/homebrew-tap](https://github.com/egkristi/homebrew-tap) — #45 |
-| DMG | `RavenFabric.dmg` (universal binary) | [x] Build script ready (`deploy/macos/build-dmg.sh`) — needs code signing #49 |
-| pkg installer | `RavenFabric.pkg` (signed) | [ ] Planned — #49 |
+| Homebrew | `brew install egkristi/tap/ravenfabric` | [x] Formula ready (`deploy/ravenfabric.rb`) — tap: [egkristi/homebrew-tap](https://github.com/egkristi/homebrew-tap) |
+| DMG | `RavenFabric.dmg` (universal binary) | [x] Build script ready (`deploy/macos/build-dmg.sh`) — needs code signing |
+| pkg installer | `RavenFabric.pkg` (signed) | [ ] Planned — needs Apple signing |
 
 ### Linux
 
@@ -674,36 +674,36 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 |--------|--------------------|--------|
 | apt (Debian/Ubuntu) | `ravenfabric.deb` + PPA | [x] cargo-deb configured — CI builds on release |
 | dnf (Fedora/RHEL) | `ravenfabric.rpm` + Copr | [x] cargo-generate-rpm configured — CI builds on release |
-| pacman (Arch) | AUR `ravenfabric` | [x] PKGBUILD ready (`deploy/aur/PKGBUILD`) — #46 |
-| zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [ ] Planned — #54 |
-| apk (Alpine) | `ravenfabric` (aports) | [x] APKBUILD ready (`deploy/alpine/`) — #54 |
-| snap | `snap install ravenfabric` | [x] snapcraft.yaml ready — #47 |
-| Flatpak | `io.ravenfabric.Agent` | [x] Manifest ready (`deploy/flatpak/`) — needs Flathub submission #52 |
+| pacman (Arch) | AUR `ravenfabric` | [x] PKGBUILD ready (`deploy/aur/PKGBUILD`) — needs AUR submission |
+| zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [ ] Planned — needs OBS submission |
+| apk (Alpine) | `ravenfabric` (aports) | [x] APKBUILD ready (`deploy/alpine/`) — needs aports submission |
+| snap | `snap install ravenfabric` | [x] snapcraft.yaml ready — needs Snapcraft submission |
+| Flatpak | `io.ravenfabric.Agent` | [x] Manifest ready (`deploy/flatpak/`) — needs Flathub submission |
 | Nix | `nix profile install ravenfabric` | [x] flake.nix ready |
-| AppImage | `RavenFabric-x86_64.AppImage` | [x] Build script ready (`deploy/appimage/`) — #52 |
+| AppImage | `RavenFabric-x86_64.AppImage` | [x] Build script ready (`deploy/appimage/`) |
 | Static binary | `ravenfabric-linux-{amd64,arm64,armv7}-musl` | [x] Done — release workflow |
 
 ### Android
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| Google Play Store | `io.ravenfabric.agent` | [ ] Planned — requires APK wrapper #50 |
-| APK (sideload) | `ravenfabric.apk` | [x] AndroidManifest + NDK config ready (`deploy/android/`) — #50 |
-| Termux (pkg) | `pkg install ravenfabric` | [x] Build instructions in `deploy/android/README.md` — #50 |
-| F-Droid | `io.ravenfabric.agent` | [ ] Planned — requires metadata + APK #50 |
+| Google Play Store | `io.ravenfabric.agent` | [ ] Planned — requires APK wrapper |
+| APK (sideload) | `ravenfabric.apk` | [x] AndroidManifest + NDK config ready (`deploy/android/`) |
+| Termux (pkg) | `pkg install ravenfabric` | [x] Build instructions in `deploy/android/README.md` |
+| F-Droid | `io.ravenfabric.agent` | [ ] Planned — requires metadata + APK |
 
 ### iOS / iPadOS
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| App Store | RavenFabric (Network Extension) | [ ] Planned — #51 |
-| TestFlight | Beta builds | [ ] Planned — #51 |
+| App Store | RavenFabric (Network Extension) | [ ] Planned — requires Apple Developer account |
+| TestFlight | Beta builds | [ ] Planned — requires Apple Developer account |
 
 ### Cross-Platform / Generic
 
 | Method | Package / Artifact | Status |
 |--------|--------------------|--------|
-| Cargo | `cargo install ravenfabric` | [x] Metadata ready — needs `cargo publish` #44 |
+| Cargo | `cargo install ravenfabric` | [x] Metadata ready — needs `cargo publish` (#44) |
 | Container (Docker/OCI) | `ghcr.io/egkristi/ravenfabric` | [x] Dockerfile + CI workflow ready |
 | Helm chart | `helm install ravenfabric` | [x] Chart ready (`deploy/helm/`) |
 | curl \| sh | `curl -fsSL https://get.ravenfabric.io \| sh` | [x] Script ready (`deploy/install.sh`) |

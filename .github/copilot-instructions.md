@@ -34,9 +34,9 @@ Cargo workspace with 13 crates:
 | `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions) | **Done** (~1,070 LOC) |
 | `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~2,500 LOC, 30 tests) |
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
-| `rf-integration-tests` | End-to-end integration tests | **Done** (~500 LOC, 10 tests) |
+| `rf-integration-tests` | End-to-end integration tests | **Done** (~580 LOC, 10 tests) |
 
-**Total: ~43,500 LOC, 813 tests, 0 clippy warnings.**
+**Total: ~43,800 LOC, 813 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
