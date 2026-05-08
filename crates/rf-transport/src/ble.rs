@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn test_fragment_large_payload() {
         let driver = BleDriver::with_mtu(23);
-        let chunk_size = 23 - 3; // 20 bytes per chunk
+        let _chunk_size = 23 - 3; // 20 bytes per chunk
         let data = vec![0xAB; 50]; // 50 bytes = 3 chunks (20 + 20 + 10)
         let fragments = driver.fragment_payload(&data);
         assert_eq!(fragments.len(), 3);

@@ -353,7 +353,7 @@ mod tests {
     #[test]
     fn test_validate_destination_hash_too_short() {
         let hash = "abcdef";
-        let err = ReticulumDriver::validate_destination_hash(&hash).unwrap_err();
+        let err = ReticulumDriver::validate_destination_hash(hash).unwrap_err();
         assert!(err.to_string().contains("32 hex characters"));
     }
 
