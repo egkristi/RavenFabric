@@ -205,6 +205,26 @@ cargo fmt --check        # Format check
 - **If pipeline fails**: Create a GitHub Issue for each distinct problem so nothing is forgotten, then fix it
 - **Issue tracking**: When you discover work that should be done but is out of scope for the current task, create a GitHub Issue for it rather than ignoring it
 
+## Versioning (Semantic Versioning)
+
+Follow [SemVer 2.0.0](https://semver.org/). The version is defined in `[workspace.package].version` in the root `Cargo.toml` and inherited by all crates.
+
+| Change type | Version bump | Example |
+|---|---|---|
+| **Breaking API/wire-protocol change** | **Major** (`X.0.0`) | Remove RPC action, change wire format |
+| **New feature** (backward-compatible) | **Minor** (`0.X.0`) | New transport driver, new CLI command, new policy capability |
+| **Bug fix, docs, refactor** (no new functionality) | **Patch** (`0.0.X`) | Test fix, doc accuracy, clippy cleanup |
+
+When bumping version:
+
+1. Update `version` in root `Cargo.toml` (`[workspace.package]`)
+2. Update all inter-crate dependency version strings (`find crates -name Cargo.toml -exec sed ...`)
+3. Update `deploy/helm/ravenfabric/Chart.yaml` (`version` + `appVersion`)
+4. Add a dated section header in `CHANGELOG.md` (e.g. `## [0.2.0] — 2026-05-08`)
+5. Commit with `chore: bump version to X.Y.Z`
+
+**Always bump at least patch on every commit that changes code or fixes bugs.** Consider minor bump when new features land.
+
 ## Feature Completion Checklist
 
 Every new feature **must** include the following before it is considered done:
