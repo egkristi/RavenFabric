@@ -137,8 +137,6 @@ jobs:
           cp target/${{ matrix.target }}/release/rf-agent.exe zip-staging/
           cp target/${{ matrix.target }}/release/rf-relay.exe zip-staging/
           cp target/${{ matrix.target }}/release/rf.exe zip-staging/
-          cp README.md zip-staging/
-          cp CHANGELOG.md zip-staging/ 2>/dev/null || true
           cd zip-staging && 7z a -tzip ../dist/ravenfabric-windows-x64.zip . && cd ..
 
       - uses: actions/upload-artifact@v7
@@ -340,37 +338,26 @@ jobs:
           sha256sum * > SHA256SUMS
           ls -la
 
-      - name: Push to RavenFabric-Published
-        env:
-          PUBLISH_TOKEN: ${{ secrets.PUBLISHED_REPO_TOKEN }}
+      - name: Verify no source code in artifacts
         run: |
-          git clone https://x-access-token:${PUBLISH_TOKEN}@github.com/egkristi/RavenFabric-Published.git published
-          cd published
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cd binaries
+          echo "=== Files to publish ==="
+          ls -la
+          # Safety check: reject if any source files are present
+          if find . -name '*.rs' -o -name '*.toml' -o -name '*.lock' -o -name '*.md' -o -name '*.yml' -o -name '*.yaml' | grep -q .; then
+            echo "ERROR: Source code files detected in artifacts! Aborting."
+            find . -name '*.rs' -o -name '*.toml' -o -name '*.lock' -o -name '*.md' -o -name '*.yml' -o -name '*.yaml'
+            exit 1
+          fi
+          echo "OK: Only binary files present"
 
-          # Create a versioned directory
-          VERSION="${{ steps.version.outputs.tag }}"
-          mkdir -p "releases/${VERSION}"
-          cp ../binaries/* "releases/${VERSION}/"
-
-          # Update latest symlink
-          rm -f releases/latest
-          ln -s "${VERSION}" releases/latest
-
-          git add -A
-          git commit -m "release: publish v${VERSION} binaries"
-          git tag "v${VERSION}"
-          git push origin main
-          git push origin "v${VERSION}"
-
-      - name: Create release on Published repo
+      - name: Create release on RavenFabric-Published
         env:
-          GH_TOKEN: ${{ secrets.PUBLISHED_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLISH_BIN_TAP_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.tag }}"
-          cd published
           gh release create "v${VERSION}" \
+            --repo egkristi/RavenFabric-Published \
             --title "RavenFabric v${VERSION}" \
             --notes "Pre-built binaries for RavenFabric v${VERSION}. See [changelog](https://github.com/egkristi/RavenFabric/blob/main/CHANGELOG.md)." \
-            "releases/${VERSION}/"*
+            binaries/*
