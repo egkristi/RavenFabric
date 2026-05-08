@@ -4,8 +4,8 @@ Tasks that require human action — accounts, secrets, external submissions, or 
 
 ## Priority 1 — Blocking (pipelines won't work without these)
 
-### GitHub Actions: 0-step failures
-All workflows (CI, Release, Docker, CodeQL, Pages) are failing with 0 steps executed. Suspected cause: exhausted GitHub Actions minutes for private repo on Pro plan (3,000 min/month).
+### ~~GitHub Actions: 0-step failures~~
+~~All workflows (CI, Release, Docker, CodeQL, Pages) were failing with 0 steps executed due to exhausted GitHub Actions minutes for private repo (3,000 min/month).~~
 
 - [x] Verified "Allow all actions" is selected
 - [x] No required workflow restrictions or rulesets blocking runners
@@ -13,10 +13,9 @@ All workflows (CI, Release, Docker, CodeQL, Pages) are failing with 0 steps exec
 - [x] GitHub Status is all-green (not an incident)
 - [x] Public repos on the same account work fine (confirms private-repo-specific issue)
 - [x] Fixed branch protection MSRV check name from "MSRV (1.85)" to "MSRV (1.88)"
-- [ ] **Verify at https://github.com/settings/billing/summary** — check Actions minutes usage
-- [ ] Set a spending limit at Settings > Billing > Actions if minutes are exhausted
-- [ ] OR: wait for billing cycle to reset
-- Tracked in [#92](https://github.com/egkristi/RavenFabric/issues/92)
+- [x] **Resolved**: temporarily made repo public, all pipelines passed, repo made private again
+- [x] Added workaround to `.github/copilot-instructions.md` for future occurrences
+- Closed [#92](https://github.com/egkristi/RavenFabric/issues/92)
 
 ### ~~Add `PUBLISH_BIN_TAP_TOKEN` secret~~
 ~~The `publish-binaries` job in `release.yml` needs a PAT to push to `egkristi/RavenFabric-Published`.~~
@@ -65,6 +64,8 @@ The SSL certificate is not yet provisioned by GitHub Pages.
 - [ ] **Scoop**: Submit PR to scoop bucket or push `deploy/scoop/ravenfabric.json`
 - [ ] **WinGet**: Submit PR to `microsoft/winget-pkgs` with `deploy/winget/RavenFabric.RavenFabric.yaml`
 - [ ] **Homebrew-core**: Once formula is stable, submit PR to `homebrew/homebrew-core`
+- [ ] **openSUSE OBS**: Submit `deploy/obs/ravenfabric.spec` + `_service` to OBS
+- [ ] **F-Droid**: Submit `deploy/fdroid/metadata/io.ravenfabric.agent.yml` via GitLab MR to fdroiddata
 - Closes [#91](https://github.com/egkristi/RavenFabric/issues/91)
 
 ### Publish to crates.io manually (first time)
@@ -111,7 +112,7 @@ Marketing posts are pre-written in `marketing/`:
 ## Priority 4 — Platform-specific (when resources available)
 
 ### Windows/macOS/mobile installers
-- [ ] **macOS .pkg**: Build and sign with Apple Developer certificate
+- [ ] **macOS .pkg**: Sign with Apple Developer certificate (`deploy/macos/build-pkg.sh` ready)
 - [ ] **Windows MSI**: Build with WiX toolset (`deploy/wix/ravenfabric.wxs` is ready)
 - [ ] **Windows NSIS**: Build with NSIS (`deploy/nsis/ravenfabric.nsi` is ready)
 - [ ] **Android**: NDK cross-compile, publish to Play Store
