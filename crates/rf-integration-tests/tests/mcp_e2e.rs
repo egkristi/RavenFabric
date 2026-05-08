@@ -5,6 +5,9 @@
 
 use rf_mcp_server::{JsonRpcRequest, McpServer};
 use serde_json::json;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn create_test_server() -> McpServer {
     let policy_yaml = r#"
@@ -25,7 +28,8 @@ spec:
     timeoutSeconds: 30
 "#;
 
-    let tmp_dir = std::env::temp_dir().join("rf-mcp-test");
+    let id = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let tmp_dir = std::env::temp_dir().join(format!("rf-mcp-test-{}-{}", std::process::id(), id));
     std::fs::create_dir_all(&tmp_dir).unwrap();
     let policy_path = tmp_dir.join("policy.yaml");
     std::fs::write(&policy_path, policy_yaml).unwrap();
