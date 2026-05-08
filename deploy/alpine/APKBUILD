@@ -1,7 +1,7 @@
 # Contributor: RavenFabric <security@ravenfabric.io>
 # Maintainer: RavenFabric <security@ravenfabric.io>
 pkgname=ravenfabric
-pkgver=0.1.0
+pkgver=0.1.2
 pkgrel=0
 pkgdesc="Secure remote execution and mesh networking agent with Noise XX authentication"
 url="https://ravenfabric.io"

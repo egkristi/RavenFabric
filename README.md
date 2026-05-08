@@ -738,7 +738,7 @@ distro: ubuntu
 distro_version: "24.04"
 cpu_count: 8
 ram_gb: 16
-ravenfabric_version: "0.1.0"
+ravenfabric_version: "0.1.2"
 role: web-server              # Custom grain
 environment: production       # Custom grain
 ```
@@ -994,7 +994,7 @@ See [ROADMAP.md](ROADMAP.md) for the detailed roadmap with implementation checkl
 
 ```bash
 # Quick install (Linux/macOS)
-curl -fsSL https://raw.githubusercontent.com/egkristi/RavenFabric/main/deploy/install.sh | sh
+curl -fsSL https://get.ravenfabric.io | sh
 
 # Homebrew (macOS/Linux) — https://github.com/egkristi/homebrew-tap
 brew install egkristi/tap/ravenfabric
@@ -1034,6 +1034,8 @@ docker compose exec cli rf exec demo-agent "uname -a"
 # From source
 cargo install --git https://github.com/egkristi/RavenFabric.git rf-cli
 ```
+
+Pre-built binaries for all platforms are also available at [egkristi/RavenFabric-Published](https://github.com/egkristi/RavenFabric-Published/releases).
 
 See [ROADMAP.md — Distribution & Packaging](ROADMAP.md#distribution--packaging) for all supported platforms.
 
