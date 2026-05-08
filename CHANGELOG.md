@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.2] — 2026-05-08
 
 ### Added
+- **Transport**: Tor hidden service driver (`tor.rs`) — full SOCKS5 CONNECT via local Tor proxy, .onion validation, 8 tests
+- **Transport**: Yggdrasil overlay driver (`yggdrasil.rs`) — TCP over Yggdrasil IPv6 mesh (200::/7), listen support, 7 tests
 - **Packaging**: Snap package manifest (`deploy/snap/snapcraft.yaml`) — daemon support, strict confinement, amd64+arm64
 - **Packaging**: WiX MSI installer manifest (`deploy/wix/ravenfabric.wxs`) — Windows service, PATH, feature tree
 - **Packaging**: NSIS EXE installer script (`deploy/nsis/ravenfabric.nsi`) — GUI installer, service install, Start Menu

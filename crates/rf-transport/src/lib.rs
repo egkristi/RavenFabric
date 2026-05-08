@@ -29,6 +29,7 @@ pub mod quic;
 pub mod stdio_pipe;
 pub mod stun_client;
 pub mod stun_server;
+pub mod tor;
 pub mod tun;
 pub mod turn_relay;
 #[cfg(unix)]
@@ -38,3 +39,4 @@ pub mod vsock;
 pub mod websocket;
 pub mod wg_tunnel;
 pub mod wireguard;
+pub mod yggdrasil;

@@ -472,7 +472,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Air-Gap and Proximity Transports
 - [~] Reticulum Network Stack driver — enum variant, no protocol integration
-- [~] Tor hidden service driver — enum variant
+- [x] Tor hidden service driver — `TorDriver` with SOCKS5 CONNECT through local Tor proxy, .onion address validation, protocol prefix stripping (8 tests)
 - [x] Serial port driver — `SerialFramer` with sync bytes, CRC-16/CCITT, frame detection, encode/decode (5 tests)
 - [~] Bluetooth/BLE driver — enum variant
 - [~] Wi-Fi Direct driver — enum variant
@@ -486,7 +486,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [~] Satellite link driver — enum variant
 
 ### Overlay Networks
-- [~] Yggdrasil driver — enum variant
+- [x] Yggdrasil driver — `YggdrasilDriver` with TCP over Yggdrasil IPv6 mesh (200::/7), bracketed address parsing, listen support (7 tests)
 - [~] I2P driver — enum variant
 - [~] Veilid driver — enum variant
 - [~] Mixnet integration — enum variant
