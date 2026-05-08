@@ -16,14 +16,11 @@ All workflows (CI, Release, Docker, CodeQL, Pages) are failing with 0 steps exec
   git commit --allow-empty -m "ci: trigger fresh workflow runs" && git push
   ```
 
-### Add `PUBLISHED_REPO_TOKEN` secret
-The `publish-binaries` job in `release.yml` needs a PAT to push to `egkristi/RavenFabric-Published`.
+### ~~Add `PUBLISH_BIN_TAP_TOKEN` secret~~
+~~The `publish-binaries` job in `release.yml` needs a PAT to push to `egkristi/RavenFabric-Published`.~~
 
-- [ ] Create a **Fine-grained PAT** at https://github.com/settings/tokens?type=beta
-  - Repository access: `egkristi/RavenFabric-Published` only
-  - Permissions: **Contents** (read & write)
-- [ ] Add it as a secret: **Settings > Secrets and variables > Actions > New repository secret**
-  - Name: `PUBLISHED_REPO_TOKEN`
+- [x] Created Fine-grained PAT with Contents read & write on `egkristi/RavenFabric-Published`
+- [x] Added as secret `PUBLISH_BIN_TAP_TOKEN`
 
 ### Add `CRATES_IO_TOKEN` secret
 The `publish-crates` job in `release.yml` needs a crates.io API token.
