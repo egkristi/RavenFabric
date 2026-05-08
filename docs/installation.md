@@ -2,20 +2,20 @@
 
 ## Download Pre-built Binaries
 
-Pre-built binaries are available on the [GitHub Releases](https://github.com/egkristi/RavenFabric/releases) page:
+Pre-built binaries are available on the [GitHub Releases](https://github.com/egkristi/RavenFabric-Published/releases) page:
 
 | Platform | CLI | Agent | Relay |
 |----------|-----|-------|-------|
-| Linux x86_64 (static musl) | [cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-amd64-musl-cli) | [agent](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-amd64-musl-agent) | [relay](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-amd64-musl-relay) |
-| Linux ARM64 (static musl) | [cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-arm64-musl-cli) | [agent](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-arm64-musl-agent) | [relay](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-arm64-musl-relay) |
-| Linux armv7 (static musl) | [cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-armv7-musl-cli) | [agent](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-armv7-musl-agent) | [relay](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-armv7-musl-relay) |
-| macOS x86_64 | [cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-darwin-amd64-cli) | [agent](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-darwin-amd64-agent) | [relay](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-darwin-amd64-relay) |
-| macOS ARM64 (Apple Silicon) | [cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-darwin-arm64-cli) | [agent](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-darwin-arm64-agent) | [relay](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-darwin-arm64-relay) |
-| Windows x86_64 | [cli.exe](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-windows-amd64-cli.exe) | [agent.exe](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-windows-amd64-agent.exe) | [relay.exe](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-windows-amd64-relay.exe) |
+| Linux x86_64 (static musl) | [cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-cli) | [agent](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-agent) | [relay](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-relay) |
+| Linux ARM64 (static musl) | [cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-arm64-musl-cli) | [agent](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-arm64-musl-agent) | [relay](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-arm64-musl-relay) |
+| Linux armv7 (static musl) | [cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-armv7-musl-cli) | [agent](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-armv7-musl-agent) | [relay](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-armv7-musl-relay) |
+| macOS x86_64 | [cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-amd64-cli) | [agent](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-amd64-agent) | [relay](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-amd64-relay) |
+| macOS ARM64 (Apple Silicon) | [cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-arm64-cli) | [agent](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-arm64-agent) | [relay](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-arm64-relay) |
+| Windows x86_64 | [cli.exe](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-windows-amd64-cli.exe) | [agent.exe](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-windows-amd64-agent.exe) | [relay.exe](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-windows-amd64-relay.exe) |
 
 ```bash
 # Download CLI
-curl -LO https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-amd64-musl-cli
+curl -LO https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-cli
 chmod +x ravenfabric-linux-amd64-musl-cli
 sudo mv ravenfabric-linux-amd64-musl-cli /usr/local/bin/rf
 ```

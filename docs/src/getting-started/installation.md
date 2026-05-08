@@ -2,20 +2,20 @@
 
 ## Pre-built Binaries (Recommended)
 
-Download the latest release from [GitHub Releases](https://github.com/egkristi/RavenFabric/releases):
+Download the latest release from [GitHub Releases](https://github.com/egkristi/RavenFabric-Published/releases):
 
 | Platform | Binary |
 |----------|--------|
-| Linux x86_64 (static) | [ravenfabric-linux-amd64-musl-cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-amd64-musl-cli) |
-| Linux ARM64 (static) | [ravenfabric-linux-arm64-musl-cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-arm64-musl-cli) |
-| Linux armv7 (static) | [ravenfabric-linux-armv7-musl-cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-armv7-musl-cli) |
-| macOS x86_64 | [ravenfabric-darwin-amd64-cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-darwin-amd64-cli) |
-| macOS ARM64 (Apple Silicon) | [ravenfabric-darwin-arm64-cli](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-darwin-arm64-cli) |
-| Windows x86_64 | [ravenfabric-windows-amd64-cli.exe](https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-windows-amd64-cli.exe) |
+| Linux x86_64 (static) | [ravenfabric-linux-amd64-musl-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-cli) |
+| Linux ARM64 (static) | [ravenfabric-linux-arm64-musl-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-arm64-musl-cli) |
+| Linux armv7 (static) | [ravenfabric-linux-armv7-musl-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-armv7-musl-cli) |
+| macOS x86_64 | [ravenfabric-darwin-amd64-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-amd64-cli) |
+| macOS ARM64 (Apple Silicon) | [ravenfabric-darwin-arm64-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-arm64-cli) |
+| Windows x86_64 | [ravenfabric-windows-amd64-cli.exe](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-windows-amd64-cli.exe) |
 
 ```bash
 # Example: Linux x86_64
-curl -Lo rf https://github.com/egkristi/RavenFabric/releases/latest/download/ravenfabric-linux-amd64-musl-cli
+curl -Lo rf https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-cli
 chmod +x rf
 sudo mv rf /usr/local/bin/
 ```
