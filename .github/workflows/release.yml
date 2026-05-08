@@ -64,9 +64,16 @@ jobs:
             sudo apt-get install -y gcc-aarch64-linux-gnu
           fi
           if [[ "${{ matrix.target }}" == "armv7-unknown-linux-musleabihf" ]]; then
-            wget --retry-connrefused --tries=5 --timeout=30 https://musl.cc/armv7l-linux-musleabihf-cross.tgz
-            tar xzf armv7l-linux-musleabihf-cross.tgz -C /opt
-            echo "/opt/armv7l-linux-musleabihf-cross/bin" >> $GITHUB_PATH
+            sudo apt-get install -y gcc-arm-linux-gnueabihf
+            # Try musl.cc for dedicated musl toolchain, fall back to gnueabihf linker
+            wget --retry-connrefused --tries=3 --timeout=60 --waitretry=10 https://musl.cc/armv7l-linux-musleabihf-cross.tgz || true
+            if [[ -f armv7l-linux-musleabihf-cross.tgz ]]; then
+              tar xzf armv7l-linux-musleabihf-cross.tgz -C /opt
+              echo "/opt/armv7l-linux-musleabihf-cross/bin" >> $GITHUB_PATH
+            else
+              echo "musl.cc download failed, using system cross-compiler"
+              sudo ln -sf /usr/bin/arm-linux-gnueabihf-gcc /usr/local/bin/armv7l-linux-musleabihf-gcc
+            fi
           fi
 
       - name: Install musl tools
@@ -76,10 +83,15 @@ jobs:
           sudo apt-get install -y musl-tools
           if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu musl-dev
-            # Install aarch64 musl cross toolchain
-            wget --retry-connrefused --tries=5 --timeout=30 https://musl.cc/aarch64-linux-musl-cross.tgz
-            tar xzf aarch64-linux-musl-cross.tgz -C /opt
-            echo "/opt/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+            # Try musl.cc for dedicated musl toolchain, fall back to gnu linker
+            wget --retry-connrefused --tries=3 --timeout=60 --waitretry=10 https://musl.cc/aarch64-linux-musl-cross.tgz || true
+            if [[ -f aarch64-linux-musl-cross.tgz ]]; then
+              tar xzf aarch64-linux-musl-cross.tgz -C /opt
+              echo "/opt/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+            else
+              echo "musl.cc download failed, using system aarch64-linux-gnu-gcc as linker"
+              sudo ln -sf /usr/bin/aarch64-linux-gnu-gcc /usr/local/bin/aarch64-linux-musl-gcc
+            fi
           fi
 
       - name: Build rf-agent
