@@ -187,7 +187,9 @@ impl Driver for NamedPipeDriver {
                         "named pipe: failed to connect to '{pipe_path}': {e}"
                     ))
                 })?;
-            Ok(Box::new(NamedPipeStream { inner: NamedPipeInner::Client(client) }))
+            Ok(Box::new(NamedPipeStream {
+                inner: NamedPipeInner::Client(client),
+            }))
         }
 
         #[cfg(not(windows))]
@@ -256,7 +258,9 @@ impl Listener for NamedPipeListener {
         })?;
 
         // On Windows, the server pipe itself implements AsyncRead + AsyncWrite
-        Ok(Box::new(NamedPipeStream { inner: NamedPipeInner::Server(server) }))
+        Ok(Box::new(NamedPipeStream {
+            inner: NamedPipeInner::Server(server),
+        }))
     }
 }
 
