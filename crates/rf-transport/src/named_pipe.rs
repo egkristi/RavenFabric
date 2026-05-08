@@ -65,11 +65,18 @@ impl Default for NamedPipeDriver {
 /// to allow compilation and testing on all platforms.
 pub struct NamedPipeStream {
     #[cfg(windows)]
-    inner: tokio::net::windows::named_pipe::NamedPipeClient,
+    inner: NamedPipeInner,
     #[cfg(not(windows))]
     reader: Box<dyn AsyncRead + Unpin + Send>,
     #[cfg(not(windows))]
     writer: Box<dyn AsyncWrite + Unpin + Send>,
+}
+
+/// Inner type that can hold either a client or server named pipe handle.
+#[cfg(windows)]
+enum NamedPipeInner {
+    Client(tokio::net::windows::named_pipe::NamedPipeClient),
+    Server(tokio::net::windows::named_pipe::NamedPipeServer),
 }
 
 #[cfg(not(windows))]
@@ -94,7 +101,10 @@ impl AsyncRead for NamedPipeStream {
     ) -> Poll<io::Result<()>> {
         #[cfg(windows)]
         {
-            Pin::new(&mut self.inner).poll_read(cx, buf)
+            match &mut self.inner {
+                NamedPipeInner::Client(c) => Pin::new(c).poll_read(cx, buf),
+                NamedPipeInner::Server(s) => Pin::new(s).poll_read(cx, buf),
+            }
         }
         #[cfg(not(windows))]
         {
@@ -111,7 +121,10 @@ impl AsyncWrite for NamedPipeStream {
     ) -> Poll<io::Result<usize>> {
         #[cfg(windows)]
         {
-            Pin::new(&mut self.inner).poll_write(cx, buf)
+            match &mut self.inner {
+                NamedPipeInner::Client(c) => Pin::new(c).poll_write(cx, buf),
+                NamedPipeInner::Server(s) => Pin::new(s).poll_write(cx, buf),
+            }
         }
         #[cfg(not(windows))]
         {
@@ -122,7 +135,10 @@ impl AsyncWrite for NamedPipeStream {
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         #[cfg(windows)]
         {
-            Pin::new(&mut self.inner).poll_flush(cx)
+            match &mut self.inner {
+                NamedPipeInner::Client(c) => Pin::new(c).poll_flush(cx),
+                NamedPipeInner::Server(s) => Pin::new(s).poll_flush(cx),
+            }
         }
         #[cfg(not(windows))]
         {
@@ -133,7 +149,10 @@ impl AsyncWrite for NamedPipeStream {
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         #[cfg(windows)]
         {
-            Pin::new(&mut self.inner).poll_shutdown(cx)
+            match &mut self.inner {
+                NamedPipeInner::Client(c) => Pin::new(c).poll_shutdown(cx),
+                NamedPipeInner::Server(s) => Pin::new(s).poll_shutdown(cx),
+            }
         }
         #[cfg(not(windows))]
         {
@@ -168,7 +187,7 @@ impl Driver for NamedPipeDriver {
                         "named pipe: failed to connect to '{pipe_path}': {e}"
                     ))
                 })?;
-            Ok(Box::new(NamedPipeStream { inner: client }))
+            Ok(Box::new(NamedPipeStream { inner: NamedPipeInner::Client(client) }))
         }
 
         #[cfg(not(windows))]
@@ -237,7 +256,7 @@ impl Listener for NamedPipeListener {
         })?;
 
         // On Windows, the server pipe itself implements AsyncRead + AsyncWrite
-        Ok(Box::new(NamedPipeStream { inner: server }))
+        Ok(Box::new(NamedPipeStream { inner: NamedPipeInner::Server(server) }))
     }
 }
 
