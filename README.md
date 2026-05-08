@@ -738,7 +738,7 @@ distro: ubuntu
 distro_version: "24.04"
 cpu_count: 8
 ram_gb: 16
-ravenfabric_version: "0.1.3"
+ravenfabric_version: "0.1.4"
 role: web-server              # Custom grain
 environment: production       # Custom grain
 ```
@@ -937,7 +937,7 @@ RavenFabric is designed to run **anywhere**. The agent targets every platform th
 |------|-----------|-------|
 | **Tier 1** (CI-tested) | Linux amd64/arm64 (musl static), macOS amd64/arm64, Windows amd64 | First-class, full feature set |
 | **Tier 2** (compiles) | Linux armv7 (Raspberry Pi), Linux riscv64, FreeBSD, Android (aarch64/armv7), iOS (aarch64) | Reduced features on constrained devices |
-| **Tier 3** (planned) | WASM/WASI, OpenWrt (MIPS/ARM), ESP32, bare-metal ARM | Minimal agent profile |
+| **Tier 3** (experimental) | WASM/WASI, OpenWrt (MIPS/ARM), ESP32, bare-metal ARM | Minimal agent profile — WASM/no_std targets compile |
 
 **Design constraints:**
 - Single static binary — no runtime dependencies, no interpreters, no JVM
@@ -1017,14 +1017,14 @@ sudo dpkg -i ravenfabric-*.deb
 # Fedora/RHEL (.rpm from GitHub Releases)
 sudo rpm -i ravenfabric-*.rpm
 
-# Windows (Scoop)
+# Windows (Scoop) — pending store submission
 scoop bucket add ravenfabric https://github.com/egkristi/scoop-ravenfabric
 scoop install ravenfabric
 
-# Windows (Chocolatey)
+# Windows (Chocolatey) — pending store submission
 choco install ravenfabric
 
-# Snap (Linux)
+# Snap (Linux) — pending store submission
 sudo snap install ravenfabric
 
 # Docker Compose (demo)

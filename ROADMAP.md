@@ -814,8 +814,8 @@ All critical and important issues resolved. Minor items tracked below.
 | 2026-05-05 | Identity = key hash (Reticulum-inspired) | IP is implementation detail. Address derives from identity key |
 | 2026-05-05 | DTN store-carry-forward | Disconnection is normal state. NASA Bundle Protocol concepts |
 | 2026-05-05 | Transport = any byte-moving channel | USB sticks, radio, sound, QR are valid transports |
-| 2026-05-05 | Capability-based auth (future) | Biscuit tokens scale better than centralized ACL in distributed mesh |
-| 2026-05-05 | CRDT state convergence (future) | Desired-state reconciliation without master. Works over intermittent links |
+| 2026-05-05 | Capability-based auth | Biscuit tokens scale better than centralized ACL in distributed mesh |
+| 2026-05-05 | CRDT state convergence | Desired-state reconciliation without master. Works over intermittent links |
 | 2026-05-05 | Content-addressed payloads | Hash-identified commands/policies. Dedup, verify, cache naturally |
 | 2026-05-05 | Transport-aware policy | Sensitivity level determines acceptable transport channels |
 | 2026-05-05 | 13-phase connectivity value chain | Connection lifecycle is a formal pipeline (CONNECTIVITY.md). Each phase is independent and composable |
