@@ -471,25 +471,25 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Shadowsocks/Trojan-style mimicry — `MimicryCodec` with ChaCha20-Poly1305 AEAD, counter-derived nonces, protocol stats (4 tests)
 
 ### Air-Gap and Proximity Transports
-- [~] Reticulum Network Stack driver — enum variant, no protocol integration
+- [x] Reticulum Network Stack driver — `ReticulumDriver` with shared instance TCP, 2-byte framed protocol, hex destination hash validation, announce/link_request, FNV-1a hashing (18 tests)
 - [x] Tor hidden service driver — `TorDriver` with SOCKS5 CONNECT through local Tor proxy, .onion address validation, protocol prefix stripping (8 tests)
 - [x] Serial port driver — `SerialFramer` with sync bytes, CRC-16/CCITT, frame detection, encode/decode (5 tests)
-- [~] Bluetooth/BLE driver — enum variant
-- [~] Wi-Fi Direct driver — enum variant
-- [~] Audio modem driver — enum variant
-- [~] QR-stream visual channel — enum variant
+- [x] Bluetooth/BLE driver — `BleDriver` with Nordic UART Service GATT proxy, MAC address validation, MTU-based fragmentation/reassembly with 3-byte header (17 tests)
+- [x] Wi-Fi Direct driver — `WifiDirectDriver` with wpa_supplicant ctrl, P2P device address validation, connect/find commands, peer info parsing (12 tests)
+- [x] Audio modem driver — `AudioModemDriver` with 2-FSK modulation, near-ultrasonic 18/19kHz, zero-crossing detection, CRC-16/CCITT framing (15 tests)
+- [x] QR-stream visual channel — `QrStreamDriver` with QR frame sequencing, fragment/reassemble, ECC levels, bitrate estimation (15 tests)
 
 ### Radio Transports
-- [~] LoRa/Meshtastic driver — enum variant
-- [~] AX.25 packet radio driver — enum variant
-- [~] HF radio / Winlink bridge — enum variant
-- [~] Satellite link driver — enum variant
+- [x] LoRa/Meshtastic driver — `LoraDriver` with Meshtastic serial/TCP protocol, magic-byte framing, node ID validation, spreading factor airtime estimation (17 tests)
+- [x] AX.25 packet radio driver — `Ax25Driver` with KISS TNC framing, callsign/SSID parsing, AX.25 UI frames, KISS escape encoding (19 tests)
+- [x] HF radio / Winlink bridge — `HfRadioDriver` with VARA HF modem TCP interface, CONNECT/MYCALL/LISTEN commands, message framing (16 tests)
+- [x] Satellite link driver — `SatelliteDriver` with Iridium SBD AT commands, IMEI validation, SBD checksum, orbital pass window estimation (17 tests)
 
 ### Overlay Networks
 - [x] Yggdrasil driver — `YggdrasilDriver` with TCP over Yggdrasil IPv6 mesh (200::/7), bracketed address parsing, listen support (7 tests)
-- [~] I2P driver — enum variant
-- [~] Veilid driver — enum variant
-- [~] Mixnet integration — enum variant
+- [x] I2P driver — SAM bridge transport (TCP 7656), stream connect/accept, destination validation (15 tests)
+- [x] Veilid driver — JSON-RPC API transport, DHT route-based addressing, app_call protocol (15 tests)
+- [x] Mixnet integration — `MixnetDriver` with Sphinx packet format, multi-hop routing, SURB anonymous replies, cover traffic latency estimation (20 tests)
 
 ### Peer Discovery
 - [x] mDNS/DNS-SD — DiscoveryAgent with UDP broadcast/listen, JSON announcement protocol, self-filtering (2 async tests)

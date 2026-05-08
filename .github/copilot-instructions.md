@@ -23,7 +23,7 @@ Cargo workspace with 13 crates:
 | Crate | Purpose | Status |
 |---|---|---|
 | `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management, PQ hybrid KEM, no_std frame_codec | **Done** (~1,900 LOC, 42 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports, MASQUE, ECH | **Done** (~16,400 LOC, 337 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | **Done** (~21,900 LOC, 542 tests) |
 | `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~5,900 LOC, 106 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (~650 LOC, 14 tests) |
 | `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection | **Done** (~4,500 LOC, 97 tests) |
@@ -36,7 +36,7 @@ Cargo workspace with 13 crates:
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 15 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~580 LOC, 10 tests) |
 
-**Total: ~44,500 LOC, 832 tests, 0 clippy warnings.**
+**Total: ~50,000 LOC, 1,037 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

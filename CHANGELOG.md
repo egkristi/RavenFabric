@@ -7,15 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.3] — 2026-05-08
 
+### Added
+- **Transport**: I2P driver (`i2p.rs`) — SAM bridge protocol v3.1 (TCP 7656), stream connect/accept, destination validation, session management (15 tests)
+- **Transport**: Veilid driver (`veilid.rs`) — JSON-RPC API transport via Veilid daemon, DHT route-based addressing, app_call protocol, route validation (15 tests)
+- **Transport**: Reticulum Network Stack driver (`reticulum.rs`) — shared instance TCP, 2-byte framed protocol, hex destination hash validation, FNV-1a hashing (18 tests)
+- **Transport**: BLE driver (`ble.rs`) — Nordic UART Service GATT proxy, MAC address validation, MTU-based fragmentation/reassembly (17 tests)
+- **Transport**: Wi-Fi Direct driver (`wifi_direct.rs`) — wpa_supplicant ctrl, P2P device address validation, peer info parsing (12 tests)
+- **Transport**: Audio modem driver (`audio_modem.rs`) — 2-FSK modulation, near-ultrasonic 18/19kHz, zero-crossing detection, CRC-16/CCITT framing (15 tests)
+- **Transport**: QR-stream driver (`qr_stream.rs`) — QR frame sequencing, fragment/reassemble, ECC levels, bitrate estimation (15 tests)
+- **Transport**: LoRa/Meshtastic driver (`lora.rs`) — Meshtastic serial/TCP protocol, magic-byte framing, node ID validation, spreading factor airtime (17 tests)
+- **Transport**: AX.25 packet radio driver (`ax25.rs`) — KISS TNC framing, callsign/SSID parsing, UI frames (19 tests)
+- **Transport**: HF radio/Winlink driver (`hf_radio.rs`) — VARA HF modem TCP interface, CONNECT/MYCALL commands, message framing (16 tests)
+- **Transport**: Satellite link driver (`satellite.rs`) — Iridium SBD AT commands, IMEI validation, SBD checksum, orbital pass windows (17 tests)
+- **Transport**: Mixnet driver (`mixnet.rs`) — Sphinx packet format, multi-hop routing, SURB anonymous replies, latency estimation (20 tests)
+- **CI**: Created GitHub issue #92 tracking Actions 0-step workflow failures (suspected exhausted minutes)
+
 ### Fixed
 - **CI**: Fixed branch protection MSRV check name from "MSRV (1.85)" to "MSRV (1.88)" to match actual Rust MSRV
-- **Docs**: Updated LOC counts to match actual codebase (~44,500 total, rf-transport ~16,400)
-- **Docs**: Updated test counts to match actual test suite (832 Rust tests, rf-transport 337, rf-mcp-client 15)
-- **Docs**: Updated `docs/src/architecture/overview.md` with accurate per-crate stats (was showing stale 740 tests / ~40,700 LOC)
+- **Docs**: Updated LOC counts to match actual codebase (~50,000 total, rf-transport ~21,900)
+- **Docs**: Updated test counts to match actual test suite (1,037 Rust tests, rf-transport 542, rf-mcp-client 15)
+- **Docs**: Updated `docs/src/architecture/overview.md` with accurate per-crate stats
 - **Docs**: Updated `MANUAL-TASKS-TODO.md` with detailed diagnosis of 0-step workflow failures
-
-### Added
-- **CI**: Created GitHub issue #92 tracking Actions 0-step workflow failures (suspected exhausted minutes)
 
 ## [0.1.2] — 2026-05-08
 

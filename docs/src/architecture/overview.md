@@ -34,7 +34,7 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 | Crate | Purpose | LOC | Tests |
 |-------|---------|-----|-------|
 | `rf-crypto` | Noise XX handshake, SecureChannel, key management, PQ hybrid KEM | ~1,900 | 42 |
-| `rf-transport` | Driver trait, WebSocket/QUIC/Memory/WireGuard/Vsock/Unix/Stdio, NAT traversal, mesh, auto-selection, MASQUE, ECH | ~16,400 | 337 |
+| `rf-transport` | Driver trait, WebSocket/QUIC/Memory/WireGuard/Vsock/Unix/Stdio, NAT traversal, mesh, auto-selection, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | ~21,900 | 542 |
 | `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller API | ~5,900 | 106 |
 | `rf-audit` | Structured JSON-lines audit logging, anomaly event integration | ~650 | 14 |
 | `rf-policy` | Policy enforcement, RBAC, capabilities, CRDT convergence, anomaly detection, injection detection | ~4,500 | 97 |
@@ -47,7 +47,7 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | ~720 | 15 |
 | `rf-integration-tests` | End-to-end integration tests | ~590 | 10 |
 
-**Total: ~44,500 LOC | 832 tests | 0 clippy warnings**
+**Total: ~50,000 LOC | 1,037 tests | 0 clippy warnings**
 
 ## Data Flow
 
