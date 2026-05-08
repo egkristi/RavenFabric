@@ -5,7 +5,7 @@
     "license": "AGPL-3.0-or-later",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/egkristi/RavenFabric/releases/download/v0.1.2/ravenfabric-x86_64-pc-windows-msvc.zip",
+            "url": "https://github.com/egkristi/RavenFabric-Published/releases/download/v0.1.2/ravenfabric-x86_64-pc-windows-msvc.zip",
             "hash": "",
             "bin": [
                 "rf.exe",
@@ -20,7 +20,7 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/egkristi/RavenFabric/releases/download/v$version/ravenfabric-x86_64-pc-windows-msvc.zip"
+                "url": "https://github.com/egkristi/RavenFabric-Published/releases/download/v$version/ravenfabric-x86_64-pc-windows-msvc.zip"
             }
         }
     }

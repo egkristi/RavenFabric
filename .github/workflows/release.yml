@@ -248,20 +248,20 @@ jobs:
 
             on_macos do
               if Hardware::CPU.arm?
-                url "https://github.com/egkristi/RavenFabric/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-darwin-arm64-cli"
+                url "https://github.com/egkristi/RavenFabric-Published/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-darwin-arm64-cli"
                 sha256 "${{ steps.hashes.outputs.darwin_arm64 }}"
               else
-                url "https://github.com/egkristi/RavenFabric/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-darwin-amd64-cli"
+                url "https://github.com/egkristi/RavenFabric-Published/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-darwin-amd64-cli"
                 sha256 "${{ steps.hashes.outputs.darwin_amd64 }}"
               end
             end
 
             on_linux do
               if Hardware::CPU.arm?
-                url "https://github.com/egkristi/RavenFabric/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-linux-arm64-musl-cli"
+                url "https://github.com/egkristi/RavenFabric-Published/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-linux-arm64-musl-cli"
                 sha256 "${{ steps.hashes.outputs.linux_arm64 }}"
               else
-                url "https://github.com/egkristi/RavenFabric/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-linux-amd64-musl-cli"
+                url "https://github.com/egkristi/RavenFabric-Published/releases/download/v${{ steps.version.outputs.tag }}/ravenfabric-linux-amd64-musl-cli"
                 sha256 "${{ steps.hashes.outputs.linux_amd64 }}"
               end
             end

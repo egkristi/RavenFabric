@@ -30,7 +30,7 @@ Tags:
 Installers:
   - Architecture: x64
     InstallerType: zip
-    InstallerUrl: https://github.com/egkristi/RavenFabric/releases/download/v0.1.2/ravenfabric-windows-x64.zip
+    InstallerUrl: https://github.com/egkristi/RavenFabric-Published/releases/download/v0.1.2/ravenfabric-windows-x64.zip
     InstallerSha256: ""
     NestedInstallerType: portable
     NestedInstallerFiles:
