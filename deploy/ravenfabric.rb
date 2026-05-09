@@ -4,7 +4,7 @@
 class Ravenfabric < Formula
   desc "Secure remote execution and mesh networking agent — zero-trust, cryptographically verified"
   homepage "https://ravenfabric.io"
-  url "https://github.com/egkristi/RavenFabric/archive/refs/tags/v0.1.3.tar.gz"
+  url "https://github.com/egkristi/RavenFabric/archive/refs/tags/v0.1.4.tar.gz"
   sha256 "PLACEHOLDER_SHA256"
   license "AGPL-3.0-or-later"
   head "https://github.com/egkristi/RavenFabric.git", branch: "main"

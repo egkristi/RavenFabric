@@ -9,7 +9,7 @@
 #   osc commit -m "Initial ravenfabric package"
 
 Name:           ravenfabric
-Version:        0.1.3
+Version:        0.1.4
 Release:        1%{?dist}
 Summary:        Secure remote execution and mesh networking agent
 License:        AGPL-3.0-only
@@ -74,6 +74,10 @@ exit 0
 %dir %attr(755,ravenfabric,ravenfabric) %{_localstatedir}/log/ravenfabric
 
 %changelog
+* Fri May 09 2026 RavenFabric Maintainers <security@ravenfabric.io> - 0.1.4-1
+- Version bump to 0.1.4
+- First published release with cross-platform binaries
+
 * Thu May 08 2026 RavenFabric Maintainers <security@ravenfabric.io> - 0.1.3-1
 - Initial OBS package
 - 50,000 LOC, 1,037 tests, 0 clippy warnings

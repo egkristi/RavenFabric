@@ -9,7 +9,7 @@ from ravenfabric.error import McpError, McpTimeoutError, McpTransportError
 from ravenfabric.protocol import ExecResult, FileContent, PolicyDecision, ToolCapability
 from ravenfabric.transport import StdioTransport
 
-__version__ = "0.1.0"
+__version__ = "0.1.4"
 __all__ = [
     "McpClient",
     "McpError",

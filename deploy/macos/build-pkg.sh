@@ -4,7 +4,7 @@
 # Optional: Apple Developer ID Installer certificate for signing
 set -euo pipefail
 
-VERSION="${1:-0.1.3}"
+VERSION="${1:-0.1.4}"
 APP_NAME="RavenFabric"
 PKG_ID="io.ravenfabric.agent"
 INSTALL_PREFIX="/usr/local"

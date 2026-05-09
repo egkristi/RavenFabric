@@ -1,11 +1,11 @@
 {
-    "version": "0.1.3",
+    "version": "0.1.4",
     "description": "Secure remote execution and mesh networking agent — zero-trust, E2E encrypted, policy-driven",
     "homepage": "https://ravenfabric.io",
     "license": "AGPL-3.0-or-later",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/egkristi/RavenFabric-Published/releases/download/v0.1.3/ravenfabric-x86_64-pc-windows-msvc.zip",
+            "url": "https://github.com/egkristi/RavenFabric-Published/releases/download/v0.1.4/ravenfabric-windows-x64.zip",
             "hash": "",
             "bin": [
                 "rf.exe",
