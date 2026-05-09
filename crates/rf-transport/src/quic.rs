@@ -277,8 +277,7 @@ mod tests {
 
         // Bind to port 0 — construct server endpoint directly to get bound address
         let server_config = make_server_config();
-        let endpoint =
-            Endpoint::server(server_config, "127.0.0.1:0".parse().unwrap()).unwrap();
+        let endpoint = Endpoint::server(server_config, "127.0.0.1:0".parse().unwrap()).unwrap();
         let addr = endpoint.local_addr().unwrap().to_string();
         let listener = QuicListener { endpoint };
 
