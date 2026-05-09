@@ -432,9 +432,9 @@ cargo build --release -p rf-cli
 <span class="cmd">cd demos/multi-node-ubuntu</span>
 <span class="cmd">./setup.sh</span>
 
-<span class="comment"># Execute commands on agents</span>
-<span class="cmd">rf --relay ws://127.0.0.1:9091 exec --token agent1 'hostname && uname -a'</span>
-<span class="cmd">rf --relay ws://127.0.0.1:9091 exec --token agent2 'cat /etc/os-release | head -4'</span>
+<span class="comment"># Execute commands on agents ($RELAY = relay host, typically the Docker host IP)</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 'hostname && uname -a'</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent2 'cat /etc/os-release | head -4'</span>
 
 <span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
@@ -514,10 +514,10 @@ cargo build --release -p rf-cli
 <span class="cmd">cd demos/multi-distro-linux</span>
 <span class="cmd">./setup.sh</span>
 
-<span class="comment"># Query any distro</span>
-<span class="cmd">rf --relay ws://127.0.0.1:9092 exec --token ubuntu 'cat /etc/os-release | head -2'</span>
-<span class="cmd">rf --relay ws://127.0.0.1:9092 exec --token alpine 'cat /etc/os-release | head -2'</span>
-<span class="cmd">rf --relay ws://127.0.0.1:9092 exec --token fedora 'cat /etc/os-release | head -2'</span>
+<span class="comment"># Query any distro ($RELAY = relay host, set by setup.sh)</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 exec --token ubuntu 'cat /etc/os-release | head -2'</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 exec --token alpine 'cat /etc/os-release | head -2'</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 exec --token fedora 'cat /etc/os-release | head -2'</span>
 
 <span class="comment"># Verify all agents respond</span>
 <span class="cmd">./setup.sh verify</span>
@@ -607,11 +607,11 @@ helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
 <span class="cmd">cd demos/kubernetes-cnpg</span>
 <span class="cmd">./setup.sh</span>
 
-<span class="comment"># Query PostgreSQL through the encrypted tunnel</span>
-<span class="cmd">rf --relay ws://127.0.0.1:9093 exec --token cnpg 'psql -c "SELECT version();"'</span>
+<span class="comment"># Query PostgreSQL through the encrypted tunnel ($RELAY = K8s node IP)</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg 'psql -c "SELECT version();"'</span>
 
 <span class="comment"># Check replication</span>
-<span class="cmd">rf --relay ws://127.0.0.1:9093 exec --token cnpg \
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg \
   'psql -c "SELECT client_addr, state FROM pg_stat_replication;"'</span>
 
 <span class="comment"># Teardown</span>
