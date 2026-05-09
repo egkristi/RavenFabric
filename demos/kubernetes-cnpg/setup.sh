@@ -19,7 +19,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION="v0.1.4"
+VERSION="v0.1.5"
 RELAY_PORT="${RELAY_PORT:-9093}"
 RELAY_NAME="rf-relay-k8s"
 NAMESPACE="ravenfabric"

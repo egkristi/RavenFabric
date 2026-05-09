@@ -1,6 +1,6 @@
 # Maintainer: Erling Kristiansen <erling@ravenfabric.io>
 pkgname=ravenfabric
-pkgver=0.1.4
+pkgver=0.1.5
 pkgrel=1
 pkgdesc="Secure remote execution and mesh networking agent — zero-trust, cryptographically verified"
 arch=('x86_64' 'aarch64')

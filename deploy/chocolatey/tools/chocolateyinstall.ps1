@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $toolsDir = "$(Split-Path -Parent $MyInvocation.MyCommand.Definition)"
-$version  = '0.1.4'
+$version  = '0.1.5'
 $url64    = "https://github.com/egkristi/RavenFabric-Published/releases/download/v${version}/ravenfabric-windows-x64.zip"
 
 $packageArgs = @{

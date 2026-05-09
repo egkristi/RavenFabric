@@ -133,6 +133,92 @@ for distro in ubuntu debian fedora rocky manjaro opensuse alpine amazon void; do
 done
 ```
 
+## Human Approval for AI Agents Scenario
+
+Same MCP server binary, same approval gate on every distro. AI agents get identical human-in-the-loop protection regardless of distribution.
+
+```bash
+# Run the full scenario
+./scenarios/human-approval.sh
+
+# Static binary: Ubuntu, Alpine, Fedora — same approval workflow
+# RBAC: per-AI-agent policy profiles via --callers config
+```
+
+## Fleet Orchestration Scenario
+
+Demonstrates fleet orchestration across heterogeneous Linux distributions. One playbook deploys to Ubuntu, Alpine, Fedora, and more — no per-distro agent packages required.
+
+```bash
+# Run the full scenario
+./scenarios/fleet-orchestration.sh
+
+# Fleet inventory across distros
+# Deploy and verify with the same commands on glibc, musl, rpm, deb
+```
+
+## Dev Mode (Zero-Setup) Scenario
+
+Demonstrates that dev mode works identically on every Linux distribution. The statically-linked rf binary has zero dependencies — no package manager, no libraries, just copy and run.
+
+```bash
+# Run the full scenario
+./scenarios/dev-mode.sh
+
+# Works on any distro:
+# Ubuntu (glibc):   rf dev → ready
+# Alpine (musl):    rf dev → ready
+# Fedora (rpm):     rf dev → ready
+# rf exec --token dev 'hostname && uname -r'
+```
+
+## Port Forwarding Scenario
+
+Demonstrates local port forwarding across different Linux distributions. Starts web servers on Ubuntu (glibc), Alpine (musl), and Fedora (rpm) agents, then tunnels each through encrypted channels.
+
+```bash
+# Run the full scenario
+./scenarios/port-forwarding.sh
+
+# Forward to each distro's web server:
+# rf --relay ws://127.0.0.1:9092 forward --token ubuntu  -L :8080 -R :8000
+# rf --relay ws://127.0.0.1:9092 forward --token alpine  -L :8081 -R :8000
+# rf --relay ws://127.0.0.1:9092 forward --token fedora  -L :8082 -R :8000
+```
+
+## Audit Trail Scenario
+
+Demonstrates structured audit logging across multiple Linux distributions. Executes commands on 5 distros and inspects the independent audit logs, showing identical JSON format regardless of libc or package manager.
+
+```bash
+# Run the full scenario
+./scenarios/audit-trail.sh
+
+# What it shows:
+# - Identical JSON-lines format on Ubuntu (glibc) and Alpine (musl)
+# - Independent append-only audit log per agent
+# - Entry count per distro
+```
+
+## Policy Denial Scenario
+
+Demonstrates deny-by-default policy enforcement across different distributions. Applies a restrictive policy to Ubuntu (glibc) and Alpine (musl-native), proving the policy engine works identically regardless of libc variant.
+
+```bash
+# Run the full scenario
+./scenarios/policy-denial.sh
+
+# What it tests:
+# - Ubuntu (glibc): hostname allowed, apt/curl/rm denied
+# - Alpine (musl): hostname allowed, apk/wget denied
+# - Audit log entries for every denial
+```
+
+Denied command categories per distro:
+- **Ubuntu**: `apt install`, `curl`, `rm -rf`
+- **Alpine**: `apk add`, `wget`, `rm -rf`
+- **All distros**: `shutdown`, `chmod`, `dnf` (where applicable)
+
 ## Port Assignment
 
 This demo uses port **9092** (configurable via `RELAY_PORT` env var) to avoid conflicts with the multi-node-ubuntu demo (port 9091).

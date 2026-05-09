@@ -179,6 +179,78 @@
         .setup {
             margin: 2rem 0;
         }
+        .setup.policy-denial {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 2rem;
+        }
+        .setup.policy-denial h3 {
+            color: var(--gold);
+        }
+        .setup.policy-denial p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .setup.audit-trail {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 2rem;
+        }
+        .setup.audit-trail h3 {
+            color: var(--gold);
+        }
+        .setup.audit-trail p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .setup.port-forwarding {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 2rem;
+        }
+        .setup.port-forwarding h3 {
+            color: var(--gold);
+        }
+        .setup.port-forwarding p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .setup.dev-mode {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 2rem;
+        }
+        .setup.dev-mode h3 {
+            color: var(--gold);
+        }
+        .setup.dev-mode p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .setup.fleet-orchestration {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 2rem;
+        }
+        .setup.fleet-orchestration h3 {
+            color: var(--gold);
+        }
+        .setup.fleet-orchestration p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .setup.human-approval {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 2rem;
+        }
+        .setup.human-approval h3 {
+            color: var(--gold);
+        }
+        .setup.human-approval p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
         .setup h3 {
             font-family: var(--font-display);
             font-size: 1.15rem;
@@ -439,10 +511,150 @@ cargo build --release -p rf-cli
 <span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
         </div>
-    </section>
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- DEMO 2: Multi-Distro Linux                                 -->
+        <div class="setup policy-denial">
+            <h3>Policy Denial</h3>
+            <p>Apply a restrictive policy to see deny-by-default in action. Safe read-only commands pass; dangerous commands are blocked and audited.</p>
+<pre class="code-block"><span class="comment"># Run the policy denial scenario</span>
+<span class="cmd">./scenarios/12-policy-denial.sh</span>
+
+<span class="comment"># Or do it manually — apply restrictive policy, restart agent</span>
+<span class="comment"># Then test allowed vs denied commands:</span>
+
+<span class="comment"># ALLOWED — read-only commands pass</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 'hostname'</span>
+<span class="comment"># &gt; 4f2a1b3c9d7e</span>
+
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 'uname -a'</span>
+<span class="comment"># &gt; Linux 4f2a1b3c9d7e 6.x aarch64 GNU/Linux</span>
+
+<span class="comment"># DENIED — destructive and network commands blocked</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 'rm -rf /'</span>
+<span class="comment"># &gt; Error: command denied by policy</span>
+
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 'curl http://example.com'</span>
+<span class="comment"># &gt; Error: command denied by policy</span>
+
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 'apt install -y nmap'</span>
+<span class="comment"># &gt; Error: command denied by policy</span>
+
+<span class="comment"># Every denial is recorded in the audit log</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 'cat /var/log/rf-audit.jsonl | tail -3'</span></pre>
+        </div>
+
+        <div class="setup audit-trail">
+            <h3>Audit Trail</h3>
+            <p>Every action — allowed or denied — produces a structured JSON audit entry. Each agent maintains its own append-only log.</p>
+<pre class="code-block"><span class="comment"># Run the audit trail scenario</span>
+<span class="cmd">./scenarios/13-audit-trail.sh</span>
+
+<span class="comment"># View the structured audit log (JSON-lines format)</span>
+<span class="cmd">docker exec rf-agent-1 tail -3 /var/log/rf-audit.jsonl</span>
+<span class="comment"># &gt; {"timestamp":"2026-05-09T...","command":"hostname","decision":"allowed",...}</span>
+<span class="comment"># &gt; {"timestamp":"2026-05-09T...","command":"uname -a","decision":"allowed",...}</span>
+
+<span class="comment"># Count audit entries per agent</span>
+<span class="cmd">docker exec rf-agent-1 wc -l &lt; /var/log/rf-audit.jsonl</span>
+<span class="comment"># &gt; 12</span>
+<span class="cmd">docker exec rf-agent-2 wc -l &lt; /var/log/rf-audit.jsonl</span>
+<span class="comment"># &gt; 5</span>
+
+<span class="comment"># Each agent has its own independent, append-only audit log</span>
+<span class="cmd">docker exec rf-agent-2 tail -1 /var/log/rf-audit.jsonl</span></pre>
+        </div>
+
+        <div class="setup port-forwarding">
+            <h3>Port Forwarding</h3>
+            <p>SSH-style local port forwarding through Noise XX encrypted tunnels. Access remote services without firewall changes.</p>
+<pre class="code-block"><span class="comment"># Run the port forwarding scenario</span>
+<span class="cmd">./scenarios/14-port-forwarding.sh</span>
+
+<span class="comment"># Start a web server on the remote agent</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 \
+  'python3 -m http.server 8000 --directory /tmp/www &amp;'</span>
+
+<span class="comment"># Forward local port to agent's web server</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 forward --token agent1 \
+  -L $LOCAL:8080 -R $LOCAL:8000</span>
+
+<span class="comment"># Now access the agent's service locally</span>
+<span class="comment"># curl http://$LOCAL:8080  →  tunneled to agent1:8000</span>
+
+<span class="comment"># Forwarding types:</span>
+<span class="comment">#   Local:   -L $LOCAL:8080 → agent:8000</span>
+<span class="comment">#   Reverse: --reverse agent:9000 → you:3000</span>
+<span class="comment">#   SOCKS5:  --socks5 $LOCAL:1080 → agent → dest</span></pre>
+        </div>
+
+        <div class="setup dev-mode">
+            <h3>Dev Mode (Zero-Setup)</h3>
+            <p>One command starts a relay + agent in a single process. No Docker, no config files, no key exchange. Perfect for local development.</p>
+<pre class="code-block"><span class="comment"># Run the dev mode scenario</span>
+<span class="cmd">./scenarios/15-dev-mode.sh</span>
+
+<span class="comment"># Start dev mode (relay + agent in one process)</span>
+<span class="cmd">rf dev</span>
+<span class="comment"># RavenFabric Dev Mode</span>
+<span class="comment"># Relay:  $LOCAL:9090</span>
+<span class="comment"># Token:  dev</span>
+
+<span class="comment"># In another terminal, execute commands instantly</span>
+<span class="cmd">rf exec --token dev 'hostname'</span>
+<span class="cmd">rf exec --token dev --stream 'for i in 1 2 3; do echo $i; sleep 1; done'</span>
+
+<span class="comment"># Custom port and bind address</span>
+<span class="cmd">rf dev --port 8080</span>
+<span class="cmd">rf dev --port 8080 --bind 0.0.0.0</span>
+
+<span class="comment"># Stop with Ctrl+C — clean shutdown, no orphans</span></pre>
+        </div>
+
+        <div class="setup fleet-orchestration">
+            <h3>Fleet Orchestration</h3>
+            <p>Execute commands across multiple agents with YAML playbooks. Supports parallel, sequential, rolling, and canary strategies with automatic rollback.</p>
+<pre class="code-block"><span class="comment"># Run the fleet orchestration scenario</span>
+<span class="cmd">./scenarios/16-fleet-orchestration.sh</span>
+
+<span class="comment"># Collect inventory from all agents</span>
+<span class="cmd">for token in agent1 agent2; do
+  rf --relay ws://$RELAY:9091 exec --token $token 'hostname'
+done</span>
+
+<span class="comment"># Run a parallel playbook (all agents at once)</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 playbook --token agent1 \
+  playbooks/parallel-update.yaml</span>
+
+<span class="comment"># Run a canary deploy (test 1 agent, then roll out)</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 playbook --token agent1 \
+  playbooks/canary-deploy.yaml</span>
+
+<span class="comment"># Strategies: parallel | sequential | rolling | canary</span>
+<span class="comment"># Rollback: automatic on failure (configurable)</span></pre>
+        </div>
+
+        <div class="setup human-approval">
+            <h3>Human Approval for AI Agents</h3>
+            <p>AI agents connect via MCP but high-risk operations require human approval. The operator approves or denies before execution proceeds.</p>
+<pre class="code-block"><span class="comment"># Run the human approval scenario</span>
+<span class="cmd">./scenarios/17-human-approval.sh</span>
+
+<span class="comment"># AI requests approval via MCP tool</span>
+<span class="comment"># rf_request_approval(</span>
+<span class="comment">#   command: "psql -c 'ALTER TABLE users ADD COLUMN role TEXT'"</span>
+<span class="comment">#   reason: "Adding role column for RBAC feature"</span>
+<span class="comment"># ) → approval_id, status: PENDING</span>
+
+<span class="comment"># Operator reviews and approves/denies</span>
+<span class="comment"># approve("a1b2c3d4-...") → APPROVED</span>
+<span class="comment"># deny("a1b2c3d4-...")    → DENIED</span>
+
+<span class="comment"># AI polls: rf_check_approval(id) → APPROVED</span>
+<span class="comment"># AI executes only if approved</span>
+<span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 \
+  'echo "Command executed after human approval"'</span>
+
+<span class="comment"># Defense in depth: policy → approval → rate limit → audit</span></pre>
+        </div>
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="demo-section" id="multi-distro">
         <div class="demo-header">
@@ -525,10 +737,125 @@ cargo build --release -p rf-cli
 <span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
         </div>
-    </section>
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- DEMO 3: Kubernetes + CloudNativePG                         -->
+        <div class="setup policy-denial">
+            <h3>Policy Denial</h3>
+            <p>Same deny-by-default engine works identically on glibc (Ubuntu) and musl (Alpine). Package managers, network tools, and destructive commands are all blocked.</p>
+<pre class="code-block"><span class="comment"># Run the policy denial scenario</span>
+<span class="cmd">./scenarios/policy-denial.sh</span>
+
+<span class="comment"># ALLOWED — read-only commands on Ubuntu (glibc)</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 exec --token ubuntu 'hostname'</span>
+<span class="comment"># &gt; rf-ubuntu</span>
+
+<span class="comment"># DENIED — apt blocked on Ubuntu</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 exec --token ubuntu 'apt install -y nmap'</span>
+<span class="comment"># &gt; Error: command denied by policy</span>
+
+<span class="comment"># ALLOWED — same policy on Alpine (musl-native)</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 exec --token alpine 'hostname'</span>
+<span class="comment"># &gt; rf-alpine</span>
+
+<span class="comment"># DENIED — apk blocked on Alpine</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 exec --token alpine 'apk add nmap'</span>
+<span class="comment"># &gt; Error: command denied by policy</span></pre>
+        </div>
+
+        <div class="setup audit-trail">
+            <h3>Audit Trail</h3>
+            <p>Identical structured audit logging across all 9 Linux distributions. Same JSON format regardless of glibc vs musl, apt vs dnf vs apk.</p>
+<pre class="code-block"><span class="comment"># Run the audit trail scenario</span>
+<span class="cmd">./scenarios/audit-trail.sh</span>
+
+<span class="comment"># View audit log on Ubuntu (glibc, apt-based)</span>
+<span class="cmd">docker exec rf-ubuntu tail -2 /var/log/rf-audit.jsonl</span>
+<span class="comment"># &gt; {"timestamp":"...","command":"hostname","decision":"allowed",...}</span>
+
+<span class="comment"># View audit log on Alpine (musl-native, apk-based)</span>
+<span class="cmd">docker exec rf-alpine tail -2 /var/log/rf-audit.jsonl</span>
+<span class="comment"># &gt; {"timestamp":"...","command":"hostname","decision":"allowed",...}</span>
+
+<span class="comment"># Count entries across distros</span>
+<span class="cmd">for d in ubuntu alpine fedora rocky debian; do</span>
+<span class="cmd">  echo "$d: $(docker exec rf-$d wc -l &lt; /var/log/rf-audit.jsonl)"</span>
+<span class="cmd">done</span></pre>
+        </div>
+
+        <div class="setup port-forwarding">
+            <h3>Port Forwarding</h3>
+            <p>Same forwarding mechanism works across all distributions. Tunnel to web servers on Ubuntu, Alpine, or Fedora agents through encrypted channels.</p>
+<pre class="code-block"><span class="comment"># Run the port forwarding scenario</span>
+<span class="cmd">./scenarios/port-forwarding.sh</span>
+
+<span class="comment"># Forward to Ubuntu agent's web server</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 forward --token ubuntu \
+  -L $LOCAL:8080 -R $LOCAL:8000</span>
+
+<span class="comment"># Forward to Alpine agent (musl-native)</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 forward --token alpine \
+  -L $LOCAL:8081 -R $LOCAL:8000</span>
+
+<span class="comment"># Forward to Fedora agent (rpm-based)</span>
+<span class="cmd">rf --relay ws://$RELAY:9092 forward --token fedora \
+  -L $LOCAL:8082 -R $LOCAL:8000</span>
+
+<span class="comment"># All tunnels are encrypted end-to-end, regardless of distro</span></pre>
+        </div>
+
+        <div class="setup dev-mode">
+            <h3>Dev Mode (Zero-Setup)</h3>
+            <p>Same statically-linked binary, same dev mode, works on every distro. No package manager needed — just copy the rf binary and run.</p>
+<pre class="code-block"><span class="comment"># Run the dev mode scenario</span>
+<span class="cmd">./scenarios/dev-mode.sh</span>
+
+<span class="comment"># Works identically on any Linux distribution</span>
+<span class="comment"># Ubuntu (glibc):   rf dev → ready</span>
+<span class="comment"># Alpine (musl):    rf dev → ready</span>
+<span class="comment"># Fedora (rpm):     rf dev → ready</span>
+
+<span class="comment"># Zero dependencies — static binary, no libraries to install</span>
+<span class="cmd">rf dev</span>
+<span class="cmd">rf exec --token dev 'hostname &amp;&amp; uname -r'</span>
+
+<span class="comment"># Dev mode: ~5 MB memory, &lt; 1 second startup</span>
+<span class="comment"># Docker demo: ~500 MB, 30-60 seconds startup</span></pre>
+        </div>
+
+        <div class="setup fleet-orchestration">
+            <h3>Fleet Orchestration</h3>
+            <p>One playbook deploys across all distributions. No per-distro agent packages — the static binary and orchestration engine work identically on glibc, musl, rpm, or deb.</p>
+<pre class="code-block"><span class="comment"># Run the fleet orchestration scenario</span>
+<span class="cmd">./scenarios/fleet-orchestration.sh</span>
+
+<span class="comment"># Fleet inventory across distros</span>
+<span class="cmd">for distro in ubuntu alpine fedora debian rocky; do
+  rf --relay ws://$RELAY:9092 exec --token $distro 'hostname &amp;&amp; uname -r'
+done</span>
+
+<span class="comment"># Deploy to all distros in parallel</span>
+<span class="cmd">for distro in ubuntu alpine fedora; do
+  rf --relay ws://$RELAY:9092 exec --token $distro \
+    'mkdir -p /opt/app &amp;&amp; echo v2.0 > /opt/app/version.txt'
+done</span>
+
+<span class="comment"># Same playbook, any distro — no apt vs dnf differences</span></pre>
+        </div>
+
+        <div class="setup human-approval">
+            <h3>Human Approval for AI Agents</h3>
+            <p>Same MCP server binary, same approval gate on every distro. AI agents get identical human-in-the-loop protection regardless of glibc, musl, or package manager.</p>
+<pre class="code-block"><span class="comment"># Run the human approval scenario</span>
+<span class="cmd">./scenarios/human-approval.sh</span>
+
+<span class="comment"># MCP server is a static binary — works on any distro</span>
+<span class="comment"># Ubuntu (glibc):  rf-mcp-server → approval gate</span>
+<span class="comment"># Alpine (musl):   rf-mcp-server → approval gate</span>
+<span class="comment"># Fedora (rpm):    rf-mcp-server → approval gate</span>
+
+<span class="comment"># RBAC: different AI agents get different permissions</span>
+<span class="comment"># --callers config.toml maps tokens to policy profiles</span>
+<span class="comment"># Rate limiting: 60 req/min per session (configurable)</span></pre>
+        </div>
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="demo-section" id="kubernetes-cnpg">
         <div class="demo-header">
@@ -617,10 +944,125 @@ helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
 <span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
         </div>
-    </section>
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- How it works                                               -->
+        <div class="setup policy-denial">
+            <h3>Policy Denial</h3>
+            <p>Restrict the agent to read-only SQL queries. SELECT passes; DROP, DELETE, and system commands are blocked. Policy is stored as a Kubernetes ConfigMap.</p>
+<pre class="code-block"><span class="comment"># Run the policy denial scenario</span>
+<span class="cmd">./scenarios/policy-denial.sh</span>
+
+<span class="comment"># ALLOWED — SELECT queries pass</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg 'psql -c "SELECT version();"'</span>
+<span class="comment"># &gt; PostgreSQL 17.x on aarch64-unknown-linux-gnu</span>
+
+<span class="comment"># DENIED — DROP TABLE blocked by policy</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg 'psql -c "DROP TABLE demo;"'</span>
+<span class="comment"># &gt; Error: command denied by policy</span>
+
+<span class="comment"># DENIED — curl blocked</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg 'curl http://example.com'</span>
+<span class="comment"># &gt; Error: command denied by policy</span>
+
+<span class="comment"># Audit log shows every denial</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg 'cat /tmp/rf-audit.jsonl | tail -3'</span></pre>
+        </div>
+
+        <div class="setup audit-trail">
+            <h3>Audit Trail</h3>
+            <p>Every SQL query and system command executed through the tunnel is audited. Accessible via RavenFabric or kubectl.</p>
+<pre class="code-block"><span class="comment"># Run the audit trail scenario</span>
+<span class="cmd">./scenarios/audit-trail.sh</span>
+
+<span class="comment"># View audit log via the encrypted tunnel</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg 'tail -3 /tmp/rf-audit.jsonl'</span>
+<span class="comment"># &gt; {"timestamp":"...","command":"psql -c \"SELECT version();\"","decision":"allowed",...}</span>
+
+<span class="comment"># Or view directly via kubectl</span>
+<span class="cmd">kubectl exec -n ravenfabric deploy/rf-agent -c rf-agent -- tail -3 /tmp/rf-audit.jsonl</span>
+
+<span class="comment"># Count total audited actions</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg 'wc -l &lt; /tmp/rf-audit.jsonl'</span></pre>
+        </div>
+
+        <div class="setup port-forwarding">
+            <h3>Port Forwarding</h3>
+            <p>Forward PostgreSQL ports through encrypted tunnels. Access the database directly from your Mac — no kubectl, no kubeconfig, works through NAT.</p>
+<pre class="code-block"><span class="comment"># Run the port forwarding scenario</span>
+<span class="cmd">./scenarios/port-forwarding.sh</span>
+
+<span class="comment"># Forward local port to PostgreSQL (read-write primary)</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 forward --token cnpg \
+  -L $LOCAL:5432 -R pg-cluster-rw:5432</span>
+
+<span class="comment"># Then connect directly with psql from your Mac</span>
+<span class="comment"># psql -h $LOCAL -p 5432 -U postgres -d app</span>
+
+<span class="comment"># Forward to read-only replica for reporting</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 forward --token cnpg \
+  -L $LOCAL:5433 -R pg-cluster-ro:5432</span>
+
+<span class="comment"># vs kubectl: works through NAT, E2E encrypted, audited</span></pre>
+        </div>
+
+        <div class="setup dev-mode">
+            <h3>Dev Mode (Zero-Setup)</h3>
+            <p>Prototype rf commands locally before deploying to Kubernetes. Same syntax works in dev mode and against a real cluster.</p>
+<pre class="code-block"><span class="comment"># Run the dev mode scenario</span>
+<span class="cmd">./scenarios/dev-mode.sh</span>
+
+<span class="comment"># Prototype locally — no cluster required</span>
+<span class="cmd">rf dev</span>
+<span class="cmd">rf exec --token dev 'echo "SELECT 1" | psql ...'</span>
+
+<span class="comment"># Same command against real K8s — just change relay + token</span>
+<span class="comment"># rf --relay ws://relay.example.com exec --token cnpg 'psql ...'</span>
+
+<span class="comment"># Workflow: dev mode → prototype → deploy to K8s</span>
+<span class="comment"># 1. rf dev                      (instant local env)</span>
+<span class="comment"># 2. rf exec --token dev '...'   (test commands)</span>
+<span class="comment"># 3. Deploy to K8s + real relay   (production)</span></pre>
+        </div>
+
+        <div class="setup fleet-orchestration">
+            <h3>Fleet Orchestration</h3>
+            <p>Coordinate database operations across pods with playbooks. Canary deploys, rolling maintenance, and automatic rollback — without kubectl scripting.</p>
+<pre class="code-block"><span class="comment"># Run the fleet orchestration scenario</span>
+<span class="cmd">./scenarios/fleet-orchestration.sh</span>
+
+<span class="comment"># Database health check via playbook</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg \
+  'PGPASSWORD=$POSTGRES_PASSWORD psql -h pg-cluster-rw \
+   -U postgres -d app -c "SELECT version();"'</span>
+
+<span class="comment"># Coordinated maintenance (sequential strategy)</span>
+<span class="comment"># command: "psql ... -c 'VACUUM ANALYZE;'"</span>
+<span class="comment"># strategy: sequential</span>
+<span class="comment"># on_failure: stop_only</span>
+
+<span class="comment"># vs kubectl: built-in canary, rollback, audit trail</span>
+<span class="comment"># Works through NAT — no kubeconfig required</span></pre>
+        </div>
+
+        <div class="setup human-approval">
+            <h3>Human Approval for AI Agents</h3>
+            <p>AI DBA assistant can SELECT freely, but schema changes and destructive operations require human approval. Webhook integration with Slack, PagerDuty, or GitOps.</p>
+<pre class="code-block"><span class="comment"># Run the human approval scenario</span>
+<span class="cmd">./scenarios/human-approval.sh</span>
+
+<span class="comment"># AI requests approval for a schema migration</span>
+<span class="comment"># rf_request_approval(</span>
+<span class="comment">#   command: "psql -c 'ALTER TABLE users ADD COLUMN role TEXT'"</span>
+<span class="comment">#   reason: "RBAC feature, ticket DB-1234"</span>
+<span class="comment"># )</span>
+
+<span class="comment"># Operator approves via dashboard / Slack / webhook</span>
+<span class="comment"># AI executes the approved migration</span>
+<span class="cmd">rf --relay ws://$RELAY:9093 exec --token cnpg \
+  'PGPASSWORD=$POSTGRES_PASSWORD psql -h pg-cluster-rw \
+   -U postgres -d app -c "ALTER TABLE users ADD COLUMN role TEXT"'</span>
+
+<span class="comment"># vs kubectl: no human gate, no per-command audit, no rate limit</span></pre>
+        </div>
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="demo-section" id="how-it-works">
         <div class="demo-header">

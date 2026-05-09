@@ -37,6 +37,12 @@ SCENARIOS=(
     "09-policy-enforcement:Policy Enforcement"
     "10-audit-inspection:Audit Log Inspection"
     "11-fleet-operations:Multi-Agent Fleet Operations"
+    "12-policy-denial:Policy Denial"
+    "13-audit-trail:Audit Trail"
+    "14-port-forwarding:Port Forwarding"
+    "15-dev-mode:Dev Mode (Zero-Setup)"
+    "16-fleet-orchestration:Fleet Orchestration"
+    "17-human-approval:Human Approval for AI Agents"
 )
 
 echo "=== Recording Asciinema Demos ==="

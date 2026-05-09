@@ -217,6 +217,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] **Multi-Distro Linux demo** — 9 distros (Ubuntu, Debian, Fedora, Rocky, Manjaro, openSUSE, Alpine, Amazon, Void) (`demos/multi-distro-linux/`)
 - [x] **Kubernetes + CloudNativePG demo** — CNPG PostgreSQL cluster with rf-agent in K8s (`demos/kubernetes-cnpg/`)
 - [x] **Asciinema recordings** — recorded and converted to animated SVGs for website embedding
+- [x] **Demo scenarios** — 17 scenarios per demo: policy denial, audit trail, port forwarding, dev mode, fleet orchestration, human approval for AI agents
+- [x] **Blog post: Demo 1 walkthrough** — "Demo 1: Multi-Node Ubuntu — 17 Scenarios, Two Agents, Zero Trust"
 - [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no — requires human (#40)
 - [x] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"
 - [x] Blog post #3: "Zero-trust mesh networking without certificates — Noise XX deep dive"

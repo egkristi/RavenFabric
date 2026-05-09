@@ -70,6 +70,12 @@ This creates 3 Ubuntu 24.04 containers with pre-built RavenFabric binaries (no c
 | 09 | Policy Enforcement | `scenarios/09-policy-enforcement.sh` | Apply restrictive policy, test allow/deny, hot-reload |
 | 10 | Audit Inspection | `scenarios/10-audit-inspection.sh` | View structured JSON audit logs, filter by decision |
 | 11 | Fleet Operations | `scenarios/11-fleet-operations.sh` | Fleet management — inventory, deploy, verify across agents |
+| 12 | Policy Denial | `scenarios/12-policy-denial.sh` | Full deny-by-default demo — allowed vs denied commands + audit log |
+| 13 | Audit Trail | `scenarios/13-audit-trail.sh` | Structured JSON audit logging — every action recorded, append-only |
+| 14 | Port Forwarding | `scenarios/14-port-forwarding.sh` | Local, reverse, and SOCKS5 port forwarding through encrypted tunnels |
+| 15 | Dev Mode | `scenarios/15-dev-mode.sh` | Zero-setup dev environment — relay + agent in one process, no config |
+| 16 | Fleet Orchestration | `scenarios/16-fleet-orchestration.sh` | Multi-agent playbooks — parallel, sequential, rolling, canary strategies |
+| 17 | Human Approval | `scenarios/17-human-approval.sh` | Human-in-the-loop approval gate for AI-controlled agents via MCP |
 
 ### Running a Scenario
 
@@ -269,6 +275,182 @@ done
 
 ---
 
+### 12 — Policy Denial
+
+Full deny-by-default demonstration. Applies a restrictive policy that only allows safe read-only commands, then tests both allowed and denied commands. Every denial is recorded in the audit log.
+
+```bash
+# Run the full scenario
+./scenarios/12-policy-denial.sh
+
+# What it does:
+# 1. Shows the current permissive policy
+# 2. Applies a restrictive policy (only hostname, uname, uptime, cat /etc/*)
+# 3. Tests allowed commands (hostname, uname, uptime) — all succeed
+# 4. Tests denied commands (rm -rf, curl, apt, shutdown, chmod) — all blocked
+# 5. Inspects audit log showing denial entries
+# 6. Restores permissive policy
+```
+
+Denied command categories:
+- **Destructive**: `rm -rf`, `mkfs`, `dd`
+- **Network**: `curl`, `wget`
+- **System control**: `shutdown`, `reboot`
+- **Package management**: `apt`, `pip`
+- **Permission changes**: `chmod`, `chown`
+
+---
+
+### 13 — Audit Trail
+
+Every action — allowed or denied — produces a structured JSON audit entry. Each agent maintains its own independent, append-only log.
+
+```bash
+# Run the full scenario
+./scenarios/13-audit-trail.sh
+
+# View raw audit log (JSON-lines format)
+docker exec rf-agent-1 tail -3 /var/log/rf-audit.jsonl
+
+# Count entries per agent
+docker exec rf-agent-1 wc -l < /var/log/rf-audit.jsonl
+docker exec rf-agent-2 wc -l < /var/log/rf-audit.jsonl
+```
+
+Audit entry fields:
+- **timestamp**: ISO 8601 when the action occurred
+- **command**: the command string that was executed (or attempted)
+- **decision**: `allowed` or `denied`
+- **caller**: identity of the requesting client
+- **duration**: execution time in milliseconds
+- **exit_code**: process exit code (for allowed commands)
+
+---
+
+### 14 — Port Forwarding
+
+SSH-style local port forwarding through Noise XX encrypted tunnels. Access remote services on agents without firewall changes.
+
+```bash
+# Run the full scenario
+./scenarios/14-port-forwarding.sh
+
+# Start a web server on the agent
+rf --relay ws://127.0.0.1:9091 exec --token agent1 \
+    'python3 -m http.server 8000 --directory /tmp/www &'
+
+# Forward local port through encrypted tunnel
+rf --relay ws://127.0.0.1:9091 forward --token agent1 \
+    -L 127.0.0.1:8080 -R 127.0.0.1:8000
+
+# Access the service locally
+curl http://localhost:8080
+```
+
+Forwarding types:
+- **Local** (`-L`): `localhost:8080 → agent:8000` (SSH -L equivalent)
+- **Reverse** (`--reverse`): `agent:9000 → localhost:3000` (SSH -R equivalent)
+- **SOCKS5** (`--socks5`): `localhost:1080 → agent → destination` (SSH -D equivalent)
+
+---
+
+### 15 — Dev Mode (Zero-Setup)
+
+One command starts a complete RavenFabric environment — relay + agent in a single process. No Docker, no config files, no key exchange.
+
+```bash
+# Run the full scenario
+./scenarios/15-dev-mode.sh
+
+# Start dev mode
+rf dev
+
+# In another terminal:
+rf exec --token dev 'hostname'
+rf exec --token dev --stream 'for i in 1 2 3; do echo $i; sleep 1; done'
+
+# Custom port and bind
+rf dev --port 8080
+rf dev --bind 0.0.0.0 --port 8080
+```
+
+Dev mode features:
+- **Instant**: < 1 second startup, zero configuration
+- **Ephemeral**: In-memory keys, no files written to disk
+- **Permissive**: All commands allowed (development only)
+- **Same syntax**: `rf exec` and `rf forward` work identically
+
+---
+
+### 16 — Fleet Orchestration
+
+Multi-agent orchestration with YAML playbooks. Execute commands across a fleet using parallel, sequential, rolling, and canary strategies with automatic rollback.
+
+```bash
+# Run the full scenario
+./scenarios/16-fleet-orchestration.sh
+
+# Fleet inventory
+for token in agent1 agent2; do
+    rf --relay ws://127.0.0.1:9091 exec --token $token 'hostname'
+done
+
+# Run a playbook with canary strategy
+rf --relay ws://127.0.0.1:9091 playbook --token agent1 \
+    scenarios/playbooks/canary-deploy.yaml
+```
+
+Playbook YAML format:
+```yaml
+command: "echo 'Deploying v2.0' && mkdir -p /opt/app && echo v2.0 > /opt/app/version.txt"
+target:
+  agents: [rf-agent-1, rf-agent-2]
+strategy:
+  canary: { canary_count: 1 }
+on_failure:
+  rollback:
+    command: "echo v1.0 > /opt/app/version.txt"
+timeout_secs: 30
+```
+
+Strategies:
+- **parallel**: All agents simultaneously
+- **sequential**: One at a time, stop on failure
+- **rolling**: Batches (e.g. 25% at a time)
+- **canary**: Test on N agents first, then the rest
+
+---
+
+### 17 — Human Approval for AI Agents
+
+Human-in-the-loop approval gate for AI-controlled agents. AI agents connect via MCP server and must request approval for high-risk operations before execution.
+
+```bash
+# Run the full scenario
+./scenarios/17-human-approval.sh
+```
+
+Approval workflow:
+1. AI calls `rf_request_approval(command, reason)` → gets `approval_id`
+2. Operator sees the request (stderr / webhook / Slack)
+3. Operator calls `approve(id)` or `deny(id)`
+4. AI polls `rf_check_approval(id)` → `APPROVED` or `DENIED`
+5. AI executes only if approved
+
+MCP tools involved:
+- **`rf_request_approval`**: Submit operation + command + reason for review
+- **`rf_check_approval`**: Poll approval status (`PENDING` / `APPROVED` / `DENIED`)
+- **`rf_query_policy`**: Dry-run policy check before requesting approval
+
+Defense in depth:
+- **Policy engine**: Deny-by-default (first gate)
+- **Human approval**: Operator gate for high-risk ops (second gate)
+- **Rate limiting**: 60 requests/min per session
+- **Anomaly detection**: Behavioral baseline alerts
+- **Audit trail**: Every action logged
+
+---
+
 ## Asciinema Recordings
 
 Each scenario has a corresponding recording script in `recordings/` that produces polished terminal recordings with simulated typing.
@@ -308,6 +490,12 @@ asciinema upload recordings/01-standard-exec.cast
 | `recordings/09-policy-enforcement.sh` | Policy enforcement |
 | `recordings/10-audit-inspection.sh` | Audit log inspection |
 | `recordings/11-fleet-operations.sh` | Fleet operations |
+| `recordings/12-policy-denial.sh` | Policy denial |
+| `recordings/13-audit-trail.sh` | Audit trail |
+| `recordings/14-port-forwarding.sh` | Port forwarding |
+| `recordings/15-dev-mode.sh` | Dev mode (zero-setup) |
+| `recordings/16-fleet-orchestration.sh` | Fleet orchestration |
+| `recordings/17-human-approval.sh` | Human approval for AI agents |
 
 ---
 
@@ -396,6 +584,12 @@ demos/multi-node-ubuntu/
 │   ├── 09-policy-enforcement.sh             # Policy enforcement
 │   ├── 10-audit-inspection.sh               # Audit log inspection
 │   ├── 11-fleet-operations.sh               # Fleet operations
+│   ├── 12-policy-denial.sh                  # Policy denial demo
+│   ├── 13-audit-trail.sh                    # Audit trail demo
+│   ├── 14-port-forwarding.sh                # Port forwarding demo
+│   ├── 15-dev-mode.sh                       # Dev mode (zero-setup) demo
+│   ├── 16-fleet-orchestration.sh            # Fleet orchestration demo
+│   ├── 17-human-approval.sh                 # Human approval for AI agents
 │   └── playbooks/
 │       ├── parallel-update.yaml             # Parallel execution playbook
 │       ├── sequential-healthcheck.yaml      # Sequential health check
@@ -411,5 +605,11 @@ demos/multi-node-ubuntu/
     ├── 06-local-forward.sh                  # Recording: local forward
     ├── 09-policy-enforcement.sh             # Recording: policy
     ├── 10-audit-inspection.sh               # Recording: audit
-    └── 11-fleet-operations.sh               # Recording: fleet ops
+    ├── 11-fleet-operations.sh               # Recording: fleet ops
+    ├── 12-policy-denial.sh                  # Recording: policy denial
+    ├── 13-audit-trail.sh                    # Recording: audit trail
+    ├── 14-port-forwarding.sh                # Recording: port forwarding
+    ├── 15-dev-mode.sh                       # Recording: dev mode
+    ├── 16-fleet-orchestration.sh            # Recording: fleet orchestration
+    └── 17-human-approval.sh                 # Recording: human approval
 ```

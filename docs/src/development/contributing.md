@@ -57,4 +57,4 @@ RavenFabric is licensed under AGPLv3. By contributing, you agree that your contr
 
 ## Reporting Vulnerabilities
 
-See [SECURITY.md](https://github.com/egkristi/RavenFabric/blob/main/SECURITY.md) for responsible disclosure process.
+See [SECURITY.md](../../../SECURITY.md) for responsible disclosure process.

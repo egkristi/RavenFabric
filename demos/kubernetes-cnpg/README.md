@@ -108,6 +108,99 @@ rf --relay $RELAY exec --token cnpg 'psql -c "SELECT datname, usename, client_ad
 rf --relay $RELAY exec --token cnpg 'pg_dump --schema-only app'
 ```
 
+## Human Approval for AI Agents Scenario
+
+AI DBA assistant can SELECT freely, but schema changes (ALTER, DROP) and destructive operations require human approval. Webhook integration with Slack, PagerDuty, or GitOps.
+
+```bash
+# Run the full scenario
+./scenarios/human-approval.sh
+
+# AI requests approval for schema migration
+# Operator reviews via dashboard / Slack / webhook
+# Approved → AI executes; Denied → audited, not executed
+```
+
+## Fleet Orchestration Scenario
+
+Coordinate database operations across pods with playbooks. Sequential maintenance, canary deploys, and automatic rollback — without kubectl scripting.
+
+```bash
+# Run the full scenario
+./scenarios/fleet-orchestration.sh
+
+# Database health checks, VACUUM ANALYZE, rolling maintenance
+# Built-in canary strategy + automatic rollback
+# Works through NAT — no kubeconfig required
+```
+
+## Dev Mode (Zero-Setup) Scenario
+
+Prototype rf commands locally before deploying to Kubernetes. Dev mode starts a relay + agent in one process — same `rf exec` syntax works locally and against a real cluster.
+
+```bash
+# Run the full scenario
+./scenarios/dev-mode.sh
+
+# Prototype locally:
+# rf dev
+# rf exec --token dev 'echo "SELECT 1" | psql ...'
+
+# Then deploy to K8s with same syntax:
+# rf --relay ws://relay.example.com exec --token cnpg 'psql ...'
+```
+
+## Port Forwarding Scenario
+
+Forward PostgreSQL ports directly to your local machine through encrypted tunnels. An alternative to `kubectl port-forward` that works through NAT and firewalls.
+
+```bash
+# Run the full scenario
+./scenarios/port-forwarding.sh
+
+# Forward to PostgreSQL primary (read-write)
+# rf --relay ws://127.0.0.1:9093 forward --token cnpg -L :5432 -R pg-cluster-rw:5432
+# psql -h 127.0.0.1 -p 5432 -U postgres -d app
+
+# Forward to read-only replica
+# rf --relay ws://127.0.0.1:9093 forward --token cnpg -L :5433 -R pg-cluster-ro:5432
+```
+
+Compared to `kubectl port-forward`: works through NAT, E2E encrypted, and audited.
+
+## Audit Trail Scenario
+
+Demonstrates structured audit logging in Kubernetes. Every SQL query and system command executed through the RavenFabric tunnel is recorded in the agent pod's audit log.
+
+```bash
+# Run the full scenario
+./scenarios/audit-trail.sh
+
+# What it shows:
+# - Every psql query and system command is audited
+# - Audit log accessible via RavenFabric tunnel or kubectl
+# - Structured JSON with timestamp, command, decision, duration
+```
+
+## Policy Denial Scenario
+
+Demonstrates deny-by-default policy enforcement in Kubernetes. Updates the agent's ConfigMap with a restrictive policy, restarts the pod, then shows allowed PostgreSQL queries succeeding while dangerous commands are blocked.
+
+```bash
+# Run the full scenario
+./scenarios/policy-denial.sh
+
+# What it tests:
+# - SELECT version() allowed (read-only SQL)
+# - \l (list databases) allowed
+# - DROP TABLE blocked by policy
+# - DELETE, TRUNCATE, ALTER blocked by policy
+# - curl, rm -rf, apt blocked
+# - Audit log entries for every denial
+```
+
+The policy is stored as a Kubernetes ConfigMap (`rf-agent-policy`), making it GitOps-friendly and version-controlled.
+
 ## How It Works
 
 1. **Relay** runs on Docker, exposed on host port 9093

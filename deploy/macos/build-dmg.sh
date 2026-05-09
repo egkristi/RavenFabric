@@ -2,7 +2,7 @@
 # Build macOS DMG installer for RavenFabric
 set -euo pipefail
 
-VERSION="${1:-0.1.4}"
+VERSION="${1:-0.1.5}"
 APP_NAME="RavenFabric"
 DMG_NAME="ravenfabric-${VERSION}-macos"
 BUILD_DIR="target/release"

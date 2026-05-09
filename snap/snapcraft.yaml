@@ -1,5 +1,5 @@
 name: ravenfabric
-version: '0.1.4'
+version: '0.1.5'
 summary: Secure remote execution and mesh networking agent
 description: |
   RavenFabric is a security-first distributed execution engine. End-to-end

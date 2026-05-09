@@ -120,7 +120,7 @@ footer { text-align: center; padding: 2rem; color: var(--text-muted); font-size:
         </div>
     </div>
 </main>
-<footer>RavenFabric v0.1.4 — Security-first distributed execution engine</footer>
+<footer>RavenFabric v0.1.5 — Security-first distributed execution engine</footer>
 <script>
 async function refresh() {
     try {

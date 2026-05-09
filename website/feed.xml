@@ -5,8 +5,16 @@
     <link>https://ravenfabric.io/blog/</link>
     <description>Engineering blog — deep dives into security, cryptography, networking, and distributed systems.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 05 May 2026 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 09 May 2026 00:00:00 +0000</lastBuildDate>
     <atom:link href="https://ravenfabric.io/feed.xml" rel="self" type="application/rss+xml"/>
+
+    <item>
+      <title>Demo 1: Multi-Node Ubuntu — 17 Scenarios, Two Agents, Zero Trust</title>
+      <link>https://ravenfabric.io/blog/demo-multi-node-ubuntu.html</link>
+      <guid isPermaLink="true">https://ravenfabric.io/blog/demo-multi-node-ubuntu.html</guid>
+      <pubDate>Fri, 09 May 2026 00:00:00 +0000</pubDate>
+      <description>Run 17 scenarios on two Ubuntu agents in Docker — remote execution, port forwarding, policy denial, audit trails, fleet orchestration, and human approval for AI agents. Everything SSH, Ansible, and Tailscale do, in one binary.</description>
+    </item>
 
     <item>
       <title>Why Noise XX over TLS</title>

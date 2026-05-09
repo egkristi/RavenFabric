@@ -12,13 +12,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Demos**: Multi-Distro Linux demo — 9 Linux distributions (Ubuntu, Debian, Fedora, Rocky, Manjaro, openSUSE, Alpine, Amazon Linux, Void) with setup/verify/teardown (`demos/multi-distro-linux/`)
 - **Demos**: Kubernetes + CloudNativePG demo — 2-instance CNPG PostgreSQL cluster with rf-agent sidecar, Gatekeeper exemption handling, auto-detect host IP (`demos/kubernetes-cnpg/`)
 - **Demos**: Asciinema recording scripts and animated SVG exports for all 3 demos (`demos/recordings/`)
+- **Demos**: Policy Denial scenario for all 3 demos — restrictive policy, allowed/denied command tests, audit log inspection (`scenarios/12-policy-denial.sh`, `scenarios/policy-denial.sh`)
+- **Demos**: Audit Trail scenario for all 3 demos — structured JSON-lines audit log inspection, per-agent entry counts, cross-distro format consistency (`scenarios/13-audit-trail.sh`, `scenarios/audit-trail.sh`)
+- **Demos**: Port Forwarding scenario for all 3 demos — local/reverse/SOCKS5 forwarding through encrypted tunnels, cross-distro tunneling, K8s PostgreSQL port forwarding (`scenarios/14-port-forwarding.sh`, `scenarios/port-forwarding.sh`)
+- **Demos**: Dev Mode (Zero-Setup) scenario for all 3 demos — single-command dev environment, relay + agent in one process, zero config (`scenarios/15-dev-mode.sh`, `scenarios/dev-mode.sh`)
+- **Demos**: Fleet Orchestration scenario for all 3 demos — multi-agent playbooks with parallel/sequential/rolling/canary strategies, automatic rollback (`scenarios/16-fleet-orchestration.sh`, `scenarios/fleet-orchestration.sh`)
+- **Demos**: Human Approval scenario for all 3 demos — human-in-the-loop approval gate for AI-controlled agents via MCP, operator approve/deny workflow, defense in depth (`scenarios/17-human-approval.sh`, `scenarios/human-approval.sh`)
 - **Website**: Live demos page at `/demos/` with animated terminal recordings, architecture diagrams, setup instructions
+- **Website**: Policy Denial section added to each demo on the website demos page
 - **Website**: "Demos" navigation link added to main site, blog pages, and footer
+- **Blog**: "Demo 1: Multi-Node Ubuntu" post — walkthrough of all 17 scenarios, from remote execution to human approval for AI agents
 - **CLI**: `--stream` and `--background` execution flags for streaming and fire-and-forget modes
 
 ### Fixed
+- **Agent/Relay/CLI**: `RUST_LOG` environment variable now correctly controls log filtering — `RUST_LOG=warn` properly suppresses INFO/DEBUG lines (#95)
 - **CLI**: Added `close_notify()` after `exec` and `status` commands — agent now detects session end and reconnects cleanly instead of hanging indefinitely
 - **K8s Demo**: Deployment uses `strategy: Recreate` with `terminationGracePeriodSeconds: 3` and SIGTERM→SIGINT trap to prevent dual-pod relay pairing race condition
+- **Versions**: All packaging manifests, SDKs, website, Web UI, and docs updated from v0.1.4 to v0.1.5
+- **Docs**: Python SDK documentation URL now points to public `ravenfabric.io/docs/` instead of private repo
+- **Docs**: Contributing guide SECURITY.md link changed from absolute GitHub URL to relative path
 
 ## [0.1.4] — 2026-05-08
 

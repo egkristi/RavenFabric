@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ravenfabric"
-version = "0.1.4"
+version = "0.1.5"
 description = "Python MCP client SDK for RavenFabric secure remote execution"
 readme = "README.md"
 license = "MIT"
@@ -29,7 +29,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://ravenfabric.io"
 Repository = "https://github.com/egkristi/RavenFabric"
-Documentation = "https://github.com/egkristi/RavenFabric/tree/main/sdks/python"
+Documentation = "https://ravenfabric.io/docs/"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ravenfabric"]

@@ -1,7 +1,7 @@
 # Contributor: RavenFabric <security@ravenfabric.io>
 # Maintainer: RavenFabric <security@ravenfabric.io>
 pkgname=ravenfabric
-pkgver=0.1.4
+pkgver=0.1.5
 pkgrel=0
 pkgdesc="Secure remote execution and mesh networking agent with Noise XX authentication"
 url="https://ravenfabric.io"
@@ -47,7 +47,7 @@ openrc() {
 }
 
 sha512sums="
-SKIP  ravenfabric-0.1.4.tar.gz
+SKIP  ravenfabric-0.1.5.tar.gz
 SKIP  rf-agent.initd
 SKIP  rf-agent.confd
 SKIP  rf-relay.initd
