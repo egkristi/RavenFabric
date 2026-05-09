@@ -19,7 +19,7 @@ use rf_transport::driver::{Driver, Target};
 use rf_transport::websocket::WebSocketDriver;
 
 #[derive(Parser)]
-#[command(name = "rf", about = "RavenFabric — secure remote execution")]
+#[command(name = "rf", about = "RavenFabric — secure remote execution", version)]
 struct Cli {
     /// Relay URL
     #[arg(short, long, env = "RF_RELAY", default_value = "ws://127.0.0.1:9090")]

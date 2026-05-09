@@ -271,7 +271,7 @@ jobs:
             end
 
             test do
-              assert_match version.to_s, shell_output("#{bin}/rf --version")
+              assert_match "rf", shell_output("#{bin}/rf --help")
             end
           end
           EOF

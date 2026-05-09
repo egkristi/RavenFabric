@@ -47,7 +47,6 @@
         "operatingSystem": "Linux, macOS, Windows, FreeBSD, Android, iOS",
         "programmingLanguage": "Rust",
         "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-        "codeRepository": "https://github.com/egkristi/RavenFabric",
         "author": {
             "@type": "Person",
             "name": "Erling Kristiansen"
@@ -262,31 +261,8 @@
             color: var(--accent-gold);
         }
 
-        .topnav .gh-button {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: 0.4rem 0.875rem;
-            border: 1px solid var(--border-medium);
-            border-radius: 4px;
-            background: var(--bg-elevated);
-            color: var(--text-primary);
-            transition: border-color 0.15s ease, background 0.15s ease;
-        }
-
-        .topnav .gh-button:hover {
-            border-color: var(--accent-gold-dim);
-            background: var(--bg-overlay);
-            color: var(--text-primary);
-        }
-
-        .topnav .gh-button svg {
-            width: 14px;
-            height: 14px;
-        }
-
         @media (max-width: 720px) {
-            .topnav a:not(.gh-button) {
+            .topnav a {
                 display: none;
             }
         }
@@ -1044,82 +1020,7 @@
             font-size: 0.8125rem;
         }
 
-        .gh-card {
-            background: var(--bg-elevated);
-            border: 1px solid var(--border-subtle);
-            border-radius: 4px;
-            padding: var(--space-8);
-            position: sticky;
-            top: 100px;
-        }
 
-        .gh-card h3 {
-            font-family: var(--font-display);
-            font-size: 1.25rem;
-            font-weight: 500;
-            margin-bottom: var(--space-6);
-        }
-
-        .gh-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--space-4);
-            margin-bottom: var(--space-6);
-            font-family: var(--font-mono);
-        }
-
-        .gh-stat {
-            padding: var(--space-4);
-            background: var(--bg-overlay);
-            border-radius: 4px;
-            border: 1px solid var(--border-subtle);
-        }
-
-        .gh-stat .num {
-            font-size: 1.5rem;
-            color: var(--accent-gold);
-            font-weight: 500;
-            display: block;
-        }
-
-        .gh-stat .label {
-            font-size: 0.6875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: var(--text-tertiary);
-            margin-top: var(--space-1);
-        }
-
-        .gh-links {
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-3);
-            font-family: var(--font-mono);
-            font-size: 0.875rem;
-        }
-
-        .gh-links a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: var(--space-3) var(--space-4);
-            border: 1px solid var(--border-subtle);
-            border-radius: 4px;
-            transition: all 0.15s ease;
-        }
-
-        .gh-links a:hover {
-            border-color: var(--accent-gold-dim);
-            color: var(--text-primary);
-            background: var(--bg-overlay);
-        }
-
-        .gh-links a::after {
-            content: '→';
-            color: var(--accent-gold);
-        }
 
         /* === Footer === */
         footer {
@@ -1284,10 +1185,6 @@
                 <a href="#status">Status</a>
                 <a href="/docs/">Docs</a>
                 <a href="/blog/">Blog</a>
-                <a href="https://github.com/egkristi/RavenFabric" class="gh-button" target="_blank" rel="noopener">
-                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                    GitHub
-                </a>
             </nav>
         </div>
     </header>
@@ -1304,9 +1201,9 @@
                 <strong>RavenFabric</strong> is a security-first distributed execution engine and <strong>AI agent security layer</strong>. End-to-end encrypted, network-agnostic, policy-driven. The safety infrastructure between AI agents and the systems they operate on — and between human operators and their entire fleet. Same cryptographic identity. Same policy. Same audit trail.
             </p>
             <div class="hero-cta">
-                <a href="https://github.com/egkristi/RavenFabric" class="btn btn-primary" target="_blank" rel="noopener">
-                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                    View on GitHub
+                <a href="https://github.com/egkristi/RavenFabric-Published/releases" class="btn btn-primary" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8m-3-3l3 3 3-3M3 13h10"/></svg>
+                    Download Latest Release
                 </a>
                 <a href="#examples" class="btn btn-secondary">
                     See examples
@@ -1315,13 +1212,10 @@
             </div>
 
             <div class="hero-badges">
-                <a href="https://github.com/egkristi/RavenFabric/actions"><img src="https://img.shields.io/github/actions/workflow/status/egkristi/RavenFabric/ci.yml?branch=main&style=flat-square&label=CI" alt="CI status"></a>
-                <img src="https://img.shields.io/github/last-commit/egkristi/RavenFabric?style=flat-square&label=last%20commit" alt="Last commit">
-                <img src="https://img.shields.io/github/v/tag/egkristi/RavenFabric?style=flat-square&label=version&color=green" alt="Version">
-                <img src="https://img.shields.io/github/languages/top/egkristi/RavenFabric?style=flat-square" alt="Language">
+                <img src="https://img.shields.io/badge/version-0.1.4-green?style=flat-square" alt="Version">
+                <img src="https://img.shields.io/badge/language-Rust-orange?style=flat-square" alt="Language">
                 <img src="https://img.shields.io/badge/license-AGPLv3-blue?style=flat-square" alt="License">
-                <img src="https://img.shields.io/github/stars/egkristi/RavenFabric?style=flat-square" alt="Stars">
-                <img src="https://img.shields.io/github/release-date/egkristi/RavenFabric?style=flat-square&label=release" alt="Release date">
+                <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest"><img src="https://img.shields.io/github/release-date/egkristi/RavenFabric-Published?style=flat-square&label=latest%20release" alt="Latest Release"></a>
             </div>
 
             <div class="hero-spec">
@@ -1378,7 +1272,7 @@ $ rf exec local "rm -rf /"
             <p class="try-note">
                 <code>rf dev</code> runs a full relay + agent in one process with no authentication required.
                 Production deployment uses mutual Noise XX authentication, OTP enrollment, and YAML policy files.
-                <a href="https://github.com/egkristi/RavenFabric#quick-start">Full setup guide →</a>
+                <a href="/docs/">Full setup guide →</a>
             </p>
         </div>
     </section>
@@ -1693,8 +1587,8 @@ $ rf exec local "rm -rf /"
                     <p>Security-conscious infrastructure teams. Public sector architects needing NIS2 compliance. MSPs managing diverse fleets. Anyone running systems in hostile, air-gapped, or low-connectivity environments.</p>
                 </div>
                 <div class="feature-card">
-                    <h3>Can I contribute?</h3>
-                    <p>Yes. The project is open-source on GitHub. See CONTRIBUTING.md for guidelines. All contributions must pass CI (tests, clippy, fmt) and follow the security-first design principles.</p>
+                    <h3>Can I access the source code?</h3>
+                    <p>RavenFabric is open-source under AGPLv3, but public repository access is currently pending legal review. Source code access can be granted upon request — reach out via the contact details in <a href="/.well-known/security.txt">security.txt</a>.</p>
                 </div>
             </div>
         </div>
@@ -2040,27 +1934,7 @@ $ rf exec local "rm -rf /"
                     </li>
                 </ul>
 
-                <aside class="gh-card">
-                    <h3>On GitHub</h3>
-                    <div class="gh-stats">
-                        <div class="gh-stat">
-                            <span class="num">★</span>
-                            <span class="label">Star to follow</span>
-                        </div>
-                        <div class="gh-stat">
-                            <span class="num">⌥</span>
-                            <span class="label">Fork and try</span>
-                        </div>
-                    </div>
-                    <div class="gh-links">
-                        <a href="https://github.com/egkristi/RavenFabric" target="_blank" rel="noopener">Repository</a>
-                        <a href="https://github.com/egkristi/RavenFabric/blob/main/README.md" target="_blank" rel="noopener">README</a>
-                        <a href="https://github.com/egkristi/RavenFabric/blob/main/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a>
-                        <a href="https://github.com/egkristi/RavenFabric/blob/main/CONNECTIVITY.md" target="_blank" rel="noopener">Connectivity</a>
-                        <a href="https://github.com/egkristi/RavenFabric/issues" target="_blank" rel="noopener">Issues</a>
-                        <a href="https://github.com/egkristi/RavenFabric/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
-                    </div>
-                </aside>
+
             </div>
         </div>
     </section>
@@ -2112,7 +1986,6 @@ $ rf exec local "rm -rf /"
             </p>
             <p style="font-size: 0.9rem; color: var(--text-tertiary); margin-top: var(--space-4);">
                 Open source under AGPLv3. Commercial licensing available for enterprise use.
-                <a href="https://github.com/egkristi/RavenFabric" target="_blank" rel="noopener" style="color: var(--accent-gold);">View on GitHub</a>
             </p>
 
             <!-- Newsletter signup -->
@@ -2149,10 +2022,8 @@ $ rf exec local "rm -rf /"
                 <div class="footer-col">
                     <h4>Project</h4>
                     <ul>
-                        <li><a href="https://github.com/egkristi/RavenFabric" target="_blank" rel="noopener">GitHub</a></li>
-                        <li><a href="https://github.com/egkristi/RavenFabric/blob/main/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a></li>
+                        <li><a href="/docs/">Documentation</a></li>
                         <li><a href="https://github.com/egkristi/RavenFabric-Published/releases" target="_blank" rel="noopener">Releases</a></li>
-                        <li><a href="https://github.com/egkristi/RavenFabric/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
@@ -2160,10 +2031,7 @@ $ rf exec local "rm -rf /"
                     <ul>
                         <li><a href="/docs/">Documentation</a></li>
                         <li><a href="/docs/use-cases/cloudnativepg.html">Use Cases</a></li>
-                        <li><a href="https://github.com/egkristi/RavenFabric/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a></li>
                         <li><a href="/docs/compliance/">Compliance</a></li>
-                        <li><a href="https://github.com/egkristi/RavenFabric/blob/main/LICENSING.md" target="_blank" rel="noopener">Licensing</a></li>
-                        <li><a href="https://github.com/egkristi/RavenFabric/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a></li>
                         <li><a href="/.well-known/security.txt">security.txt</a></li>
                     </ul>
                 </div>
