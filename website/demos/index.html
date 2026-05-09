@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RavenFabric live demos — multi-node Ubuntu, multi-distro Linux, and Kubernetes + CloudNativePG. Animated terminal recordings and setup instructions.">
+    <meta name="theme-color" content="#0a0b0d">
+    <meta name="color-scheme" content="dark">
+    <meta name="author" content="Erling Kristiansen">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ravenfabric.io/demos/">
+    <meta property="og:title" content="Live Demos — RavenFabric">
+    <meta property="og:description" content="See RavenFabric in action: multi-node, multi-distro, and Kubernetes demos with animated terminal recordings.">
+    <meta property="og:image" content="https://ravenfabric.io/assets/og-image.png">
+    <title>Live Demos — RavenFabric</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <style>
+        @font-face {
+            font-family: 'IBM Plex Sans';
+            font-style: normal;
+            font-weight: 300 700;
+            font-display: swap;
+            src: url(/assets/fonts/ibm-plex-sans-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'IBM Plex Serif';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/assets/fonts/ibm-plex-serif-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'JetBrains Mono';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/assets/fonts/jetbrains-mono-latin.woff2) format('woff2');
+        }
+        :root {
+            --bg-deep:       #0a0b0d;
+            --bg-elevated:   #111316;
+            --bg-overlay:    #15171b;
+            --border-subtle: #1f2228;
+            --border-medium: #2a2e35;
+            --text-primary:  #e8e6e3;
+            --text-secondary:#a8a39a;
+            --text-tertiary: #8a8579;
+            --accent-gold:   #c9a961;
+            --accent-cyan:   #5fa8a8;
+            --font-display:  'IBM Plex Serif', Georgia, serif;
+            --font-body:     'IBM Plex Sans', system-ui, sans-serif;
+            --font-mono:     'JetBrains Mono', 'Fira Code', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+        a { color: var(--accent-gold); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .container { max-width: 960px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 1rem 0;
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        header nav a {
+            margin-left: 1.5rem;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+        header nav a:hover { color: var(--text-primary); text-decoration: none; }
+
+        /* Hero */
+        .hero {
+            padding: 4rem 0 2rem;
+            text-align: center;
+        }
+        .hero-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: 2.25rem;
+            font-weight: 400;
+            margin-bottom: 1rem;
+        }
+        .hero h1 em {
+            color: var(--accent-gold);
+            font-style: normal;
+        }
+        .hero p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        /* Demo cards */
+        .demo-section {
+            padding: 3rem 0;
+            border-top: 1px solid var(--border-subtle);
+        }
+        .demo-section:first-of-type {
+            border-top: none;
+        }
+        .demo-header {
+            margin-bottom: 2rem;
+        }
+        .demo-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+        .demo-header h2 {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 400;
+            margin-bottom: 0.75rem;
+        }
+        .demo-header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* SVG recording player */
+        .recording {
+            margin: 2rem 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+        }
+        .recording img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Architecture diagram */
+        .architecture {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+        }
+        .architecture pre {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Setup instructions */
+        .setup {
+            margin: 2rem 0;
+        }
+        .setup h3 {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+        .setup-prereqs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        .setup-prereqs span {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            padding: 0.25rem 0.75rem;
+            background: var(--bg-overlay);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }
+
+        /* Code blocks */
+        pre.code-block {
+            background: var(--bg-overlay);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+        pre.code-block .comment { color: var(--text-tertiary); }
+        pre.code-block .cmd { color: var(--accent-gold); }
+
+        /* Info grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        .info-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 1.25rem;
+        }
+        .info-card h4 {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            margin-bottom: 0.5rem;
+        }
+        .info-card p {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        .info-card code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent-gold);
+        }
+
+        /* Distro table */
+        .distro-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+        }
+        .distro-table th {
+            text-align: left;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-medium);
+            background: var(--bg-overlay);
+        }
+        .distro-table td {
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+        .distro-table td:first-child {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        .distro-table code {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--accent-gold);
+            background: var(--bg-overlay);
+            padding: 0.1em 0.3em;
+            border-radius: 3px;
+        }
+
+        /* K8s resource table */
+        .resource-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+        }
+        .resource-table th {
+            text-align: left;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-medium);
+            background: var(--bg-overlay);
+        }
+        .resource-table td {
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+        .resource-table td:first-child {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 2rem 0;
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 0.85rem;
+            margin-top: 3rem;
+        }
+        footer a { color: var(--text-secondary); }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 1.75rem; }
+            .demo-header h2 { font-size: 1.4rem; }
+            header nav a { margin-left: 1rem; font-size: 0.8rem; }
+            .info-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a href="/" class="brand">RavenFabric</a>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/demos/">Demos</a>
+                <a href="/docs/">Docs</a>
+                <a href="/blog/">Blog</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+    <div class="container">
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-eyebrow">Live Recordings</div>
+        <h1>See RavenFabric <em>in action</em></h1>
+        <p>
+            Real terminal recordings from real infrastructure. Every command is E2E encrypted via Noise XX,
+            policy-checked, and audited. The same static binary runs everywhere.
+        </p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 1: Multi-Node Ubuntu                                  -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="multi-node">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 1</div>
+            <h2>Multi-Node Ubuntu</h2>
+            <p>
+                Manage multiple Ubuntu systems remotely. Two agents connected through a relay broker
+                — all traffic mutually authenticated and encrypted.
+            </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/multi-node.svg" alt="Animated terminal recording: executing commands on two Ubuntu agents via RavenFabric relay" loading="lazy">
+        </div>
+
+        <div class="architecture">
+<pre>
+┌─────────────────┐     ┌─────────────────┐
+│  rf-agent-1     │     │  rf-agent-2     │
+│  Ubuntu 24.04   │     │  Ubuntu 24.04   │
+│  token: agent1  │     │  token: agent2  │
+└────────┬────────┘     └────────┬────────┘
+         │ WebSocket              │ WebSocket
+         │                        │
+    ┌────┴────────────────────────┴────┐
+    │         rf-relay                 │
+    │         Ubuntu 24.04             │
+    │         :9091 (host-mapped)      │
+    └────────────────┬─────────────────┘
+                     │ port 9091
+              ┌──────┴──────┐
+              │  rf CLI     │
+              │  (your Mac) │
+              └─────────────┘
+</pre>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Containers</h4>
+                <p>3 (1 relay + 2 agents)</p>
+            </div>
+            <div class="info-card">
+                <h4>Port</h4>
+                <p><code>9091</code></p>
+            </div>
+            <div class="info-card">
+                <h4>Image</h4>
+                <p><code>ubuntu:24.04</code></p>
+            </div>
+            <div class="info-card">
+                <h4>Encryption</h4>
+                <p>Noise XX (E2E)</p>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>Setup</h3>
+            <div class="setup-prereqs">
+                <span>Docker</span>
+                <span>rf CLI</span>
+            </div>
+<pre class="code-block"><span class="comment"># Clone and build</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli
+
+<span class="comment"># Start the demo (downloads agent/relay binaries automatically)</span>
+<span class="cmd">cd demos/multi-node-ubuntu</span>
+<span class="cmd">./setup.sh</span>
+
+<span class="comment"># Execute commands on agents</span>
+<span class="cmd">rf --relay ws://127.0.0.1:9091 exec --token agent1 'hostname && uname -a'</span>
+<span class="cmd">rf --relay ws://127.0.0.1:9091 exec --token agent2 'cat /etc/os-release | head -4'</span>
+
+<span class="comment"># Teardown</span>
+<span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 2: Multi-Distro Linux                                 -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="multi-distro">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 2</div>
+            <h2>Multi-Distro Linux</h2>
+            <p>
+                One static musl binary runs on every major Linux distribution.
+                No runtime dependencies, no compilation, no package manager needed.
+            </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/multi-distro.svg" alt="Animated terminal recording: the same RavenFabric binary executing on Ubuntu, Debian, Fedora, Alpine, Rocky, and Amazon Linux" loading="lazy">
+        </div>
+
+        <div class="architecture">
+<pre>
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│  Ubuntu   │ │  Debian  │ │  Fedora  │ │  Rocky   │ │ Manjaro  │
+│  24.04    │ │  12      │ │  41      │ │  9       │ │  (Arch)  │
+└─────┬─────┘ └─────┬────┘ └─────┬────┘ └─────┬────┘ └─────┬────┘
+      └──────┬──────┴─────┬──────┴──────┬──────┴─────┬──────┘
+             │            │             │            │
+┌──────────┐ │ ┌──────────┐ ┌──────────┐ │ ┌──────────┐
+│ openSUSE │ │ │  Alpine  │ │  Amazon  │ │ │   Void   │
+└─────┬────┘ │ └─────┬────┘ └─────┬────┘ │ └─────┬────┘
+      └──────┴───────┴─────┬──────┴──────┴───────┘
+                           │
+                  ┌────────┴────────┐
+                  │   rf-relay      │
+                  │   :9092 (host)  │
+                  └────────┬────────┘
+                    ┌──────┴──────┐
+                    │   rf CLI    │
+                    └─────────────┘
+</pre>
+        </div>
+
+        <table class="distro-table">
+            <thead>
+                <tr>
+                    <th>Distribution</th>
+                    <th>Image</th>
+                    <th>Package Manager</th>
+                    <th>libc</th>
+                    <th>Token</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Ubuntu 24.04</td><td><code>ubuntu:24.04</code></td><td>apt (deb)</td><td>glibc</td><td><code>ubuntu</code></td></tr>
+                <tr><td>Debian 12</td><td><code>debian:12-slim</code></td><td>apt (deb)</td><td>glibc</td><td><code>debian</code></td></tr>
+                <tr><td>Fedora 41</td><td><code>fedora:41</code></td><td>dnf (rpm)</td><td>glibc</td><td><code>fedora</code></td></tr>
+                <tr><td>Rocky Linux 9</td><td><code>rockylinux:9</code></td><td>dnf (rpm)</td><td>glibc</td><td><code>rocky</code></td></tr>
+                <tr><td>Manjaro</td><td><code>manjarolinux/base</code></td><td>pacman</td><td>glibc</td><td><code>manjaro</code></td></tr>
+                <tr><td>openSUSE</td><td><code>opensuse/tumbleweed</code></td><td>zypper (rpm)</td><td>glibc</td><td><code>opensuse</code></td></tr>
+                <tr><td>Alpine 3.20</td><td><code>alpine:3.20</code></td><td>apk</td><td>musl</td><td><code>alpine</code></td></tr>
+                <tr><td>Amazon Linux 2023</td><td><code>amazonlinux:2023</code></td><td>dnf (rpm)</td><td>glibc</td><td><code>amazon</code></td></tr>
+                <tr><td>Void Linux</td><td><code>void-glibc-full</code></td><td>xbps</td><td>glibc</td><td><code>void</code></td></tr>
+            </tbody>
+        </table>
+
+        <div class="setup">
+            <h3>Setup</h3>
+            <div class="setup-prereqs">
+                <span>Docker</span>
+                <span>rf CLI</span>
+            </div>
+<pre class="code-block"><span class="comment"># Start all 9 distro containers + relay</span>
+<span class="cmd">cd demos/multi-distro-linux</span>
+<span class="cmd">./setup.sh</span>
+
+<span class="comment"># Query any distro</span>
+<span class="cmd">rf --relay ws://127.0.0.1:9092 exec --token ubuntu 'cat /etc/os-release | head -2'</span>
+<span class="cmd">rf --relay ws://127.0.0.1:9092 exec --token alpine 'cat /etc/os-release | head -2'</span>
+<span class="cmd">rf --relay ws://127.0.0.1:9092 exec --token fedora 'cat /etc/os-release | head -2'</span>
+
+<span class="comment"># Verify all agents respond</span>
+<span class="cmd">./setup.sh verify</span>
+
+<span class="comment"># Teardown</span>
+<span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 3: Kubernetes + CloudNativePG                         -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="kubernetes-cnpg">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 3</div>
+            <h2>Kubernetes + CloudNativePG</h2>
+            <p>
+                Access a CloudNativePG PostgreSQL cluster through an encrypted tunnel.
+                The agent runs as a Kubernetes Deployment with database credentials
+                auto-injected from CNPG secrets.
+            </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/k8s-cnpg.svg" alt="Animated terminal recording: querying PostgreSQL in Kubernetes via RavenFabric encrypted tunnel" loading="lazy">
+        </div>
+
+        <div class="architecture">
+<pre>
+              ┌─── Kubernetes ───────────────────────────┐
+              │  namespace: ravenfabric                  │
+              │                                          │
+              │  ┌──────────────┐   ┌─────────────────┐  │
+              │  │ CNPG Cluster │   │   rf-agent      │  │
+              │  │              │◄──│   Deployment    │  │
+              │  │ pg-cluster-1 │   │                 │  │
+              │  │ (primary)    │   │ postgres:17     │  │
+              │  │              │   │ + rf-agent      │  │
+              │  │ pg-cluster-2 │   │                 │  │
+              │  │ (replica)    │   │ Token: cnpg     │  │
+              │  └──────────────┘   └────────┬────────┘  │
+              │      ▲ pg-cluster-rw         │ ws://     │
+              └──────┼───────────────────────┼───────────┘
+                     │          ┌─────────────▼──────────┐
+                     │          │  rf-relay (Docker)     │
+                     │          │  :9093 (host)          │
+                     │          └─────────────┬──────────┘
+                     │                        │
+                     │          ┌─────────────▼──────────┐
+                     │          │     rf CLI (your Mac)  │
+                     │          └────────────────────────┘
+</pre>
+        </div>
+
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Resource</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>rf-relay</td><td>Docker container</td><td>Relay broker (Ubuntu 24.04, port 9093)</td></tr>
+                <tr><td>ravenfabric</td><td>K8s Namespace</td><td>Isolated namespace for demo resources</td></tr>
+                <tr><td>pg-cluster</td><td>CNPG Cluster</td><td>2-instance PostgreSQL (primary + replica)</td></tr>
+                <tr><td>pg-cluster-rw</td><td>K8s Service</td><td>Read-write endpoint (connects to primary)</td></tr>
+                <tr><td>rf-agent</td><td>K8s Deployment</td><td>RavenFabric agent with psql client</td></tr>
+                <tr><td>rf-agent-policy</td><td>K8s ConfigMap</td><td>Policy allowing all commands (demo-only)</td></tr>
+            </tbody>
+        </table>
+
+        <div class="setup">
+            <h3>Setup</h3>
+            <div class="setup-prereqs">
+                <span>Docker</span>
+                <span>Kubernetes</span>
+                <span>CloudNativePG operator</span>
+                <span>rf CLI</span>
+            </div>
+<pre class="code-block"><span class="comment"># Install CNPG operator (if not already installed)</span>
+helm repo add cnpg https://cloudnative-pg.github.io/charts
+helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
+    --namespace cnpg-system --create-namespace --wait
+
+<span class="comment"># Deploy everything (relay + CNPG cluster + rf-agent)</span>
+<span class="cmd">cd demos/kubernetes-cnpg</span>
+<span class="cmd">./setup.sh</span>
+
+<span class="comment"># Query PostgreSQL through the encrypted tunnel</span>
+<span class="cmd">rf --relay ws://127.0.0.1:9093 exec --token cnpg 'psql -c "SELECT version();"'</span>
+
+<span class="comment"># Check replication</span>
+<span class="cmd">rf --relay ws://127.0.0.1:9093 exec --token cnpg \
+  'psql -c "SELECT client_addr, state FROM pg_stat_replication;"'</span>
+
+<span class="comment"># Teardown</span>
+<span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- How it works                                               -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="how-it-works">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Under the hood</div>
+            <h2>What happens when you run a command</h2>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>1. Connect</h4>
+                <p>CLI connects to the relay via WebSocket. Both sides are anonymous at this point.</p>
+            </div>
+            <div class="info-card">
+                <h4>2. Handshake</h4>
+                <p>Noise XX mutual authentication. Both CLI and agent prove their identity with static keys.</p>
+            </div>
+            <div class="info-card">
+                <h4>3. Policy check</h4>
+                <p>The agent checks the command against its local deny-by-default policy. No match = denied.</p>
+            </div>
+            <div class="info-card">
+                <h4>4. Execute</h4>
+                <p>Command runs with timeout and output limits. Result is encrypted and sent back through the relay.</p>
+            </div>
+            <div class="info-card">
+                <h4>5. Audit</h4>
+                <p>Every action (allowed or denied) produces a structured JSON audit entry. Append-only.</p>
+            </div>
+            <div class="info-card">
+                <h4>6. Reconnect</h4>
+                <p>After the session ends, the agent reconnects to the relay with exponential backoff, ready for the next command.</p>
+            </div>
+        </div>
+    </section>
+
+    </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>
+                <a href="/">RavenFabric</a> &mdash; Security-first distributed execution engine
+                &middot; <a href="https://github.com/egkristi/RavenFabric-Published/releases">Releases</a>
+                &middot; <a href="/docs/">Docs</a>
+                &middot; <a href="/blog/">Blog</a>
+            </p>
+            <p style="margin-top: 0.5rem;">&copy; 2026 Erling Kristiansen &middot; AGPLv3 + Commercial</p>
+        </div>
+    </footer>
+</body>
+</html>

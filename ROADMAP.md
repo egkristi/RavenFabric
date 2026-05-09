@@ -157,6 +157,7 @@ rf exec test-agent "uname -a"
 - [x] `rf dev` — local relay + agent in one process (no auth)
 - [x] `rf status` — show connected agents
 - [x] Shell completions (bash, zsh, fish)
+- [x] **Fix:** `close_notify()` sent after exec/status commands to ensure agent reconnects cleanly
 
 ### Packaging
 - [x] Dockerfile (multi-stage alpine build → scratch runtime)
@@ -211,6 +212,11 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### When v0.1 Ships
 - [x] **Asciinema demo script** created (`docs/demo/demo-record.sh`) — recording requires human (`asciinema rec`)
+- [x] **Live demos page** — [ravenfabric.io/demos/](https://ravenfabric.io/demos/) with animated SVG recordings
+- [x] **Multi-Node Ubuntu demo** — 2-agent Docker demo with setup/teardown scripts (`demos/multi-node-ubuntu/`)
+- [x] **Multi-Distro Linux demo** — 9 distros (Ubuntu, Debian, Fedora, Rocky, Manjaro, openSUSE, Alpine, Amazon, Void) (`demos/multi-distro-linux/`)
+- [x] **Kubernetes + CloudNativePG demo** — CNPG PostgreSQL cluster with rf-agent in K8s (`demos/kubernetes-cnpg/`)
+- [x] **Asciinema recordings** — recorded and converted to animated SVGs for website embedding
 - [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no — requires human (#40)
 - [x] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"
 - [x] Blog post #3: "Zero-trust mesh networking without certificates — Noise XX deep dive"
@@ -218,7 +224,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] ~~Status badge in header (build status, version, last release date)~~ — shields.io badges
 
 ### Marketing Launch Plan
-- [x] Record asciinema demo — script ready at `docs/demo/demo-record.sh`
+- [x] Record asciinema demos — 3 recordings (multi-node, multi-distro, k8s-cnpg) in `demos/recordings/`
+- [x] Animated SVG exports — embedded on [ravenfabric.io/demos/](https://ravenfabric.io/demos/) (no JS required)
 - [x] Write `Show HN` post (title + 300-word description of what makes it different) — `marketing/show-hn.md`
 - [x] Prepare Reddit posts: r/rust (technical), r/selfhosted (deployment), r/sysadmin (replaces what) — `marketing/reddit-posts.md`
 - [ ] Schedule submissions: HN weekday morning US-east, Reddit staggered over 3 days — requires human (#40)
@@ -229,6 +236,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 ### Medium-Term
 - [x] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
 - [x] `/blog/` section with RSS feed (`/feed.xml`)
+- [x] `/demos/` section with animated SVG recordings (multi-node, multi-distro, k8s-cnpg)
 - [x] Newsletter signup (Buttondown, not Mailchimp) — form added to website
 - [ ] Live demo sandbox (`rf-demo.ravenfabric.io`) — requires infrastructure (#42)
 

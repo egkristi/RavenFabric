@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rf-agent
+  namespace: ravenfabric
+  labels:
+    app: rf-agent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rf-agent
+  template:
+    metadata:
+      labels:
+        app: rf-agent
+    spec:
+      terminationGracePeriodSeconds: 3
+      initContainers:
+      - name: download-rf-agent
+        image: curlimages/curl:8.11.1
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64)  BINARY_ARCH="linux-amd64-musl" ;;
+            aarch64) BINARY_ARCH="linux-arm64-musl" ;;
+            armv7l)  BINARY_ARCH="linux-armv7-musl" ;;
+            *) echo "Unsupported: $ARCH"; exit 1 ;;
+          esac
+          echo "Downloading rf-agent for ${BINARY_ARCH}..."
+          curl -fsSL -o /rf-bin/rf-agent \
+            "https://github.com/egkristi/RavenFabric-Published/releases/download/__VERSION__/ravenfabric-${BINARY_ARCH}-agent"
+          chmod +x /rf-bin/rf-agent
+          echo "Download complete"
+        volumeMounts:
+        - name: rf-bin
+          mountPath: /rf-bin
+      containers:
+      - name: rf-agent
+        image: postgres:17
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          trap 'kill -INT $PID; wait $PID' TERM
+          /rf-bin/rf-agent \
+            --relay "ws://__RELAY_HOST__:__RELAY_PORT__" \
+            --id rf-k8s-cnpg \
+            --token cnpg \
+            --policy-path /etc/ravenfabric/policy.yaml \
+            --audit-path /tmp/rf-audit.jsonl \
+            --key-path /tmp/agent.key &
+          PID=$!
+          wait $PID
+        env:
+        - name: RUST_LOG
+          value: "info"
+        - name: PGHOST
+          value: pg-cluster-rw
+        - name: PGPORT
+          value: "5432"
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: pg-cluster-superuser
+              key: username
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pg-cluster-superuser
+              key: password
+        - name: PGDATABASE
+          value: app
+        volumeMounts:
+        - name: rf-bin
+          mountPath: /rf-bin
+          readOnly: true
+        - name: rf-policy
+          mountPath: /etc/ravenfabric
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      volumes:
+      - name: rf-bin
+        emptyDir: {}
+      - name: rf-policy
+        configMap:
+          name: rf-agent-policy
+      - name: tmp
+        emptyDir: {}

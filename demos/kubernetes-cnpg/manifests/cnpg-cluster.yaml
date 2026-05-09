@@ -1,0 +1,16 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-cluster
+  namespace: ravenfabric
+spec:
+  instances: 2
+  enableSuperuserAccess: true
+
+  storage:
+    size: 1Gi
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app

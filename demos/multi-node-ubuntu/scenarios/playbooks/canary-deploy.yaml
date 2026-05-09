@@ -1,0 +1,12 @@
+command: "echo 'Deploying v2.0 on' $(hostname) && mkdir -p /opt/app && echo 'v2.0' > /opt/app/version.txt && cat /opt/app/version.txt"
+target:
+  agents:
+    - rf-agent-1
+    - rf-agent-2
+strategy:
+  canary:
+    canary_count: 1
+on_failure:
+  rollback:
+    command: "echo 'Rolling back on' $(hostname) && echo 'v1.0' > /opt/app/version.txt"
+timeout_secs: 30

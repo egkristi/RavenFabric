@@ -5,6 +5,21 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] — 2026-05-09
+
+### Added
+- **Demos**: Multi-Node Ubuntu demo — 2-agent Docker setup with relay, setup/teardown scripts, 11 scenario scripts (`demos/multi-node-ubuntu/`)
+- **Demos**: Multi-Distro Linux demo — 9 Linux distributions (Ubuntu, Debian, Fedora, Rocky, Manjaro, openSUSE, Alpine, Amazon Linux, Void) with setup/verify/teardown (`demos/multi-distro-linux/`)
+- **Demos**: Kubernetes + CloudNativePG demo — 2-instance CNPG PostgreSQL cluster with rf-agent sidecar, Gatekeeper exemption handling, auto-detect host IP (`demos/kubernetes-cnpg/`)
+- **Demos**: Asciinema recording scripts and animated SVG exports for all 3 demos (`demos/recordings/`)
+- **Website**: Live demos page at `/demos/` with animated terminal recordings, architecture diagrams, setup instructions
+- **Website**: "Demos" navigation link added to main site, blog pages, and footer
+- **CLI**: `--stream` and `--background` execution flags for streaming and fire-and-forget modes
+
+### Fixed
+- **CLI**: Added `close_notify()` after `exec` and `status` commands — agent now detects session end and reconnects cleanly instead of hanging indefinitely
+- **K8s Demo**: Deployment uses `strategy: Recreate` with `terminationGracePeriodSeconds: 3` and SIGTERM→SIGINT trap to prevent dual-pod relay pairing race condition
+
 ## [0.1.4] — 2026-05-08
 
 ### Added

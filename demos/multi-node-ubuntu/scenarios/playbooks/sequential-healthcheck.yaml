@@ -1,0 +1,8 @@
+command: "echo 'Health check on' $(hostname) && uptime && df -h / | tail -1"
+target:
+  agents:
+    - rf-agent-1
+    - rf-agent-2
+strategy: sequential
+on_failure: stop_only
+timeout_secs: 30

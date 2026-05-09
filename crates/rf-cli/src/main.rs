@@ -41,6 +41,14 @@ enum Commands {
         #[arg(short, long)]
         token: String,
 
+        /// Stream output incrementally (real-time stdout/stderr)
+        #[arg(short, long, default_value_t = false)]
+        stream: bool,
+
+        /// Run in background (returns job ID immediately)
+        #[arg(short, long, default_value_t = false)]
+        background: bool,
+
         /// Command to execute
         command: String,
     },
@@ -86,6 +94,9 @@ enum Commands {
         /// Listen port for the local relay
         #[arg(short, long, default_value = "9090")]
         port: u16,
+        /// Bind address for the relay listener
+        #[arg(short, long, default_value = "127.0.0.1")]
+        bind: String,
     },
     /// Show agent status
     Status {
@@ -140,8 +151,21 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Exec { token, command } => {
-            exec_command(&cli.relay, &cli.key_path, &token, &command).await?;
+        Commands::Exec {
+            token,
+            command,
+            stream,
+            background,
+        } => {
+            exec_command(
+                &cli.relay,
+                &cli.key_path,
+                &token,
+                &command,
+                stream,
+                background,
+            )
+            .await?;
         }
         Commands::Shell { token, cols, rows } => {
             shell_command(&cli.relay, &cli.key_path, &token, cols, rows).await?;
@@ -156,8 +180,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::Playbook { file, token } => {
             playbook_command(&cli.relay, &cli.key_path, &token, &file).await?;
         }
-        Commands::Dev { port } => {
-            dev_mode(port).await?;
+        Commands::Dev { port, bind } => {
+            dev_mode(port, &bind).await?;
         }
         Commands::Status { token } => {
             status_command(&cli.relay, &cli.key_path, &token).await?;
@@ -178,6 +202,8 @@ async fn exec_command(
     key_path: &std::path::Path,
     token: &str,
     command: &str,
+    streaming: bool,
+    background: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
@@ -201,14 +227,31 @@ async fn exec_command(
     let (stream_read, stream_write) = tokio::io::split(stream);
     let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
 
-    // Send RPC request
-    let request = Request {
-        id: uuid::Uuid::new_v4().to_string(),
-        action: Action::Execute {
+    // Select action based on mode
+    let action = if background {
+        Action::BackgroundExec {
             command: command.to_string(),
             env: Default::default(),
             workdir: None,
-        },
+        }
+    } else if streaming {
+        Action::StreamExecute {
+            command: command.to_string(),
+            env: Default::default(),
+            workdir: None,
+        }
+    } else {
+        Action::Execute {
+            command: command.to_string(),
+            env: Default::default(),
+            workdir: None,
+        }
+    };
+
+    // Send RPC request
+    let request = Request {
+        id: uuid::Uuid::new_v4().to_string(),
+        action,
         timeout_ms: Some(30_000),
         reason: None,
     };
@@ -216,7 +259,78 @@ async fn exec_command(
     let req_data = codec::encode(&request)?;
     chan.send(&req_data).await?;
 
-    // Await response
+    // For streaming mode, read multiple responses until StreamEnd
+    if streaming {
+        loop {
+            let resp_data = chan.recv().await?;
+            let response: Response = codec::decode(&resp_data)?;
+            match response.result {
+                RpcResult::StreamChunk {
+                    stream: stream_type,
+                    data,
+                } => {
+                    use rf_rpc::types::StreamType;
+                    match stream_type {
+                        StreamType::Stdout => {
+                            let out = String::from_utf8_lossy(&data);
+                            print!("{out}");
+                        }
+                        StreamType::Stderr => {
+                            let err = String::from_utf8_lossy(&data);
+                            eprint!("{err}");
+                        }
+                    }
+                }
+                RpcResult::StreamEnd {
+                    exit_code,
+                    duration_ms,
+                } => {
+                    info!("exit_code={} duration={}ms", exit_code, duration_ms);
+                    if exit_code != 0 {
+                        std::process::exit(exit_code);
+                    }
+                    break;
+                }
+                RpcResult::Denied { reason, rule } => {
+                    error!("DENIED: {} (rule: {})", reason, rule);
+                    std::process::exit(1);
+                }
+                RpcResult::Error { message } => {
+                    error!("ERROR: {}", message);
+                    std::process::exit(1);
+                }
+                // Fallback: agent returned batch result for StreamExecute
+                RpcResult::Success {
+                    stdout,
+                    stderr,
+                    exit_code,
+                    duration_ms,
+                } => {
+                    if !stdout.is_empty() {
+                        print!("{stdout}");
+                    }
+                    if !stderr.is_empty() {
+                        eprint!("{stderr}");
+                    }
+                    info!("exit_code={} duration={}ms", exit_code, duration_ms);
+                    if exit_code != 0 {
+                        std::process::exit(exit_code);
+                    }
+                    break;
+                }
+                _ => {
+                    error!("unexpected response in streaming mode");
+                    std::process::exit(1);
+                }
+            }
+        }
+        let _ = chan.close_notify().await;
+        // Give the WebSocket bridge task time to forward the close-notify
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        return Ok(());
+    }
+
+    // Await response (standard / background mode)
     let resp_data = chan.recv().await?;
     let response: Response = codec::decode(&resp_data)?;
 
@@ -328,6 +442,9 @@ async fn exec_command(
         }
     }
 
+    let _ = chan.close_notify().await;
+    // Give the WebSocket bridge task time to forward the close-notify
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     Ok(())
 }
 
@@ -392,6 +509,8 @@ async fn status_command(
         }
     }
 
+    let _ = chan.close_notify().await;
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     Ok(())
 }
 
@@ -871,8 +990,8 @@ async fn shell_command(
 }
 
 /// Development mode: starts a relay and agent in a single process with permissive policy.
-async fn dev_mode(port: u16) -> anyhow::Result<()> {
-    let listen_addr = format!("127.0.0.1:{port}");
+async fn dev_mode(port: u16, bind: &str) -> anyhow::Result<()> {
+    let listen_addr = format!("{bind}:{port}");
     let relay_url = format!("ws://127.0.0.1:{port}");
     let dev_token = "dev";
 

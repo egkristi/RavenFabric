@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rf-agent-policy
+  namespace: ravenfabric
+data:
+  policy.yaml: |
+    spec:
+      commands:
+        allow:
+          - pattern: ".*"
+      resources:
+        maxOutputBytes: 104857600
+        timeoutSeconds: 300

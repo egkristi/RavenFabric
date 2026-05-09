@@ -2,7 +2,7 @@
 # Automated demo script for asciinema recording.
 # Simulates human typing for a polished recording.
 #
-# This script is run inside asciinema rec --command "bash demo/demo-script.sh"
+# This script is run inside asciinema rec --command "bash demos/demo-script.sh"
 
 set -euo pipefail
 

@@ -12,7 +12,7 @@ categories = ["command-line-utilities", "network-programming"]
 keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "0.1.4" }
+rf-crypto = { path = "../rf-crypto", version = "0.1.5" }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

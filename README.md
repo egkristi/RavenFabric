@@ -519,8 +519,8 @@ What works today:
 - Agent binary: connects to relay, performs handshake, runs RPC loop (full)
 - Agent reconnect with exponential backoff + jitter
 - Prometheus `/metrics` HTTP endpoint with `--metrics-addr` agent flag
-- CLI `rf exec` command: connect, handshake, send, display result (full)
-- CLI `rf status` command: connect to agent, display version/uptime (full)
+- CLI `rf exec` command: connect, handshake, send, display result, close-notify (full)
+- CLI `rf status` command: connect to agent, display version/uptime, close-notify (full)
 - CLI `rf dev` mode: local relay + agent in one process (full)
 - Shell completions (bash, zsh, fish)
 - Linux musl static binaries (amd64 + arm64) via release workflow
@@ -983,6 +983,7 @@ See [ROADMAP.md](ROADMAP.md) for the detailed roadmap with implementation checkl
 ## Documentation
 
 - **Docs:** [ravenfabric.io/docs/](https://ravenfabric.io/docs/) — installation, architecture, configuration, reference
+- **Demos:** [ravenfabric.io/demos/](https://ravenfabric.io/demos/) — live terminal recordings with setup instructions
 - **Blog:** [ravenfabric.io/blog/](https://ravenfabric.io/blog/) — technical deep dives
 - **Website:** [ravenfabric.io](https://ravenfabric.io) — overview and architecture
 
@@ -1061,6 +1062,62 @@ cargo test
 git config core.hooksPath .githooks
 ```
 
+### Try It (dev mode — no containers needed)
+
+```bash
+cargo build --release -p rf-cli
+
+# Start relay + agent in one process
+rf dev &
+
+# Execute a command (E2E encrypted, policy-checked, audited)
+rf exec --token dev "uname -a"
+
+# Stop
+kill %1
+```
+
+---
+
+## Demos
+
+Three self-contained demos showcase RavenFabric on real infrastructure. Each includes a setup script, asciinema recordings, and full documentation.
+
+See the animated recordings at [ravenfabric.io/demos/](https://ravenfabric.io/demos/).
+
+### Multi-Node Ubuntu
+
+Two Ubuntu 24.04 agents managed through a relay — remote execution over encrypted channels.
+
+```bash
+cd demos/multi-node-ubuntu && ./setup.sh
+rf --relay ws://127.0.0.1:9091 exec --token agent1 'hostname && uname -a'
+rf --relay ws://127.0.0.1:9091 exec --token agent2 'cat /etc/os-release | head -4'
+./setup.sh teardown
+```
+
+### Multi-Distro Linux
+
+One static musl binary running on 9 distributions (Ubuntu, Debian, Fedora, Rocky, Manjaro, openSUSE, Alpine, Amazon Linux, Void) — zero runtime dependencies.
+
+```bash
+cd demos/multi-distro-linux && ./setup.sh
+rf --relay ws://127.0.0.1:9092 exec --token alpine 'cat /etc/os-release | head -2'
+rf --relay ws://127.0.0.1:9092 exec --token fedora 'cat /etc/os-release | head -2'
+./setup.sh teardown
+```
+
+### Kubernetes + CloudNativePG
+
+A CNPG PostgreSQL cluster with a RavenFabric agent for encrypted database access in Kubernetes.
+
+```bash
+cd demos/kubernetes-cnpg && ./setup.sh
+rf --relay ws://127.0.0.1:9093 exec --token cnpg 'psql -c "SELECT version();"'
+rf --relay ws://127.0.0.1:9093 exec --token cnpg 'psql -c "SELECT client_addr, state FROM pg_stat_replication;"'
+./setup.sh teardown
+```
+
 ### Project Structure
 
 ```
@@ -1082,6 +1139,11 @@ RavenFabric/
 ├── sdks/
 │   ├── python/             # Python MCP client SDK (pip)
 │   └── typescript/         # TypeScript MCP client SDK (npm)
+├── demos/
+│   ├── multi-node-ubuntu/  # 2-agent Ubuntu demo (Docker)
+│   ├── multi-distro-linux/ # 9-distro compatibility demo (Docker)
+│   ├── kubernetes-cnpg/    # CloudNativePG + K8s demo
+│   └── recordings/         # Asciinema recordings + SVG exports
 ├── docs/                   # Documentation (mdBook)
 ├── website/                # Landing page (ravenfabric.io)
 ├── .github/workflows/      # CI/CD (check, fmt, clippy, test, coverage, release)

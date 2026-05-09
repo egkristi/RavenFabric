@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # Record the asciinema demo for RavenFabric
-# Usage: ./demo/record.sh
+# Usage: ./demos/record.sh
 #
 # Prerequisites:
 #   - asciinema installed (pipx install asciinema)
 #   - cargo build --release -p rf-cli -p rf-agent -p rf-relay
 #
-# Output: demo/ravenfabric-demo.cast
+# Output: demos/ravenfabric-demo.cast
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-CAST_FILE="demo/ravenfabric-demo.cast"
-SCRIPT="demo/demo-script.sh"
+CAST_FILE="demos/ravenfabric-demo.cast"
+SCRIPT="demos/demo-script.sh"
 
 echo "Recording demo to $CAST_FILE ..."
 echo "This will run the scripted demo automatically."

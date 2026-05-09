@@ -1,0 +1,8 @@
+command: "apt-get update -qq && echo 'Update complete on' $(hostname)"
+target:
+  agents:
+    - rf-agent-1
+    - rf-agent-2
+strategy: parallel
+on_failure: stop_only
+timeout_secs: 60

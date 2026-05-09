@@ -16,10 +16,10 @@ default = ["sysinfo"]
 sysinfo = ["dep:sysinfo"]
 
 [dependencies]
-rf-policy = { path = "../rf-policy", version = "0.1.4" }
-rf-rpc = { path = "../rf-rpc", version = "0.1.4" }
-rf-audit = { path = "../rf-audit", version = "0.1.4" }
-rf-crypto = { path = "../rf-crypto", version = "0.1.4" }
+rf-policy = { path = "../rf-policy", version = "0.1.5" }
+rf-rpc = { path = "../rf-rpc", version = "0.1.5" }
+rf-audit = { path = "../rf-audit", version = "0.1.5" }
+rf-crypto = { path = "../rf-crypto", version = "0.1.5" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
