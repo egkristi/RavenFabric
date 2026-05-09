@@ -5,7 +5,7 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.5] — 2026-05-09
+## [0.1.5] — 2026-05-10
 
 ### Added
 - **Demos**: Multi-Node Ubuntu demo — 2-agent Docker setup with relay, setup/teardown scripts, 11 scenario scripts (`demos/multi-node-ubuntu/`)
@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Versions**: All packaging manifests, SDKs, website, Web UI, and docs updated from v0.1.4 to v0.1.5
 - **Docs**: Python SDK documentation URL now points to public `ravenfabric.io/docs/` instead of private repo
 - **Docs**: Contributing guide SECURITY.md link changed from absolute GitHub URL to relative path
+- **Transport**: QUIC test no longer flaky — uses OS-assigned port directly instead of rebinding, eliminating address-already-in-use race condition (#96)
 
 ## [0.1.4] — 2026-05-08
 

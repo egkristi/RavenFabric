@@ -275,20 +275,12 @@ mod tests {
     async fn test_quic_driver_listen_and_dial() {
         let driver = QuicDriver::new();
 
-        // Start listener
-        let listener = driver.listen("127.0.0.1:0").await.unwrap();
-
-        // Get the actual bound address
-        // We need to use a fixed port for the test since we can't extract the bound addr from the listener trait
-        // Instead, use a known free port
-        let port = {
-            let sock = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
-            sock.local_addr().unwrap().port()
-        };
-        drop(listener);
-
-        let listener = driver.listen(&format!("127.0.0.1:{port}")).await.unwrap();
-        let addr = format!("127.0.0.1:{port}");
+        // Bind to port 0 — construct server endpoint directly to get bound address
+        let server_config = make_server_config();
+        let endpoint =
+            Endpoint::server(server_config, "127.0.0.1:0".parse().unwrap()).unwrap();
+        let addr = endpoint.local_addr().unwrap().to_string();
+        let listener = QuicListener { endpoint };
 
         // Dial from client
         let target = Target {
