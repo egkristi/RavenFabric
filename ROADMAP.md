@@ -178,8 +178,8 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### Validation & SEO Setup
 - [x] Test Open Graph cards — all OG/Twitter meta tags validated, og-image.png 1200×630 confirmed (manual platform testing requires human)
-- [ ] Set up Google Search Console (DNS TXT verification via Namecheap)
-- [ ] Submit sitemap: `https://ravenfabric.io/sitemap.xml`
+- [ ] Set up Google Search Console (DNS TXT verification via Namecheap) — requires human (#38)
+- [ ] Submit sitemap: `https://ravenfabric.io/sitemap.xml` — requires Google Search Console (#38)
 - [x] Run Lighthouse audit: `npx lighthouse https://ravenfabric.io --view`
 - [x] Run broken link check: `npx broken-link-checker https://ravenfabric.io --recursive --ordered`
 
@@ -211,7 +211,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 
 ### When v0.1 Ships
 - [x] **Asciinema demo script** created (`docs/demo/demo-record.sh`) — recording requires human (`asciinema rec`)
-- [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no
+- [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no — requires human (#40)
 - [x] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"
 - [x] Blog post #3: "Zero-trust mesh networking without certificates — Noise XX deep dive"
 - [x] First blog post ("Why Noise XX over TLS" or "Why air-gap support is first-class")
@@ -221,21 +221,21 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Record asciinema demo — script ready at `docs/demo/demo-record.sh`
 - [x] Write `Show HN` post (title + 300-word description of what makes it different) — `marketing/show-hn.md`
 - [x] Prepare Reddit posts: r/rust (technical), r/selfhosted (deployment), r/sysadmin (replaces what) — `marketing/reddit-posts.md`
-- [ ] Schedule submissions: HN weekday morning US-east, Reddit staggered over 3 days
-- [ ] Lobsters invite + submission (needs existing member invite)
-- [ ] kode24.no pitch (Norwegian tech press)
+- [ ] Schedule submissions: HN weekday morning US-east, Reddit staggered over 3 days — requires human (#40)
+- [ ] Lobsters invite + submission (needs existing member invite) — requires human (#40)
+- [ ] kode24.no pitch (Norwegian tech press) — requires human (#40)
 - [x] Conference pitch: prepare 5-min lightning talk proposal (NDC Oslo, RustConf, FOSDEM Security devroom) — `marketing/conference-pitch.md`
 
 ### Medium-Term
 - [x] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
 - [x] `/blog/` section with RSS feed (`/feed.xml`)
 - [x] Newsletter signup (Buttondown, not Mailchimp) — form added to website
-- [ ] Live demo sandbox (`rf-demo.ravenfabric.io`)
+- [ ] Live demo sandbox (`rf-demo.ravenfabric.io`) — requires infrastructure (#42)
 
 ### Explicitly Not Planned
 - No cookie banner (no cookies, no analytics)
 - No animated hero backgrounds (CPU waste, AI-slop aesthetic)
-- No "Get Started" CTA before product works (use "View on GitHub")
+- No "Get Started" CTA before product works (use "Download Latest Release")
 - No live chat widget (signals sales, not engineering)
 - No pricing page before commercial features exist
 

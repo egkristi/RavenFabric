@@ -214,5 +214,5 @@ RUST_LOG=warn rf-agent --config /etc/ravenfabric/raven.toml
 If the issue persists:
 
 1. Reproduce with `RUST_LOG=debug` and capture full output
-2. Check [GitHub Issues](https://github.com/egkristi/RavenFabric/issues) for known problems
-3. Open a new issue with: OS, version, config (redact secrets), debug log output
+2. Report issues via email to security@ravenfabric.io
+3. Include: OS, version, config (redact secrets), debug log output

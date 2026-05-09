@@ -11,11 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Packaging**: macOS `.pkg` installer build script (`deploy/macos/build-pkg.sh`) — universal binary support, launchd integration, pre/post install scripts
 - **Packaging**: openSUSE OBS spec file (`deploy/obs/ravenfabric.spec`) — RPM packaging for zypper/OBS, systemd integration, dedicated user/group
 - **Packaging**: F-Droid metadata (`deploy/fdroid/`) — full app listing with descriptions, changelog, build recipe for aarch64 Android
+- **CLI**: Added `--version` flag to `rf` CLI (reads version from Cargo.toml via clap)
+- **Homebrew**: Fixed formula to use pre-built binaries from `RavenFabric-Published` with real SHA256 hashes
 
 ### Fixed
+- **Website**: Removed all links to private `egkristi/RavenFabric` repo from public website
+- **Website**: Hero CTA changed from "View on GitHub" to "Download Latest Release" (→ RavenFabric-Published)
+- **Website**: Badges now use static shields.io (version, language, license) + Latest Release from Published repo
+- **Website**: Removed GitHub card sidebar, nav GitHub button, footer repo links
+- **Website**: FAQ updated — source access pending legal review, available on request
+- **Docs**: Removed GitHub repo/edit links from mdBook (`book.toml`) — no more broken edit buttons
+- **Docs**: Fixed `security.txt` — removed private repo advisory/policy URLs
+- **Docs**: Replaced GitHub link in docs landing page with releases link
+- **Docs**: Fixed troubleshooting page — issues link replaced with email contact
+- **Docs**: Blog pages — GitHub links → RavenFabric-Published releases
+- **Docs**: Compliance docs version updated from `v0.5-dev` to `v0.1.4` with correct stats (50k LOC, 1,037 tests)
 - **Docs**: Fixed README post-quantum wording from "(planned)" to reflect actual implementation (`HybridKemContext` + `PqxdhRatchet`)
 - **Docs**: Updated `MANUAL-TASKS-TODO.md` — marked transport drivers section as completed, updated issue #89 reference
 - **Docs**: Updated ROADMAP — pkg installer, zypper, F-Droid changed from `[ ] Planned` to `[x]` with packaging files
+- **Docs**: README CI badge replaced with static version badge (private repo badge returns 404)
+- **Versions**: OBS `_service` revision updated from `v0.1.3` to `v0.1.4`
+- **Versions**: Web UI footer version updated from `v0.1.0` to `v0.1.4`
+- **Release workflow**: Fixed Homebrew formula test assertion (`--help` instead of `--version`)
 
 ## [0.1.3] — 2026-05-08
 

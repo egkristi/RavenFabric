@@ -37,4 +37,4 @@ RavenFabric is a universal agent that provides policy-controlled, E2E-encrypted 
 - [Use Cases](use-cases/cloudnativepg.md) — Real-world deployment patterns
 - [CLI Reference](reference/cli.md) — All commands and options
 - [Production Deployment](guide/production-deployment.md) — systemd, TLS, monitoring
-- [GitHub Repository](https://github.com/egkristi/RavenFabric)
+- [Releases](https://github.com/egkristi/RavenFabric-Published/releases) — Pre-built binaries

@@ -11,9 +11,6 @@ build-dir = "book"
 [output.html]
 default-theme = "navy"
 preferred-dark-theme = "navy"
-git-repository-url = "https://github.com/egkristi/RavenFabric"
-git-repository-icon = "fa-github"
-edit-url-template = "https://github.com/egkristi/RavenFabric/edit/main/docs/{path}"
 site-url = "/docs/"
 additional-css = ["theme/custom.css"]
 no-section-label = false
