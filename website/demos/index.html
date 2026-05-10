@@ -490,7 +490,7 @@
         </div>
 
         <div class="setup">
-            <h3>Setup</h3>
+            <h3>Reproduce It</h3>
             <div class="setup-prereqs">
                 <span>Docker</span>
                 <span>rf CLI</span>
@@ -655,6 +655,20 @@ done</span>
 
 <span class="comment"># Defense in depth: policy → approval (hash + TTL) → rate limit → audit</span></pre>
         </div>
+
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block"><span class="comment"># Record with asciinema (requires demo running)</span>
+asciinema rec --command "bash demos/recordings/record-multi-node.sh" \
+  demos/recordings/multi-node.cast --cols 100 --rows 28 --overwrite
+
+<span class="comment"># Convert to animated SVG</span>
+svg-term --in demos/recordings/multi-node.cast \
+  --out website/assets/demos/multi-node.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
+        </div>
+    </section>
+
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="demo-section" id="multi-distro">
         <div class="demo-header">
@@ -717,12 +731,17 @@ done</span>
         </table>
 
         <div class="setup">
-            <h3>Setup</h3>
+            <h3>Reproduce It</h3>
             <div class="setup-prereqs">
                 <span>Docker</span>
                 <span>rf CLI</span>
             </div>
-<pre class="code-block"><span class="comment"># Start all 9 distro containers + relay</span>
+<pre class="code-block"><span class="comment"># Clone and build</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli
+
+<span class="comment"># Start all 9 distro containers + relay</span>
 <span class="cmd">cd demos/multi-distro-linux</span>
 <span class="cmd">./setup.sh</span>
 
@@ -856,6 +875,18 @@ done</span>
 <span class="comment"># --callers config.toml maps tokens to policy profiles</span>
 <span class="comment"># Rate limiting: 60 req/min per session (configurable)</span></pre>
         </div>
+
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block">asciinema rec --command "bash demos/recordings/record-multi-distro.sh" \
+  demos/recordings/multi-distro.cast --cols 100 --rows 28 --overwrite
+
+svg-term --in demos/recordings/multi-distro.cast \
+  --out website/assets/demos/multi-distro.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
+        </div>
+    </section>
+
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="demo-section" id="kubernetes-cnpg">
         <div class="demo-header">
@@ -918,7 +949,7 @@ done</span>
         </table>
 
         <div class="setup">
-            <h3>Setup</h3>
+            <h3>Reproduce It</h3>
             <div class="setup-prereqs">
                 <span>Docker</span>
                 <span>Kubernetes</span>
@@ -1064,6 +1095,16 @@ helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
 <span class="comment"># vs kubectl: no human gate, no per-command audit, no rate limit</span></pre>
         </div>
 
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block">asciinema rec --command "bash demos/recordings/record-k8s-cnpg.sh" \
+  demos/recordings/k8s-cnpg.cast --cols 100 --rows 28 --overwrite
+
+svg-term --in demos/recordings/k8s-cnpg.cast \
+  --out website/assets/demos/k8s-cnpg.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
+        </div>
+
     <!-- ═══════════════════════════════════════════════════════════ -->
     <!-- DEMO 4: Transport Showcase                                 -->
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -1078,13 +1119,17 @@ helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
             </p>
         </div>
 
+        <div class="recording">
+            <img src="/assets/demos/transport-showcase.svg" alt="Animated terminal recording: Noise XX encrypted RPC over WebSocket, QUIC, UNIX socket, stdio pipe, and in-process memory" loading="lazy">
+        </div>
+
         <div class="architecture">
 <pre>
 ┌────────────────────────────────────────────────────┐
 │  Same Noise XX session over 5 transports:          │
 │                                                    │
 │  1. WebSocket (TCP)    ws://relay:9090             │
-│  2. QUIC (UDP)         quic://relay:9090           │
+│  2. QUIC (UDP)         quic://relay:9443           │
 │  3. UNIX socket        /tmp/rf.sock                │
 │  4. Stdio pipe         rf-agent | rf-cli           │
 │  5. In-process memory  tokio::io::duplex           │
@@ -1105,7 +1150,7 @@ helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
             </div>
             <div class="info-card">
                 <h4>Scenarios</h4>
-                <p>5</p>
+                <p>6</p>
             </div>
             <div class="info-card">
                 <h4>Key Point</h4>
@@ -1113,22 +1158,57 @@ helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
             </div>
         </div>
 
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Transport</th>
+                    <th>Protocol</th>
+                    <th>Latency</th>
+                    <th>Use Case</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>WebSocket</td><td>TCP</td><td>~1 ms</td><td>Default relay, works through proxies/CDNs</td></tr>
+                <tr><td>QUIC</td><td>UDP</td><td>~0.5 ms</td><td>Multiplexed streams, 0-RTT, mobile-friendly</td></tr>
+                <tr><td>UNIX Socket</td><td>IPC</td><td>~0.1 ms</td><td>Same-host sidecar, container-to-container</td></tr>
+                <tr><td>Stdio Pipe</td><td>Process</td><td>~0.05 ms</td><td>MCP server, subprocess isolation</td></tr>
+                <tr><td>Memory</td><td>In-process</td><td>~0.01 ms</td><td>Testing, dev mode, embedded</td></tr>
+            </tbody>
+        </table>
+
         <div class="setup">
-            <h3>Setup</h3>
+            <h3>Reproduce It</h3>
             <div class="setup-prereqs">
+                <span>Rust 1.88+</span>
                 <span>rf CLI</span>
             </div>
-<pre class="code-block"><span class="comment"># Each scenario demonstrates one transport type</span>
+<pre class="code-block"><span class="comment"># Build</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli -p rf-agent -p rf-relay
+
+<span class="comment"># Run all 5 transports in sequence</span>
 <span class="cmd">cd demos/transport-showcase</span>
+<span class="cmd">./scenarios/06-all-transports.sh</span>
 
-<span class="comment"># WebSocket over TCP</span>
-<span class="cmd">./scenarios/01-websocket-tcp.sh</span>
+<span class="comment"># Or run individual transports</span>
+<span class="cmd">./scenarios/01-websocket.sh</span>     <span class="comment"># WebSocket over TCP</span>
+<span class="cmd">./scenarios/02-quic.sh</span>          <span class="comment"># QUIC over UDP (0-RTT)</span>
+<span class="cmd">./scenarios/03-unix-socket.sh</span>   <span class="comment"># UNIX domain socket</span>
+<span class="cmd">./scenarios/04-stdio-pipe.sh</span>    <span class="comment"># Parent/child stdin/stdout</span>
+<span class="cmd">./scenarios/05-memory.sh</span>        <span class="comment"># In-process duplex channel</span></pre>
+        </div>
 
-<span class="comment"># QUIC over UDP (connection migration, 0-RTT)</span>
-<span class="cmd">./scenarios/02-quic-udp.sh</span>
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block"><span class="comment"># Record with asciinema</span>
+asciinema rec --command "bash demos/recordings/record-transport-showcase.sh" \
+  demos/recordings/transport-showcase.cast --cols 100 --rows 28 --overwrite
 
-<span class="comment"># UNIX domain socket (same-host, no network)</span>
-<span class="cmd">./scenarios/03-unix-socket.sh</span></pre>
+<span class="comment"># Convert to animated SVG</span>
+svg-term --in demos/recordings/transport-showcase.cast \
+  --out website/assets/demos/transport-showcase.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
         </div>
     </section>
 
@@ -1144,6 +1224,10 @@ helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
                 Define what should be true. RavenFabric converges reality to match — and
                 reports what changed.
             </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/desired-state.svg" alt="Animated terminal recording: desired-state convergence with drift detection and auto-remediation" loading="lazy">
         </div>
 
         <div class="architecture">
@@ -1180,18 +1264,90 @@ Convergence Engine:
             </div>
         </div>
 
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Script</th>
+                    <th>What It Shows</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Drift Detection</td><td><code>01-drift-detection.sh</code></td><td>Report drift without making changes</td></tr>
+                <tr><td>Auto-Remediation</td><td><code>02-remediation.sh</code></td><td>Fix drifted resources automatically</td></tr>
+                <tr><td>Report-Only Mode</td><td><code>03-report-mode.sh</code></td><td>Monitoring mode — detect but don't change</td></tr>
+                <tr><td>Grains Targeting</td><td><code>04-grains-targeting.sh</code></td><td>Target agents by OS, arch, or role labels</td></tr>
+                <tr><td>Event Triggers</td><td><code>05-event-triggers.sh</code></td><td>Cron, file watch, timer, webhook triggers</td></tr>
+                <tr><td>Version Constraints</td><td><code>06-version-constraints.sh</code></td><td>Package version range enforcement</td></tr>
+                <tr><td>All Scenarios</td><td><code>07-all-scenarios.sh</code></td><td>Run all scenarios in sequence</td></tr>
+            </tbody>
+        </table>
+
         <div class="setup">
-            <h3>Setup</h3>
-<pre class="code-block"><span class="cmd">cd demos/desired-state</span>
+            <h3>Reproduce It</h3>
+            <div class="setup-prereqs">
+                <span>Rust 1.88+</span>
+                <span>rf CLI</span>
+            </div>
+<pre class="code-block"><span class="comment"># Build</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli
+
+<span class="cmd">cd demos/desired-state</span>
 
 <span class="comment"># Detect drift without changing anything</span>
 <span class="cmd">./scenarios/01-drift-detection.sh</span>
 
 <span class="comment"># Auto-fix drifted resources</span>
-<span class="cmd">./scenarios/02-auto-remediation.sh</span>
+<span class="cmd">./scenarios/02-remediation.sh</span>
 
 <span class="comment"># Target specific agents by grains (OS, arch, role)</span>
-<span class="cmd">./scenarios/05-grains-targeting.sh</span></pre>
+<span class="cmd">./scenarios/04-grains-targeting.sh</span>
+
+<span class="comment"># Run all 7 scenarios</span>
+<span class="cmd">./scenarios/07-all-scenarios.sh</span></pre>
+        </div>
+
+        <div class="setup">
+            <h3>Example Spec</h3>
+<pre class="code-block"><span class="comment"># desired-state.yaml — declare target state</span>
+resources:
+  packages:
+    - name: nginx
+      state: installed
+      version: ">= 1.24.0"
+    - name: curl
+      state: installed
+  files:
+    - path: /etc/app/config.yaml
+      content: |
+        server:
+          port: 8080
+          workers: 4
+      mode: "0644"
+  services:
+    - name: nginx
+      state: running
+      enabled: true
+  sysctl:
+    - key: net.ipv4.ip_forward
+      value: "1"
+
+<span class="comment"># Grains selector (optional — target specific agents)</span>
+grains:
+  os_family: debian
+  role: webserver</pre>
+        </div>
+
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block">asciinema rec --command "bash demos/recordings/record-desired-state.sh" \
+  demos/recordings/desired-state.cast --cols 100 --rows 28 --overwrite
+
+svg-term --in demos/recordings/desired-state.cast \
+  --out website/assets/demos/desired-state.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
         </div>
     </section>
 
@@ -1206,6 +1362,10 @@ Convergence Engine:
                 Fleet-wide inventory, resource monitoring, log collection, config audit, network topology,
                 and security scanning — 3 role-based agents with strict read-only policy.
             </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/data-collection.svg" alt="Animated terminal recording: fleet data collection with system inventory, resource monitoring, and security scanning" loading="lazy">
         </div>
 
         <div class="architecture">
@@ -1244,13 +1404,39 @@ Policy: read-only (no writes, no mutations)
             </div>
         </div>
 
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Script</th>
+                    <th>What It Collects</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>System Inventory</td><td><code>01-system-inventory.sh</code></td><td>CPU, memory, disk, OS, kernel version</td></tr>
+                <tr><td>Resource Monitoring</td><td><code>02-resource-monitoring.sh</code></td><td>Live CPU/memory/disk usage per agent</td></tr>
+                <tr><td>Log Collection</td><td><code>03-log-collection.sh</code></td><td>Application and system log aggregation</td></tr>
+                <tr><td>Config Audit</td><td><code>04-config-audit.sh</code></td><td>Configuration file comparison and drift</td></tr>
+                <tr><td>Network Topology</td><td><code>05-network-topology.sh</code></td><td>Interfaces, routes, listening ports</td></tr>
+                <tr><td>Security Scan</td><td><code>06-security-scan.sh</code></td><td>SUID binaries, world-writable dirs, SSH config</td></tr>
+                <tr><td>Fleet Snapshot</td><td><code>07-fleet-snapshot.sh</code></td><td>Full fleet inventory in one pass</td></tr>
+                <tr><td>Policy Boundary</td><td><code>08-policy-boundary.sh</code></td><td>Verify writes are blocked by read-only policy</td></tr>
+            </tbody>
+        </table>
+
         <div class="setup">
-            <h3>Setup</h3>
+            <h3>Reproduce It</h3>
             <div class="setup-prereqs">
                 <span>Docker</span>
                 <span>rf CLI</span>
             </div>
-<pre class="code-block"><span class="cmd">cd demos/data-collection && ./setup.sh</span>
+<pre class="code-block"><span class="comment"># Build and start</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli
+
+<span class="cmd">cd demos/data-collection</span>
+<span class="cmd">./setup.sh</span>
 
 <span class="comment"># System inventory (CPU, memory, disk, OS)</span>
 <span class="cmd">./scenarios/01-system-inventory.sh</span>
@@ -1258,11 +1444,27 @@ Policy: read-only (no writes, no mutations)
 <span class="comment"># Live resource monitoring</span>
 <span class="cmd">./scenarios/02-resource-monitoring.sh</span>
 
-<span class="comment"># Security scan</span>
+<span class="comment"># Security scan across the fleet</span>
 <span class="cmd">./scenarios/06-security-scan.sh</span>
+
+<span class="comment"># Fleet-wide snapshot</span>
+<span class="cmd">./scenarios/07-fleet-snapshot.sh</span>
+
+<span class="comment"># Verify policy boundary (writes blocked)</span>
+<span class="cmd">./scenarios/08-policy-boundary.sh</span>
 
 <span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block">asciinema rec --command "bash demos/recordings/record-data-collection.sh" \
+  demos/recordings/data-collection.cast --cols 100 --rows 28 --overwrite
+
+svg-term --in demos/recordings/data-collection.cast \
+  --out website/assets/demos/data-collection.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
         </div>
     </section>
 
@@ -1278,6 +1480,10 @@ Policy: read-only (no writes, no mutations)
                 workflow, and full audit trail. AI agents can only do what policy explicitly
                 permits — and sensitive operations require human sign-off.
             </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/mcp-agent.svg" alt="Animated terminal recording: MCP AI agent integration with policy denial, human approval, and audit trail" loading="lazy">
         </div>
 
         <div class="architecture">
@@ -1302,6 +1508,10 @@ Policy: read-only (no writes, no mutations)
                 <p>1 MCP server + policy engine</p>
             </div>
             <div class="info-card">
+                <h4>MCP Tools</h4>
+                <p>8 (exec, policy, files, approval, audit)</p>
+            </div>
+            <div class="info-card">
                 <h4>Scenarios</h4>
                 <p>6</p>
             </div>
@@ -1309,32 +1519,106 @@ Policy: read-only (no writes, no mutations)
                 <h4>Approval</h4>
                 <p>SHA-256 bound, one-time, 30m TTL</p>
             </div>
-            <div class="info-card">
-                <h4>Key Point</h4>
-                <p>AI cannot bypass policy</p>
-            </div>
         </div>
 
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>MCP Tool</th>
+                    <th>Description</th>
+                    <th>Approval Required</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>rf_exec</code></td><td>Execute command (policy-checked)</td><td>Optional (per policy)</td></tr>
+                <tr><td><code>rf_query_policy</code></td><td>Dry-run: check if command is allowed</td><td>No</td></tr>
+                <tr><td><code>rf_file_read</code></td><td>Read file (path-policy enforced)</td><td>No</td></tr>
+                <tr><td><code>rf_file_write</code></td><td>Write file</td><td>Yes (configurable)</td></tr>
+                <tr><td><code>rf_list_capabilities</code></td><td>Discover what AI is allowed to do</td><td>No</td></tr>
+                <tr><td><code>rf_audit_query</code></td><td>Query audit log</td><td>No</td></tr>
+                <tr><td><code>rf_request_approval</code></td><td>Request human approval</td><td>N/A (initiates)</td></tr>
+                <tr><td><code>rf_check_approval</code></td><td>Poll approval status</td><td>No</td></tr>
+            </tbody>
+        </table>
+
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Script</th>
+                    <th>What It Shows</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Policy Discovery</td><td><code>01-policy-discovery.sh</code></td><td>AI discovers what commands are allowed</td></tr>
+                <tr><td>Safe Execution</td><td><code>02-safe-execution.sh</code></td><td>AI executes a policy-approved command</td></tr>
+                <tr><td>Policy Denial</td><td><code>03-policy-denial.sh</code></td><td>AI tries dangerous command — blocked</td></tr>
+                <tr><td>Human Approval</td><td><code>04-human-approval.sh</code></td><td>Operator approve/deny workflow</td></tr>
+                <tr><td>Audit Trail</td><td><code>05-audit-trail.sh</code></td><td>Full audit log of all AI actions</td></tr>
+                <tr><td>File Operations</td><td><code>06-file-operations.sh</code></td><td>Read/write with path-policy enforcement</td></tr>
+            </tbody>
+        </table>
+
         <div class="setup">
-            <h3>Setup</h3>
+            <h3>Reproduce It</h3>
             <div class="setup-prereqs">
                 <span>Docker</span>
+                <span>rf-mcp-server</span>
             </div>
-<pre class="code-block"><span class="cmd">cd demos/mcp-agent && ./setup.sh</span>
+<pre class="code-block"><span class="comment"># Build</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-mcp-server -p rf-cli
+
+<span class="cmd">cd demos/mcp-agent</span>
+<span class="cmd">./setup.sh</span>
 
 <span class="comment"># AI discovers what policy allows</span>
 <span class="cmd">./scenarios/01-policy-discovery.sh</span>
 
+<span class="comment"># AI executes an allowed command</span>
+<span class="cmd">./scenarios/02-safe-execution.sh</span>
+
 <span class="comment"># AI tries a denied command — blocked</span>
 <span class="cmd">./scenarios/03-policy-denial.sh</span>
 
-<span class="comment"># Human approval workflow</span>
+<span class="comment"># Human approval workflow (request → approve → execute)</span>
 <span class="cmd">./scenarios/04-human-approval.sh</span>
 
 <span class="comment"># Full audit trail of AI actions</span>
 <span class="cmd">./scenarios/05-audit-trail.sh</span>
 
+<span class="comment"># File operations with path-policy</span>
+<span class="cmd">./scenarios/06-file-operations.sh</span>
+
 <span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+
+        <div class="setup">
+            <h3>Claude Desktop Integration</h3>
+<pre class="code-block"><span class="comment"># claude_desktop_config.json — add MCP server</span>
+{
+  "mcpServers": {
+    "ravenfabric": {
+      "command": "rf-mcp-server",
+      "args": [
+        "--policy", "policy.yaml",
+        "--require-approval",
+        "--approval-pattern", "^(rm|apt|pip|psql).*"
+      ]
+    }
+  }
+}</pre>
+        </div>
+
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block">asciinema rec --command "bash demos/recordings/record-mcp-agent.sh" \
+  demos/recordings/mcp-agent.cast --cols 100 --rows 28 --overwrite
+
+svg-term --in demos/recordings/mcp-agent.cast \
+  --out website/assets/demos/mcp-agent.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
         </div>
     </section>
 
@@ -1350,6 +1634,10 @@ Policy: read-only (no writes, no mutations)
                 graceful degradation, and exponential backoff visualization.
                 The fabric self-heals.
             </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/resilience.svg" alt="Animated terminal recording: agent reconnection, relay restart recovery, and exponential backoff visualization" loading="lazy">
         </div>
 
         <div class="architecture">
@@ -1388,13 +1676,36 @@ Policy: read-only (no writes, no mutations)
             </div>
         </div>
 
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Script</th>
+                    <th>What It Tests</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Agent Reconnect</td><td><code>01-agent-reconnect.sh</code></td><td>Kill agent, verify auto-restart and reconnect</td></tr>
+                <tr><td>Relay Restart</td><td><code>02-relay-restart.sh</code></td><td>Stop relay, all agents queue then recover</td></tr>
+                <tr><td>Network Partition</td><td><code>03-network-partition.sh</code></td><td>Isolate agent, verify recovery on reconnect</td></tr>
+                <tr><td>Graceful Degradation</td><td><code>04-graceful-degradation.sh</code></td><td>One agent down, others continue normally</td></tr>
+                <tr><td>Backoff Behavior</td><td><code>05-backoff-behavior.sh</code></td><td>Exponential backoff: 1s → 2s → 4s → 30s cap</td></tr>
+            </tbody>
+        </table>
+
         <div class="setup">
-            <h3>Setup</h3>
+            <h3>Reproduce It</h3>
             <div class="setup-prereqs">
                 <span>Docker</span>
                 <span>rf CLI</span>
             </div>
-<pre class="code-block"><span class="cmd">cd demos/resilience && ./setup.sh</span>
+<pre class="code-block"><span class="comment"># Build and start</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli
+
+<span class="cmd">cd demos/resilience</span>
+<span class="cmd">./setup.sh</span>
 
 <span class="comment"># Kill and restart an agent — it reconnects</span>
 <span class="cmd">./scenarios/01-agent-reconnect.sh</span>
@@ -1405,10 +1716,24 @@ Policy: read-only (no writes, no mutations)
 <span class="comment"># Simulate network partition</span>
 <span class="cmd">./scenarios/03-network-partition.sh</span>
 
+<span class="comment"># One agent down, others keep working</span>
+<span class="cmd">./scenarios/04-graceful-degradation.sh</span>
+
 <span class="comment"># Watch exponential backoff in action</span>
 <span class="cmd">./scenarios/05-backoff-behavior.sh</span>
 
+<span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block">asciinema rec --command "bash demos/recordings/record-resilience.sh" \
+  demos/recordings/resilience.cast --cols 100 --rows 28 --overwrite
+
+svg-term --in demos/recordings/resilience.cast \
+  --out website/assets/demos/resilience.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
         </div>
     </section>
 
@@ -1423,6 +1748,10 @@ Policy: read-only (no writes, no mutations)
                 HTTP API server with fleet dashboard and real-time agent monitoring.
                 REST endpoints for agent list, health check, remote execution, and policy inspection.
             </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/controller.svg" alt="Animated terminal recording: controller REST API with agent list, health check, remote execution, and fleet dashboard" loading="lazy">
         </div>
 
         <div class="architecture">
@@ -1463,27 +1792,90 @@ Policy: read-only (no writes, no mutations)
             </div>
         </div>
 
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>/</code></td><td>GET</td><td>Embedded web dashboard (real-time metrics)</td></tr>
+                <tr><td><code>/api/agents</code></td><td>GET</td><td>List connected agents with status and uptime</td></tr>
+                <tr><td><code>/api/health</code></td><td>GET</td><td>Controller and agent health check</td></tr>
+                <tr><td><code>/api/exec</code></td><td>POST</td><td>Execute command on a specific agent</td></tr>
+                <tr><td><code>/api/policy</code></td><td>GET</td><td>Inspect current policy configuration</td></tr>
+            </tbody>
+        </table>
+
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Script</th>
+                    <th>What It Shows</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Agent List</td><td><code>01-agent-list.sh</code></td><td>Query connected fleet via REST</td></tr>
+                <tr><td>Health Check</td><td><code>02-health-check.sh</code></td><td>Controller + agent health status</td></tr>
+                <tr><td>Remote Execution</td><td><code>03-remote-execution.sh</code></td><td>Execute commands via HTTP API</td></tr>
+                <tr><td>Fleet Dashboard</td><td><code>04-fleet-dashboard.sh</code></td><td>Open embedded web UI</td></tr>
+                <tr><td>Policy View</td><td><code>05-policy-view.sh</code></td><td>Inspect policy via API</td></tr>
+            </tbody>
+        </table>
+
         <div class="setup">
-            <h3>Setup</h3>
+            <h3>Reproduce It</h3>
             <div class="setup-prereqs">
                 <span>Docker</span>
                 <span>curl</span>
+                <span>rf CLI (optional)</span>
             </div>
-<pre class="code-block"><span class="cmd">cd demos/controller && ./setup.sh</span>
+<pre class="code-block"><span class="comment"># Build and start</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli
+
+<span class="cmd">cd demos/controller</span>
+<span class="cmd">./setup.sh</span>
 
 <span class="comment"># List connected agents via REST API</span>
 <span class="cmd">curl -s http://$HOST:8080/api/agents | python3 -m json.tool</span>
 
 <span class="comment"># Health check</span>
-<span class="cmd">curl -s http://$HOST:8080/api/health</span>
+<span class="cmd">curl -s http://$HOST:8080/api/health | python3 -m json.tool</span>
 
-<span class="comment"># Execute via HTTP API</span>
+<span class="comment"># Execute command via HTTP API</span>
+<span class="cmd">curl -s -X POST http://$HOST:8080/api/exec \
+  -d '{"agent":"agent-1","cmd":"uptime"}'</span>
+
+<span class="comment"># View policy</span>
+<span class="cmd">curl -s http://$HOST:8080/api/policy | python3 -m json.tool</span>
+
+<span class="comment"># Open dashboard in browser</span>
+<span class="comment"># http://$HOST:8080</span>
+
+<span class="comment"># Run all scenarios</span>
+<span class="cmd">./scenarios/01-agent-list.sh</span>
+<span class="cmd">./scenarios/02-health-check.sh</span>
 <span class="cmd">./scenarios/03-remote-execution.sh</span>
-
-<span class="comment"># Open dashboard: http://$HOST:8080</span>
 <span class="cmd">./scenarios/04-fleet-dashboard.sh</span>
+<span class="cmd">./scenarios/05-policy-view.sh</span>
 
+<span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+
+        <div class="setup">
+            <h3>Record the Demo</h3>
+<pre class="code-block">asciinema rec --command "bash demos/recordings/record-controller.sh" \
+  demos/recordings/controller.cast --cols 100 --rows 28 --overwrite
+
+svg-term --in demos/recordings/controller.cast \
+  --out website/assets/demos/controller.svg \
+  --window --width 100 --height 28 --padding 20 --no-cursor</pre>
         </div>
     </section>
 
