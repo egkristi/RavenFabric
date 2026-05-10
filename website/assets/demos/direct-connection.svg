@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="580">
+  <defs>
+    <style>
+      .bg { fill: #0a0b0d; }
+      .chrome { fill: #1a1b1e; }
+      .title { fill: #a8a39a; font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 11px; }
+      .prompt { fill: #5fa8a8; font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 13px; }
+      .cmd { fill: #c9a961; font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 13px; }
+      .output { fill: #e8e6e3; font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 13px; }
+      .dim { fill: #8a8579; font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 13px; }
+      .green { fill: #18c132; font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 13px; }
+      .denied { fill: #ff5f58; font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 13px; }
+      @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+      .cursor { animation: blink 1s step-end infinite; }
+      @keyframes typeIn { from { opacity: 0; } to { opacity: 1; } }
+      .line1 { animation: typeIn 0.1s 0.5s both; }
+      .line2 { animation: typeIn 0.1s 1.0s both; }
+      .line3 { animation: typeIn 0.1s 1.5s both; }
+      .line4 { animation: typeIn 0.1s 1.8s both; }
+      .line5 { animation: typeIn 0.1s 2.5s both; }
+      .line6 { animation: typeIn 0.1s 3.0s both; }
+      .line7 { animation: typeIn 0.1s 3.3s both; }
+      .line8 { animation: typeIn 0.1s 3.6s both; }
+      .line9 { animation: typeIn 0.1s 4.3s both; }
+      .line10 { animation: typeIn 0.1s 4.8s both; }
+      .line11 { animation: typeIn 0.1s 5.3s both; }
+      .line12 { animation: typeIn 0.1s 5.6s both; }
+      .line13 { animation: typeIn 0.1s 6.3s both; }
+      .line14 { animation: typeIn 0.1s 6.8s both; }
+      .line15 { animation: typeIn 0.1s 7.1s both; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg" width="1060" height="580" rx="8" ry="8"/>
+
+  <!-- Window chrome -->
+  <rect class="chrome" width="1060" height="36" rx="8" ry="8"/>
+  <rect class="chrome" y="20" width="1060" height="16"/>
+  <circle cx="20" cy="18" r="6" fill="#ff5f58"/>
+  <circle cx="40" cy="18" r="6" fill="#ffbd2e"/>
+  <circle cx="60" cy="18" r="6" fill="#18c132"/>
+  <text class="title" x="530" y="22" text-anchor="middle">rf — direct connection demo</text>
+
+  <!-- Terminal content -->
+  <g transform="translate(20, 56)">
+    <!-- Connect directly to agent -->
+    <g class="line1">
+      <text class="dim" y="0">$ </text>
+      <text class="cmd" x="16" y="0">rf --connect ws://127.0.0.1:9999 exec --token unused 'hostname'</text>
+    </g>
+    <g class="line2">
+      <text class="output" y="22">a1b2c3d4e5f6</text>
+    </g>
+
+    <g class="line3"><text y="44"> </text></g>
+
+    <!-- uname -->
+    <g class="line4">
+      <text class="dim" y="66">$ </text>
+      <text class="cmd" x="16" y="66">rf --connect ws://127.0.0.1:9999 exec --token unused 'uname -a'</text>
+    </g>
+    <g class="line5">
+      <text class="output" y="88">Linux a1b2c3d4e5f6 6.8.0 #1 SMP x86_64 GNU/Linux</text>
+    </g>
+
+    <g class="line6"><text y="110"> </text></g>
+
+    <!-- OS release -->
+    <g class="line7">
+      <text class="dim" y="132">$ </text>
+      <text class="cmd" x="16" y="132">rf --connect ws://127.0.0.1:9999 exec --token unused 'cat /etc/os-release'</text>
+    </g>
+    <g class="line8">
+      <text class="output" y="154">PRETTY_NAME="Ubuntu 24.04 LTS"</text>
+    </g>
+    <g class="line9">
+      <text class="output" y="176">VERSION_ID="24.04"</text>
+    </g>
+
+    <g class="line10"><text y="198"> </text></g>
+
+    <!-- Policy denial -->
+    <g class="line11">
+      <text class="dim" y="220">$ </text>
+      <text class="cmd" x="16" y="220">rf --connect ws://127.0.0.1:9999 exec --token unused 'rm -rf /'</text>
+    </g>
+    <g class="line12">
+      <text class="denied" y="242">DENIED: command matches deny rule (rule: .*rm.*-rf.*)</text>
+    </g>
+
+    <g class="line13"><text y="264"> </text></g>
+
+    <!-- Status check -->
+    <g class="line14">
+      <text class="dim" y="286">$ </text>
+      <text class="cmd" x="16" y="286">rf --connect ws://127.0.0.1:9999 status --token unused</text>
+    </g>
+    <g class="line15">
+      <text class="green" y="308">Agent:   rf-direct</text>
+      <text class="green" y="330">Version: 0.2.1</text>
+      <text class="green" y="352">Uptime:  42s</text>
+      <text class="green" y="374">Status:  connected</text>
+    </g>
+
+    <!-- Cursor -->
+    <g class="line15">
+      <text class="dim" y="418">$ </text>
+      <rect class="cursor" x="16" y="406" width="8" height="16" fill="#c9a961"/>
+    </g>
+  </g>
+</svg>

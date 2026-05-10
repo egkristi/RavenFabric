@@ -56,6 +56,11 @@ struct Args {
     /// Prometheus metrics endpoint address (e.g., 127.0.0.1:9100). Empty to disable.
     #[arg(long)]
     metrics_addr: Option<String>,
+
+    /// Listen for direct connections on this address (e.g., 0.0.0.0:9999).
+    /// When set, the agent acts as a server (like sshd) instead of connecting to a relay.
+    #[arg(short = 'L', long)]
+    listen: Option<String>,
 }
 
 /// Configuration file format (raven.toml).
@@ -76,6 +81,7 @@ struct AgentConfig {
     policy_path: Option<String>,
     audit_path: Option<String>,
     metrics_addr: Option<String>,
+    listen: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,6 +110,7 @@ struct ResolvedConfig {
     reconnect_interval: u64,
     max_retries: u64,
     metrics_addr: Option<String>,
+    listen: Option<String>,
 }
 
 fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
@@ -148,6 +155,7 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
         reconnect_interval: config.transport.reconnect_interval.unwrap_or(5),
         max_retries: config.transport.max_retries.unwrap_or(0),
         metrics_addr: args.metrics_addr.clone().or(config.agent.metrics_addr),
+        listen: args.listen.clone().or(config.agent.listen),
     })
 }
 
@@ -188,7 +196,7 @@ async fn agent_main() -> anyhow::Result<()> {
         Arc::new(FileAuditLogger::new(cfg.audit_path.clone())?);
     info!("audit log: {}", cfg.audit_path.display());
 
-    info!("agent {} starting, relay: {}", cfg.id, cfg.relay);
+    info!("agent {} starting", cfg.id);
 
     // Start Prometheus metrics endpoint if configured
     if let Some(ref addr) = cfg.metrics_addr {
@@ -232,46 +240,186 @@ async fn agent_main() -> anyhow::Result<()> {
         });
     }
 
-    // Reconnect loop with exponential backoff + jitter
-    let mut attempt: u64 = 0;
-    loop {
-        // Check if we've exceeded max retries (0 = infinite)
-        if cfg.max_retries > 0 && attempt >= cfg.max_retries {
-            error!("max retries ({}) exceeded, shutting down", cfg.max_retries);
-            break;
-        }
-
-        match run_session(&cfg, &key, &policy, &audit).await {
-            Ok(()) => {
-                info!("session ended cleanly");
-                attempt = 0; // Reset on successful session
-            }
-            Err(e) => {
-                attempt += 1;
-                warn!("session error (attempt {}): {}", attempt, e);
-            }
-        }
-
-        // Exponential backoff: base * 2^attempt, capped at 60s, with jitter
-        let base = cfg.reconnect_interval;
-        let backoff = base.saturating_mul(1u64 << attempt.min(5));
-        let capped = backoff.min(60);
-        let jitter = rand::rng().random_range(0..=capped / 4);
-        let wait = capped + jitter;
-
-        info!("reconnecting in {}s...", wait);
-
-        tokio::select! {
-            () = tokio::time::sleep(Duration::from_secs(wait)) => {}
-            _ = tokio::signal::ctrl_c() => {
-                info!("received SIGINT, shutting down");
+    // Direct-listen mode (like sshd) or relay-connect mode
+    if let Some(ref listen_addr) = cfg.listen {
+        info!("direct-listen mode on {}", listen_addr);
+        run_listen_mode(listen_addr, &cfg, &key, &policy, &audit).await?;
+    } else {
+        info!("relay mode: {}", cfg.relay);
+        // Reconnect loop with exponential backoff + jitter
+        let mut attempt: u64 = 0;
+        loop {
+            // Check if we've exceeded max retries (0 = infinite)
+            if cfg.max_retries > 0 && attempt >= cfg.max_retries {
+                error!("max retries ({}) exceeded, shutting down", cfg.max_retries);
                 break;
+            }
+
+            match run_session(&cfg, &key, &policy, &audit).await {
+                Ok(()) => {
+                    info!("session ended cleanly");
+                    attempt = 0; // Reset on successful session
+                }
+                Err(e) => {
+                    attempt += 1;
+                    warn!("session error (attempt {}): {}", attempt, e);
+                }
+            }
+
+            // Exponential backoff: base * 2^attempt, capped at 60s, with jitter
+            let base = cfg.reconnect_interval;
+            let backoff = base.saturating_mul(1u64 << attempt.min(5));
+            let capped = backoff.min(60);
+            let jitter = rand::rng().random_range(0..=capped / 4);
+            let wait = capped + jitter;
+
+            info!("reconnecting in {}s...", wait);
+
+            tokio::select! {
+                () = tokio::time::sleep(Duration::from_secs(wait)) => {}
+                _ = tokio::signal::ctrl_c() => {
+                    info!("received SIGINT, shutting down");
+                    break;
+                }
             }
         }
     }
 
     info!("agent {} shut down", cfg.id);
     Ok(())
+}
+
+/// Run the agent in direct-listen mode (like sshd).
+/// Binds to the given address and accepts incoming WebSocket connections.
+/// Each connection is handled in a separate task.
+async fn run_listen_mode(
+    listen_addr: &str,
+    cfg: &ResolvedConfig,
+    key: &StaticKey,
+    policy: &Arc<RwLock<RpcPolicy>>,
+    audit: &Arc<dyn rf_audit::logger::AuditLogger>,
+) -> anyhow::Result<()> {
+    let driver = WebSocketDriver::new();
+    let listener = driver.listen(listen_addr).await?;
+    info!("listening for direct connections on {}", listen_addr);
+
+    loop {
+        tokio::select! {
+            result = listener.accept() => {
+                match result {
+                    Ok(stream) => {
+                        info!("accepted direct connection");
+                        let key = key.clone();
+                        let policy = policy.clone();
+                        let audit = audit.clone();
+                        let agent_id = cfg.id.clone();
+                        tokio::spawn(async move {
+                            if let Err(e) = handle_direct_connection(stream, &key, &policy, &audit, &agent_id).await {
+                                warn!("direct session error: {}", e);
+                            }
+                        });
+                    }
+                    Err(e) => {
+                        error!("accept error: {}", e);
+                    }
+                }
+            }
+            _ = tokio::signal::ctrl_c() => {
+                info!("received SIGINT, shutting down listener");
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Handle a single direct connection: handshake → RPC loop.
+async fn handle_direct_connection(
+    mut stream: Box<dyn rf_transport::driver::AsyncStream>,
+    key: &StaticKey,
+    policy: &Arc<RwLock<RpcPolicy>>,
+    audit: &Arc<dyn rf_audit::logger::AuditLogger>,
+    agent_id: &str,
+) -> anyhow::Result<()> {
+    // Noise handshake (agent is responder)
+    info!("performing Noise XX handshake...");
+    let (state, peer_key) = handshake(&mut stream, false, key).await?;
+    info!("handshake complete, peer key: {}", hex::encode(peer_key));
+
+    // SecureChannel
+    let (stream_read, stream_write) = tokio::io::split(stream);
+    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+
+    // Executor
+    let executor = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
+        .with_agent_id(agent_id.to_string())
+        .with_start_time(std::time::Instant::now());
+
+    // RPC loop
+    info!("direct session ready, waiting for RPC requests");
+    loop {
+        let data = match chan.recv().await {
+            Ok(d) => {
+                if d.is_empty() {
+                    info!("received close-notify from peer");
+                    return Ok(());
+                }
+                d
+            }
+            Err(rf_crypto::error::CryptoError::TamperDetected) => {
+                error!("TAMPER DETECTED: MAC verification failed");
+                let _ = audit.log(rf_audit::types::AuditEntry {
+                    timestamp: chrono::Utc::now(),
+                    request_id: "SECURITY".into(),
+                    action: "tamper_detected".into(),
+                    command: None,
+                    decision: "abandon_path".into(),
+                    matched_rule: "MAC verification failure".into(),
+                    exit_code: None,
+                    duration_ms: 0,
+                    caller_key: String::new(),
+                    reason: None,
+                });
+                return Err(anyhow::anyhow!("tamper detected"));
+            }
+            Err(rf_crypto::error::CryptoError::FrameInjection) => {
+                error!("FRAME INJECTION: unexpected bytes in protocol framing");
+                let _ = audit.log(rf_audit::types::AuditEntry {
+                    timestamp: chrono::Utc::now(),
+                    request_id: "SECURITY".into(),
+                    action: "frame_injection".into(),
+                    command: None,
+                    decision: "abandon_path".into(),
+                    matched_rule: "invalid frame size".into(),
+                    exit_code: None,
+                    duration_ms: 0,
+                    caller_key: String::new(),
+                    reason: None,
+                });
+                return Err(anyhow::anyhow!("frame injection detected"));
+            }
+            Err(e) => return Err(anyhow::anyhow!("channel recv: {e}")),
+        };
+
+        let request: Request = match codec::decode(&data) {
+            Ok(r) => r,
+            Err(e) => {
+                error!("failed to decode request: {}", e);
+                continue;
+            }
+        };
+
+        info!(
+            "received request: {} action={:?}",
+            request.id, request.action
+        );
+        let response: Response = executor.handle(request).await;
+
+        let resp_data = codec::encode(&response)?;
+        if let Err(e) = chan.send(&resp_data).await {
+            return Err(anyhow::anyhow!("channel send: {e}"));
+        }
+    }
 }
 
 async fn run_session(

@@ -15,15 +15,24 @@ use rf_crypto::noise::handshake;
 use rf_policy::templates::TemplateRegistry;
 use rf_rpc::codec;
 use rf_rpc::types::{Action, Request, Response, RpcResult};
-use rf_transport::driver::{Driver, Target};
+use rf_transport::driver::{AsyncStream, Driver, Target};
 use rf_transport::websocket::WebSocketDriver;
+
+type AgentChannel = SecureChannel<
+    tokio::io::ReadHalf<Box<dyn AsyncStream>>,
+    tokio::io::WriteHalf<Box<dyn AsyncStream>>,
+>;
 
 #[derive(Parser)]
 #[command(name = "rf", about = "RavenFabric — secure remote execution", version)]
 struct Cli {
-    /// Relay URL
+    /// Relay URL (ignored when --connect is used)
     #[arg(short, long, env = "RF_RELAY", default_value = "ws://127.0.0.1:9090")]
     relay: String,
+
+    /// Direct connect to an agent (e.g., ws://host:9999). Bypasses relay.
+    #[arg(short = 'C', long, env = "RF_CONNECT")]
+    connect: Option<String>,
 
     /// Path to client key file
     #[arg(short, long, default_value = "client.key")]
@@ -162,6 +171,7 @@ async fn main() -> anyhow::Result<()> {
         } => {
             exec_command(
                 &cli.relay,
+                cli.connect.as_deref(),
                 &cli.key_path,
                 &token,
                 &command,
@@ -171,23 +181,46 @@ async fn main() -> anyhow::Result<()> {
             .await?;
         }
         Commands::Shell { token, cols, rows } => {
-            shell_command(&cli.relay, &cli.key_path, &token, cols, rows).await?;
+            shell_command(
+                &cli.relay,
+                cli.connect.as_deref(),
+                &cli.key_path,
+                &token,
+                cols,
+                rows,
+            )
+            .await?;
         }
         Commands::Forward {
             token,
             local,
             remote,
         } => {
-            forward_command(&cli.relay, &cli.key_path, &token, &local, &remote).await?;
+            forward_command(
+                &cli.relay,
+                cli.connect.as_deref(),
+                &cli.key_path,
+                &token,
+                &local,
+                &remote,
+            )
+            .await?;
         }
         Commands::Playbook { file, token } => {
-            playbook_command(&cli.relay, &cli.key_path, &token, &file).await?;
+            playbook_command(
+                &cli.relay,
+                cli.connect.as_deref(),
+                &cli.key_path,
+                &token,
+                &file,
+            )
+            .await?;
         }
         Commands::Dev { port, bind } => {
             dev_mode(port, &bind).await?;
         }
         Commands::Status { token } => {
-            status_command(&cli.relay, &cli.key_path, &token).await?;
+            status_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, &token).await?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "rf", &mut std::io::stdout());
@@ -200,8 +233,47 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Establish a connection to an agent, either directly or via relay.
+/// Returns the handshaked SecureChannel and the peer's public key.
+async fn dial_agent(
+    relay_url: &str,
+    direct_addr: Option<&str>,
+    key: &StaticKey,
+    token: &str,
+) -> anyhow::Result<(AgentChannel, [u8; 32])> {
+    let driver = WebSocketDriver::new();
+
+    let mut stream = if let Some(addr) = direct_addr {
+        info!("connecting directly to agent: {}", addr);
+        let target = Target {
+            agent_id: String::new(),
+            relay_url: Some(addr.to_string()),
+            meet_token: None,
+        };
+        driver.dial(&target, &Default::default()).await?
+    } else {
+        info!("connecting to relay: {}", relay_url);
+        let target = Target {
+            agent_id: String::new(),
+            relay_url: Some(relay_url.to_string()),
+            meet_token: Some(token.to_string()),
+        };
+        driver.dial(&target, &Default::default()).await?
+    };
+
+    // Noise handshake (client is initiator)
+    info!("performing Noise XX handshake...");
+    let (state, peer_key) = handshake(&mut stream, true, key).await?;
+    info!("connected to agent: {}", hex::encode(peer_key));
+
+    let (stream_read, stream_write) = tokio::io::split(stream);
+    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+    Ok((chan, peer_key))
+}
+
 async fn exec_command(
     relay_url: &str,
+    direct_addr: Option<&str>,
     key_path: &std::path::Path,
     token: &str,
     command: &str,
@@ -211,24 +283,7 @@ async fn exec_command(
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    let driver = WebSocketDriver::new();
-    let target = Target {
-        agent_id: String::new(),
-        relay_url: Some(relay_url.to_string()),
-        meet_token: Some(token.to_string()),
-    };
-
-    info!("connecting to relay: {}", relay_url);
-    let mut stream = driver.dial(&target, &Default::default()).await?;
-
-    // Noise handshake (client is initiator)
-    info!("performing Noise XX handshake...");
-    let (state, peer_key) = handshake(&mut stream, true, &key).await?;
-    info!("connected to agent: {}", hex::encode(peer_key));
-
-    // Create SecureChannel
-    let (stream_read, stream_write) = tokio::io::split(stream);
-    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
 
     // Select action based on mode
     let action = if background {
@@ -453,28 +508,14 @@ async fn exec_command(
 
 async fn status_command(
     relay_url: &str,
+    direct_addr: Option<&str>,
     key_path: &std::path::Path,
     token: &str,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    let driver = WebSocketDriver::new();
-    let target = Target {
-        agent_id: String::new(),
-        relay_url: Some(relay_url.to_string()),
-        meet_token: Some(token.to_string()),
-    };
-
-    info!("connecting to relay: {}", relay_url);
-    let mut stream = driver.dial(&target, &Default::default()).await?;
-
-    // Noise handshake (client is initiator)
-    let (state, peer_key) = handshake(&mut stream, true, &key).await?;
-    info!("connected to agent: {}", hex::encode(peer_key));
-
-    let (stream_read, stream_write) = tokio::io::split(stream);
-    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+    let (chan, peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
 
     // Send Status request
     let request = Request {
@@ -520,6 +561,7 @@ async fn status_command(
 /// Port forwarding: binds a local port and forwards connections through the agent.
 async fn forward_command(
     relay_url: &str,
+    direct_addr: Option<&str>,
     key_path: &std::path::Path,
     token: &str,
     local_addr: &str,
@@ -528,22 +570,7 @@ async fn forward_command(
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    let driver = WebSocketDriver::new();
-    let target = Target {
-        agent_id: String::new(),
-        relay_url: Some(relay_url.to_string()),
-        meet_token: Some(token.to_string()),
-    };
-
-    info!("connecting to relay: {}", relay_url);
-    let mut stream = driver.dial(&target, &Default::default()).await?;
-
-    // Noise handshake (client is initiator)
-    let (state, peer_key) = handshake(&mut stream, true, &key).await?;
-    info!("connected to agent: {}", hex::encode(peer_key));
-
-    let (stream_read, stream_write) = tokio::io::split(stream);
-    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
 
     // Request port forward
     let request = Request {
@@ -606,6 +633,7 @@ async fn forward_command(
 /// Execute a playbook — multi-agent orchestrated execution.
 async fn playbook_command(
     relay_url: &str,
+    _direct_addr: Option<&str>,
     key_path: &std::path::Path,
     token: &str,
     file: &std::path::Path,
@@ -791,6 +819,7 @@ async fn execute_on_agent(
 #[cfg(unix)]
 async fn shell_command(
     relay_url: &str,
+    direct_addr: Option<&str>,
     key_path: &std::path::Path,
     token: &str,
     cols: u16,
@@ -802,27 +831,8 @@ async fn shell_command(
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    let driver = WebSocketDriver::new();
-    let target = Target {
-        agent_id: String::new(),
-        relay_url: Some(relay_url.to_string()),
-        meet_token: Some(token.to_string()),
-    };
-
-    info!("connecting to relay: {}", relay_url);
-    let mut stream = driver.dial(&target, &Default::default()).await?;
-
-    // Noise handshake (client is initiator)
-    let (state, peer_key) = handshake(&mut stream, true, &key).await?;
-    info!("connected to agent: {}", hex::encode(peer_key));
-
-    let (stream_read, stream_write) = tokio::io::split(stream);
-    let chan = Arc::new(SecureChannel::new(
-        stream_read,
-        stream_write,
-        state,
-        peer_key,
-    ));
+    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
+    let chan = Arc::new(chan);
 
     // Request shell session with proper Action::Shell
     let request = Request {
@@ -984,6 +994,7 @@ async fn shell_command(
 #[cfg(not(unix))]
 async fn shell_command(
     _relay_url: &str,
+    _direct_addr: Option<&str>,
     _key_path: &std::path::Path,
     _token: &str,
     _cols: u16,

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="RavenFabric live demos — multi-node Ubuntu, multi-distro Linux, Kubernetes + CloudNativePG, transport showcase, desired-state convergence, data collection, MCP/AI agent, resilience, and controller/Web UI. Animated terminal recordings and setup instructions.">
+    <meta name="description" content="RavenFabric live demos — multi-node Ubuntu, multi-distro Linux, Kubernetes + CloudNativePG, transport showcase, desired-state convergence, data collection, MCP/AI agent, resilience, controller/Web UI, and direct connection (SSH replacement). Animated terminal recordings and setup instructions.">
     <meta name="theme-color" content="#0a0b0d">
     <meta name="color-scheme" content="dark">
     <meta name="author" content="Erling Kristiansen">
@@ -11,7 +11,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://ravenfabric.io/demos/">
     <meta property="og:title" content="Live Demos — RavenFabric">
-    <meta property="og:description" content="See RavenFabric in action: 9 demos covering multi-node, multi-distro, Kubernetes, transport diversity, desired-state, data collection, AI agent integration, resilience, and fleet management.">
+    <meta property="og:description" content="See RavenFabric in action: 10 demos covering multi-node, multi-distro, Kubernetes, transport diversity, desired-state, data collection, AI agent integration, resilience, fleet management, and direct connection.">
     <meta property="og:image" content="https://ravenfabric.io/assets/og-image.png">
     <title>Live Demos — RavenFabric</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
@@ -114,6 +114,50 @@
             font-size: 1.05rem;
             max-width: 640px;
             margin: 0 auto;
+        }
+
+        /* Table of contents */
+        .toc {
+            padding: 2.5rem 0 1rem;
+        }
+        .toc h2 {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 400;
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        .toc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 0.75rem;
+        }
+        .toc-item {
+            display: flex;
+            align-items: baseline;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            transition: border-color 0.15s;
+        }
+        .toc-item:hover {
+            border-color: var(--accent-gold);
+            text-decoration: none;
+        }
+        .toc-num {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            flex-shrink: 0;
+        }
+        .toc-label {
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+        .toc-item:hover .toc-label {
+            color: var(--accent-gold);
         }
 
         /* Demo cards */
@@ -429,6 +473,24 @@
             Real terminal recordings from real infrastructure. Every command is E2E encrypted via Noise XX,
             policy-checked, and audited. The same static binary runs everywhere.
         </p>
+    </section>
+
+    <!-- Table of Contents -->
+    <section class="toc">
+        <h2>Jump to a demo</h2>
+        <div class="toc-grid">
+            <a class="toc-item" href="#multi-node"><span class="toc-num">01</span><span class="toc-label">Multi-Node Ubuntu</span></a>
+            <a class="toc-item" href="#multi-distro"><span class="toc-num">02</span><span class="toc-label">Multi-Distro Linux</span></a>
+            <a class="toc-item" href="#kubernetes-cnpg"><span class="toc-num">03</span><span class="toc-label">Kubernetes + CloudNativePG</span></a>
+            <a class="toc-item" href="#transport-showcase"><span class="toc-num">04</span><span class="toc-label">Transport Showcase</span></a>
+            <a class="toc-item" href="#desired-state"><span class="toc-num">05</span><span class="toc-label">Desired-State Convergence</span></a>
+            <a class="toc-item" href="#data-collection"><span class="toc-num">06</span><span class="toc-label">Data Collection</span></a>
+            <a class="toc-item" href="#mcp-agent"><span class="toc-num">07</span><span class="toc-label">MCP / AI Agent Integration</span></a>
+            <a class="toc-item" href="#resilience"><span class="toc-num">08</span><span class="toc-label">Resilience</span></a>
+            <a class="toc-item" href="#controller"><span class="toc-num">09</span><span class="toc-label">Controller / Web UI</span></a>
+            <a class="toc-item" href="#direct-connection"><span class="toc-num">10</span><span class="toc-label">Direct Connection</span></a>
+            <a class="toc-item" href="#how-it-works"><span class="toc-num">&mdash;</span><span class="toc-label">How It Works</span></a>
+        </div>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -1880,6 +1942,107 @@ svg-term --in demos/recordings/controller.cast \
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 10: Direct Connection                                 -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="direct-connection">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 10</div>
+            <h2>Direct Connection</h2>
+            <p>
+                Connect to an agent directly — no relay, no meet token. The agent listens on a port
+                (like sshd) and the CLI connects straight to it. Same Noise XX encryption,
+                same policy enforcement, zero intermediaries.
+            </p>
+        </div>
+
+        <div class="recording">
+            <img src="/assets/demos/direct-connection.svg" alt="Animated terminal recording: direct connection to a Linux agent without relay, showing exec, policy denial, and status check" loading="lazy">
+        </div>
+
+        <div class="architecture">
+<pre>
+┌──────────────────────┐
+│  rf-agent             │
+│  Ubuntu 24.04         │
+│  --listen 0.0.0.0:9999│
+│  :9999 (host-mapped)  │
+└──────────┬────────────┘
+           │ WebSocket (Noise XX)
+           │ port 9999
+    ┌──────┴──────┐
+    │  rf CLI     │
+    │  (your Mac) │
+    │  --connect  │
+    └─────────────┘
+</pre>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Topology</h4>
+                <p>Point-to-point. CLI connects directly to the agent — no relay broker involved.</p>
+            </div>
+            <div class="info-card">
+                <h4>Use case</h4>
+                <p>LAN, lab environments, SSH replacement. Any scenario where the agent is reachable.</p>
+            </div>
+            <div class="info-card">
+                <h4>Security</h4>
+                <p>Same Noise XX mutual authentication and policy enforcement as relay mode.</p>
+            </div>
+            <div class="info-card">
+                <h4>Firewall</h4>
+                <p>Agent needs an inbound port open (vs. relay mode where only outbound is needed).</p>
+            </div>
+        </div>
+
+        <table class="resource-table">
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Script</th>
+                    <th>What It Shows</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Direct Exec</td><td><code>01-direct-exec.sh</code></td><td>Execute commands without relay</td></tr>
+                <tr><td>System Info</td><td><code>02-system-info.sh</code></td><td>Collect host information</td></tr>
+                <tr><td>Policy Denial</td><td><code>03-policy-denial.sh</code></td><td>Verify deny-by-default blocks dangerous commands</td></tr>
+                <tr><td>Audit Trail</td><td><code>04-audit-trail.sh</code></td><td>Inspect structured audit log</td></tr>
+            </tbody>
+        </table>
+
+        <div class="setup">
+            <h3>Reproduce It</h3>
+            <div class="setup-prereqs">
+                <span>Docker</span>
+                <span>rf CLI</span>
+            </div>
+<pre class="code-block"><span class="comment"># Build the CLI</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli
+
+<span class="comment"># Start the agent in direct-listen mode</span>
+<span class="cmd">cd demos/direct-connection</span>
+<span class="cmd">./setup.sh</span>
+
+<span class="comment"># Execute commands directly (no relay needed)</span>
+<span class="cmd">rf --connect ws://127.0.0.1:9999 exec --token unused 'hostname'</span>
+<span class="cmd">rf --connect ws://127.0.0.1:9999 exec --token unused 'uname -a'</span>
+
+<span class="comment"># Policy denial — dangerous commands are blocked</span>
+<span class="cmd">rf --connect ws://127.0.0.1:9999 exec --token unused 'rm -rf /'</span>
+
+<span class="comment"># Agent status</span>
+<span class="cmd">rf --connect ws://127.0.0.1:9999 status --token unused</span>
+
+<span class="comment"># Teardown</span>
+<span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="demo-section" id="how-it-works">
         <div class="demo-header">
             <div class="demo-eyebrow">Under the hood</div>
@@ -1889,7 +2052,7 @@ svg-term --in demos/recordings/controller.cast \
         <div class="info-grid">
             <div class="info-card">
                 <h4>1. Connect</h4>
-                <p>CLI connects to the relay via WebSocket. Both sides are anonymous at this point.</p>
+                <p>CLI connects via relay (meet token pairing) or directly to the agent (like SSH). Both paths use WebSocket.</p>
             </div>
             <div class="info-card">
                 <h4>2. Handshake</h4>
@@ -1901,7 +2064,7 @@ svg-term --in demos/recordings/controller.cast \
             </div>
             <div class="info-card">
                 <h4>4. Execute</h4>
-                <p>Command runs with timeout and output limits. Result is encrypted and sent back through the relay.</p>
+                <p>Command runs with timeout and output limits. Result is encrypted and sent back through the same channel.</p>
             </div>
             <div class="info-card">
                 <h4>5. Audit</h4>
@@ -1909,7 +2072,7 @@ svg-term --in demos/recordings/controller.cast \
             </div>
             <div class="info-card">
                 <h4>6. Reconnect</h4>
-                <p>After the session ends, the agent reconnects to the relay with exponential backoff, ready for the next command.</p>
+                <p>In relay mode, the agent reconnects with exponential backoff. In direct mode, the agent keeps listening for new connections.</p>
             </div>
         </div>
     </section>

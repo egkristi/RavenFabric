@@ -30,8 +30,8 @@ Cargo workspace with 13 crates:
 | `rf-executor` | Command execution + streaming under policy control with timeout and output limiting, desired-state convergence, event triggers, result parsing, grains | **Done** (~10,100 LOC, 167 tests) |
 | `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~390 LOC, 7 tests) |
-| `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff, single-threaded mode) | **Done** (~380 LOC) |
-| `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions) | **Done** (~1,200 LOC) |
+| `rf-agent` | Agent binary (connects to relay or listens directly, executes RPC, reconnect with backoff, single-threaded mode) | **Done** (~500 LOC) |
+| `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions, direct connect) | **Done** (~1,300 LOC) |
 | `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,300 LOC, 46 tests) |
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~1,700 LOC, 33 tests) |

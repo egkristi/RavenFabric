@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **docs**: Fixed inaccurate test counts in README (rf-transport 551→542, rf-rpc 120→112, rf-mcp-client 15→14) and copilot-instructions
 
 ### Added
+- **Direct connection mode**: Agent `--listen` flag starts a WebSocket server for point-to-point connections (like sshd). CLI `--connect` flag dials the agent directly, bypassing the relay. Same Noise XX encryption, policy enforcement, and audit logging as relay mode
+- **Demos**: Direct connection demo (`demos/direct-connection/`) — 4 scenarios: direct exec, system info, policy denial, audit trail
 - **Demos**: MCP/AI Agent demo (`demos/mcp-agent/`) — 6 scenarios: policy discovery, command execution, policy denial, human approval, audit trail, file operations
 - **Demos**: Resilience demo (`demos/resilience/`) — 5 scenarios: agent reconnect, relay restart recovery, network partition, graceful degradation, exponential backoff visualization (4 Docker containers)
 - **Demos**: Controller/Web UI demo (`demos/controller/`) — 5 scenarios: agent list, health check, remote execution via HTTP API, fleet dashboard, policy view (3 Docker containers)

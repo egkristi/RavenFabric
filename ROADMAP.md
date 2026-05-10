@@ -151,6 +151,7 @@ rf exec test-agent "uname -a"
 - [x] Config loading (raven.toml)
 - [x] Reconnect loop with exponential backoff + jitter
 - [x] Graceful shutdown (drain in-flight, flush audit)
+- [x] Direct-listen mode (`--listen`) — agent acts as server (like sshd), accepts WebSocket connections, per-connection handshake + RPC
 
 ### CLI Binary (Phase 10) — DONE
 - [x] `rf-cli/src/main.rs` — clap CLI with exec/dev/status subcommands
@@ -159,6 +160,7 @@ rf exec test-agent "uname -a"
 - [x] `rf status` — show connected agents
 - [x] Shell completions (bash, zsh, fish)
 - [x] **Fix:** `close_notify()` sent after exec/status commands to ensure agent reconnects cleanly
+- [x] Direct connect (`--connect`) — CLI dials agent directly (bypasses relay), same Noise XX handshake
 
 ### Packaging
 - [x] Dockerfile (multi-stage alpine build → scratch runtime)
@@ -219,6 +221,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] **Kubernetes + CloudNativePG demo** — CNPG PostgreSQL cluster with rf-agent in K8s (`demos/kubernetes-cnpg/`)
 - [x] **Asciinema recordings** — recorded and converted to animated SVGs for website embedding
 - [x] **Demo scenarios** — 17 scenarios per demo: policy denial, audit trail, port forwarding, dev mode, fleet orchestration, human approval for AI agents
+- [x] **Direct connection demo** — SSH-like point-to-point agent access (`demos/direct-connection/`), 4 scenarios
 - [x] **Blog post: Demo 1 walkthrough** — "Demo 1: Multi-Node Ubuntu — 17 Scenarios, Two Agents, Zero Trust"
 - [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no — requires human (#40)
 - [x] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"

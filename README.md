@@ -567,6 +567,7 @@ What works today:
 
 Working end-to-end flows:
 - `rf exec --token <token> "command"` → relay → agent → execute → respond
+- `rf --connect ws://host:port exec --token unused "command"` → agent (direct, no relay)
 - `rf shell --token <token>` → relay → agent → PTY → interactive terminal
 - `rf forward --token <token> -L 8080 -R db:5432` → relay → agent → TCP forward
 - `rf playbook plan.yaml --token <token>` → multi-agent rolling deployment
@@ -1097,6 +1098,7 @@ See the animated recordings at [ravenfabric.io/demos/](https://ravenfabric.io/de
 | [MCP/AI Agent](demos/mcp-agent/) | Policy-bounded AI execution, human approval | 1 MCP server | 6 |
 | [Resilience](demos/resilience/) | Reconnect, relay restart, network partition | 3 agents + relay | 5 |
 | [Controller/Web UI](demos/controller/) | HTTP API, fleet dashboard, real-time monitoring | 2 agents + controller | 5 |
+| [Direct Connection](demos/direct-connection/) | SSH-like point-to-point, no relay | 1 agent (listen mode) | 4 |
 
 ### Multi-Node Ubuntu
 
@@ -1193,6 +1195,17 @@ HTTP API server with fleet dashboard and real-time agent monitoring — REST end
 cd demos/controller && ./setup.sh
 curl -s http://localhost:8080/api/agents | python3 -m json.tool
 ./scenarios/03-remote-execution.sh
+./setup.sh teardown
+```
+
+### Direct Connection
+
+Point-to-point connection to an agent in listen mode — no relay, no meet tokens. Like SSH but with Noise XX encryption and policy-bounded execution.
+
+```bash
+cd demos/direct-connection && ./setup.sh
+rf --connect ws://127.0.0.1:9999 exec --token unused 'hostname && uname -a'
+rf --connect ws://127.0.0.1:9999 status --token unused
 ./setup.sh teardown
 ```
 
