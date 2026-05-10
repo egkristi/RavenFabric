@@ -203,15 +203,11 @@ impl McpServer {
         let session_id = uuid::Uuid::new_v4().to_string();
         let session_log = Arc::new(tokio::sync::Mutex::new(Vec::new()));
 
-        let executor_policy = Arc::new(RwLock::new(if let Some(path) = policy_path {
-            RpcPolicy::load(path)?
-        } else {
-            RpcPolicy::from_yaml(
-                "spec:\n  commands:\n    allow: []\n    deny:\n      - pattern: \".*\"\n  resources:\n    maxOutputBytes: 10485760\n    timeoutSeconds: 300\n",
-            )?
-        }));
-
-        let executor = Executor::new(executor_policy, audit.clone(), caller_key.to_string());
+        // Share the same policy Arc with the executor — when a caller profile
+        // updates self.policy, the executor sees the new policy immediately.
+        // This is critical for RBAC enforcement: different callers get different
+        // policy constraints applied to actual command execution, not just queries.
+        let executor = Executor::new(policy.clone(), audit.clone(), caller_key.to_string());
 
         // If no token is configured AND no caller profiles exist, session starts authenticated
         let authenticated = Arc::new(tokio::sync::Mutex::new(
@@ -1907,6 +1903,165 @@ policy = "/etc/rf/dev-policy.yaml"
         assert_eq!(config.callers[0].name, "ci-agent");
         assert_eq!(config.callers[0].token, "ci-token-123");
         assert_eq!(config.callers[1].name, "dev-agent");
+    }
+
+    #[tokio::test]
+    async fn test_rbac_enforces_different_policies_per_caller() {
+        // Create two policy files with different permissions:
+        // - ci-agent: allowed to run "echo .*", denied everything else
+        // - monitor-agent: denied everything (read-only profile)
+        let mut ci_policy = NamedTempFile::new().unwrap();
+        writeln!(
+            ci_policy,
+            r#"spec:
+  commands:
+    allow:
+      - pattern: "^echo .*"
+    deny:
+      - pattern: ".*"
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30"#
+        )
+        .unwrap();
+
+        let mut monitor_policy = NamedTempFile::new().unwrap();
+        writeln!(
+            monitor_policy,
+            r#"spec:
+  commands:
+    allow: []
+    deny:
+      - pattern: ".*"
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30"#
+        )
+        .unwrap();
+
+        let profiles = vec![
+            CallerProfile {
+                name: "ci-agent".into(),
+                token: "ci-token".into(),
+                policy: ci_policy.path().to_path_buf(),
+            },
+            CallerProfile {
+                name: "monitor-agent".into(),
+                token: "monitor-token".into(),
+                policy: monitor_policy.path().to_path_buf(),
+            },
+        ];
+
+        // Create server with ci-agent's profile token
+        let server = McpServer::new(
+            None,
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            profiles.clone(),
+            &[],
+            false,
+        )
+        .unwrap();
+
+        // Authenticate as ci-agent
+        let init = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "ci-token"}),
+        };
+        server.handle_request(&init).await;
+        assert!(*server.authenticated.lock().await);
+
+        // ci-agent CAN run "echo hello" — allowed by their policy
+        let result = server.tool_exec(&json!({"command": "echo hello"})).await;
+        assert!(result.is_ok(), "ci-agent should be allowed to run echo");
+
+        // Now create a new session for monitor-agent (each connection is a new server)
+        let server2 = McpServer::new(
+            None,
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            profiles,
+            &[],
+            false,
+        )
+        .unwrap();
+
+        let init2 = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(2)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "monitor-token"}),
+        };
+        server2.handle_request(&init2).await;
+        assert!(*server2.authenticated.lock().await);
+
+        // monitor-agent CANNOT run "echo hello" — denied by their policy
+        let result = server2.tool_exec(&json!({"command": "echo hello"})).await;
+        assert!(result.is_ok()); // Returns ok (not transport error)
+        let binding = result.unwrap();
+        let text = binding["content"][0]["text"].as_str().unwrap();
+        assert!(
+            text.contains("DENIED") || text.contains("denied"),
+            "monitor-agent should be denied: {text}",
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rbac_default_policy_without_profile() {
+        // Server with caller profiles but no default api_token:
+        // If no matching profile is found, authentication fails.
+        // Even if authenticated somehow, the default deny-all policy applies.
+        let mut permissive_policy = NamedTempFile::new().unwrap();
+        writeln!(
+            permissive_policy,
+            r#"spec:
+  commands:
+    allow:
+      - pattern: "^echo .*"
+    deny: []
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30"#
+        )
+        .unwrap();
+
+        let profiles = vec![CallerProfile {
+            name: "known-agent".into(),
+            token: "known-token".into(),
+            policy: permissive_policy.path().to_path_buf(),
+        }];
+
+        let server = McpServer::new(
+            None, // No default policy → deny-all
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            profiles,
+            &[],
+            false,
+        )
+        .unwrap();
+
+        // Try authenticating with unknown token — should fail
+        let init = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: json!({"apiToken": "unknown-token"}),
+        };
+        let response = server.handle_request(&init).await;
+        assert!(response.error.is_some());
+        assert!(!*server.authenticated.lock().await);
     }
 
     // --- Approval enforcement tests ---

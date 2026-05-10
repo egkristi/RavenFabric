@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP Server**: Approval enforcement in `tool_file_write` — file write operations require approval when `--require-approval` is set, using `write:<path>` as the command binding
 - **MCP Server**: SHA-256 command hash verification — approved command is cryptographically bound to the approval, preventing command substitution attacks
 - **MCP Server**: One-time-use enforcement — each approval can only be consumed once, subsequent attempts return DENIED
+- **MCP Server**: RBAC enforcement fix — executor now shares the same policy Arc as the server, so caller profile policies are actually enforced during command execution (previously executor used a separate, never-updated policy)
 - **MCP Server**: 30-minute TTL on approvals — expired approvals automatically return DENIED
 - **MCP Server**: `approval_id` parameter added to `rf_exec` tool for passing approved approval IDs
 - **Website**: Live demos page at `/demos/` with animated terminal recordings, architecture diagrams, setup instructions
