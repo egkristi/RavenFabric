@@ -145,9 +145,7 @@ impl Executor {
                     .await
             }
             Action::List { path } => self.handle_list(&request.id, path, start).await,
-            Action::Signal { pid, signal } => {
-                self.handle_signal(&request.id, *pid, *signal, start)
-            }
+            Action::Signal { pid, signal } => self.handle_signal(&request.id, *pid, *signal, start),
             Action::BackgroundExec {
                 command,
                 env,
@@ -241,8 +239,7 @@ impl Executor {
                     .await
             }
             Action::TailLog { path, lines } => {
-                self.handle_tail_log(&request.id, path, *lines, start)
-                    .await
+                self.handle_tail_log(&request.id, path, *lines, start).await
             }
             Action::StreamExecute {
                 command,
@@ -1443,8 +1440,10 @@ impl Executor {
             Ok(content) => {
                 let all_lines: Vec<&str> = content.lines().collect();
                 let start_line = all_lines.len().saturating_sub(max_lines);
-                let tail: Vec<String> =
-                    all_lines[start_line..].iter().map(|s| s.to_string()).collect();
+                let tail: Vec<String> = all_lines[start_line..]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect();
                 self.audit(
                     request_id,
                     "tail_log",
