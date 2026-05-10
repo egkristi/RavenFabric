@@ -27,16 +27,16 @@ Cargo workspace with 13 crates:
 | `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~5,900 LOC, 106 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (~650 LOC, 14 tests) |
 | `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection | **Done** (~4,500 LOC, 97 tests) |
-| `rf-executor` | Command execution + streaming under policy control with timeout and output limiting, desired-state convergence, event triggers, result parsing, grains | **Done** (~9,200 LOC, 163 tests) |
+| `rf-executor` | Command execution + streaming under policy control with timeout and output limiting, desired-state convergence, event triggers, result parsing, grains | **Done** (~9,900 LOC, 165 tests) |
 | `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff, single-threaded mode) | **Done** (~380 LOC) |
-| `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions) | **Done** (~1,070 LOC) |
-| `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,100 LOC, 46 tests) |
+| `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions) | **Done** (~1,200 LOC) |
+| `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,300 LOC, 46 tests) |
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
-| `rf-integration-tests` | End-to-end integration tests | **Done** (~580 LOC, 10 tests) |
+| `rf-integration-tests` | End-to-end integration tests | **Done** (~1,700 LOC, 33 tests) |
 
-**Total: ~51,000 LOC, 1,076 tests, 0 clippy warnings.**
+**Total: ~52,800 LOC, 1,078 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

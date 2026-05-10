@@ -3,7 +3,7 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.1.5)** — Foundation complete. 13 crates, 51k LOC, 1,076 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.1.5)** — Foundation complete. 13 crates, 52k LOC, 1,078 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
@@ -476,7 +476,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~50,000 LOC | 1,037 Rust tests + 53 SDK tests | 0 clippy warnings**
+**~52,800 LOC | 1,078 Rust tests + 53 SDK tests | 0 clippy warnings**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -865,13 +865,13 @@ NOT observable: command content, file content, agent identity, traffic type
 | `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~5,900 LOC, 106 tests) |
 | `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~650 LOC, 14 tests) |
 | `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~4,500 LOC, 97 tests) |
-| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping, desired-state convergence, event triggers, result parsing, grains | Done (~9,200 LOC, 163 tests) |
+| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping, desired-state convergence, event triggers, result parsing, grains | Done (~9,900 LOC, 165 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done (~380 LOC) |
-| `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, completions) | Done (~1,080 LOC) |
-| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~3,100 LOC, 46 tests) |
-| `rf-integration-tests` | End-to-end integration tests (relay pipeline + MCP server E2E) | Done (10 tests) |
+| `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, completions) | Done (~1,200 LOC) |
+| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~3,300 LOC, 46 tests) |
+| `rf-integration-tests` | End-to-end integration tests (relay pipeline + MCP server E2E) | Done (33 tests) |
 | `sdks/python` | Python MCP client SDK — pip-installable, async + sync API, LangChain + CrewAI + OpenAI + Anthropic + AutoGen integrations | Done (41 tests) |
 | `sdks/typescript` | TypeScript MCP client SDK — npm package, fully typed async API | Done (12 tests) |
 
