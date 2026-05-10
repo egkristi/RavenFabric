@@ -2028,14 +2028,14 @@ cargo build --release -p rf-cli
 <span class="cmd">./setup.sh</span>
 
 <span class="comment"># Execute commands directly (no relay needed)</span>
-<span class="cmd">rf --connect ws://127.0.0.1:9999 exec --token unused 'hostname'</span>
-<span class="cmd">rf --connect ws://127.0.0.1:9999 exec --token unused 'uname -a'</span>
+<span class="cmd">rf --connect ws://$HOST:9999 exec --token unused 'hostname'</span>
+<span class="cmd">rf --connect ws://$HOST:9999 exec --token unused 'uname -a'</span>
 
 <span class="comment"># Policy denial — dangerous commands are blocked</span>
-<span class="cmd">rf --connect ws://127.0.0.1:9999 exec --token unused 'rm -rf /'</span>
+<span class="cmd">rf --connect ws://$HOST:9999 exec --token unused 'rm -rf /'</span>
 
 <span class="comment"># Agent status</span>
-<span class="cmd">rf --connect ws://127.0.0.1:9999 status --token unused</span>
+<span class="cmd">rf --connect ws://$HOST:9999 status --token unused</span>
 
 <span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
