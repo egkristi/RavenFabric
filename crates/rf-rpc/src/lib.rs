@@ -5,6 +5,7 @@ pub mod dtn_persistent;
 pub mod error;
 pub mod forward;
 pub mod heartbeat;
+pub mod http_server;
 pub mod metrics;
 pub mod mux;
 pub mod routing;

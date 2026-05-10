@@ -4,7 +4,7 @@
 set -euo pipefail
 
 APP_NAME="RavenFabric"
-VERSION="${1:-0.1.6}"
+VERSION="${1:-0.2.0}"
 ARCH="${2:-x86_64}"
 
 APPDIR="${APP_NAME}.AppDir"

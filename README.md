@@ -3,11 +3,11 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.1.6)** — Foundation complete. 13 crates, 52k LOC, 1,093 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.2.0)** — Foundation complete. 13 crates, 53k LOC, 1,109 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
-[![Version](https://img.shields.io/badge/version-0.1.6-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
 
 **Language:** Rust | **License:** AGPL-3.0-or-later (core) + Commercial (enterprise)
 
@@ -476,7 +476,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~52,800 LOC | 1,093 Rust tests + 53 SDK tests | 0 clippy warnings**
+**~53,800 LOC | 1,109 Rust tests + 53 SDK tests | 0 clippy warnings**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -739,7 +739,7 @@ distro: ubuntu
 distro_version: "24.04"
 cpu_count: 8
 ram_gb: 16
-ravenfabric_version: "0.1.6"
+ravenfabric_version: "0.2.0"
 role: web-server              # Custom grain
 environment: production       # Custom grain
 ```
@@ -862,10 +862,10 @@ NOT observable: command content, file content, agent identity, traffic type
 | `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM, no_std frame_codec (WASM/bare-metal) | Done (~1,800 LOC, 42 tests) |
 | `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, LoRa, BLE, AX.25, satellite, mixnet, audio modem, QR-stream, socket activation, fd-passing, MASQUE, ECH | Done (~21,900 LOC, 551 tests) |
 | `rf-mcp-client` | MCP client SDK — stdio transport, typed tool wrappers for exec/policy/files/capabilities | Done (~720 LOC, 14 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~5,800 LOC, 114 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~6,300 LOC, 120 tests) |
 | `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~650 LOC, 14 tests) |
-| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~4,500 LOC, 97 tests) |
-| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping, desired-state convergence, event triggers, result parsing, grains | Done (~9,900 LOC, 165 tests) |
+| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~4,700 LOC, 105 tests) |
+| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping, desired-state convergence, event triggers, result parsing, grains | Done (~10,100 LOC, 167 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done (~380 LOC) |

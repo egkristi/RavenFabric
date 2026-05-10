@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-VERSION="v0.1.6"
+VERSION="v0.2.0"
 RELAY_PORT="${RELAY_PORT:-9091}"
 IMAGE="ubuntu:24.04"
 

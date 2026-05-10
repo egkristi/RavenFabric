@@ -124,6 +124,148 @@ pub struct SpiffeIdentity {
     pub attestation: AttestationMethod,
 }
 
+impl SpiffeIdentity {
+    /// Create a new SPIFFE identity from components.
+    pub fn new(trust_domain: &str, path: &str, attestation: AttestationMethod) -> Self {
+        Self {
+            spiffe_id: format!("spiffe://{trust_domain}{path}"),
+            trust_domain: trust_domain.to_string(),
+            path: path.to_string(),
+            attestation,
+        }
+    }
+
+    /// Parse a SPIFFE ID string into components.
+    ///
+    /// Valid format: `spiffe://<trust-domain>/<path...>`
+    pub fn parse(spiffe_id: &str) -> Result<(String, String), SpiffeError> {
+        let rest = spiffe_id
+            .strip_prefix("spiffe://")
+            .ok_or(SpiffeError::InvalidId("must start with spiffe://".into()))?;
+
+        if rest.is_empty() {
+            return Err(SpiffeError::InvalidId("empty trust domain".into()));
+        }
+
+        let (domain, path) = match rest.find('/') {
+            Some(idx) => (&rest[..idx], &rest[idx..]),
+            None => (rest, "/"),
+        };
+
+        // Validate trust domain (RFC: lowercase alphanum + hyphen + dot).
+        if domain.is_empty()
+            || !domain
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.')
+        {
+            return Err(SpiffeError::InvalidId(format!(
+                "invalid trust domain: {domain}"
+            )));
+        }
+
+        Ok((domain.to_string(), path.to_string()))
+    }
+
+    /// Validate this identity's SPIFFE ID format.
+    pub fn validate(&self) -> Result<(), SpiffeError> {
+        let (domain, path) = Self::parse(&self.spiffe_id)?;
+        if domain != self.trust_domain {
+            return Err(SpiffeError::InvalidId(format!(
+                "trust domain mismatch: {} vs {}",
+                domain, self.trust_domain
+            )));
+        }
+        if path != self.path {
+            return Err(SpiffeError::InvalidId(format!(
+                "path mismatch: {} vs {}",
+                path, self.path
+            )));
+        }
+        Ok(())
+    }
+
+    /// Check if this identity belongs to the given trust domain.
+    pub fn is_in_trust_domain(&self, domain: &str) -> bool {
+        self.trust_domain == domain
+    }
+
+    /// Check if this identity's path matches a pattern (supports `*` wildcard).
+    pub fn path_matches(&self, pattern: &str) -> bool {
+        if pattern == "*" {
+            return true;
+        }
+        if let Some(prefix) = pattern.strip_suffix("/*") {
+            self.path.starts_with(prefix)
+        } else {
+            self.path == pattern
+        }
+    }
+}
+
+/// SPIFFE-related errors.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpiffeError {
+    /// Invalid SPIFFE ID format.
+    InvalidId(String),
+    /// Trust domain not recognized.
+    UntrustedDomain(String),
+    /// Attestation failed.
+    AttestationFailed(String),
+    /// Workload API unavailable.
+    ApiUnavailable(String),
+}
+
+impl std::fmt::Display for SpiffeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidId(msg) => write!(f, "invalid SPIFFE ID: {msg}"),
+            Self::UntrustedDomain(d) => write!(f, "untrusted domain: {d}"),
+            Self::AttestationFailed(msg) => write!(f, "attestation failed: {msg}"),
+            Self::ApiUnavailable(msg) => write!(f, "Workload API unavailable: {msg}"),
+        }
+    }
+}
+
+/// Trust bundle — a set of trusted SPIFFE trust domains and their root keys.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustBundle {
+    /// Trusted domains mapped to their root public keys (DER-encoded).
+    pub domains: HashMap<String, Vec<Vec<u8>>>,
+}
+
+impl TrustBundle {
+    /// Create an empty trust bundle.
+    pub fn new() -> Self {
+        Self {
+            domains: HashMap::new(),
+        }
+    }
+
+    /// Add a trust domain with its root key(s).
+    pub fn add_domain(&mut self, domain: &str, root_keys: Vec<Vec<u8>>) {
+        self.domains.insert(domain.to_string(), root_keys);
+    }
+
+    /// Check if a trust domain is trusted.
+    pub fn is_trusted(&self, domain: &str) -> bool {
+        self.domains.contains_key(domain)
+    }
+
+    /// Verify an identity against the trust bundle.
+    pub fn verify_identity(&self, identity: &SpiffeIdentity) -> Result<(), SpiffeError> {
+        if !self.is_trusted(&identity.trust_domain) {
+            return Err(SpiffeError::UntrustedDomain(identity.trust_domain.clone()));
+        }
+        identity.validate()
+    }
+}
+
+impl Default for TrustBundle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// How the workload identity was attested.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1118,5 +1260,101 @@ mod tests {
         };
         assert_eq!(op.timestamp(), 42);
         assert_eq!(op.author(), "bob");
+    }
+
+    // --- SPIFFE identity tests ---
+
+    #[test]
+    fn test_spiffe_identity_new() {
+        let id = SpiffeIdentity::new(
+            "ravenfabric.io",
+            "/agent/web-01",
+            AttestationMethod::NodeAgent,
+        );
+        assert_eq!(id.spiffe_id, "spiffe://ravenfabric.io/agent/web-01");
+        assert_eq!(id.trust_domain, "ravenfabric.io");
+        assert_eq!(id.path, "/agent/web-01");
+    }
+
+    #[test]
+    fn test_spiffe_identity_parse() {
+        let (domain, path) = SpiffeIdentity::parse("spiffe://example.org/service/db").unwrap();
+        assert_eq!(domain, "example.org");
+        assert_eq!(path, "/service/db");
+    }
+
+    #[test]
+    fn test_spiffe_identity_parse_invalid() {
+        assert!(SpiffeIdentity::parse("https://example.org/").is_err());
+        assert!(SpiffeIdentity::parse("spiffe://").is_err());
+        assert!(SpiffeIdentity::parse("spiffe://INVALID_DOMAIN/x").is_err());
+    }
+
+    #[test]
+    fn test_spiffe_identity_validate() {
+        let id = SpiffeIdentity::new(
+            "ravenfabric.io",
+            "/agent/relay-01",
+            AttestationMethod::JoinToken,
+        );
+        assert!(id.validate().is_ok());
+    }
+
+    #[test]
+    fn test_spiffe_identity_path_matching() {
+        let id = SpiffeIdentity::new(
+            "ravenfabric.io",
+            "/agent/web-01",
+            AttestationMethod::NodeAgent,
+        );
+        assert!(id.path_matches("*"));
+        assert!(id.path_matches("/agent/*"));
+        assert!(id.path_matches("/agent/web-01"));
+        assert!(!id.path_matches("/relay/*"));
+        assert!(!id.path_matches("/agent/db-01"));
+    }
+
+    #[test]
+    fn test_spiffe_trust_bundle() {
+        let mut bundle = TrustBundle::new();
+        bundle.add_domain("ravenfabric.io", vec![b"root-key-1".to_vec()]);
+
+        assert!(bundle.is_trusted("ravenfabric.io"));
+        assert!(!bundle.is_trusted("evil.io"));
+
+        let good = SpiffeIdentity::new(
+            "ravenfabric.io",
+            "/agent/web-01",
+            AttestationMethod::NodeAgent,
+        );
+        assert!(bundle.verify_identity(&good).is_ok());
+
+        let bad = SpiffeIdentity::new("evil.io", "/agent/bad", AttestationMethod::NodeAgent);
+        assert!(matches!(
+            bundle.verify_identity(&bad),
+            Err(SpiffeError::UntrustedDomain(_))
+        ));
+    }
+
+    #[test]
+    fn test_spiffe_attestation_k8s() {
+        let id = SpiffeIdentity::new(
+            "cluster.local",
+            "/ns/default/sa/web",
+            AttestationMethod::K8sSat {
+                namespace: "default".into(),
+                service_account: "web".into(),
+            },
+        );
+        assert!(id.is_in_trust_domain("cluster.local"));
+        assert!(id.validate().is_ok());
+    }
+
+    #[test]
+    fn test_spiffe_error_display() {
+        let e = SpiffeError::InvalidId("bad format".into());
+        assert!(e.to_string().contains("invalid SPIFFE ID"));
+        let e = SpiffeError::UntrustedDomain("evil.io".into());
+        assert!(e.to_string().contains("untrusted domain"));
     }
 }

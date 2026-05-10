@@ -35,10 +35,10 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 |-------|---------|-----|-------|
 | `rf-crypto` | Noise XX handshake, SecureChannel, key management, PQ hybrid KEM | ~1,800 | 42 |
 | `rf-transport` | Driver trait, WebSocket/QUIC/Memory/WireGuard/Vsock/Unix/Stdio, NAT traversal, mesh, auto-selection, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | ~21,900 | 551 |
-| `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller API | ~5,800 | 114 |
+| `rf-rpc` | Message types, msgpack codec, yamux mux, DTN, routing, controller API | ~6,300 | 120 |
 | `rf-audit` | Structured JSON-lines audit logging, anomaly event integration | ~650 | 14 |
-| `rf-policy` | Policy enforcement, RBAC, capabilities, CRDT convergence, anomaly detection, injection detection | ~4,500 | 97 |
-| `rf-executor` | Command execution, streaming, orchestration, PTY, plugins, desired-state convergence | ~9,900 | 165 |
+| `rf-policy` | Policy enforcement, RBAC, capabilities, CRDT convergence, anomaly detection, injection detection | ~4,700 | 105 |
+| `rf-executor` | Command execution, streaming, orchestration, PTY, plugins, desired-state convergence | ~10,100 | 167 |
 | `rf-bootstrap` | OTP enrollment, TrustStore, relay pairing | ~430 | 11 |
 | `rf-relay` | Stateless encrypted relay broker with per-IP rate limiting | ~400 | 7 |
 | `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff) | ~380 | — |
@@ -47,7 +47,7 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | ~720 | 14 |
 | `rf-integration-tests` | End-to-end integration tests | ~1,700 | 28 |
 
-**Total: ~52,800 LOC | 1,093 tests | 0 clippy warnings**
+**Total: ~53,800 LOC | 1,109 tests | 0 clippy warnings**
 
 ## Data Flow
 

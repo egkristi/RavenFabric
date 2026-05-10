@@ -42,7 +42,7 @@ pause 2
 # Step 1: Show version
 echo -e "${GREEN}# Check RavenFabric version${NC}"
 type_cmd "rf --version"
-rf --version 2>/dev/null || echo "rf 0.1.6"
+rf --version 2>/dev/null || echo "rf 0.2.0"
 pause
 
 # Step 2: Start in dev mode

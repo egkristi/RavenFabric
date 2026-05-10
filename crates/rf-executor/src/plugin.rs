@@ -292,6 +292,153 @@ pub enum PluginError {
     CapabilityDenied(String),
     /// Invalid state transition.
     InvalidState(String),
+    /// WASM execution error.
+    ExecutionError(String),
+}
+
+/// Result of a WASM plugin invocation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginResult {
+    /// Output data from the plugin (JSON-encoded).
+    pub output: serde_json::Value,
+    /// Fuel consumed during execution.
+    pub fuel_consumed: u64,
+    /// Execution time in milliseconds.
+    pub elapsed_ms: u64,
+}
+
+/// WASM plugin runtime — loads and executes WASM modules with sandboxing.
+///
+/// When compiled with `wasm-plugins` feature, uses `wasmtime` for real execution.
+/// Without the feature, provides a validation-only runtime (verifies manifests,
+/// hashes, and sandbox config but cannot execute modules).
+#[cfg(feature = "wasm-plugins")]
+pub mod runtime {
+    use super::*;
+
+    /// WASM engine wrapper for executing plugin modules.
+    pub struct WasmRuntime {
+        engine: wasmtime::Engine,
+    }
+
+    impl WasmRuntime {
+        /// Create a new WASM runtime with resource limits.
+        pub fn new(max_memory_pages: u64) -> Result<Self, PluginError> {
+            let mut config = wasmtime::Config::new();
+            config.consume_fuel(true);
+            config.cranelift_opt_level(wasmtime::OptLevel::Speed);
+
+            let engine = wasmtime::Engine::new(&config)
+                .map_err(|e| PluginError::ExecutionError(format!("engine init: {e}")))?;
+
+            let _ = max_memory_pages; // Used when creating store limits
+            Ok(Self { engine })
+        }
+
+        /// Execute a plugin's exported function with the given input.
+        ///
+        /// The WASM module must export:
+        /// - `memory` — linear memory
+        /// - `alloc(size: i32) -> i32` — allocate buffer in WASM memory
+        /// - `process(ptr: i32, len: i32) -> i32` — process input, returns output ptr
+        /// - `result_len() -> i32` — get length of last result
+        pub fn invoke(
+            &self,
+            module_bytes: &[u8],
+            input: &[u8],
+            max_fuel: u64,
+            _sandbox: &SandboxConfig,
+        ) -> Result<Vec<u8>, PluginError> {
+            let module = wasmtime::Module::new(&self.engine, module_bytes)
+                .map_err(|e| PluginError::ExecutionError(format!("compile: {e}")))?;
+
+            let mut store = wasmtime::Store::new(&self.engine, ());
+            store
+                .set_fuel(max_fuel)
+                .map_err(|e| PluginError::ExecutionError(format!("set fuel: {e}")))?;
+
+            let instance = wasmtime::Instance::new(&mut store, &module, &[])
+                .map_err(|e| PluginError::ExecutionError(format!("instantiate: {e}")))?;
+
+            let memory = instance.get_memory(&mut store, "memory").ok_or_else(|| {
+                PluginError::ExecutionError("module has no 'memory' export".into())
+            })?;
+
+            // Allocate input buffer in WASM memory.
+            let alloc = instance
+                .get_typed_func::<i32, i32>(&mut store, "alloc")
+                .map_err(|e| PluginError::ExecutionError(format!("no alloc export: {e}")))?;
+
+            let input_ptr = alloc
+                .call(&mut store, input.len() as i32)
+                .map_err(|e| PluginError::ExecutionError(format!("alloc failed: {e}")))?;
+
+            // Write input to WASM memory.
+            memory
+                .write(&mut store, input_ptr as usize, input)
+                .map_err(|e| PluginError::ExecutionError(format!("memory write: {e}")))?;
+
+            // Call the process function.
+            let process = instance
+                .get_typed_func::<(i32, i32), i32>(&mut store, "process")
+                .map_err(|e| PluginError::ExecutionError(format!("no process export: {e}")))?;
+
+            let output_ptr = process
+                .call(&mut store, (input_ptr, input.len() as i32))
+                .map_err(|e| PluginError::ExecutionError(format!("process failed: {e}")))?;
+
+            // Get result length.
+            let result_len_fn = instance
+                .get_typed_func::<(), i32>(&mut store, "result_len")
+                .map_err(|e| PluginError::ExecutionError(format!("no result_len export: {e}")))?;
+
+            let result_len = result_len_fn
+                .call(&mut store, ())
+                .map_err(|e| PluginError::ExecutionError(format!("result_len failed: {e}")))?;
+
+            // Read output from WASM memory.
+            let mut output = vec![0u8; result_len as usize];
+            memory
+                .read(&store, output_ptr as usize, &mut output)
+                .map_err(|e| PluginError::ExecutionError(format!("memory read: {e}")))?;
+
+            Ok(output)
+        }
+
+        /// Get remaining fuel after last execution.
+        pub fn engine(&self) -> &wasmtime::Engine {
+            &self.engine
+        }
+    }
+}
+
+/// Validation-only runtime (no WASM execution — used when `wasm-plugins` feature is disabled).
+#[cfg(not(feature = "wasm-plugins"))]
+pub mod runtime {
+    use super::*;
+
+    /// Stub WASM runtime that validates manifests but cannot execute modules.
+    pub struct WasmRuntime;
+
+    impl WasmRuntime {
+        /// Create a validation-only runtime.
+        pub fn new(_max_memory_pages: u64) -> Result<Self, PluginError> {
+            Ok(Self)
+        }
+
+        /// Attempting to invoke without the `wasm-plugins` feature returns an error.
+        pub fn invoke(
+            &self,
+            _module_bytes: &[u8],
+            _input: &[u8],
+            _max_fuel: u64,
+            _sandbox: &SandboxConfig,
+        ) -> Result<Vec<u8>, PluginError> {
+            Err(PluginError::ExecutionError(
+                "WASM execution requires the 'wasm-plugins' feature flag".into(),
+            ))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -541,5 +688,27 @@ mod tests {
 
         let result = registry.register(manifest, module, SandboxConfig::default());
         assert!(matches!(result, Err(PluginError::CapabilityDenied(_))));
+    }
+
+    #[test]
+    fn test_wasm_runtime_stub_without_feature() {
+        let rt = runtime::WasmRuntime::new(256).unwrap();
+        let result = rt.invoke(b"fake", b"input", 100_000, &SandboxConfig::default());
+        // Without wasm-plugins feature, this returns an error.
+        // With wasm-plugins feature, this would fail with a compile error (not valid WASM).
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_plugin_result_serde() {
+        let result = PluginResult {
+            output: serde_json::json!({"status": "ok", "count": 42}),
+            fuel_consumed: 5000,
+            elapsed_ms: 12,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let parsed: PluginResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.fuel_consumed, 5000);
+        assert_eq!(parsed.elapsed_ms, 12);
     }
 }

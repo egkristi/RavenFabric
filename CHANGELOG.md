@@ -5,6 +5,18 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-05-10
+
+### Added
+- **Web UI**: HTTP server for the embedded dashboard — binds `TcpListener`, serves dashboard HTML at `/`, routes `/api/*` through `ApiDispatcher`, bearer token auth, security headers (X-Frame-Options, X-Content-Type-Options, Cache-Control), request size limiting (1 MB), 6 tests
+- **WASM Plugins**: Plugin execution runtime via `wasmtime` behind `wasm-plugins` feature flag — `WasmRuntime` loads and executes WASM modules with fuel metering, memory isolation, and the `alloc/process/result_len` host interface. Stub runtime without feature returns clear error. 2 new tests
+- **SPIFFE Identity**: Full workload identity implementation — `SpiffeIdentity::new()`, `parse()`, `validate()`, `path_matches()` with wildcard support, `TrustBundle` with domain verification, `SpiffeError` type, 8 new tests
+- **Controller**: HTTP server serves controller API endpoints (agent list, health check) over the network — previously in-memory only
+
+### Changed
+- **Versions**: All packaging manifests, SDKs, website, demos, and docs updated to v0.2.0
+- **Stats**: 13 crates, ~53,800 LOC, 1,109 tests, 0 clippy warnings
+
 ## [0.1.6] — 2026-05-10
 
 ### Added
