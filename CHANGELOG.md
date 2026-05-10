@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Versions**: All packaging manifests, SDKs, website, demos, and docs updated to v0.2.0
-- **Stats**: 13 crates, ~53,800 LOC, 1,109 tests, 0 clippy warnings
+- **Stats**: 13 crates, ~53,700 LOC, 1,094 tests, 0 clippy warnings
 
 ## [0.1.6] — 2026-05-10
 
