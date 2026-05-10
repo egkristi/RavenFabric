@@ -51,9 +51,11 @@ pub struct Executor {
     start_time: Instant,
     /// Background jobs tracked by job ID.
     jobs: Arc<tokio::sync::Mutex<HashMap<String, JobState>>>,
-    /// Active shell sessions (PTY).
+    /// Active shell sessions (PTY) with optional session recorder.
     #[cfg(unix)]
-    shells: Arc<tokio::sync::Mutex<HashMap<String, crate::pty::PtySession>>>,
+    shells: Arc<
+        tokio::sync::Mutex<HashMap<String, (crate::pty::PtySession, crate::pty::SessionRecorder)>>,
+    >,
     /// Active port forwards.
     forwards: Arc<tokio::sync::Mutex<HashMap<String, ActiveForward>>>,
     /// Sealed secret store for `{{ secrets.KEY }}` resolution in commands.
@@ -904,7 +906,7 @@ impl Executor {
         env: HashMap<String, String>,
         start: Instant,
     ) -> RpcResult {
-        use crate::pty::{PtyConfig, PtySession, TerminalSize};
+        use crate::pty::{PtyConfig, PtySession, SessionRecorder, TerminalSize};
 
         // Policy check — opening a shell is equivalent to running the shell command
         let shell_bin = shell
@@ -937,14 +939,20 @@ impl Executor {
             cwd: None,
             env: env.into_iter().collect(),
             timeout_secs: 3600,
-            record: false,
+            record: true,
         };
 
         match PtySession::spawn(config) {
             Ok(session) => {
                 let session_id = uuid::Uuid::new_v4().to_string();
+                // Create session recorder for replay-grade traceability
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                let recorder = SessionRecorder::new(cols, rows, now_ms);
                 let mut shells = self.shells.lock().await;
-                shells.insert(session_id.clone(), session);
+                shells.insert(session_id.clone(), (session, recorder));
                 self.audit(
                     request_id,
                     "shell_open",
@@ -979,46 +987,67 @@ impl Executor {
             None,
             start.elapsed().as_millis() as u64,
         );
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
         let mut shells = self.shells.lock().await;
         match shells.get_mut(session_id) {
-            Some(session) => match session.write(data) {
-                Ok(_) => {
-                    // Read back any available output
-                    let mut buf = vec![0u8; 8192];
-                    // Small delay to let the shell process the input
-                    drop(shells);
-                    tokio::time::sleep(Duration::from_millis(10)).await;
-                    let mut shells = self.shells.lock().await;
-                    if let Some(session) = shells.get_mut(session_id) {
-                        match session.read(&mut buf) {
-                            Ok(0) => RpcResult::ShellOutput {
-                                session_id: session_id.to_string(),
-                                data: Vec::new(),
-                            },
-                            Ok(n) => RpcResult::ShellOutput {
-                                session_id: session_id.to_string(),
-                                data: buf[..n].to_vec(),
-                            },
-                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                                RpcResult::ShellOutput {
+            Some((session, recorder)) => {
+                // Record input event
+                let input_str = String::from_utf8_lossy(data);
+                recorder.record_input(&input_str, now_ms);
+
+                match session.write(data) {
+                    Ok(_) => {
+                        // Read back any available output
+                        let mut buf = vec![0u8; 8192];
+                        // Small delay to let the shell process the input
+                        drop(shells);
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                        let mut shells = self.shells.lock().await;
+                        if let Some((session, recorder)) = shells.get_mut(session_id) {
+                            let read_time_ms = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis() as u64;
+                            match session.read(&mut buf) {
+                                Ok(0) => RpcResult::ShellOutput {
                                     session_id: session_id.to_string(),
                                     data: Vec::new(),
+                                },
+                                Ok(n) => {
+                                    // Record output event
+                                    let output_str = String::from_utf8_lossy(&buf[..n]);
+                                    recorder.record_output(&output_str, read_time_ms);
+                                    RpcResult::ShellOutput {
+                                        session_id: session_id.to_string(),
+                                        data: buf[..n].to_vec(),
+                                    }
                                 }
+                                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                                    RpcResult::ShellOutput {
+                                        session_id: session_id.to_string(),
+                                        data: Vec::new(),
+                                    }
+                                }
+                                Err(e) => RpcResult::Error {
+                                    message: format!("PTY read error: {e}"),
+                                },
                             }
-                            Err(e) => RpcResult::Error {
-                                message: format!("PTY read error: {e}"),
-                            },
-                        }
-                    } else {
-                        RpcResult::Error {
-                            message: "session disappeared".into(),
+                        } else {
+                            RpcResult::Error {
+                                message: "session disappeared".into(),
+                            }
                         }
                     }
+                    Err(e) => RpcResult::Error {
+                        message: format!("PTY write error: {e}"),
+                    },
                 }
-                Err(e) => RpcResult::Error {
-                    message: format!("PTY write error: {e}"),
-                },
-            },
+            }
             None => RpcResult::Error {
                 message: format!("shell session not found: {session_id}"),
             },
@@ -1030,7 +1059,7 @@ impl Executor {
         use crate::pty::TerminalSize;
         let shells = self.shells.lock().await;
         match shells.get(session_id) {
-            Some(session) => {
+            Some((session, _recorder)) => {
                 session.resize(TerminalSize { rows, cols });
                 RpcResult::Success {
                     stdout: String::new(),
@@ -1055,8 +1084,27 @@ impl Executor {
         use crate::pty::PtySignal;
         let mut shells = self.shells.lock().await;
         match shells.remove(session_id) {
-            Some(session) => {
+            Some((session, recorder)) => {
                 let _ = session.signal(PtySignal::Sighup);
+
+                // Emit session recording as an audit entry for replay-grade traceability
+                let event_count = recorder.event_count();
+                if event_count > 0 {
+                    let asciicast = recorder.to_asciicast();
+                    let _ = self.audit.log(AuditEntry {
+                        timestamp: Utc::now(),
+                        request_id: request_id.to_string(),
+                        action: "shell_recording".into(),
+                        command: Some(session_id.to_string()),
+                        decision: "recorded".into(),
+                        matched_rule: format!("{event_count} events"),
+                        exit_code: None,
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        caller_key: self.caller_key.clone(),
+                        reason: Some(asciicast),
+                    });
+                }
+
                 self.audit(
                     request_id,
                     "shell_close",
@@ -1554,6 +1602,11 @@ spec:
         let entries = audit.entries();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].decision, "allowed");
+        assert_eq!(entries[0].action, "execute");
+        assert_eq!(entries[0].command.as_deref(), Some("echo hello world"));
+        assert_eq!(entries[0].request_id, "req-1");
+        assert_eq!(entries[0].caller_key, "test-caller-key");
+        assert!(!entries[0].matched_rule.is_empty());
     }
 
     #[tokio::test]
@@ -1592,6 +1645,10 @@ spec:
         let entries = audit.entries();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].decision, "denied");
+        assert_eq!(entries[0].action, "execute");
+        assert_eq!(entries[0].command.as_deref(), Some("rm -rf /"));
+        assert_eq!(entries[0].request_id, "req-2");
+        assert_eq!(entries[0].caller_key, "test-caller-key");
     }
 
     #[tokio::test]
@@ -1737,6 +1794,13 @@ spec:
         } else {
             panic!("expected success, got {:?}", resp.result);
         }
+
+        // Verify audit entry for metrics
+        let entries = audit.entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].action, "metrics");
+        assert_eq!(entries[0].decision, "allowed");
+        assert_eq!(entries[0].request_id, "req-8");
     }
 
     #[tokio::test]
@@ -1978,5 +2042,182 @@ spec:
             }
             _ => panic!("expected error, got {:?}", resp.result),
         }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_shell_session_recording() {
+        // Policy that allows shell commands
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  resources:
+    maxOutputBytes: 1024
+    timeoutSeconds: 2
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = Executor::new(
+            Arc::new(RwLock::new(policy)),
+            audit.clone(),
+            "test-key".into(),
+        );
+
+        // Open shell
+        let req = Request {
+            id: "shell-1".into(),
+            action: Action::Shell {
+                shell: Some("/bin/sh".into()),
+                rows: 24,
+                cols: 80,
+                env: HashMap::new(),
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        let session_id = match &resp.result {
+            RpcResult::ShellOpened { session_id } => session_id.clone(),
+            _ => panic!("expected ShellOpened, got {:?}", resp.result),
+        };
+
+        // Verify shell_open audit
+        {
+            let entries = audit.entries();
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].action, "shell_open");
+            assert_eq!(entries[0].decision, "allowed");
+            assert_eq!(entries[0].request_id, "shell-1");
+        }
+
+        // Send input
+        let req = Request {
+            id: "shell-2".into(),
+            action: Action::ShellInput {
+                session_id: session_id.clone(),
+                data: b"echo hello\n".to_vec(),
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let _resp = exec.handle(req).await;
+
+        // Verify shell_input audit
+        {
+            let entries = audit.entries();
+            assert!(entries.len() >= 2);
+            let input_entry = entries.iter().find(|e| e.action == "shell_input").unwrap();
+            assert_eq!(input_entry.decision, "allowed");
+            assert_eq!(input_entry.request_id, "shell-2");
+            assert_eq!(input_entry.command.as_deref(), Some(&*session_id));
+        }
+
+        // Close shell — should emit recording
+        let req = Request {
+            id: "shell-3".into(),
+            action: Action::ShellClose {
+                session_id: session_id.clone(),
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        match &resp.result {
+            RpcResult::ShellExited { exit_code, .. } => {
+                assert_eq!(*exit_code, 0);
+            }
+            _ => panic!("expected ShellExited, got {:?}", resp.result),
+        }
+
+        // Verify recording audit entry
+        let entries = audit.entries();
+        let recording = entries
+            .iter()
+            .find(|e| e.action == "shell_recording")
+            .expect("expected shell_recording audit entry");
+        assert_eq!(recording.decision, "recorded");
+        assert_eq!(recording.request_id, "shell-3");
+        // Recording should contain asciicast v2 header
+        let asciicast = recording
+            .reason
+            .as_ref()
+            .expect("recording should be in reason field");
+        assert!(
+            asciicast.contains("\"version\":2"),
+            "asciicast missing header"
+        );
+        assert!(
+            asciicast.contains("\"width\":80"),
+            "asciicast missing width"
+        );
+        // Should have captured at least the input event
+        assert!(
+            recording.matched_rule.contains("events"),
+            "should report event count"
+        );
+
+        // Verify shell_close audit entry
+        let close_entry = entries
+            .iter()
+            .find(|e| e.action == "shell_close")
+            .expect("expected shell_close audit entry");
+        assert_eq!(close_entry.decision, "allowed");
+        assert_eq!(close_entry.request_id, "shell-3");
+    }
+
+    /// Verify that audit entries are valid JSON (structured JSON-lines format).
+    #[tokio::test]
+    async fn test_audit_entries_are_valid_json() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        // Execute an allowed command
+        let req = Request {
+            id: "json-1".into(),
+            action: Action::Execute {
+                command: "echo json-test".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        exec.handle(req).await;
+
+        // Execute a denied command
+        let req = Request {
+            id: "json-2".into(),
+            action: Action::Execute {
+                command: "rm -rf /tmp/evil".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        exec.handle(req).await;
+
+        // Both entries must serialize to valid JSON
+        let entries = audit.entries();
+        assert_eq!(entries.len(), 2);
+        for entry in &entries {
+            let json = serde_json::to_string(entry).expect("audit entry must be JSON-serializable");
+            // Parse back to verify round-trip
+            let parsed: serde_json::Value =
+                serde_json::from_str(&json).expect("audit JSON must be valid");
+            assert!(parsed.get("timestamp").is_some());
+            assert!(parsed.get("request_id").is_some());
+            assert!(parsed.get("action").is_some());
+            assert!(parsed.get("decision").is_some());
+            assert!(parsed.get("matched_rule").is_some());
+            assert!(parsed.get("caller_key").is_some());
+            assert!(parsed.get("duration_ms").is_some());
+        }
+
+        // Verify allowed vs denied
+        assert_eq!(entries[0].decision, "allowed");
+        assert_eq!(entries[1].decision, "denied");
     }
 }
