@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.5] — 2026-05-10
 
 ### Added
+- **Demos**: Desired-State Convergence demo — 7 scenarios covering drift detection, auto-remediation, report-only mode, grains-based targeting, event triggers, and version constraints (`demos/desired-state/`)
+- **Tests**: 18 desired-state showcase integration tests — YAML parsing, 4 resource types (packages/files/services/sysctl), convergence modes, grains label matching, event bus triggers, full lifecycle (`crates/rf-integration-tests/tests/desired_state_showcase.rs`)
 - **Demos**: Transport Showcase demo — 5 transports (WebSocket, QUIC, UNIX Socket, Stdio Pipe, Memory) with end-to-end encrypted command execution over each, proving transport interchangeability (`demos/transport-showcase/`)
 - **Tests**: 5 transport showcase integration tests — each performs Noise XX handshake + SecureChannel + RPC execution over a different transport driver (`crates/rf-integration-tests/tests/transport_showcase.rs`)
 - **Demos**: Multi-Node Ubuntu demo — 2-agent Docker setup with relay, setup/teardown scripts, 11 scenario scripts (`demos/multi-node-ubuntu/`)
