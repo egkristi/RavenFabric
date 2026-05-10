@@ -130,6 +130,8 @@ pub struct McpServer {
     caller_profiles: Vec<CallerProfile>,
     /// Short-lived Curve25519 session identity key (generated per session).
     session_key: StaticKey,
+    /// Regex patterns for commands that require human approval before execution.
+    approval_required_patterns: Vec<regex::Regex>,
 }
 
 /// Status of an approval request.
@@ -140,16 +142,24 @@ enum ApprovalStatus {
     Denied,
 }
 
+/// Default approval TTL: 30 minutes.
+const APPROVAL_TTL_SECS: i64 = 1800;
+
 /// A pending human approval request.
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct ApprovalRequest {
     id: String,
     operation: String,
     command: String,
+    /// SHA-256 hash of the command for tamper-proof verification.
+    command_hash: String,
+    /// Reason provided by the AI agent for the approval request (stored for audit).
+    #[allow(dead_code)]
     reason: String,
     status: ApprovalStatus,
     timestamp: chrono::DateTime<chrono::Utc>,
+    /// Whether this approval has been consumed (one-time-use).
+    used: bool,
 }
 
 impl McpServer {
@@ -166,6 +176,7 @@ impl McpServer {
         max_requests_per_minute: Option<u32>,
         alert_webhook: Option<String>,
         caller_profiles: Vec<CallerProfile>,
+        approval_patterns: &[String],
     ) -> anyhow::Result<Self> {
         let policy = if let Some(path) = policy_path {
             RpcPolicy::load(path)?
@@ -217,6 +228,24 @@ impl McpServer {
             "generated session cryptographic identity"
         );
 
+        // Compile approval-required patterns
+        let approval_required_patterns: Vec<regex::Regex> = approval_patterns
+            .iter()
+            .filter_map(|p| match regex::Regex::new(p) {
+                Ok(re) => Some(re),
+                Err(e) => {
+                    error!(pattern = %p, error = %e, "invalid approval-required pattern");
+                    None
+                }
+            })
+            .collect();
+        if !approval_required_patterns.is_empty() {
+            info!(
+                count = approval_required_patterns.len(),
+                "approval-required patterns loaded"
+            );
+        }
+
         Ok(Self {
             executor: Arc::new(executor),
             policy,
@@ -231,6 +260,7 @@ impl McpServer {
             alert_webhook,
             caller_profiles,
             session_key,
+            approval_required_patterns,
         })
     }
 
@@ -487,6 +517,23 @@ impl McpServer {
             .ok_or("missing 'command' argument")?
             .to_string();
 
+        // --- Approval enforcement ---
+        // If any approval_required_patterns match this command, require a valid approval.
+        if self.requires_approval(&command) {
+            let approval_id = args
+                .get("approval_id")
+                .and_then(|id| id.as_str())
+                .ok_or_else(|| {
+                    format!(
+                        "DENIED: command matches an approval-required pattern. \
+                         You must first call rf_request_approval, wait for operator approval, \
+                         then pass the approval_id to rf_exec. Command: {command}"
+                    )
+                })?;
+
+            self.validate_approval(approval_id, &command).await?;
+        }
+
         let workdir = args
             .get("workdir")
             .and_then(|w| w.as_str())
@@ -684,9 +731,11 @@ impl McpServer {
             id: approval_id.clone(),
             operation: operation.to_string(),
             command: command.to_string(),
+            command_hash: Self::hash_command(command),
             reason: reason.to_string(),
             status: ApprovalStatus::Pending,
             timestamp: chrono::Utc::now(),
+            used: false,
         };
 
         // Store the pending approval
@@ -747,8 +796,99 @@ impl McpServer {
         }
     }
 
+    // --- Approval enforcement helpers ---
+
+    /// Compute SHA-256 hash of a command string for tamper-proof verification.
+    fn hash_command(command: &str) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(command.as_bytes());
+        let result = hasher.finalize();
+        let mut hex = String::with_capacity(result.len() * 2);
+        for b in &result {
+            use std::fmt::Write;
+            let _ = write!(hex, "{b:02x}");
+        }
+        hex
+    }
+
+    /// Check if a command matches any approval-required pattern.
+    fn requires_approval(&self, command: &str) -> bool {
+        self.approval_required_patterns
+            .iter()
+            .any(|re| re.is_match(command))
+    }
+
+    /// Validate an approval for a specific command.
+    /// Checks: existence, status (Approved), TTL (not expired), command hash match, one-time-use.
+    async fn validate_approval(&self, approval_id: &str, command: &str) -> Result<(), String> {
+        let mut approvals = self.approvals.lock().await;
+
+        let approval = approvals
+            .get_mut(approval_id)
+            .ok_or_else(|| format!("DENIED: no approval found with ID: {approval_id}"))?;
+
+        // Check status
+        match approval.status {
+            ApprovalStatus::Pending => {
+                return Err(format!(
+                    "DENIED: approval {approval_id} is still PENDING — not yet approved by operator"
+                ));
+            }
+            ApprovalStatus::Denied => {
+                return Err(format!(
+                    "DENIED: approval {approval_id} was DENIED by operator"
+                ));
+            }
+            ApprovalStatus::Approved => {}
+        }
+
+        // Check one-time-use
+        if approval.used {
+            return Err(format!(
+                "DENIED: approval {approval_id} has already been used (one-time-use)"
+            ));
+        }
+
+        // Check TTL
+        let elapsed = chrono::Utc::now()
+            .signed_duration_since(approval.timestamp)
+            .num_seconds();
+        if elapsed > APPROVAL_TTL_SECS {
+            return Err(format!(
+                "DENIED: approval {approval_id} has expired ({elapsed}s > {APPROVAL_TTL_SECS}s TTL)"
+            ));
+        }
+
+        // Check command hash (prevents command substitution after approval)
+        let expected_hash = Self::hash_command(command);
+        if approval.command_hash != expected_hash {
+            warn!(
+                approval_id = %approval_id,
+                approved_command = %approval.command,
+                attempted_command = %command,
+                "SECURITY: command substitution attempt detected"
+            );
+            return Err(format!(
+                "DENIED: command does not match approved command. \
+                 Approved: '{}', Attempted: '{command}'. \
+                 Command substitution is not allowed.",
+                approval.command
+            ));
+        }
+
+        // Mark as used (one-time-use enforcement)
+        approval.used = true;
+        info!(
+            approval_id = %approval_id,
+            command = %command,
+            "approval consumed — executing approved command"
+        );
+
+        Ok(())
+    }
+
     /// Approve a pending request (called via operator mechanism, not by AI).
-    #[allow(dead_code)]
     pub async fn approve(&self, approval_id: &str) -> bool {
         let mut approvals = self.approvals.lock().await;
         if let Some(approval) = approvals.get_mut(approval_id) {
@@ -761,7 +901,6 @@ impl McpServer {
     }
 
     /// Deny a pending request (called via operator mechanism, not by AI).
-    #[allow(dead_code)]
     pub async fn deny(&self, approval_id: &str) -> bool {
         let mut approvals = self.approvals.lock().await;
         if let Some(approval) = approvals.get_mut(approval_id) {
@@ -1034,6 +1173,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         );
         assert!(server.is_ok());
     }
@@ -1049,6 +1189,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1081,6 +1222,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1108,6 +1250,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1131,6 +1274,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1154,6 +1298,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1177,6 +1322,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1198,6 +1344,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1224,6 +1371,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1251,6 +1399,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1277,6 +1426,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1303,6 +1453,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1329,6 +1480,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1355,6 +1507,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1418,6 +1571,7 @@ mod tests {
             Some(2),
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1469,6 +1623,7 @@ mod tests {
             Some(1),
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1506,6 +1661,7 @@ mod tests {
             None,
             None,
             Vec::new(),
+            &[],
         )
         .unwrap();
 
@@ -1601,7 +1757,8 @@ mod tests {
         }];
 
         // No default api_token — only caller profiles
-        let server = McpServer::new(None, None, "test-caller", None, None, None, profiles).unwrap();
+        let server =
+            McpServer::new(None, None, "test-caller", None, None, None, profiles, &[]).unwrap();
 
         // Authenticate with profile token
         let init = JsonRpcRequest {
@@ -1640,7 +1797,8 @@ mod tests {
             policy: policy.path().to_path_buf(),
         }];
 
-        let server = McpServer::new(None, None, "test-caller", None, None, None, profiles).unwrap();
+        let server =
+            McpServer::new(None, None, "test-caller", None, None, None, profiles, &[]).unwrap();
 
         // Try with wrong token
         let init = JsonRpcRequest {
@@ -1677,5 +1835,224 @@ policy = "/etc/rf/dev-policy.yaml"
         assert_eq!(config.callers[0].name, "ci-agent");
         assert_eq!(config.callers[0].token, "ci-token-123");
         assert_eq!(config.callers[1].name, "dev-agent");
+    }
+
+    // --- Approval enforcement tests ---
+
+    /// Helper to create a server with approval-required patterns.
+    fn create_approval_server(patterns: Vec<&str>) -> (McpServer, tempfile::NamedTempFile) {
+        let policy_file = create_test_policy();
+        let patterns: Vec<String> = patterns.iter().map(|p| p.to_string()).collect();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            Vec::new(),
+            &patterns,
+        )
+        .unwrap();
+        (server, policy_file)
+    }
+
+    #[tokio::test]
+    async fn test_approval_required_blocks_exec_without_approval() {
+        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+
+        // Try to exec a command that matches approval pattern — should be denied
+        let result = server
+            .tool_exec(&json!({"command": "systemctl restart nginx"}))
+            .await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("DENIED"));
+        assert!(err.contains("approval-required"));
+    }
+
+    #[tokio::test]
+    async fn test_approval_not_required_allows_exec() {
+        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+
+        // A command that does NOT match any pattern should execute normally
+        let result = server.tool_exec(&json!({"command": "echo hello"})).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_approval_flow_approve_then_exec() {
+        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+
+        // Request approval
+        let approval_result = server
+            .tool_request_approval(&json!({
+                "operation": "restart",
+                "command": "systemctl restart nginx",
+                "reason": "deploying new version"
+            }))
+            .await
+            .unwrap();
+
+        // Extract approval_id from the response text
+        let text = approval_result["content"][0]["text"].as_str().unwrap();
+        let id_line = text
+            .lines()
+            .find(|l| l.starts_with("Approval requested (id:"))
+            .unwrap();
+        let approval_id = id_line
+            .trim_start_matches("Approval requested (id: ")
+            .trim_end_matches(").");
+
+        // Without approval, exec with approval_id should fail
+        let result = server
+            .tool_exec(&json!({
+                "command": "systemctl restart nginx",
+                "approval_id": approval_id
+            }))
+            .await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("PENDING"));
+
+        // Operator approves
+        assert!(server.approve(approval_id).await);
+
+        // Now exec with approval_id should succeed
+        let result = server
+            .tool_exec(&json!({
+                "command": "systemctl restart nginx",
+                "approval_id": approval_id
+            }))
+            .await;
+        // Should reach policy check (may be denied by policy, but NOT by approval system)
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_approval_denied_blocks_exec() {
+        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+
+        let approval_result = server
+            .tool_request_approval(&json!({
+                "operation": "restart",
+                "command": "systemctl restart nginx",
+                "reason": "test"
+            }))
+            .await
+            .unwrap();
+        let text = approval_result["content"][0]["text"].as_str().unwrap();
+        let approval_id = text
+            .lines()
+            .find(|l| l.starts_with("Approval requested (id:"))
+            .unwrap()
+            .trim_start_matches("Approval requested (id: ")
+            .trim_end_matches(").");
+
+        // Operator denies
+        assert!(server.deny(approval_id).await);
+
+        let result = server
+            .tool_exec(&json!({
+                "command": "systemctl restart nginx",
+                "approval_id": approval_id
+            }))
+            .await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("DENIED"));
+    }
+
+    #[tokio::test]
+    async fn test_approval_one_time_use() {
+        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+
+        let approval_result = server
+            .tool_request_approval(&json!({
+                "operation": "restart",
+                "command": "systemctl restart nginx",
+                "reason": "test"
+            }))
+            .await
+            .unwrap();
+        let text = approval_result["content"][0]["text"].as_str().unwrap();
+        let approval_id = text
+            .lines()
+            .find(|l| l.starts_with("Approval requested (id:"))
+            .unwrap()
+            .trim_start_matches("Approval requested (id: ")
+            .trim_end_matches(").");
+
+        server.approve(approval_id).await;
+
+        // First use should succeed
+        let result = server
+            .tool_exec(&json!({
+                "command": "systemctl restart nginx",
+                "approval_id": approval_id
+            }))
+            .await;
+        assert!(result.is_ok());
+
+        // Second use should be blocked (one-time-use)
+        let result = server
+            .tool_exec(&json!({
+                "command": "systemctl restart nginx",
+                "approval_id": approval_id
+            }))
+            .await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already been used"));
+    }
+
+    #[tokio::test]
+    async fn test_approval_command_substitution_blocked() {
+        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+
+        let approval_result = server
+            .tool_request_approval(&json!({
+                "operation": "restart",
+                "command": "systemctl restart nginx",
+                "reason": "test"
+            }))
+            .await
+            .unwrap();
+        let text = approval_result["content"][0]["text"].as_str().unwrap();
+        let approval_id = text
+            .lines()
+            .find(|l| l.starts_with("Approval requested (id:"))
+            .unwrap()
+            .trim_start_matches("Approval requested (id: ")
+            .trim_end_matches(").");
+
+        server.approve(approval_id).await;
+
+        // Try to execute a DIFFERENT command with the same approval — command substitution attack
+        let result = server
+            .tool_exec(&json!({
+                "command": "systemctl stop firewalld",
+                "approval_id": approval_id
+            }))
+            .await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("does not match approved command"));
+    }
+
+    #[tokio::test]
+    async fn test_no_approval_patterns_allows_all() {
+        // Server with empty approval patterns — no approval required for anything
+        let (server, _policy) = create_approval_server(vec![]);
+
+        let result = server.tool_exec(&json!({"command": "echo hello"})).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_hash_command_deterministic() {
+        let h1 = McpServer::hash_command("systemctl restart nginx");
+        let h2 = McpServer::hash_command("systemctl restart nginx");
+        assert_eq!(h1, h2);
+
+        let h3 = McpServer::hash_command("systemctl stop nginx");
+        assert_ne!(h1, h3);
     }
 }

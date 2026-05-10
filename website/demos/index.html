@@ -634,7 +634,7 @@ done</span>
 
         <div class="setup human-approval">
             <h3>Human Approval for AI Agents</h3>
-            <p>AI agents connect via MCP but high-risk operations require human approval. The operator approves or denies before execution proceeds.</p>
+            <p>AI agents connect via MCP but high-risk operations require human approval. Approvals are SHA-256 bound to the exact command (no substitution), one-time-use, and expire after 30 minutes.</p>
 <pre class="code-block"><span class="comment"># Run the human approval scenario</span>
 <span class="cmd">./scenarios/17-human-approval.sh</span>
 
@@ -649,11 +649,11 @@ done</span>
 <span class="comment"># deny("a1b2c3d4-...")    → DENIED</span>
 
 <span class="comment"># AI polls: rf_check_approval(id) → APPROVED</span>
-<span class="comment"># AI executes only if approved</span>
+<span class="comment"># AI passes approval_id to rf_exec (hash-verified, one-time-use)</span>
 <span class="cmd">rf --relay ws://$RELAY:9091 exec --token agent1 \
   'echo "Command executed after human approval"'</span>
 
-<span class="comment"># Defense in depth: policy → approval → rate limit → audit</span></pre>
+<span class="comment"># Defense in depth: policy → approval (hash + TTL) → rate limit → audit</span></pre>
         </div>
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="demo-section" id="multi-distro">

@@ -75,6 +75,12 @@ struct Cli {
     /// Log level for stderr diagnostics.
     #[arg(long, default_value = "info", env = "RF_LOG_LEVEL")]
     log_level: String,
+
+    /// Regex patterns for commands requiring human approval before execution.
+    /// Commands matching any pattern will be blocked until an operator approves.
+    /// Can be specified multiple times: --approval-pattern "rm .*" --approval-pattern "shutdown.*"
+    #[arg(long = "approval-pattern", env = "RF_APPROVAL_PATTERNS")]
+    approval_patterns: Vec<String>,
 }
 
 #[tokio::main]
@@ -124,6 +130,7 @@ async fn main() -> anyhow::Result<()> {
             max_requests_per_minute: cli.rate_limit,
             alert_webhook: cli.alert_webhook.clone(),
             caller_profiles,
+            approval_patterns: cli.approval_patterns.clone(),
         };
         return rf_mcp_server::http_sse::run_http_sse(config).await;
     }
@@ -143,6 +150,7 @@ async fn main() -> anyhow::Result<()> {
         cli.rate_limit,
         cli.alert_webhook,
         caller_profiles,
+        &cli.approval_patterns,
     )?;
 
     server.run_stdio().await?;

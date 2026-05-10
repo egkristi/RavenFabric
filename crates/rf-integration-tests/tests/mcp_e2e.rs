@@ -43,6 +43,7 @@ spec:
         Some(60),
         None,
         vec![],
+        &[],
     )
     .expect("failed to create MCP server")
 }
@@ -303,6 +304,7 @@ async fn test_mcp_rate_limiting() {
         Some(5), // 5 requests per minute
         None,
         vec![],
+        &[],
     )
     .expect("failed to create MCP server");
 

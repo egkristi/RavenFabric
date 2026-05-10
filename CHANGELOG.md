@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Demos**: Dev Mode (Zero-Setup) scenario for all 3 demos — single-command dev environment, relay + agent in one process, zero config (`scenarios/15-dev-mode.sh`, `scenarios/dev-mode.sh`)
 - **Demos**: Fleet Orchestration scenario for all 3 demos — multi-agent playbooks with parallel/sequential/rolling/canary strategies, automatic rollback (`scenarios/16-fleet-orchestration.sh`, `scenarios/fleet-orchestration.sh`)
 - **Demos**: Human Approval scenario for all 3 demos — human-in-the-loop approval gate for AI-controlled agents via MCP, operator approve/deny workflow, defense in depth (`scenarios/17-human-approval.sh`, `scenarios/human-approval.sh`)
+- **MCP Server**: Approval enforcement in `tool_exec` — commands matching `--approval-pattern` regex patterns are blocked until a human operator approves via `approve()`/`deny()` API
+- **MCP Server**: SHA-256 command hash verification — approved command is cryptographically bound to the approval, preventing command substitution attacks
+- **MCP Server**: One-time-use enforcement — each approval can only be consumed once, subsequent attempts return DENIED
+- **MCP Server**: 30-minute TTL on approvals — expired approvals automatically return DENIED
+- **MCP Server**: `approval_id` parameter added to `rf_exec` tool for passing approved approval IDs
 - **Website**: Live demos page at `/demos/` with animated terminal recordings, architecture diagrams, setup instructions
 - **Website**: Policy Denial section added to each demo on the website demos page
 - **Website**: "Demos" navigation link added to main site, blog pages, and footer

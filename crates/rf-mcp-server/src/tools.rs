@@ -9,7 +9,7 @@ pub fn list_tools() -> Value {
         "tools": [
             {
                 "name": "rf_exec",
-                "description": "Execute a command on the target system. Subject to RavenFabric policy enforcement — commands not matching allow rules will be denied. Immutable deny rules block catastrophic commands regardless of policy.",
+                "description": "Execute a command on the target system. Subject to RavenFabric policy enforcement — commands not matching allow rules will be denied. Immutable deny rules block catastrophic commands regardless of policy. Commands matching approval-required patterns must include an approval_id from a prior rf_request_approval call that has been approved by a human operator.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -28,6 +28,10 @@ pub fn list_tools() -> Value {
                         "timeout_ms": {
                             "type": "integer",
                             "description": "Execution timeout in milliseconds (optional, default from policy)"
+                        },
+                        "approval_id": {
+                            "type": "string",
+                            "description": "Approval ID from rf_request_approval (required for commands matching approval-required patterns)"
                         }
                     },
                     "required": ["command"]

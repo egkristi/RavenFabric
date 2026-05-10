@@ -423,7 +423,7 @@ Strategies:
 
 ### 17 — Human Approval for AI Agents
 
-Human-in-the-loop approval gate for AI-controlled agents. AI agents connect via MCP server and must request approval for high-risk operations before execution.
+Human-in-the-loop approval gate for AI-controlled agents. AI agents connect via MCP server and must request approval for high-risk operations before execution. Approval enforcement is mandatory and cryptographically verified.
 
 ```bash
 # Run the full scenario
@@ -435,16 +435,23 @@ Approval workflow:
 2. Operator sees the request (stderr / webhook / Slack)
 3. Operator calls `approve(id)` or `deny(id)`
 4. AI polls `rf_check_approval(id)` → `APPROVED` or `DENIED`
-5. AI executes only if approved
+5. AI passes `approval_id` to `rf_exec(command, approval_id)` — only executes if approved
+
+Enforcement guarantees:
+- **Command hash binding**: Each approval is SHA-256 bound to the exact command — the AI cannot substitute a different command after approval
+- **One-time-use**: Each approval can be consumed exactly once — reuse returns DENIED
+- **TTL expiration**: Approvals expire after 30 minutes — stale approvals return DENIED
+- **Pattern-based**: Operator configures which commands require approval via `--approval-pattern` regex
 
 MCP tools involved:
 - **`rf_request_approval`**: Submit operation + command + reason for review
 - **`rf_check_approval`**: Poll approval status (`PENDING` / `APPROVED` / `DENIED`)
+- **`rf_exec`**: Execute command, optionally with `approval_id` for approval-required commands
 - **`rf_query_policy`**: Dry-run policy check before requesting approval
 
 Defense in depth:
 - **Policy engine**: Deny-by-default (first gate)
-- **Human approval**: Operator gate for high-risk ops (second gate)
+- **Human approval**: Operator gate for high-risk ops with hash verification (second gate)
 - **Rate limiting**: 60 requests/min per session
 - **Anomaly detection**: Behavioral baseline alerts
 - **Audit trail**: Every action logged

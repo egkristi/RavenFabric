@@ -36,6 +36,7 @@ pub struct HttpSseConfig {
     pub max_requests_per_minute: Option<u32>,
     pub alert_webhook: Option<String>,
     pub caller_profiles: Vec<CallerProfile>,
+    pub approval_patterns: Vec<String>,
 }
 
 /// Shared state for the HTTP+SSE server.
@@ -118,6 +119,7 @@ async fn handle_message(
             state.config.max_requests_per_minute,
             state.config.alert_webhook.clone(),
             state.config.caller_profiles.clone(),
+            &state.config.approval_patterns,
         ) {
             Ok(s) => s,
             Err(e) => {

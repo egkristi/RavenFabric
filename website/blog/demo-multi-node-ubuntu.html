@@ -288,11 +288,14 @@ rf_request_approval(
 rf_check_approval(id: "a1b2c3d4-...")
 # → status: APPROVED
 
-# AI proceeds with execution (only if approved)
-rf_exec(command: "psql -c 'ALTER TABLE users ADD COLUMN role TEXT'")
+# AI proceeds with execution (approval_id proves authorization)
+rf_exec(
+    command: "psql -c 'ALTER TABLE users ADD COLUMN role TEXT'",
+    approval_id: "a1b2c3d4-..."
+)
 # → Command executes successfully</code></pre>
 
-                <p>If the operator denies the request, the AI receives <code>DENIED</code> and does not execute. The denial is audited. This is defense in depth: <strong>policy engine</strong> (first gate) &rarr; <strong>human approval</strong> (second gate) &rarr; <strong>rate limiting</strong> &rarr; <strong>anomaly detection</strong> &rarr; <strong>audit trail</strong>.</p>
+                <p>If the operator denies the request, the AI receives <code>DENIED</code> and cannot execute. The denial is audited. Each approval is <strong>SHA-256 bound to the exact command</strong> &mdash; the AI cannot substitute a different command after getting approval. Approvals are <strong>one-time-use</strong> (reuse returns DENIED) and <strong>expire after 30 minutes</strong>. This is defense in depth: <strong>policy engine</strong> (first gate) &rarr; <strong>human approval with hash verification</strong> (second gate) &rarr; <strong>rate limiting</strong> &rarr; <strong>anomaly detection</strong> &rarr; <strong>audit trail</strong>.</p>
 
                 <h2>What This Proves</h2>
 
