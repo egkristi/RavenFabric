@@ -3,8 +3,8 @@
 > This document describes RavenFabric's supply chain security practices,
 > targeting SLSA Level 3 and providing transparency for downstream consumers.
 
-**RavenFabric version:** v0.2-dev  
-**Last updated:** 2026-05-05
+**RavenFabric version:** v0.2.1  
+**Last updated:** 2026-05-10
 
 ---
 

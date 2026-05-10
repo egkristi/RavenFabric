@@ -3,9 +3,9 @@
 > Dette dokumentet kartlegger RavenFabric mot Nasjonal sikkerhetsmyndighets (NSM)
 > grunnprinsipper for IKT-sikkerhet, versjon 2.1.
 
-**RavenFabric-versjon:** v0.2-dev  
+**RavenFabric-versjon:** v0.2.1  
 **Standard:** NSM Grunnprinsipper for IKT-sikkerhet 2.1  
-**Sist oppdatert:** 2026-05-05
+**Sist oppdatert:** 2026-05-10
 
 ---
 
@@ -87,7 +87,7 @@ Ikke direkte relevant for RavenFabric (verken e-post- eller nettlesersystem).
 | Prinsipp | RavenFabric-implementasjon |
 |----------|----------------------------|
 | Minimer eksponert angrepsflate | Ingen lytteporter på agenter — de kobler *ut* til relay. Rate-limiting (20 tilkoblinger/IP/min) på relay. |
-| Beskytt mot kjente sårbarheter | Dependabot, CodeQL, clippy med `-Dwarnings`, 363 tester. Rust eliminerer minnefeil. |
+| Beskytt mot kjente sårbarheter | Dependabot, CodeQL, clippy med `-Dwarnings`, 1,094 tester. Rust eliminerer minnefeil. |
 | Valider all inndata | RPC-meldinger deserialiseres via msgpack med typevalidering. Wire-protokoll krever magic + versjon. Policy validerer kommandostrenger mot regex. |
 
 ---
@@ -150,10 +150,10 @@ Ikke direkte relevant for RavenFabric (verken e-post- eller nettlesersystem).
 
 ## Mangler og plan
 
-| Gap | NSM-prinsipp | Planlagt utbedring | Tidslinje |
-|-----|--------------|---------------------|-----------|
-| Ingen CMDB-integrasjon | 1.1 Kartlegg enheter | Agent auto-registrering | v0.3 |
-| Ingen SIEM-eksport | 3.1 Overvåk | Syslog (RFC 5424) + OTLP | v0.3 |
-| Ingen MFA for operatører | 2.4 Sterk autentisering | WebAuthn/FIDO2 | v0.7 |
-| Ingen formell IR-prosess | 4.1 Planlegg håndtering | Dokumentasjon + runbooks | v0.4 |
-| Ingen sikkerhetsbaseline-drift | 1.2 Kartlegg sårbarhet | Desired-state med drift-deteksjon | v0.4 |
+| Gap | NSM-prinsipp | Planlagt utbedring | Status |
+|-----|--------------|---------------------|--------|
+| ~~Ingen CMDB-integrasjon~~ | 1.1 Kartlegg enheter | Agent auto-registrering | Done — `AgentRegistry` med heartbeat, label-seleksjon, grains |
+| ~~Ingen SIEM-eksport~~ | 3.1 Overvåk | OTLP JSON-eksport | Done — `TraceContext` (W3C traceparent), OTLP span-eksport, Prometheus metrics |
+| Ingen MFA for operatører | 2.4 Sterk autentisering | WebAuthn/FIDO2 | Planlagt |
+| Ingen formell IR-prosess | 4.1 Planlegg håndtering | Dokumentasjon + runbooks | Planlagt |
+| ~~Ingen sikkerhetsbaseline-drift~~ | 1.2 Kartlegg sårbarhet | Desired-state med drift-deteksjon | Done — `ConvergenceEngine` med drift-rapport og auto-remediering |

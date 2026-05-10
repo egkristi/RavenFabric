@@ -3,11 +3,11 @@
 > This document maps RavenFabric's capabilities to the cybersecurity risk-management
 > measures required by the NIS2 Directive, specifically Article 21.
 
-**RavenFabric version:** v0.2-dev  
+**RavenFabric version:** v0.2.1  
 **Directive:** Directive (EU) 2022/2555 (NIS2)  
 **Transposition deadline:** 17 October 2024  
 **Applicability:** Essential and important entities in EU/EEA member states  
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-10
 
 ---
 
@@ -79,9 +79,9 @@ exists for individual tools).
 
 | Requirement | RavenFabric Capability | Evidence |
 |-------------|------------------------|----------|
-| Secure development | Rust memory safety, 363 tests, clippy linting, format checks | CI pipeline enforces all checks |
+| Secure development | Rust memory safety, 1,094 tests, clippy linting, format checks | CI pipeline enforces all checks |
 | Vulnerability handling | Private security advisory reporting, SECURITY.md | GitHub Security Advisories enabled |
-| Security testing | Unit tests for all security-critical paths (policy, crypto, OTP) | 363 tests including negative/edge cases |
+| Security testing | Unit tests for all security-critical paths (policy, crypto, OTP) | 1,094 tests including negative/edge cases |
 
 **How RavenFabric helps:** Built in a memory-safe language with comprehensive testing, automated security scanning, and responsible disclosure processes.
 
@@ -114,7 +114,7 @@ exists for individual tools).
 | Cryptographic key management | Automatic key generation, file-permission protected (0600), zeroed on drop | `StaticKey::load_or_generate()` |
 | Algorithm selection | Industry-standard algorithms (X25519, ChaCha20, BLAKE2s) | Noise Protocol Framework via `snow` crate |
 | Key rotation | Session keys are ephemeral (forward secrecy), periodic re-handshake | Noise XX ephemeral keys per session |
-| Post-quantum readiness | ML-KEM hybrid handshake planned | Roadmap v0.6 |
+| Post-quantum readiness | ML-KEM hybrid handshake implemented | `HybridKemContext` + `PqxdhRatchet` in rf-crypto |
 
 **How RavenFabric helps:** Strong encryption is mandatory and automatic — there is no "unencrypted mode". Keys are managed securely by default with no operator intervention required.
 
@@ -170,10 +170,10 @@ exists for individual tools).
 
 ## Gaps and Remediation Plan
 
-| Gap | NIS2 Requirement | Planned Resolution | Timeline |
-|-----|------------------|--------------------|----------|
-| No SBOM generation | Art. 21(2)(d) supply chain | CycloneDX in CI | v0.3 |
-| No artifact signing | Art. 21(2)(d) supply chain | Sigstore/Cosign | v0.3 |
-| No MFA for operators | Art. 21(2)(j) multi-factor | WebAuthn/FIDO2 | v0.7 |
-| No SIEM export | Art. 23 reporting | Syslog + OTLP export | v0.3 |
-| No formal incident playbooks | Art. 21(2)(b) incident handling | Documentation + automation | v0.4 |
+| Gap | NIS2 Requirement | Status |
+|-----|------------------|--------|
+| No SBOM generation | Art. 21(2)(d) supply chain | Open — CycloneDX in CI planned |
+| No artifact signing | Art. 21(2)(d) supply chain | Open — Sigstore/Cosign planned |
+| No MFA for operators | Art. 21(2)(j) multi-factor | Open — WebAuthn/FIDO2 planned |
+| ~~No SIEM export~~ | Art. 23 reporting | Done — OTLP JSON export, Prometheus, `--alert-webhook` |
+| No formal incident playbooks | Art. 21(2)(b) incident handling | Open — documentation + automation planned |

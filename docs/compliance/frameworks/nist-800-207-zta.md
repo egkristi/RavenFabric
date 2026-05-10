@@ -3,9 +3,9 @@
 > This document maps RavenFabric's architecture to the tenets and logical
 > components defined in NIST SP 800-207 (Zero Trust Architecture), August 2020.
 
-**RavenFabric version:** v0.2-dev  
+**RavenFabric version:** v0.2.1  
 **Standard version:** NIST SP 800-207 (Final, August 2020)  
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-10
 
 ---
 
@@ -130,10 +130,10 @@ Partially applicable:
 
 ## Gaps and Planned Improvements
 
-| Gap | NIST Requirement | Planned Resolution | Timeline |
-|-----|------------------|--------------------|----------|
-| No continuous device posture assessment | Tenet 5 (continuous monitoring) | Agent health reporting + drift detection | v0.4 |
-| No risk scoring in policy decisions | Section 3.3 (trust algorithm inputs) | Policy engine risk-weighted decisions | v0.6 |
-| No SIEM/SOAR integration | Section 3.2 (data sources) | OpenTelemetry export, syslog compatibility | v0.3 |
-| No multi-factor for operators | Section 3.3 (MFA) | WebAuthn/FIDO2 support | v0.7 |
-| No device inventory integration | Tenet 5 (asset monitoring) | Agent auto-registration with system facts | v0.3 |
+| Gap | NIST Requirement | Status |
+|-----|------------------|--------|
+| ~~No continuous device posture assessment~~ | Tenet 5 (continuous monitoring) | Done — Grains, health probes, desired-state drift detection |
+| ~~No risk scoring in policy decisions~~ | Section 3.3 (trust algorithm inputs) | Done — Behavioral anomaly scoring per identity |
+| ~~No SIEM/SOAR integration~~ | Section 3.2 (data sources) | Done — OTLP JSON export, Prometheus endpoint, `--alert-webhook` |
+| No multi-factor for operators | Section 3.3 (MFA) | Open — WebAuthn/FIDO2 planned |
+| ~~No device inventory integration~~ | Tenet 5 (asset monitoring) | Done — AgentRegistry with grains, heartbeat, label selection |

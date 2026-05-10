@@ -3,8 +3,8 @@
 > This document details the cryptographic algorithms, protocols, and key management
 > practices implemented in RavenFabric.
 
-**RavenFabric version:** v0.2-dev  
-**Last updated:** 2026-05-05
+**RavenFabric version:** v0.2.1  
+**Last updated:** 2026-05-10
 
 ---
 
@@ -129,14 +129,20 @@ Generation ──→ Storage (0600) ──→ Load ──→ Handshake ──→
 | **RFC 8445** | ICE candidate gathering | `stun_client.rs` — priority computation per RFC |
 | **RFC 9116** | security.txt | `website/.well-known/security.txt` |
 
+### Implemented Post-Quantum
+
+| Standard | Purpose | Status |
+|----------|---------|--------|
+| **ML-KEM hybrid** | Post-quantum key encapsulation | Done — `HybridKemContext` combining ML-KEM + X25519 via HKDF-SHA256 |
+| **PQXDH ratchet** | Post-quantum double ratchet | Done — `PqxdhRatchet` inspired by Signal PQXDH |
+| **RFC 9180 (HPKE)** | Hybrid Public Key Encryption | Done — ECH transport uses HPKE cipher suite selection |
+
 ### Planned
 
-| Standard | Description | Timeline |
-|----------|-------------|----------|
-| **FIPS 203 (ML-KEM)** | Post-quantum key encapsulation | v0.6 |
-| **FIPS 204 (ML-DSA)** | Post-quantum digital signatures | v0.6 |
-| **FIPS 140-3** | Validated cryptographic modules (opt-in mode) | v0.6 |
-| **RFC 9180 (HPKE)** | Hybrid Public Key Encryption for DTN | v0.5 |
+| Standard | Purpose | Timeline |
+|----------|---------|----------|
+| **FIPS 204 (ML-DSA)** | Post-quantum digital signatures | Future |
+| **FIPS 140-3** | Validated cryptographic modules (opt-in mode) | Future |
 
 ---
 
@@ -177,7 +183,7 @@ Generation ──→ Storage (0600) ──→ Load ──→ Handshake ──→
 | Active man-in-the-middle | Noise XX mutual authentication (static key verification) |
 | Replay attacks | Monotonic nonce counter per direction |
 | Key compromise (past sessions) | Forward secrecy via ephemeral keys |
-| Quantum computer (future) | ML-KEM hybrid planned for v0.6 |
+| Quantum computer (future) | ML-KEM hybrid implemented (`HybridKemContext` + `PqxdhRatchet`) |
 | Side-channel (timing) | ChaCha20 is constant-time without hardware support |
 | Key extraction from memory | Keys zeroed on drop, file permissions 0600 |
 | Protocol downgrade | Single protocol version, no negotiation |

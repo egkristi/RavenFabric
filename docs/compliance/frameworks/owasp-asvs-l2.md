@@ -3,10 +3,10 @@
 > This document maps RavenFabric against the OWASP Application Security
 > Verification Standard (ASVS) 4.0.3, targeting Level 2 compliance.
 
-**RavenFabric version:** v0.2-dev  
+**RavenFabric version:** v0.2.1  
 **Standard:** OWASP ASVS 4.0.3  
 **Target level:** Level 2 (Standard)  
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-10
 
 ---
 
@@ -22,7 +22,7 @@ HTTP headers) do not apply. This mapping covers the applicable sections.
 
 | # | Requirement | Status | Evidence |
 |---|-------------|--------|----------|
-| 1.1.1 | Identify all application components | Pass | Cargo workspace with 11 explicit crates, dependency graph documented |
+| 1.1.1 | Identify all application components | Pass | Cargo workspace with 13 explicit crates, dependency graph documented |
 | 1.1.2 | High-level architecture defined | Pass | Architecture in README.md, ROADMAP.md, copilot-instructions.md |
 | 1.2.1 | Authentication mechanism identified | Pass | Noise XX mutual auth, OTP enrollment |
 | 1.4.1 | All trust boundaries identified | Pass | Relay boundary (zero-knowledge), agent boundary (final authority), policy boundary |
@@ -103,7 +103,7 @@ HTTP headers) do not apply. This mapping covers the applicable sections.
 | 7.2.2 | Auth failures logged | Pass | Denied attempts logged with caller key |
 | 7.3.1 | Logs contain relevant context | Pass | Timestamp, caller_key, action, command, decision, rule, duration |
 | 7.3.4 | Logs include source identification | Pass | `caller_key` (Noise public key) identifies caller cryptographically |
-| 7.4.1 | Logs protected from tampering | Partial | Append-only file mode; no cryptographic log signing yet |
+| 7.4.1 | Logs protected from tampering | Pass | Append-only file mode + HMAC-SHA256 signed policy log with SHA-256 hash chain |
 
 ---
 
@@ -171,21 +171,21 @@ HTTP headers) do not apply. This mapping covers the applicable sections.
 | V4 Access Control | 5 | 5 | 0 | 0 | 0 |
 | V5 Validation | 5 | 4 | 0 | 0 | 1 |
 | V6 Cryptography | 6 | 6 | 0 | 0 | 0 |
-| V7 Error/Logging | 6 | 5 | 1 | 0 | 0 |
+| V7 Error/Logging | 6 | 6 | 0 | 0 | 0 |
 | V8 Data Protection | 4 | 4 | 0 | 0 | 0 |
 | V9 Communication | 4 | 4 | 0 | 0 | 0 |
 | V10 Malicious Code | 3 | 2 | 1 | 0 | 0 |
 | V13 API | 4 | 4 | 0 | 0 | 0 |
 | V14 Configuration | 4 | 3 | 0 | 0 | 1 |
-| **Total** | **58** | **53** | **2** | **0** | **3** |
+| **Total** | **58** | **54** | **1** | **0** | **3** |
 
-**ASVS Level 2 conformance: 91% (53/58 applicable requirements pass)**
+**ASVS Level 2 conformance: 93% (54/58 applicable requirements pass)**
 
 ---
 
 ## Gaps
 
-| Gap | Requirement | Planned Fix | Timeline |
-|-----|-------------|-------------|----------|
-| No cryptographic log signing | V7.4.1 | Append-only + HMAC chain | v0.4 |
-| No auto-update with integrity check | V10.3.1 | Sigstore-verified updates | v0.5 |
+| Gap | Requirement | Status |
+|-----|-------------|--------|
+| ~~No cryptographic log signing~~ | V7.4.1 | Done — HMAC-SHA256 signed policy log with SHA-256 hash chain |
+| No auto-update with integrity check | V10.3.1 | Open — Sigstore-verified updates planned |

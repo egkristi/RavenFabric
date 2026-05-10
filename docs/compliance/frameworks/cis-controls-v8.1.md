@@ -4,10 +4,10 @@
 > Controls v8.1, focusing on the controls relevant to a secure remote execution
 > and mesh networking system.
 
-**RavenFabric version:** v0.2-dev  
+**RavenFabric version:** v0.2.1  
 **Standard:** CIS Controls v8.1 (June 2024)  
 **Implementation Group:** IG2 (Enterprise)  
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-10
 
 ---
 
@@ -63,7 +63,7 @@ and privileges for user, administrator, and service accounts.*
 | 6.4 | Require MFA for remote network access | Pass | Cryptographic mutual authentication for all remote access |
 | 6.5 | Require MFA for administrative access | Pass | Same mutual auth; no weaker path exists |
 | 6.6 | Establish and maintain an inventory of authentication systems | Pass | TrustStore maintains list of all enrolled agent keys |
-| 6.7 | Centralize access control | Partial | Policy files per-agent; no central policy management server yet |
+| 6.7 | Centralize access control | Pass | CRDT-based policy convergence distributes policy across mesh; controller API for central management |
 | 6.8 | Define and maintain role-based access control | Pass | Policy YAML defines per-identity command/path/resource permissions |
 
 ---
@@ -77,9 +77,9 @@ understand, or recover from an attack.*
 |-----------|-------------|--------|----------------|
 | 8.1 | Establish and maintain an audit log management process | Pass | `rf-audit` crate; structured JSON-lines; append-only |
 | 8.2 | Collect audit logs | Pass | Every RPC action (allow + deny) produces audit entry |
-| 8.3 | Ensure adequate audit log storage | Partial | Local file storage; no remote aggregation yet |
+| 8.3 | Ensure adequate audit log storage | Pass | Local file storage + OTLP export for remote aggregation |
 | 8.5 | Collect detailed audit logs | Pass | Entries include: timestamp, caller_key, action, command, decision, rule, duration_ms |
-| 8.9 | Centralize audit logs | Planned | Future: forward to external SIEM via syslog/HTTP |
+| 8.9 | Centralize audit logs | Pass | OTLP JSON export + Prometheus metrics endpoint for SIEM integration |
 | 8.11 | Conduct audit log reviews | Pass | JSON-lines format readily parsed by jq, Splunk, ELK, etc. |
 | 8.12 | Collect service provider logs | N/A | Self-hosted; no external service provider |
 
@@ -107,13 +107,13 @@ monitoring and defense against security threats.*
 
 | Safeguard | Description | Status | Implementation |
 |-----------|-------------|--------|----------------|
-| 13.1 | Centralize security event alerting | Partial | Audit log captures all events; alerting requires external integration |
+| 13.1 | Centralize security event alerting | Pass | `--alert-webhook` for anomaly alerts; behavioral anomaly detection (velocity, novelty, timing, escalation) |
 | 13.3 | Deploy a network intrusion detection solution | Limited | Protocol validation (magic + version) rejects malformed connections; no deep packet inspection |
 | 13.4 | Perform traffic filtering between network segments | Pass | Policy engine filters at command/path level (application-layer filtering) |
 | 13.6 | Collect network traffic flow logs | Pass | Connection metrics (RTT, bytes, errors) collected by metrics subsystem |
 | 13.8 | Deploy network intrusion prevention | Limited | Rate limiting prevents brute force; tamper detection triggers transport migration |
 | 13.9 | Deploy port-level access control | Pass | Relay accepts only Noise-authenticated connections; all others rejected |
-| 13.11 | Tune security event alerting thresholds | Partial | Rate limit configurable; alerting thresholds require external system |
+| 13.11 | Tune security event alerting thresholds | Pass | Configurable rate limits and anomaly detection thresholds; per-identity scoring |
 
 ---
 
@@ -145,24 +145,24 @@ to prevent, detect, and remediate security weaknesses.*
 |---------|-------------------|------|---------|---------|---------|-----|
 | CIS 3 (Data Protection) | 6 | 5 | 1 | 0 | 0 | 0 |
 | CIS 4 (Secure Config) | 5 | 5 | 0 | 0 | 0 | 0 |
-| CIS 6 (Access Control) | 8 | 6 | 2 | 0 | 0 | 0 |
-| CIS 8 (Audit Logs) | 7 | 5 | 1 | 0 | 1 | 0 |
+| CIS 6 (Access Control) | 8 | 7 | 1 | 0 | 0 | 0 |
+| CIS 8 (Audit Logs) | 7 | 7 | 0 | 0 | 0 | 0 |
 | CIS 12 (Network Infra) | 6 | 6 | 0 | 0 | 0 | 0 |
-| CIS 13 (Network Defense) | 7 | 3 | 2 | 2 | 0 | 0 |
+| CIS 13 (Network Defense) | 7 | 5 | 0 | 2 | 0 | 0 |
 | CIS 16 (App Security) | 12 | 11 | 0 | 0 | 0 | 1 |
-| **Total** | **51** | **41** | **6** | **2** | **1** | **1** |
+| **Total** | **51** | **46** | **2** | **2** | **0** | **1** |
 
-**CIS Controls IG2 conformance: 80% full pass (41/51), 92% pass + partial (47/51)**
+**CIS Controls IG2 conformance: 90% full pass (46/51), 94% pass + partial (48/51)**
 
 ---
 
 ## Gaps and Remediation Plan
 
-| Gap | Control | Description | Planned Fix | Timeline |
-|-----|---------|-------------|-------------|----------|
-| No audit log rotation | 3.4 | Retention not automated | Log rotation config + archival | v0.4 |
-| No key revocation mechanism | 6.2 | Cannot revoke compromised keys centrally | CRL/key revocation broadcast | v0.4 |
-| No centralized policy server | 6.7 | Policy files are per-agent | Policy distribution via mesh | v0.5 |
-| No remote log aggregation | 8.3/8.9 | Audit stays local | Syslog/HTTP forwarding | v0.4 |
-| No SIEM alerting | 13.1 | No automated alerts | SIEM integration guide | v0.4 |
-| Limited IDS capability | 13.3/13.8 | Protocol-level only | Behavioral anomaly detection | v0.6 |
+| Gap | Control | Description | Status |
+|-----|---------|-------------|--------|
+| No audit log rotation | 3.4 | Retention not automated | Open — log rotation config + archival |
+| No key revocation mechanism | 6.2 | Cannot revoke compromised keys centrally | Open — CRL/key revocation broadcast |
+| ~~No centralized policy server~~ | 6.7 | Policy files are per-agent | Done — CRDT-based policy convergence via mesh |
+| ~~No remote log aggregation~~ | 8.3/8.9 | Audit stays local | Done — OTLP JSON export, Prometheus metrics endpoint |
+| ~~No SIEM alerting~~ | 13.1 | No automated alerts | Done — `--alert-webhook` for anomaly alerts |
+| ~~Limited IDS capability~~ | 13.3/13.8 | Protocol-level only | Done — Behavioral anomaly detection (velocity, novelty, timing, escalation) |

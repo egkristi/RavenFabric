@@ -258,8 +258,8 @@ Audit of the 6 demos in `demos/` identified duplication and gaps. The following 
 - [x] **Controller/Web UI demo** (`demos/controller/`) — HTTP API server, fleet status dashboard, REST endpoints for agent list, health check, remote execution, policy view (5 scenarios)
 
 **Asciinema recording improvements:**
-- [ ] Re-record all `.cast` files after scenario consolidation — requires human (#98)
-- [ ] Add recordings for new demos (mcp-agent, resilience, controller, data-collection, transport-showcase, desired-state) — requires human (#98)
+- [ ] Re-record all `.cast` files with live terminal sessions — requires human (#98)
+- [x] Add recordings for new demos (mcp-agent, resilience, controller, data-collection, transport-showcase, desired-state) — simulated recordings + animated SVGs generated
 - [ ] Automate recording generation from scenario scripts — requires human (#98)
 
 ### Explicitly Not Planned
