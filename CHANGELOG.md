@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.5] — 2026-05-10
 
 ### Added
+- **Security**: Policy enforcement for all RPC handlers — shell open, port forwarding (local/remote/SOCKS5), health check (command probes), and log tail now go through deny-by-default policy checks
+- **Security**: Audit logging for all RPC actions — every handler (metrics, status, read, write, list, signal, background exec, shell open/input/close, port forward start/close, remote forward, SOCKS5 forward, health check, tail log) now produces a structured audit entry with request ID, action, decision, matched rule, and duration
+- **Security**: Policy check for `signal` action — `kill -<signal> <pid>` is now checked against command policy before execution
 - **Demos**: Desired-State Convergence demo — 7 scenarios covering drift detection, auto-remediation, report-only mode, grains-based targeting, event triggers, and version constraints (`demos/desired-state/`)
 - **Tests**: 18 desired-state showcase integration tests — YAML parsing, 4 resource types (packages/files/services/sysctl), convergence modes, grains label matching, event bus triggers, full lifecycle (`crates/rf-integration-tests/tests/desired_state_showcase.rs`)
 - **Demos**: Transport Showcase demo — 5 transports (WebSocket, QUIC, UNIX Socket, Stdio Pipe, Memory) with end-to-end encrypted command execution over each, proving transport interchangeability (`demos/transport-showcase/`)

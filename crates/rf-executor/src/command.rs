@@ -133,21 +133,29 @@ impl Executor {
                     .await
             }
             #[cfg(feature = "sysinfo")]
-            Action::Metrics => self.handle_metrics().await,
+            Action::Metrics => self.handle_metrics(&request.id, start).await,
             #[cfg(not(feature = "sysinfo"))]
             Action::Metrics => RpcResult::Error {
                 message: "metrics not available (compiled without sysinfo feature)".into(),
             },
-            Action::Status => self.handle_status(),
-            Action::Read { path } => self.handle_read(path).await,
-            Action::Write { path, data, mode } => self.handle_write(path, data, *mode).await,
-            Action::List { path } => self.handle_list(path).await,
-            Action::Signal { pid, signal } => self.handle_signal(*pid, *signal),
+            Action::Status => self.handle_status(&request.id, start),
+            Action::Read { path } => self.handle_read(&request.id, path, start).await,
+            Action::Write { path, data, mode } => {
+                self.handle_write(&request.id, path, data, *mode, start)
+                    .await
+            }
+            Action::List { path } => self.handle_list(&request.id, path, start).await,
+            Action::Signal { pid, signal } => {
+                self.handle_signal(&request.id, *pid, *signal, start)
+            }
             Action::BackgroundExec {
                 command,
                 env,
                 workdir,
-            } => self.handle_background_exec(command, env, workdir).await,
+            } => {
+                self.handle_background_exec(&request.id, command, env, workdir, start)
+                    .await
+            }
             Action::JobQuery { job_id } => self.handle_job_query(job_id).await,
             Action::JobWait { job_id } => self.handle_job_wait(job_id).await,
             Action::Ping => RpcResult::Pong {
@@ -163,7 +171,7 @@ impl Executor {
                 cols,
                 env,
             } => {
-                self.handle_shell_open(shell.clone(), *rows, *cols, env.clone())
+                self.handle_shell_open(&request.id, shell.clone(), *rows, *cols, env.clone(), start)
                     .await
             }
             #[cfg(not(unix))]
@@ -172,7 +180,8 @@ impl Executor {
             },
             #[cfg(unix)]
             Action::ShellInput { session_id, data } => {
-                self.handle_shell_input(session_id, data).await
+                self.handle_shell_input(&request.id, session_id, data, start)
+                    .await
             }
             #[cfg(not(unix))]
             Action::ShellInput { .. } => RpcResult::Error {
@@ -189,7 +198,10 @@ impl Executor {
                 message: "shell sessions not supported on this platform".into(),
             },
             #[cfg(unix)]
-            Action::ShellClose { session_id } => self.handle_shell_close(session_id).await,
+            Action::ShellClose { session_id } => {
+                self.handle_shell_close(&request.id, session_id, start)
+                    .await
+            }
             #[cfg(not(unix))]
             Action::ShellClose { .. } => RpcResult::Error {
                 message: "shell sessions not supported on this platform".into(),
@@ -197,25 +209,41 @@ impl Executor {
             Action::PortForward {
                 bind_addr,
                 target_addr,
-            } => self.handle_port_forward(bind_addr, target_addr).await,
+            } => {
+                self.handle_port_forward(&request.id, bind_addr, target_addr, start)
+                    .await
+            }
             Action::PortForwardClose { forward_id } => {
-                self.handle_port_forward_close(forward_id).await
+                self.handle_port_forward_close(&request.id, forward_id, start)
+                    .await
             }
             Action::RemoteForward {
                 bind_addr,
                 target_addr,
-            } => self.handle_remote_forward(bind_addr, target_addr).await,
-            Action::Socks5Forward { bind_addr } => self.handle_socks5_forward(bind_addr).await,
-            Action::Socks5Close { forward_id } => self.handle_port_forward_close(forward_id).await,
+            } => {
+                self.handle_remote_forward(&request.id, bind_addr, target_addr, start)
+                    .await
+            }
+            Action::Socks5Forward { bind_addr } => {
+                self.handle_socks5_forward(&request.id, bind_addr, start)
+                    .await
+            }
+            Action::Socks5Close { forward_id } => {
+                self.handle_port_forward_close(&request.id, forward_id, start)
+                    .await
+            }
             Action::HealthCheck {
                 probe_type,
                 target,
                 timeout_ms,
             } => {
-                self.handle_health_check(probe_type, target, *timeout_ms)
+                self.handle_health_check(&request.id, probe_type, target, *timeout_ms, start)
                     .await
             }
-            Action::TailLog { path, lines } => self.handle_tail_log(path, *lines).await,
+            Action::TailLog { path, lines } => {
+                self.handle_tail_log(&request.id, path, *lines, start)
+                    .await
+            }
             Action::StreamExecute {
                 command,
                 env,
@@ -232,6 +260,33 @@ impl Executor {
         Response {
             id: request.id,
             result,
+        }
+    }
+
+    /// Write an audit log entry, logging errors via tracing.
+    fn audit(
+        &self,
+        request_id: &str,
+        action: &str,
+        command: Option<String>,
+        decision: &str,
+        matched_rule: String,
+        exit_code: Option<i32>,
+        duration_ms: u64,
+    ) {
+        if let Err(e) = self.audit.log(AuditEntry {
+            timestamp: Utc::now(),
+            request_id: request_id.to_string(),
+            action: action.into(),
+            command,
+            decision: decision.into(),
+            matched_rule,
+            exit_code,
+            duration_ms,
+            caller_key: self.caller_key.clone(),
+            reason: None,
+        }) {
+            tracing::error!("audit log write failed: {e}");
         }
     }
 
@@ -340,7 +395,7 @@ impl Executor {
     }
 
     #[cfg(feature = "sysinfo")]
-    async fn handle_metrics(&self) -> RpcResult {
+    async fn handle_metrics(&self, request_id: &str, start: Instant) -> RpcResult {
         let mut sys = self.sysinfo_cache.lock().await;
         sys.refresh_all();
         let stdout = format!(
@@ -351,6 +406,16 @@ impl Executor {
             sys.used_memory() / 1024 / 1024,
         );
 
+        self.audit(
+            request_id,
+            "metrics",
+            None,
+            "allowed",
+            "built-in".into(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
         RpcResult::Success {
             stdout,
             stderr: String::new(),
@@ -359,7 +424,16 @@ impl Executor {
         }
     }
 
-    fn handle_status(&self) -> RpcResult {
+    fn handle_status(&self, request_id: &str, start: Instant) -> RpcResult {
+        self.audit(
+            request_id,
+            "status",
+            None,
+            "allowed",
+            "built-in".into(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
         RpcResult::StatusInfo {
             agent_id: self.agent_id.clone(),
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -367,18 +441,28 @@ impl Executor {
         }
     }
 
-    async fn handle_read(&self, path: &str) -> RpcResult {
+    async fn handle_read(&self, request_id: &str, path: &str, start: Instant) -> RpcResult {
         let file_path = std::path::Path::new(path);
 
         // Policy check (check_path resolves symlinks internally)
         let policy = self.policy.read().await;
         let decision = policy.check_path(file_path);
         if !decision.allowed {
+            self.audit(
+                request_id,
+                "read",
+                Some(path.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        let matched_rule = decision.matched_rule.clone();
         let max_output = policy.max_output_bytes as usize;
         drop(policy);
 
@@ -402,6 +486,15 @@ impl Executor {
                 // Return file content as base64 in stdout
                 use base64::Engine;
                 let encoded = base64::engine::general_purpose::STANDARD.encode(&truncated);
+                self.audit(
+                    request_id,
+                    "read",
+                    Some(path.to_string()),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::Success {
                     stdout: encoded,
                     stderr: String::new(),
@@ -415,18 +508,35 @@ impl Executor {
         }
     }
 
-    async fn handle_write(&self, path: &str, data: &[u8], mode: Option<u32>) -> RpcResult {
+    async fn handle_write(
+        &self,
+        request_id: &str,
+        path: &str,
+        data: &[u8],
+        mode: Option<u32>,
+        start: Instant,
+    ) -> RpcResult {
         let file_path = std::path::Path::new(path);
 
         // Policy check
         let policy = self.policy.read().await;
         let decision = policy.check_path(file_path);
         if !decision.allowed {
+            self.audit(
+                request_id,
+                "write",
+                Some(path.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
         // Atomic write: write to temp file then rename
@@ -461,6 +571,16 @@ impl Executor {
             };
         }
 
+        self.audit(
+            request_id,
+            "write",
+            Some(path.to_string()),
+            "allowed",
+            matched_rule,
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
         RpcResult::Success {
             stdout: format!("wrote {} bytes to {}", data.len(), path),
             stderr: String::new(),
@@ -469,18 +589,28 @@ impl Executor {
         }
     }
 
-    async fn handle_list(&self, path: &str) -> RpcResult {
+    async fn handle_list(&self, request_id: &str, path: &str, start: Instant) -> RpcResult {
         let file_path = std::path::Path::new(path);
 
         // Policy check
         let policy = self.policy.read().await;
         let decision = policy.check_path(file_path);
         if !decision.allowed {
+            self.audit(
+                request_id,
+                "list",
+                Some(path.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
         // Resolve symlinks
@@ -510,6 +640,15 @@ impl Executor {
         }
 
         entries.sort();
+        self.audit(
+            request_id,
+            "list",
+            Some(path.to_string()),
+            "allowed",
+            matched_rule,
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
         RpcResult::Success {
             stdout: entries.join("\n"),
             stderr: String::new(),
@@ -518,12 +657,43 @@ impl Executor {
         }
     }
 
-    fn handle_signal(&self, pid: u32, signal: i32) -> RpcResult {
+    fn handle_signal(&self, request_id: &str, pid: u32, signal: i32, start: Instant) -> RpcResult {
+        // Policy check — treat signal as a command
+        let cmd_repr = format!("kill -{signal} {pid}");
+        let policy = self.policy.blocking_read();
+        let decision = policy.check_command(&cmd_repr);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "signal",
+                Some(cmd_repr),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
+
         #[cfg(unix)]
         {
             // Send signal to process
             let result = unsafe { libc::kill(pid as libc::pid_t, signal as libc::c_int) };
             if result == 0 {
+                self.audit(
+                    request_id,
+                    "signal",
+                    Some(cmd_repr),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::Success {
                     stdout: format!("signal {signal} sent to pid {pid}"),
                     stderr: String::new(),
@@ -531,6 +701,15 @@ impl Executor {
                     duration_ms: 0,
                 }
             } else {
+                self.audit(
+                    request_id,
+                    "signal",
+                    Some(cmd_repr),
+                    "allowed",
+                    matched_rule,
+                    Some(-1),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::Error {
                     message: format!(
                         "kill({}, {}): {}",
@@ -543,7 +722,7 @@ impl Executor {
         }
         #[cfg(not(unix))]
         {
-            let _ = (pid, signal);
+            let _ = (pid, signal, cmd_repr, matched_rule, request_id, start);
             RpcResult::Error {
                 message: "signal not supported on this platform".into(),
             }
@@ -552,19 +731,31 @@ impl Executor {
 
     async fn handle_background_exec(
         &self,
+        request_id: &str,
         command: &str,
         env: &std::collections::HashMap<String, String>,
         workdir: &Option<String>,
+        start: Instant,
     ) -> RpcResult {
         // Policy check
         let policy = self.policy.read().await;
         let decision = policy.check_command(command);
         if !decision.allowed {
+            self.audit(
+                request_id,
+                "background_exec",
+                Some(command.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        let matched_rule = decision.matched_rule.clone();
         let max_output = policy.max_output_bytes as usize;
         drop(policy);
 
@@ -598,6 +789,16 @@ impl Executor {
             let mut jobs = self.jobs.lock().await;
             jobs.insert(job_id.clone(), JobState::Running { pid });
         }
+
+        self.audit(
+            request_id,
+            "background_exec",
+            Some(command.to_string()),
+            "allowed",
+            matched_rule,
+            None,
+            start.elapsed().as_millis() as u64,
+        );
 
         // Spawn background task to wait for completion
         let jobs = self.jobs.clone();
@@ -699,12 +900,39 @@ impl Executor {
     #[cfg(unix)]
     async fn handle_shell_open(
         &self,
+        request_id: &str,
         shell: Option<String>,
         rows: u16,
         cols: u16,
         env: HashMap<String, String>,
+        start: Instant,
     ) -> RpcResult {
         use crate::pty::{PtyConfig, PtySession, TerminalSize};
+
+        // Policy check — opening a shell is equivalent to running the shell command
+        let shell_bin = shell
+            .clone()
+            .or_else(|| std::env::var("SHELL").ok())
+            .unwrap_or_else(|| "/bin/sh".to_string());
+        let policy = self.policy.read().await;
+        let decision = policy.check_command(&shell_bin);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "shell_open",
+                Some(shell_bin.clone()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
 
         let config = PtyConfig {
             shell,
@@ -720,6 +948,15 @@ impl Executor {
                 let session_id = uuid::Uuid::new_v4().to_string();
                 let mut shells = self.shells.lock().await;
                 shells.insert(session_id.clone(), session);
+                self.audit(
+                    request_id,
+                    "shell_open",
+                    Some(shell_bin.clone()),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::ShellOpened { session_id }
             }
             Err(e) => RpcResult::Error {
@@ -729,7 +966,22 @@ impl Executor {
     }
 
     #[cfg(unix)]
-    async fn handle_shell_input(&self, session_id: &str, data: &[u8]) -> RpcResult {
+    async fn handle_shell_input(
+        &self,
+        request_id: &str,
+        session_id: &str,
+        data: &[u8],
+        start: Instant,
+    ) -> RpcResult {
+        self.audit(
+            request_id,
+            "shell_input",
+            Some(session_id.to_string()),
+            "allowed",
+            "shell-session".into(),
+            None,
+            start.elapsed().as_millis() as u64,
+        );
         let mut shells = self.shells.lock().await;
         match shells.get_mut(session_id) {
             Some(session) => match session.write(data) {
@@ -797,12 +1049,26 @@ impl Executor {
     }
 
     #[cfg(unix)]
-    async fn handle_shell_close(&self, session_id: &str) -> RpcResult {
+    async fn handle_shell_close(
+        &self,
+        request_id: &str,
+        session_id: &str,
+        start: Instant,
+    ) -> RpcResult {
         use crate::pty::PtySignal;
         let mut shells = self.shells.lock().await;
         match shells.remove(session_id) {
             Some(session) => {
                 let _ = session.signal(PtySignal::Sighup);
+                self.audit(
+                    request_id,
+                    "shell_close",
+                    Some(session_id.to_string()),
+                    "allowed",
+                    "shell-session".into(),
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::ShellExited {
                     session_id: session_id.to_string(),
                     exit_code: 0,
@@ -816,8 +1082,36 @@ impl Executor {
 
     // --- Port forward handlers ---
 
-    async fn handle_port_forward(&self, bind_addr: &str, target_addr: &str) -> RpcResult {
+    async fn handle_port_forward(
+        &self,
+        request_id: &str,
+        bind_addr: &str,
+        target_addr: &str,
+        start: Instant,
+    ) -> RpcResult {
         use rf_rpc::forward::start_local_forward;
+
+        // Policy check — port forwarding is equivalent to a network command
+        let cmd_repr = format!("port-forward {bind_addr} {target_addr}");
+        let policy = self.policy.read().await;
+        let decision = policy.check_command(&cmd_repr);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "port_forward",
+                Some(cmd_repr),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
 
         let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
         match start_local_forward(bind_addr, target_addr.to_string(), cancel_rx).await {
@@ -833,6 +1127,15 @@ impl Executor {
                         bind_addr: bound.clone(),
                     },
                 );
+                self.audit(
+                    request_id,
+                    "port_forward",
+                    Some(cmd_repr),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::ForwardStarted {
                     forward_id,
                     bind_addr: bound,
@@ -844,11 +1147,25 @@ impl Executor {
         }
     }
 
-    async fn handle_port_forward_close(&self, forward_id: &str) -> RpcResult {
+    async fn handle_port_forward_close(
+        &self,
+        request_id: &str,
+        forward_id: &str,
+        start: Instant,
+    ) -> RpcResult {
         let mut forwards = self.forwards.lock().await;
         match forwards.remove(forward_id) {
             Some(fwd) => {
                 let _ = fwd.cancel.send(true);
+                self.audit(
+                    request_id,
+                    "forward_close",
+                    Some(forward_id.to_string()),
+                    "allowed",
+                    "forward-session".into(),
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::ForwardStopped {
                     forward_id: forward_id.to_string(),
                 }
@@ -859,8 +1176,36 @@ impl Executor {
         }
     }
 
-    async fn handle_remote_forward(&self, bind_addr: &str, target_addr: &str) -> RpcResult {
+    async fn handle_remote_forward(
+        &self,
+        request_id: &str,
+        bind_addr: &str,
+        target_addr: &str,
+        start: Instant,
+    ) -> RpcResult {
         use rf_rpc::forward::start_remote_forward;
+
+        // Policy check
+        let cmd_repr = format!("remote-forward {bind_addr} {target_addr}");
+        let policy = self.policy.read().await;
+        let decision = policy.check_command(&cmd_repr);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "remote_forward",
+                Some(cmd_repr),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
 
         let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
         match start_remote_forward(bind_addr, target_addr.to_string(), cancel_rx).await {
@@ -876,6 +1221,15 @@ impl Executor {
                         bind_addr: bound_str.clone(),
                     },
                 );
+                self.audit(
+                    request_id,
+                    "remote_forward",
+                    Some(cmd_repr),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::ForwardStarted {
                     forward_id,
                     bind_addr: bound_str,
@@ -887,8 +1241,35 @@ impl Executor {
         }
     }
 
-    async fn handle_socks5_forward(&self, bind_addr: &str) -> RpcResult {
+    async fn handle_socks5_forward(
+        &self,
+        request_id: &str,
+        bind_addr: &str,
+        start: Instant,
+    ) -> RpcResult {
         use rf_rpc::socks5::{Socks5Config, Socks5Server};
+
+        // Policy check
+        let cmd_repr = format!("socks5-forward {bind_addr}");
+        let policy = self.policy.read().await;
+        let decision = policy.check_command(&cmd_repr);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "socks5_forward",
+                Some(cmd_repr),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
 
         let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
         let config = Socks5Config {
@@ -911,6 +1292,15 @@ impl Executor {
                         bind_addr: bound_str.clone(),
                     },
                 );
+                self.audit(
+                    request_id,
+                    "socks5_forward",
+                    Some(cmd_repr),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::ForwardStarted {
                     forward_id,
                     bind_addr: bound_str,
@@ -926,11 +1316,35 @@ impl Executor {
 
     async fn handle_health_check(
         &self,
+        request_id: &str,
         probe_type: &str,
         target: &str,
         timeout_ms: u64,
+        start: Instant,
     ) -> RpcResult {
         use crate::health::{ProbeType, execute_probe};
+
+        // Policy check — command probes need command policy check
+        if probe_type == "command" {
+            let policy = self.policy.read().await;
+            let decision = policy.check_command(target);
+            if !decision.allowed {
+                self.audit(
+                    request_id,
+                    "health_check",
+                    Some(format!("{probe_type}:{target}")),
+                    "denied",
+                    decision.matched_rule.clone(),
+                    None,
+                    start.elapsed().as_millis() as u64,
+                );
+                return RpcResult::Denied {
+                    reason: decision.reason,
+                    rule: decision.matched_rule,
+                };
+            }
+            drop(policy);
+        }
 
         let probe = match probe_type {
             "tcp" => {
@@ -974,6 +1388,16 @@ impl Executor {
         let timeout_dur = Duration::from_millis(timeout_ms);
         let result = execute_probe(&probe, timeout_dur).await;
 
+        self.audit(
+            request_id,
+            "health_check",
+            Some(format!("{probe_type}:{target}")),
+            "allowed",
+            "default-allow".into(),
+            if result.success { Some(0) } else { Some(1) },
+            start.elapsed().as_millis() as u64,
+        );
+
         RpcResult::HealthCheckResult {
             success: result.success,
             latency_ms: result.latency_ms,
@@ -983,15 +1407,53 @@ impl Executor {
 
     // --- Log tail handler ---
 
-    async fn handle_tail_log(&self, path: &str, lines: Option<u32>) -> RpcResult {
+    async fn handle_tail_log(
+        &self,
+        request_id: &str,
+        path: &str,
+        lines: Option<u32>,
+        start: Instant,
+    ) -> RpcResult {
+        // Policy check — reading a log file requires path policy check
+        let file_path = std::path::Path::new(path);
+        let policy = self.policy.read().await;
+        let decision = policy.check_path(file_path);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "tail_log",
+                Some(path.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
+
         // Read the last N lines from a file
         let max_lines = lines.unwrap_or(50) as usize;
 
         match tokio::fs::read_to_string(path).await {
             Ok(content) => {
                 let all_lines: Vec<&str> = content.lines().collect();
-                let start = all_lines.len().saturating_sub(max_lines);
-                let tail: Vec<String> = all_lines[start..].iter().map(|s| s.to_string()).collect();
+                let start_line = all_lines.len().saturating_sub(max_lines);
+                let tail: Vec<String> =
+                    all_lines[start_line..].iter().map(|s| s.to_string()).collect();
+                self.audit(
+                    request_id,
+                    "tail_log",
+                    Some(path.to_string()),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
                 RpcResult::TailOutput {
                     lines: tail,
                     path: path.to_string(),
