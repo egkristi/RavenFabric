@@ -801,7 +801,7 @@ Audit of the 6 demos in `demos/` identified duplication and gaps. The following 
 
 ---
 
-## Technical Debt (Audit Findings — 5 May 2026)
+## Technical Debt (Audit Findings — 10 May 2026)
 
 All critical and important issues resolved. Minor items tracked below.
 
@@ -814,6 +814,7 @@ All critical and important issues resolved. Minor items tracked below.
 - [x] ~~`TransportState` API gap~~ — resolved: `handshake()` returns `StatelessTransportState` for split-free SecureChannel
 - [x] ~~`RwLock` poisoning not handled in `rf-bootstrap`~~ — resolved: `unwrap_or_else(|p| p.into_inner())`
 - [x] ~~Audit log write errors silently swallowed~~ — resolved: `log()` returns `Result<(), AuditError>`
+- [x] ~~sha2 version mismatch (rf-executor, rf-policy, rf-rpc used 0.10 vs workspace 0.11)~~ — resolved: all crates use `sha2 = { workspace = true }` (#99)
 
 ### Minor (code hygiene)
 - [x] ~~Unused workspace deps: `proptest`, `base64`, `crc32fast`~~ — removed
@@ -825,6 +826,10 @@ All critical and important issues resolved. Minor items tracked below.
 - [x] ~~`#[allow(dead_code)]` on `agent_id` field in `rf-bootstrap`~~ — field now used
 - [x] ~~CI clippy allows `unwrap_used` but workspace has it as `warn`~~ — aligned
 - [x] ~~Release workflow uses `|| true` on binary copy~~ — fixed
+- [x] ~~Production `unwrap()` in rf-transport (overlay.rs, quic.rs)~~ — replaced with `expect()` + justification
+
+### Upstream (not actionable)
+- [ ] `snow v0.10.0` pins `sha2 v0.10` causing duplicate crypto dependency tree — waiting for upstream update (#99)
 
 ---
 

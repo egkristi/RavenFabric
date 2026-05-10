@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - **wasmtime**: Upgraded from v29 to v36.0.9, resolving all 16 security advisories (GHSA-q8hx-mm92-4wbg, GHSA-4w5q-m7x3-bxgf, GHSA-v39r-r8gw-p945, GHSA-5wvc-xrjx-h2xq, GHSA-5jmc-43q8-x28q, GHSA-7mpv-9xg9-5jx4, GHSA-75hq-h9g9-4gjr, GHSA-5wgq-hcmq-3rf7, GHSA-5j3r-j6x2-23x2, GHSA-cx96-5vf6-8x3f, GHSA-34ch-7c68-q6x6, GHSA-rj3g-829c-8jpc, GHSA-pp24-53gm-jr4j, GHSA-4x44-w425-m2p3, GHSA-jcr4-92f4-r3jm, GHSA-w2mj-m73j-q22c). v36.0.9 is optimal: MSRV-compatible (requires Rust 1.86, project uses 1.88) and covers all backported fix ranges
 
+### Fixed
+- **deps**: Migrated rf-executor, rf-policy, rf-rpc from `sha2 = "0.10"` to workspace `sha2 = "0.11"` — eliminates direct dependency version mismatch (#99)
+- **code quality**: Replaced 2 production `unwrap()` calls in rf-transport (overlay.rs, quic.rs) with `expect()` + justification
+- **docs**: Fixed inaccurate test counts in README (rf-transport 551→542, rf-rpc 120→112, rf-mcp-client 15→14) and copilot-instructions
+
 ### Added
 - **Demos**: MCP/AI Agent demo (`demos/mcp-agent/`) — 6 scenarios: policy discovery, command execution, policy denial, human approval, audit trail, file operations
 - **Demos**: Resilience demo (`demos/resilience/`) — 5 scenarios: agent reconnect, relay restart recovery, network partition, graceful degradation, exponential backoff visualization (4 Docker containers)

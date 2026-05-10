@@ -620,7 +620,8 @@ impl MultipathFrameScheduler {
                 frames
             }
             MultipathScheduler::LowestLatency => {
-                let best = active.iter().min_by_key(|p| p.rtt_ms).unwrap();
+                let best = active.iter().min_by_key(|p| p.rtt_ms)
+                    .expect("LowestLatency scheduler called with non-empty active paths");
                 let mut frames = vec![ScheduledFrame {
                     path: best.name.clone(),
                     sequence: seq,

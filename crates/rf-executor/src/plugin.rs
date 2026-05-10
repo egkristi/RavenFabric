@@ -261,7 +261,7 @@ impl PluginRegistry {
     fn compute_hash(data: &[u8]) -> String {
         let mut hasher = Sha256::new();
         hasher.update(data);
-        format!("{:x}", hasher.finalize())
+        hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
     }
 
     /// Check if a capability is allowed by the sandbox.
@@ -550,7 +550,7 @@ mod tests {
     fn make_manifest(name: &str, module_bytes: &[u8]) -> PluginManifest {
         let mut hasher = Sha256::new();
         hasher.update(module_bytes);
-        let hash = format!("{:x}", hasher.finalize());
+        let hash: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
 
         PluginManifest {
             name: name.into(),

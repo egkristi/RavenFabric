@@ -156,7 +156,7 @@ impl Driver for QuicDriver {
             .map_err(|e| TransportError::Connection(format!("invalid address: {e}")))?;
 
         let client_config = make_client_config();
-        let mut endpoint = Endpoint::client("0.0.0.0:0".parse().unwrap())
+        let mut endpoint = Endpoint::client("0.0.0.0:0".parse().expect("static bind address"))
             .map_err(|e| TransportError::Connection(format!("bind failed: {e}")))?;
         endpoint.set_default_client_config(client_config);
 
