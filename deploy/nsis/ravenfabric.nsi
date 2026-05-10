@@ -3,7 +3,7 @@
 ; Requires: NSIS 3.x (https://nsis.sourceforge.io/)
 
 !define PRODUCT_NAME "RavenFabric"
-!define PRODUCT_VERSION "0.2.0"
+!define PRODUCT_VERSION "0.2.1"
 !define PRODUCT_PUBLISHER "Erling Kristiansen"
 !define PRODUCT_WEB_SITE "https://ravenfabric.io"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"

@@ -5,6 +5,20 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-05-11
+
+### Security
+- **wasmtime**: Upgraded from v29 to v36.0.9, resolving all 16 security advisories (GHSA-q8hx-mm92-4wbg, GHSA-4w5q-m7x3-bxgf, GHSA-v39r-r8gw-p945, GHSA-5wvc-xrjx-h2xq, GHSA-5jmc-43q8-x28q, GHSA-7mpv-9xg9-5jx4, GHSA-75hq-h9g9-4gjr, GHSA-5wgq-hcmq-3rf7, GHSA-5j3r-j6x2-23x2, GHSA-cx96-5vf6-8x3f, GHSA-34ch-7c68-q6x6, GHSA-rj3g-829c-8jpc, GHSA-pp24-53gm-jr4j, GHSA-4x44-w425-m2p3, GHSA-jcr4-92f4-r3jm, GHSA-w2mj-m73j-q22c). v36.0.9 is optimal: MSRV-compatible (requires Rust 1.86, project uses 1.88) and covers all backported fix ranges
+
+### Added
+- **Demos**: MCP/AI Agent demo (`demos/mcp-agent/`) — 6 scenarios: policy discovery, command execution, policy denial, human approval, audit trail, file operations
+- **Demos**: Resilience demo (`demos/resilience/`) — 5 scenarios: agent reconnect, relay restart recovery, network partition, graceful degradation, exponential backoff visualization (4 Docker containers)
+- **Demos**: Controller/Web UI demo (`demos/controller/`) — 5 scenarios: agent list, health check, remote execution via HTTP API, fleet dashboard, policy view (3 Docker containers)
+
+### Changed
+- **Docs**: README demos section expanded from 6 to 9 demos with subsections for each
+- **Docs**: ROADMAP demo consolidation items resolved — multi-distro-linux and kubernetes-cnpg scenarios confirmed to contain environment-specific content (not duplicates)
+
 ## [0.2.0] — 2026-05-10
 
 ### Added

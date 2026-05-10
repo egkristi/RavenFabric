@@ -3,7 +3,7 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.2.0)** — Foundation complete. 13 crates, 53k LOC, 1,109 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.2.1)** — Foundation complete. 13 crates, 53k LOC, 1,109 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
@@ -739,7 +739,7 @@ distro: ubuntu
 distro_version: "24.04"
 cpu_count: 8
 ram_gb: 16
-ravenfabric_version: "0.2.0"
+ravenfabric_version: "0.2.1"
 role: web-server              # Custom grain
 environment: production       # Custom grain
 ```
@@ -1082,9 +1082,21 @@ kill %1
 
 ## Demos
 
-Three self-contained demos showcase RavenFabric on real infrastructure. Each includes a setup script, asciinema recordings, and full documentation.
+Nine self-contained demos showcase RavenFabric on real infrastructure. Each includes a setup script, scenario scripts, and full documentation.
 
 See the animated recordings at [ravenfabric.io/demos/](https://ravenfabric.io/demos/).
+
+| Demo | Focus | Agents | Scenarios |
+|------|-------|--------|-----------|
+| [Multi-Node Ubuntu](demos/multi-node-ubuntu/) | Remote execution, policy, audit, orchestration | 2 Ubuntu agents | 17 |
+| [Multi-Distro Linux](demos/multi-distro-linux/) | Static binary portability across 9 distros | 9 distro agents | 6 |
+| [Kubernetes + CNPG](demos/kubernetes-cnpg/) | Encrypted database access in K8s | CNPG cluster | 6 |
+| [Transport Showcase](demos/transport-showcase/) | Same protocol over 5 transport types | Per-transport | 5 |
+| [Desired-State Convergence](demos/desired-state/) | Drift detection and auto-remediation | Stateful agents | 7 |
+| [Data Collection](demos/data-collection/) | Fleet inventory, metrics, logs, security scan | 3 role-based agents | 8 |
+| [MCP/AI Agent](demos/mcp-agent/) | Policy-bounded AI execution, human approval | 1 MCP server | 6 |
+| [Resilience](demos/resilience/) | Reconnect, relay restart, network partition | 3 agents + relay | 5 |
+| [Controller/Web UI](demos/controller/) | HTTP API, fleet dashboard, real-time monitoring | 2 agents + controller | 5 |
 
 ### Multi-Node Ubuntu
 
@@ -1119,6 +1131,71 @@ rf --relay ws://127.0.0.1:9093 exec --token cnpg 'psql -c "SELECT client_addr, s
 ./setup.sh teardown
 ```
 
+### Transport Showcase
+
+Five transport types — WebSocket (TCP), QUIC (UDP), UNIX socket, stdio pipe, and in-process memory — all running identical Noise XX encrypted sessions.
+
+```bash
+cd demos/transport-showcase
+./scenarios/01-websocket-tcp.sh
+./scenarios/02-quic-udp.sh
+./scenarios/03-unix-socket.sh
+```
+
+### Desired-State Convergence
+
+Declarative desired-state engine with drift detection and auto-remediation — 7 scenarios covering packages, files, services, sysctl, grains targeting, and event triggers.
+
+```bash
+cd demos/desired-state
+./scenarios/01-drift-detection.sh
+./scenarios/02-auto-remediation.sh
+```
+
+### Data Collection
+
+Fleet-wide inventory, resource monitoring, log collection, config audit, network topology, and security scanning — 3 role-based agents (collector, webserver, database) with strict read-only policy.
+
+```bash
+cd demos/data-collection && ./setup.sh
+./scenarios/01-system-inventory.sh
+./scenarios/02-resource-monitoring.sh
+./setup.sh teardown
+```
+
+### MCP/AI Agent
+
+End-to-end MCP server demo with policy-bounded AI execution, human approval workflow, and audit trail — 6 scenarios from policy discovery to file operations.
+
+```bash
+cd demos/mcp-agent && ./setup.sh
+./scenarios/01-policy-discovery.sh
+./scenarios/04-human-approval.sh
+./setup.sh teardown
+```
+
+### Resilience
+
+Agent reconnect after relay restart, network partition recovery, graceful degradation, and exponential backoff visualization — 4 containers (relay + 3 agents).
+
+```bash
+cd demos/resilience && ./setup.sh
+./scenarios/01-agent-reconnect.sh
+./scenarios/03-network-partition.sh
+./setup.sh teardown
+```
+
+### Controller / Web UI
+
+HTTP API server with fleet dashboard and real-time agent monitoring — REST endpoints for agent list, health check, remote execution, and policy inspection.
+
+```bash
+cd demos/controller && ./setup.sh
+curl -s http://localhost:8080/api/agents | python3 -m json.tool
+./scenarios/03-remote-execution.sh
+./setup.sh teardown
+```
+
 ### Project Structure
 
 ```
@@ -1141,9 +1218,15 @@ RavenFabric/
 │   ├── python/             # Python MCP client SDK (pip)
 │   └── typescript/         # TypeScript MCP client SDK (npm)
 ├── demos/
-│   ├── multi-node-ubuntu/  # 2-agent Ubuntu demo (Docker)
-│   ├── multi-distro-linux/ # 9-distro compatibility demo (Docker)
+│   ├── multi-node-ubuntu/  # 2-agent Ubuntu demo (17 scenarios)
+│   ├── multi-distro-linux/ # 9-distro compatibility demo
 │   ├── kubernetes-cnpg/    # CloudNativePG + K8s demo
+│   ├── transport-showcase/ # 5 transport types (WS, QUIC, UNIX, stdio, memory)
+│   ├── desired-state/      # Drift detection + auto-remediation
+│   ├── data-collection/    # Fleet inventory, metrics, security scan
+│   ├── mcp-agent/          # MCP/AI agent integration demo
+│   ├── resilience/         # Reconnect, partition recovery, backoff
+│   ├── controller/         # HTTP API + fleet dashboard demo
 │   └── recordings/         # Asciinema recordings + SVG exports
 ├── docs/                   # Documentation (mdBook)
 ├── website/                # Landing page (ravenfabric.io)

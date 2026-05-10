@@ -7,7 +7,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
     Name="RavenFabric"
-    Version="0.2.0.0"
+    Version="0.2.1.0"
     Manufacturer="Erling Kristiansen"
     UpgradeCode="F8A3B2D1-4E5C-6F7A-8B9C-0D1E2F3A4B5C"
     Scope="perMachine">

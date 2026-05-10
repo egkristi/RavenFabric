@@ -243,6 +243,25 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Newsletter signup (Buttondown, not Mailchimp) — form added to website
 - [ ] Live demo sandbox (`rf-demo.ravenfabric.io`) — requires infrastructure (#42)
 
+### Demo Consolidation & Improvements
+
+Audit of the 6 demos in `demos/` identified duplication and gaps. The following changes are planned:
+
+**Consolidation (reduce redundancy):**
+- [x] **multi-distro-linux**: Scenarios 12-17 (port-forwarding, policy-denial, audit-trail, dev-mode, fleet-orchestration, human-approval) have identical filenames to multi-node-ubuntu but contain distro-specific content tailored to the multi-distro environment — **not true duplicates**, no consolidation needed
+- [x] **kubernetes-cnpg**: Scenarios 12-17 have identical filenames but contain K8s/CNPG-specific content (e.g., pod exec, PostgreSQL commands) — **not true duplicates**, no consolidation needed
+- [x] **multi-node-ubuntu**: Keep as-is — primary feature showcase (17 scenarios covering all core capabilities)
+
+**Missing demos to add:**
+- [x] **MCP/AI agent demo** (`demos/mcp-agent/`) — end-to-end demo with rf-mcp-server, 6 scenarios covering policy discovery, command execution, policy denial, human approval, audit trail, and file operations
+- [x] **Resilience demo** (`demos/resilience/`) — agent reconnect after relay restart, network partition recovery, graceful degradation, backoff behavior visualization (5 scenarios, 4 containers)
+- [x] **Controller/Web UI demo** (`demos/controller/`) — HTTP API server, fleet status dashboard, REST endpoints for agent list, health check, remote execution, policy view (5 scenarios)
+
+**Asciinema recording improvements:**
+- [ ] Re-record all `.cast` files after scenario consolidation — requires human (#98)
+- [ ] Add recordings for new demos (mcp-agent, resilience, controller, data-collection, transport-showcase, desired-state) — requires human (#98)
+- [ ] Automate recording generation from scenario scripts — requires human (#98)
+
 ### Explicitly Not Planned
 - No cookie banner (no cookies, no analytics)
 - No animated hero backgrounds (CPU waste, AI-slop aesthetic)
