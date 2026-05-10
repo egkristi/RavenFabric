@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="RavenFabric live demos — multi-node Ubuntu, multi-distro Linux, and Kubernetes + CloudNativePG. Animated terminal recordings and setup instructions.">
+    <meta name="description" content="RavenFabric live demos — multi-node Ubuntu, multi-distro Linux, Kubernetes + CloudNativePG, transport showcase, desired-state convergence, data collection, MCP/AI agent, resilience, and controller/Web UI. Animated terminal recordings and setup instructions.">
     <meta name="theme-color" content="#0a0b0d">
     <meta name="color-scheme" content="dark">
     <meta name="author" content="Erling Kristiansen">
@@ -11,7 +11,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://ravenfabric.io/demos/">
     <meta property="og:title" content="Live Demos — RavenFabric">
-    <meta property="og:description" content="See RavenFabric in action: multi-node, multi-distro, and Kubernetes demos with animated terminal recordings.">
+    <meta property="og:description" content="See RavenFabric in action: 9 demos covering multi-node, multi-distro, Kubernetes, transport diversity, desired-state, data collection, AI agent integration, resilience, and fleet management.">
     <meta property="og:image" content="https://ravenfabric.io/assets/og-image.png">
     <title>Live Demos — RavenFabric</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
@@ -1063,6 +1063,430 @@ helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
 
 <span class="comment"># vs kubectl: no human gate, no per-command audit, no rate limit</span></pre>
         </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 4: Transport Showcase                                 -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="transport-showcase">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 4</div>
+            <h2>Transport Showcase</h2>
+            <p>
+                Five transport types — WebSocket (TCP), QUIC (UDP), UNIX socket, stdio pipe,
+                and in-process memory — all running identical Noise XX encrypted sessions.
+                Same protocol, same policy, same audit trail regardless of transport.
+            </p>
+        </div>
+
+        <div class="architecture">
+<pre>
+┌────────────────────────────────────────────────────┐
+│  Same Noise XX session over 5 transports:          │
+│                                                    │
+│  1. WebSocket (TCP)    ws://relay:9090             │
+│  2. QUIC (UDP)         quic://relay:9090           │
+│  3. UNIX socket        /tmp/rf.sock                │
+│  4. Stdio pipe         rf-agent | rf-cli           │
+│  5. In-process memory  tokio::io::duplex           │
+│                                                    │
+│  All produce identical: ciphertext, audit, policy  │
+└────────────────────────────────────────────────────┘
+</pre>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Transports</h4>
+                <p>5 (WS, QUIC, UNIX, stdio, memory)</p>
+            </div>
+            <div class="info-card">
+                <h4>Encryption</h4>
+                <p>Noise XX on all</p>
+            </div>
+            <div class="info-card">
+                <h4>Scenarios</h4>
+                <p>5</p>
+            </div>
+            <div class="info-card">
+                <h4>Key Point</h4>
+                <p>Transport is interchangeable</p>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>Setup</h3>
+            <div class="setup-prereqs">
+                <span>rf CLI</span>
+            </div>
+<pre class="code-block"><span class="comment"># Each scenario demonstrates one transport type</span>
+<span class="cmd">cd demos/transport-showcase</span>
+
+<span class="comment"># WebSocket over TCP</span>
+<span class="cmd">./scenarios/01-websocket-tcp.sh</span>
+
+<span class="comment"># QUIC over UDP (connection migration, 0-RTT)</span>
+<span class="cmd">./scenarios/02-quic-udp.sh</span>
+
+<span class="comment"># UNIX domain socket (same-host, no network)</span>
+<span class="cmd">./scenarios/03-unix-socket.sh</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 5: Desired-State Convergence                          -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="desired-state">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 5</div>
+            <h2>Desired-State Convergence</h2>
+            <p>
+                Declarative desired-state engine with drift detection and auto-remediation.
+                Define what should be true. RavenFabric converges reality to match — and
+                reports what changed.
+            </p>
+        </div>
+
+        <div class="architecture">
+<pre>
+desired-state.yaml
+  ├── packages: [nginx, curl]      → install if missing
+  ├── files:                       → create/fix content + permissions
+  │     /etc/app/config.yaml
+  ├── services: [nginx]            → ensure running + enabled
+  └── sysctl:                      → apply kernel params
+        net.ipv4.ip_forward: 1
+
+Convergence Engine:
+  check → drift report → remediate → re-check → converged
+</pre>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Resources</h4>
+                <p>Packages, files, services, sysctl</p>
+            </div>
+            <div class="info-card">
+                <h4>Modes</h4>
+                <p>Check-only or auto-remediate</p>
+            </div>
+            <div class="info-card">
+                <h4>Scenarios</h4>
+                <p>7</p>
+            </div>
+            <div class="info-card">
+                <h4>Targeting</h4>
+                <p>Grains-based label selectors</p>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>Setup</h3>
+<pre class="code-block"><span class="cmd">cd demos/desired-state</span>
+
+<span class="comment"># Detect drift without changing anything</span>
+<span class="cmd">./scenarios/01-drift-detection.sh</span>
+
+<span class="comment"># Auto-fix drifted resources</span>
+<span class="cmd">./scenarios/02-auto-remediation.sh</span>
+
+<span class="comment"># Target specific agents by grains (OS, arch, role)</span>
+<span class="cmd">./scenarios/05-grains-targeting.sh</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 6: Data Collection                                    -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="data-collection">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 6</div>
+            <h2>Data Collection</h2>
+            <p>
+                Fleet-wide inventory, resource monitoring, log collection, config audit, network topology,
+                and security scanning — 3 role-based agents with strict read-only policy.
+            </p>
+        </div>
+
+        <div class="architecture">
+<pre>
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  collector   │  │  webserver   │  │  database    │
+│  (metrics)   │  │  (nginx)     │  │  (postgres)  │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │ WebSocket        │ WebSocket        │ WebSocket
+       └─────────┬────────┴──────────────────┘
+            ┌────┴─────────┐
+            │   rf-relay   │
+            │   :9096      │
+            └──────────────┘
+
+Policy: read-only (no writes, no mutations)
+</pre>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Agents</h4>
+                <p>3 (collector, webserver, database)</p>
+            </div>
+            <div class="info-card">
+                <h4>Port</h4>
+                <p><code>9096</code></p>
+            </div>
+            <div class="info-card">
+                <h4>Scenarios</h4>
+                <p>8</p>
+            </div>
+            <div class="info-card">
+                <h4>Policy</h4>
+                <p>Read-only, no mutations</p>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>Setup</h3>
+            <div class="setup-prereqs">
+                <span>Docker</span>
+                <span>rf CLI</span>
+            </div>
+<pre class="code-block"><span class="cmd">cd demos/data-collection && ./setup.sh</span>
+
+<span class="comment"># System inventory (CPU, memory, disk, OS)</span>
+<span class="cmd">./scenarios/01-system-inventory.sh</span>
+
+<span class="comment"># Live resource monitoring</span>
+<span class="cmd">./scenarios/02-resource-monitoring.sh</span>
+
+<span class="comment"># Security scan</span>
+<span class="cmd">./scenarios/06-security-scan.sh</span>
+
+<span class="comment"># Teardown</span>
+<span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 7: MCP/AI Agent                                       -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="mcp-agent">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 7</div>
+            <h2>MCP / AI Agent Integration</h2>
+            <p>
+                End-to-end MCP server demo with policy-bounded AI execution, human approval
+                workflow, and full audit trail. AI agents can only do what policy explicitly
+                permits — and sensitive operations require human sign-off.
+            </p>
+        </div>
+
+        <div class="architecture">
+<pre>
+┌────────────────┐     ┌───────────────────┐
+│  AI Agent      │────►│  rf-mcp-server    │
+│  (Claude, etc) │ MCP │  policy: read-only│
+│                │     │  + approval gate  │
+└────────────────┘     └────────┬──────────┘
+                                │
+                       ┌────────┴──────────┐
+                       │  Policy Engine    │
+                       │  deny-by-default  │
+                       │  + audit log      │
+                       └───────────────────┘
+</pre>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Components</h4>
+                <p>1 MCP server + policy engine</p>
+            </div>
+            <div class="info-card">
+                <h4>Scenarios</h4>
+                <p>6</p>
+            </div>
+            <div class="info-card">
+                <h4>Approval</h4>
+                <p>SHA-256 bound, one-time, 30m TTL</p>
+            </div>
+            <div class="info-card">
+                <h4>Key Point</h4>
+                <p>AI cannot bypass policy</p>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>Setup</h3>
+            <div class="setup-prereqs">
+                <span>Docker</span>
+            </div>
+<pre class="code-block"><span class="cmd">cd demos/mcp-agent && ./setup.sh</span>
+
+<span class="comment"># AI discovers what policy allows</span>
+<span class="cmd">./scenarios/01-policy-discovery.sh</span>
+
+<span class="comment"># AI tries a denied command — blocked</span>
+<span class="cmd">./scenarios/03-policy-denial.sh</span>
+
+<span class="comment"># Human approval workflow</span>
+<span class="cmd">./scenarios/04-human-approval.sh</span>
+
+<span class="comment"># Full audit trail of AI actions</span>
+<span class="cmd">./scenarios/05-audit-trail.sh</span>
+
+<span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 8: Resilience                                         -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="resilience">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 8</div>
+            <h2>Resilience</h2>
+            <p>
+                Agent reconnect after relay restart, network partition recovery,
+                graceful degradation, and exponential backoff visualization.
+                The fabric self-heals.
+            </p>
+        </div>
+
+        <div class="architecture">
+<pre>
+┌───────────┐  ┌───────────┐  ┌───────────┐
+│  agent-1  │  │  agent-2  │  │  agent-3  │
+│  (web01)  │  │  (db01)   │  │  (web02)  │
+└─────┬─────┘  └─────┬─────┘  └─────┬─────┘
+      │               │               │
+      └───────┬───────┴───────┬───────┘
+         ┌────┴────┐     ┌────┴────┐
+         │ relay   │ ──► │ relay   │
+         │ (down)  │     │ (back)  │
+         └─────────┘     └─────────┘
+              ↕
+     backoff: 1s→2s→4s→8s→16s→30s (cap)
+</pre>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Containers</h4>
+                <p>4 (1 relay + 3 agents)</p>
+            </div>
+            <div class="info-card">
+                <h4>Port</h4>
+                <p><code>9094</code></p>
+            </div>
+            <div class="info-card">
+                <h4>Scenarios</h4>
+                <p>5</p>
+            </div>
+            <div class="info-card">
+                <h4>Key Point</h4>
+                <p>Self-healing reconnect</p>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>Setup</h3>
+            <div class="setup-prereqs">
+                <span>Docker</span>
+                <span>rf CLI</span>
+            </div>
+<pre class="code-block"><span class="cmd">cd demos/resilience && ./setup.sh</span>
+
+<span class="comment"># Kill and restart an agent — it reconnects</span>
+<span class="cmd">./scenarios/01-agent-reconnect.sh</span>
+
+<span class="comment"># Stop the relay — agents queue, relay restarts — agents recover</span>
+<span class="cmd">./scenarios/02-relay-restart.sh</span>
+
+<span class="comment"># Simulate network partition</span>
+<span class="cmd">./scenarios/03-network-partition.sh</span>
+
+<span class="comment"># Watch exponential backoff in action</span>
+<span class="cmd">./scenarios/05-backoff-behavior.sh</span>
+
+<span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 9: Controller / Web UI                                -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="controller">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 9</div>
+            <h2>Controller / Web UI</h2>
+            <p>
+                HTTP API server with fleet dashboard and real-time agent monitoring.
+                REST endpoints for agent list, health check, remote execution, and policy inspection.
+            </p>
+        </div>
+
+        <div class="architecture">
+<pre>
+                 ┌───────────────────────┐
+   Browser ────► │  Controller (HTTP)    │ ◄──── rf CLI
+                 │  port 8080            │
+                 │  ┌─────────────────┐  │
+                 │  │ Embedded Web UI │  │
+                 │  │ (dashboard)     │  │
+                 │  └─────────────────┘  │
+                 └──────────┬────────────┘
+                            │ WebSocket
+                    ┌───────┼───────┐
+                    │       │       │
+              ┌─────┴┐  ┌──┴──┐  ┌─┴─────┐
+              │ ag-1 │  │ag-2 │  │  CLI  │
+              └──────┘  └─────┘  └───────┘
+</pre>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Containers</h4>
+                <p>3 (1 controller + 2 agents)</p>
+            </div>
+            <div class="info-card">
+                <h4>Ports</h4>
+                <p><code>9095</code> (relay), <code>8080</code> (HTTP)</p>
+            </div>
+            <div class="info-card">
+                <h4>Scenarios</h4>
+                <p>5</p>
+            </div>
+            <div class="info-card">
+                <h4>Key Point</h4>
+                <p>REST API + embedded dashboard</p>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>Setup</h3>
+            <div class="setup-prereqs">
+                <span>Docker</span>
+                <span>curl</span>
+            </div>
+<pre class="code-block"><span class="cmd">cd demos/controller && ./setup.sh</span>
+
+<span class="comment"># List connected agents via REST API</span>
+<span class="cmd">curl -s http://$HOST:8080/api/agents | python3 -m json.tool</span>
+
+<span class="comment"># Health check</span>
+<span class="cmd">curl -s http://$HOST:8080/api/health</span>
+
+<span class="comment"># Execute via HTTP API</span>
+<span class="cmd">./scenarios/03-remote-execution.sh</span>
+
+<span class="comment"># Open dashboard: http://$HOST:8080</span>
+<span class="cmd">./scenarios/04-fleet-dashboard.sh</span>
+
+<span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="demo-section" id="how-it-works">
         <div class="demo-header">
