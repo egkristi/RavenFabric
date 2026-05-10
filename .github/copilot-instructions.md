@@ -22,9 +22,9 @@ Cargo workspace with 13 crates:
 
 | Crate | Purpose | Status |
 |---|---|---|
-| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management, PQ hybrid KEM, no_std frame_codec | **Done** (~1,900 LOC, 42 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | **Done** (~21,900 LOC, 542 tests) |
-| `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~5,900 LOC, 106 tests) |
+| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management, PQ hybrid KEM, no_std frame_codec | **Done** (~1,800 LOC, 42 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | **Done** (~21,900 LOC, 551 tests) |
+| `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~5,800 LOC, 114 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged) | **Done** (~650 LOC, 14 tests) |
 | `rf-policy` | YAML policy loading, command/path/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection | **Done** (~4,500 LOC, 97 tests) |
 | `rf-executor` | Command execution + streaming under policy control with timeout and output limiting, desired-state convergence, event triggers, result parsing, grains | **Done** (~9,900 LOC, 165 tests) |
@@ -32,11 +32,11 @@ Cargo workspace with 13 crates:
 | `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects to relay, executes RPC, reconnect with backoff, single-threaded mode) | **Done** (~380 LOC) |
 | `rf-cli` | CLI client `rf` (exec, dev, status, policy, completions) | **Done** (~1,200 LOC) |
-| `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,300 LOC, 46 tests) |
+| `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,300 LOC, 50 tests) |
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
-| `rf-integration-tests` | End-to-end integration tests | **Done** (~1,700 LOC, 33 tests) |
+| `rf-integration-tests` | End-to-end integration tests | **Done** (~1,700 LOC, 28 tests) |
 
-**Total: ~52,800 LOC, 1,078 tests, 0 clippy warnings.**
+**Total: ~52,800 LOC, 1,093 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

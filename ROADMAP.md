@@ -80,6 +80,7 @@ rf exec test-agent "uname -a"
 ### Workspace Setup
 - [x] Cargo workspace (`Cargo.toml` with all 13 crate members)
 - [x] CI: GitHub Actions (build, test, clippy, fmt, coverage, MSRV)
+- [x] CI: Binary size gate (< 15 MB per binary, enforced in CI)
 - [x] Cross-platform release workflow (Linux, macOS, ARM64)
 - [x] CodeQL security scanning
 - [x] Dependabot for dependency updates

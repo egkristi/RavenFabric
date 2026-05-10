@@ -133,6 +133,39 @@ jobs:
       - name: Cross-check
         run: cross check --target ${{ matrix.target }} -p rf-crypto -p rf-transport -p rf-rpc -p rf-audit -p rf-policy -p rf-executor -p rf-bootstrap
 
+  binary-size:
+    name: Binary Size Gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [check]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: binary-size
+      - name: Build release binaries
+        run: cargo build --release -p rf-agent -p rf-relay -p rf-cli
+      - name: Check binary sizes (< 15 MB)
+        run: |
+          MAX_SIZE=$((15 * 1024 * 1024))
+          FAILED=0
+          for bin in rf-agent rf-relay rf; do
+            SIZE=$(stat --format=%s "target/release/$bin" 2>/dev/null || echo 0)
+            SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $SIZE / 1048576}")
+            if [ "$SIZE" -gt "$MAX_SIZE" ]; then
+              echo "FAIL: $bin is ${SIZE_MB} MB (limit: 15 MB)"
+              FAILED=1
+            else
+              echo "OK: $bin is ${SIZE_MB} MB"
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo "Binary size gate failed — one or more binaries exceed 15 MB"
+            exit 1
+          fi
+
   no-std-wasm:
     name: no_std + WASM
     runs-on: ubuntu-latest

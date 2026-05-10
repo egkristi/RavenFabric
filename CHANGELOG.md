@@ -5,6 +5,14 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] — 2026-05-10
+
+### Added
+- **CI**: Binary size gate — new CI job builds release binaries and fails if any exceed 15 MB, enforcing the deployment size constraint documented in the architecture
+
+### Changed
+- **Versions**: All packaging manifests, SDKs, website, demos, and docs updated from v0.1.5 to v0.1.6
+
 ## [0.1.5] — 2026-05-10
 
 ### Added

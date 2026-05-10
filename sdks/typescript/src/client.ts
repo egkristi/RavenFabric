@@ -36,7 +36,7 @@ export class McpClient {
     const resp = await this.call("initialize", {
       protocolVersion: "2024-11-05",
       capabilities: {},
-      clientInfo: { name: "ravenfabric-typescript", version: "0.1.5" },
+      clientInfo: { name: "ravenfabric-typescript", version: "0.1.6" },
     });
     if (resp.error) {
       throw new McpProtocolError(

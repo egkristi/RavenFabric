@@ -30,7 +30,7 @@ class McpClient:
         resp = await self._call("initialize", {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": {"name": "ravenfabric-python", "version": "0.1.5"},
+            "clientInfo": {"name": "ravenfabric-python", "version": "0.1.6"},
         })
         if resp.error:
             raise McpProtocolError(f"Initialization failed: {resp.error}")
@@ -121,7 +121,7 @@ class McpClient:
         resp = self._transport.send_sync("initialize", {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": {"name": "ravenfabric-python", "version": "0.1.5"},
+            "clientInfo": {"name": "ravenfabric-python", "version": "0.1.6"},
         })
         if resp.error:
             raise McpProtocolError(f"Initialization failed: {resp.error}")
