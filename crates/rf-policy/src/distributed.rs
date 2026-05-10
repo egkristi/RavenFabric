@@ -650,7 +650,11 @@ impl PolicyLog {
             hasher.update(prev.as_bytes());
         }
         hasher.update(serde_json::to_vec(&entry.operation).unwrap_or_default());
-        hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
     }
 
     /// Append an operation to the log. Returns the entry's content hash.
@@ -789,7 +793,11 @@ impl PolicyCrdtOp {
 pub fn compute_policy_hash(content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
-    hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
+    hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
 }
 
 /// HMAC-SHA256 for policy log signing.

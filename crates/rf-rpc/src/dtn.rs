@@ -104,7 +104,11 @@ impl Bundle {
     pub fn hash_payload(payload: &[u8]) -> String {
         let mut hasher = Sha256::new();
         hasher.update(payload);
-        hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
     }
 
     /// Verify that this bundle's ID matches its payload hash (content integrity).
