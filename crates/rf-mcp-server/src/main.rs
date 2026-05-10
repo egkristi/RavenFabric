@@ -81,6 +81,13 @@ struct Cli {
     /// Can be specified multiple times: --approval-pattern "rm .*" --approval-pattern "shutdown.*"
     #[arg(long = "approval-pattern", env = "RF_APPROVAL_PATTERNS")]
     approval_patterns: Vec<String>,
+
+    /// Require human approval for ALL mutating operations (rf_exec, rf_file_write).
+    /// When enabled, no command or file write can execute without a valid approval_id.
+    /// The AI agent MUST call rf_request_approval first and wait for operator approval.
+    /// This is the strongest enforcement mode — it cannot be bypassed.
+    #[arg(long, env = "RF_REQUIRE_APPROVAL")]
+    require_approval: bool,
 }
 
 #[tokio::main]
@@ -131,6 +138,7 @@ async fn main() -> anyhow::Result<()> {
             alert_webhook: cli.alert_webhook.clone(),
             caller_profiles,
             approval_patterns: cli.approval_patterns.clone(),
+            require_approval: cli.require_approval,
         };
         return rf_mcp_server::http_sse::run_http_sse(config).await;
     }
@@ -151,6 +159,7 @@ async fn main() -> anyhow::Result<()> {
         cli.alert_webhook,
         caller_profiles,
         &cli.approval_patterns,
+        cli.require_approval,
     )?;
 
     server.run_stdio().await?;

@@ -3,7 +3,7 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.1.5)** — Foundation complete. 13 crates, 50k LOC, 1,045 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.1.5)** — Foundation complete. 13 crates, 50.9k LOC, 1,051 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
@@ -870,7 +870,7 @@ NOT observable: command content, file content, agent identity, traffic type
 | `rf-relay` | Stateless encrypted relay broker binary | Done (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done (~380 LOC) |
 | `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, completions) | Done (~1,080 LOC) |
-| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~2,900 LOC, 38 tests) |
+| `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~3,100 LOC, 44 tests) |
 | `rf-integration-tests` | End-to-end integration tests (relay pipeline + MCP server E2E) | Done (10 tests) |
 | `sdks/python` | Python MCP client SDK — pip-installable, async + sync API, LangChain + CrewAI + OpenAI + Anthropic + AutoGen integrations | Done (41 tests) |
 | `sdks/typescript` | TypeScript MCP client SDK — npm package, fully typed async API | Done (12 tests) |

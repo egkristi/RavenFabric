@@ -37,6 +37,7 @@ pub struct HttpSseConfig {
     pub alert_webhook: Option<String>,
     pub caller_profiles: Vec<CallerProfile>,
     pub approval_patterns: Vec<String>,
+    pub require_approval: bool,
 }
 
 /// Shared state for the HTTP+SSE server.
@@ -120,6 +121,7 @@ async fn handle_message(
             state.config.alert_webhook.clone(),
             state.config.caller_profiles.clone(),
             &state.config.approval_patterns,
+            state.config.require_approval,
         ) {
             Ok(s) => s,
             Err(e) => {

@@ -67,7 +67,7 @@ pub fn list_tools() -> Value {
             },
             {
                 "name": "rf_file_write",
-                "description": "Write content to a file on the filesystem. Subject to path policy — writes outside allowed paths will be denied.",
+                "description": "Write content to a file on the filesystem. Subject to path policy — writes outside allowed paths will be denied. When approval mode is active, requires approval_id from a prior rf_request_approval call (use command='write:<path>').",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -82,6 +82,10 @@ pub fn list_tools() -> Value {
                         "mode": {
                             "type": "integer",
                             "description": "Unix file permissions (octal, e.g., 0644). Optional."
+                        },
+                        "approval_id": {
+                            "type": "string",
+                            "description": "Approval ID from rf_request_approval (required when approval mode is active, use command='write:<path>')"
                         }
                     },
                     "required": ["path", "content"]

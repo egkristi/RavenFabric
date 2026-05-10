@@ -132,6 +132,9 @@ pub struct McpServer {
     session_key: StaticKey,
     /// Regex patterns for commands that require human approval before execution.
     approval_required_patterns: Vec<regex::Regex>,
+    /// When true, ALL mutating operations (rf_exec, rf_file_write) require approval.
+    /// No exceptions. The AI agent cannot bypass this.
+    require_approval: bool,
 }
 
 /// Status of an approval request.
@@ -168,6 +171,7 @@ impl McpServer {
     /// If `api_token` is `Some`, the client must provide a matching token
     /// in the `initialize` request params (`{"apiToken": "..."}`) before
     /// any tool calls are accepted.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         policy_path: Option<&Path>,
         audit_path: Option<&Path>,
@@ -177,6 +181,7 @@ impl McpServer {
         alert_webhook: Option<String>,
         caller_profiles: Vec<CallerProfile>,
         approval_patterns: &[String],
+        require_approval: bool,
     ) -> anyhow::Result<Self> {
         let policy = if let Some(path) = policy_path {
             RpcPolicy::load(path)?
@@ -246,6 +251,10 @@ impl McpServer {
             );
         }
 
+        if require_approval {
+            info!("approval mode ENABLED — ALL mutating operations require human approval");
+        }
+
         Ok(Self {
             executor: Arc::new(executor),
             policy,
@@ -261,6 +270,7 @@ impl McpServer {
             caller_profiles,
             session_key,
             approval_required_patterns,
+            require_approval,
         })
     }
 
@@ -647,6 +657,26 @@ impl McpServer {
             .get("path")
             .and_then(|p| p.as_str())
             .ok_or("missing 'path' argument")?;
+
+        // --- Approval enforcement for file writes ---
+        // File writes are mutating operations. When approval mode is enabled,
+        // they require approval just like rf_exec.
+        let write_command = format!("write:{path}");
+        if self.requires_approval(&write_command) {
+            let approval_id = args
+                .get("approval_id")
+                .and_then(|id| id.as_str())
+                .ok_or_else(|| {
+                    format!(
+                        "DENIED: file write requires human approval. \
+                         Call rf_request_approval with command='write:{path}', \
+                         wait for operator approval, then pass the approval_id to rf_file_write."
+                    )
+                })?;
+
+            self.validate_approval(approval_id, &write_command).await?;
+        }
+
         let content = args
             .get("content")
             .and_then(|c| c.as_str())
@@ -812,11 +842,16 @@ impl McpServer {
         hex
     }
 
-    /// Check if a command matches any approval-required pattern.
+    /// Check if a command requires human approval before execution.
+    /// Returns true if:
+    /// - `require_approval` mode is enabled (ALL commands need approval), OR
+    /// - the command matches any `--approval-pattern` regex
     fn requires_approval(&self, command: &str) -> bool {
-        self.approval_required_patterns
-            .iter()
-            .any(|re| re.is_match(command))
+        self.require_approval
+            || self
+                .approval_required_patterns
+                .iter()
+                .any(|re| re.is_match(command))
     }
 
     /// Validate an approval for a specific command.
@@ -1174,6 +1209,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         );
         assert!(server.is_ok());
     }
@@ -1190,6 +1226,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1223,6 +1260,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1251,6 +1289,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1275,6 +1314,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1299,6 +1339,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1323,6 +1364,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1345,6 +1387,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1372,6 +1415,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1400,6 +1444,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1427,6 +1472,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1454,6 +1500,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1481,6 +1528,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1508,6 +1556,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1572,6 +1621,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1624,6 +1674,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1662,6 +1713,7 @@ mod tests {
             None,
             Vec::new(),
             &[],
+            false,
         )
         .unwrap();
 
@@ -1757,8 +1809,18 @@ mod tests {
         }];
 
         // No default api_token — only caller profiles
-        let server =
-            McpServer::new(None, None, "test-caller", None, None, None, profiles, &[]).unwrap();
+        let server = McpServer::new(
+            None,
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            profiles,
+            &[],
+            false,
+        )
+        .unwrap();
 
         // Authenticate with profile token
         let init = JsonRpcRequest {
@@ -1797,8 +1859,18 @@ mod tests {
             policy: policy.path().to_path_buf(),
         }];
 
-        let server =
-            McpServer::new(None, None, "test-caller", None, None, None, profiles, &[]).unwrap();
+        let server = McpServer::new(
+            None,
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            profiles,
+            &[],
+            false,
+        )
+        .unwrap();
 
         // Try with wrong token
         let init = JsonRpcRequest {
@@ -1841,6 +1913,19 @@ policy = "/etc/rf/dev-policy.yaml"
 
     /// Helper to create a server with approval-required patterns.
     fn create_approval_server(patterns: &[&str]) -> (McpServer, tempfile::NamedTempFile) {
+        create_approval_server_with_mode(patterns, false)
+    }
+
+    /// Helper to create a server with require_approval mode enabled.
+    fn create_mandatory_approval_server() -> (McpServer, tempfile::NamedTempFile) {
+        create_approval_server_with_mode(&[], true)
+    }
+
+    /// Helper to create a server with configurable approval mode.
+    fn create_approval_server_with_mode(
+        patterns: &[&str],
+        require_approval: bool,
+    ) -> (McpServer, tempfile::NamedTempFile) {
         let policy_file = create_test_policy();
         let patterns: Vec<String> = patterns.iter().copied().map(String::from).collect();
         let server = McpServer::new(
@@ -1852,6 +1937,7 @@ policy = "/etc/rf/dev-policy.yaml"
             None,
             Vec::new(),
             &patterns,
+            require_approval,
         )
         .unwrap();
         (server, policy_file)
@@ -2054,5 +2140,175 @@ policy = "/etc/rf/dev-policy.yaml"
 
         let h3 = McpServer::hash_command("systemctl stop nginx");
         assert_ne!(h1, h3);
+    }
+
+    // --- Mandatory approval mode tests (--require-approval) ---
+    // These prove that when require_approval is enabled, bypass is impossible.
+
+    #[tokio::test]
+    async fn test_require_approval_blocks_all_exec() {
+        let (server, _policy) = create_mandatory_approval_server();
+
+        // ANY command without approval_id is denied — no exceptions
+        let result = server.tool_exec(&json!({"command": "echo hello"})).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("DENIED"));
+        assert!(err.contains("approval"));
+    }
+
+    #[tokio::test]
+    async fn test_require_approval_blocks_file_write() {
+        let (server, _policy) = create_mandatory_approval_server();
+
+        // File write without approval_id is denied
+        let result = server
+            .tool_file_write(&json!({"path": "/tmp/test.txt", "content": "hello"}))
+            .await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("DENIED"));
+        assert!(err.contains("approval"));
+    }
+
+    #[tokio::test]
+    async fn test_require_approval_allows_exec_with_valid_approval() {
+        let (server, _policy) = create_mandatory_approval_server();
+
+        // Request approval
+        let approval_result = server
+            .tool_request_approval(&json!({
+                "operation": "test",
+                "command": "echo hello",
+                "reason": "testing"
+            }))
+            .await
+            .unwrap();
+        let text = approval_result["content"][0]["text"].as_str().unwrap();
+        let approval_id = text
+            .lines()
+            .find(|l| l.starts_with("Approval requested (id:"))
+            .unwrap()
+            .trim_start_matches("Approval requested (id: ")
+            .trim_end_matches(").");
+
+        // Approve it
+        assert!(server.approve(approval_id).await);
+
+        // Execute with valid approval_id — should work
+        let result = server
+            .tool_exec(&json!({
+                "command": "echo hello",
+                "approval_id": approval_id
+            }))
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_require_approval_allows_file_write_with_valid_approval() {
+        let (server, _policy) = create_mandatory_approval_server();
+
+        // Request approval for file write (using write:<path> convention)
+        let approval_result = server
+            .tool_request_approval(&json!({
+                "operation": "file_write",
+                "command": "write:/tmp/test.txt",
+                "reason": "testing file write"
+            }))
+            .await
+            .unwrap();
+        let text = approval_result["content"][0]["text"].as_str().unwrap();
+        let approval_id = text
+            .lines()
+            .find(|l| l.starts_with("Approval requested (id:"))
+            .unwrap()
+            .trim_start_matches("Approval requested (id: ")
+            .trim_end_matches(").");
+
+        // Approve it
+        assert!(server.approve(approval_id).await);
+
+        // File write with valid approval_id — should reach policy check
+        let result = server
+            .tool_file_write(&json!({
+                "path": "/tmp/test.txt",
+                "content": "hello",
+                "approval_id": approval_id
+            }))
+            .await;
+        // Will be denied by policy (not in allow list), but NOT denied by approval
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_require_approval_cannot_bypass_with_wrong_command() {
+        let (server, _policy) = create_mandatory_approval_server();
+
+        // Get approval for safe command
+        let approval_result = server
+            .tool_request_approval(&json!({
+                "operation": "test",
+                "command": "echo safe",
+                "reason": "testing"
+            }))
+            .await
+            .unwrap();
+        let text = approval_result["content"][0]["text"].as_str().unwrap();
+        let approval_id = text
+            .lines()
+            .find(|l| l.starts_with("Approval requested (id:"))
+            .unwrap()
+            .trim_start_matches("Approval requested (id: ")
+            .trim_end_matches(").");
+
+        server.approve(approval_id).await;
+
+        // Try to use that approval for a DIFFERENT command — must fail
+        let result = server
+            .tool_exec(&json!({
+                "command": "rm -rf /",
+                "approval_id": approval_id
+            }))
+            .await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("does not match approved command")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_require_approval_read_operations_not_blocked() {
+        let (server, _policy) = create_mandatory_approval_server();
+
+        // Read-only operations should NOT require approval
+        // rf_query_policy — read-only
+        let result = server
+            .tool_query_policy(&json!({"command": "echo hello"}))
+            .await;
+        assert!(result.is_ok());
+
+        // rf_list_my_capabilities — read-only
+        let result = server.tool_list_capabilities().await;
+        assert!(result.is_ok());
+
+        // rf_audit_query — read-only
+        let result = server.tool_audit_query(&json!({})).await;
+        assert!(result.is_ok());
+
+        // rf_check_approval — read-only
+        let result = server
+            .tool_check_approval(&json!({"approval_id": "nonexistent"}))
+            .await;
+        assert!(result.is_ok()); // Returns error content, not Err
+
+        // rf_file_read — read-only
+        let result = server
+            .tool_file_read(&json!({"path": "/etc/hostname"}))
+            .await;
+        // May be denied by policy, but NOT by approval system
+        assert!(result.is_ok());
     }
 }
