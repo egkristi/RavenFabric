@@ -1840,9 +1840,9 @@ policy = "/etc/rf/dev-policy.yaml"
     // --- Approval enforcement tests ---
 
     /// Helper to create a server with approval-required patterns.
-    fn create_approval_server(patterns: Vec<&str>) -> (McpServer, tempfile::NamedTempFile) {
+    fn create_approval_server(patterns: &[&str]) -> (McpServer, tempfile::NamedTempFile) {
         let policy_file = create_test_policy();
-        let patterns: Vec<String> = patterns.iter().map(|p| p.to_string()).collect();
+        let patterns: Vec<String> = patterns.iter().copied().map(String::from).collect();
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
@@ -1859,7 +1859,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
     #[tokio::test]
     async fn test_approval_required_blocks_exec_without_approval() {
-        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+        let (server, _policy) = create_approval_server(&["^systemctl .*"]);
 
         // Try to exec a command that matches approval pattern — should be denied
         let result = server
@@ -1873,7 +1873,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
     #[tokio::test]
     async fn test_approval_not_required_allows_exec() {
-        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+        let (server, _policy) = create_approval_server(&["^systemctl .*"]);
 
         // A command that does NOT match any pattern should execute normally
         let result = server.tool_exec(&json!({"command": "echo hello"})).await;
@@ -1882,7 +1882,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
     #[tokio::test]
     async fn test_approval_flow_approve_then_exec() {
-        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+        let (server, _policy) = create_approval_server(&["^systemctl .*"]);
 
         // Request approval
         let approval_result = server
@@ -1930,7 +1930,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
     #[tokio::test]
     async fn test_approval_denied_blocks_exec() {
-        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+        let (server, _policy) = create_approval_server(&["^systemctl .*"]);
 
         let approval_result = server
             .tool_request_approval(&json!({
@@ -1963,7 +1963,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
     #[tokio::test]
     async fn test_approval_one_time_use() {
-        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+        let (server, _policy) = create_approval_server(&["^systemctl .*"]);
 
         let approval_result = server
             .tool_request_approval(&json!({
@@ -2005,7 +2005,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
     #[tokio::test]
     async fn test_approval_command_substitution_blocked() {
-        let (server, _policy) = create_approval_server(vec!["^systemctl .*"]);
+        let (server, _policy) = create_approval_server(&["^systemctl .*"]);
 
         let approval_result = server
             .tool_request_approval(&json!({
@@ -2040,7 +2040,7 @@ policy = "/etc/rf/dev-policy.yaml"
     #[tokio::test]
     async fn test_no_approval_patterns_allows_all() {
         // Server with empty approval patterns — no approval required for anything
-        let (server, _policy) = create_approval_server(vec![]);
+        let (server, _policy) = create_approval_server(&[]);
 
         let result = server.tool_exec(&json!({"command": "echo hello"})).await;
         assert!(result.is_ok());

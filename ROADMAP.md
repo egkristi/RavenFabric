@@ -407,6 +407,7 @@ The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioriti
 - [x] Tool: `rf_exec` — policy-validated command execution with structured errors (denial, approval, rate-limit)
 - [x] Tool: `rf_query_policy` — pre-flight policy check without execution
 - [x] Tool: `rf_request_approval` — human-in-loop approval workflow for sensitive operations
+- [x] Approval enforcement — `--approval-pattern` regex, SHA-256 command hash binding, one-time-use, 30-minute TTL, enforced in `tool_exec()`
 - [x] Tool: `rf_list_my_capabilities` — dynamic capability discovery filtered by agent policy
 - [x] Tool: `rf_audit_query` — self-audit (agent queries its own recent actions)
 - [x] Tool: `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
