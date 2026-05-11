@@ -176,6 +176,68 @@ rf exec test-agent "uname -a"
 
 ---
 
+## Next Priorities (v0.3.0)
+
+All four feature sets target **v0.3.0**. Code is complete; remaining work is testing, integration, and documentation.
+
+### 1. QUIC + WireGuard direct + STUN hole-punching
+
+Production transport diversity and NAT traversal.
+
+- [x] QUIC transport driver (`QuicDriver`, `QuicListener`) with 0-RTT reconnection
+- [x] WireGuard userspace tunnel (`WgTunnel`) — no kernel module required
+- [x] WireGuard peer/interface config and corporate proxy detection
+- [x] STUN client — RFC 5389/8489 binding requests, NAT type detection (RFC 5780)
+- [x] STUN server — self-hosted NAT detection, IPv4/IPv6
+- [x] ICE candidate gathering and prioritization (RFC 8445)
+- [x] UDP hole punching (`HolePuncher`) with PUNCH_MAGIC protocol
+- [x] Birthday-paradox port prediction for symmetric NAT
+- [x] TURN relay config fallback
+
+### 2. Interactive shell, port-forwarding, playbooks
+
+Operator workflows and multi-agent orchestration.
+
+- [x] PTY session management (`PtySession::spawn`) with full signal support
+- [x] Terminal resize (TIOCSWINSZ) and read/write streaming
+- [x] Session recording in asciinema v2 format (NDJSON)
+- [x] Local port forwarding (`start_local_forward`, ssh -L style)
+- [x] Remote port forwarding and SOCKS5 proxy support
+- [x] Per-forward connection statistics
+- [x] Corporate proxy detection (env vars, suffix-match bypass)
+- [x] Multi-agent orchestrator with rollout strategies (parallel, sequential, rolling %, canary)
+- [x] Grain-based targeting (agent ID, label, group, pattern, all)
+- [x] Rollback policy and batch failure handling
+
+### 3. Full mesh VPN, MagicDNS, sealed secrets
+
+Zero-config networking and encrypted secret injection.
+
+- [x] Cross-platform TUN device (Linux ioctl, macOS utun, stubs for others)
+- [x] Deterministic mesh IPv6 from public key (`fd00:5256::/32` ULA)
+- [x] Petname registry (human-readable names to crypto IDs)
+- [x] MagicDNS resolution (`agent-name.rf.local` to mesh IPv6)
+- [x] Async DNS server with packet parsing/generation (TTL 60s)
+- [x] Group membership queries
+- [x] Sealed secrets with ChaCha20-Poly1305 (256-bit key, random nonce)
+- [x] Tamper detection via Poly1305 MAC
+- [x] Template substitution (`{{ secrets.DB_PASS }}` at execution time)
+- [x] Secret store CRUD (seal, unseal, list, remove)
+
+### 4. Reticulum, Tor, serial drivers — air-gap support
+
+Censorship resistance and offline-capable nodes.
+
+- [x] Reticulum transport driver — TCP to local RTN, announce/link-request framing
+- [x] Tor SOCKS5 transport driver — .onion service connectivity via local proxy
+- [x] SOCKS5 handshake with full error code handling (IPv4, IPv6, domain)
+- [x] Exotic transport definitions (18 types):
+  - [x] Steganographic: DNS tunnel, ICMP tunnel, domain fronting, MASQUE, protocol mimicry, ECH
+  - [x] Physical: serial (RS-232/USB), BLE, Wi-Fi Direct, LoRa/Meshtastic, satellite, HF radio, audio modem, QR, USB direct
+  - [x] Overlay: Veilid, I2P, Yggdrasil
+
+---
+
 ## Website (ravenfabric.io)
 
 The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioritized improvements.

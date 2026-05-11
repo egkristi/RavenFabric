@@ -4,7 +4,7 @@
 > Controls v8.1, focusing on the controls relevant to a secure remote execution
 > and mesh networking system.
 
-**RavenFabric version:** v0.2.1  
+**RavenFabric version:** v0.2.0  
 **Standard:** CIS Controls v8.1 (June 2024)  
 **Implementation Group:** IG2 (Enterprise)  
 **Last updated:** 2026-05-10

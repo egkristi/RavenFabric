@@ -3,7 +3,7 @@
 > This document maps RavenFabric's architecture to the tenets and logical
 > components defined in NIST SP 800-207 (Zero Trust Architecture), August 2020.
 
-**RavenFabric version:** v0.2.1  
+**RavenFabric version:** v0.2.0  
 **Standard version:** NIST SP 800-207 (Final, August 2020)  
 **Last updated:** 2026-05-10
 

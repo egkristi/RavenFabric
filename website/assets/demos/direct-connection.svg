@@ -98,7 +98,7 @@
     </g>
     <g class="line15">
       <text class="green" y="308">Agent:   rf-direct</text>
-      <text class="green" y="330">Version: 0.2.1</text>
+      <text class="green" y="330">Version: 0.2.0</text>
       <text class="green" y="352">Uptime:  42s</text>
       <text class="green" y="374">Status:  connected</text>
     </g>

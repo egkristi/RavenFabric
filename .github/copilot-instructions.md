@@ -36,7 +36,7 @@ Cargo workspace with 13 crates:
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~1,700 LOC, 33 tests) |
 
-**Total: ~53,700 LOC, 1,094 tests, 0 clippy warnings.**
+**Total: ~53,900 LOC, 1,094 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

@@ -3,7 +3,7 @@
 > This document maps RavenFabric's capabilities to the cybersecurity risk-management
 > measures required by the NIS2 Directive, specifically Article 21.
 
-**RavenFabric version:** v0.2.1  
+**RavenFabric version:** v0.2.0  
 **Directive:** Directive (EU) 2022/2555 (NIS2)  
 **Transposition deadline:** 17 October 2024  
 **Applicability:** Essential and important entities in EU/EEA member states  

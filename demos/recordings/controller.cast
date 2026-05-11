@@ -88,7 +88,7 @@
 [9.28, "o", "h"]
 [9.31, "o", "\r\n"]
 [9.6, "o", "\u001b[33m{\u001b[0m\r\n"]
-[9.65, "o", "  \"status\": \"healthy\",\r\n  \"agents_connected\": 2,\r\n  \"uptime\": \"2h 15m 30s\",\r\n  \"version\": \"0.2.1\"\r\n\u001b[33m}\u001b[0m\r\n\r\n"]
+[9.65, "o", "  \"status\": \"healthy\",\r\n  \"agents_connected\": 2,\r\n  \"uptime\": \"2h 15m 30s\",\r\n  \"version\": \"0.2.0\"\r\n\u001b[33m}\u001b[0m\r\n\r\n"]
 [11.6, "o", "\u001b[0;90m  # Remote execution via HTTP API\u001b[0m\r\n"]
 [12.1, "o", "\u001b[1;32m$\u001b[0m "]
 [12.13, "o", "c"]
