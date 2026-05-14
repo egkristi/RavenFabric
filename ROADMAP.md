@@ -176,9 +176,9 @@ rf exec test-agent "uname -a"
 
 ---
 
-## Next Priorities (v0.3.0)
+## v0.3.0 — Released (2026-05-14)
 
-All four feature sets target **v0.3.0**. Code is complete; remaining work is testing, integration, and documentation.
+All four feature sets shipped in **v0.3.0**. Code complete, tested, and released.
 
 ### 1. QUIC + WireGuard direct + STUN hole-punching
 
