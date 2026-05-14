@@ -115,6 +115,13 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER: armv7l-linux-musleabihf-gcc
 
+      - name: Build rf-mcp-server
+        run: cargo build --release --target ${{ matrix.target }} -p rf-mcp-server
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER: armv7l-linux-musleabihf-gcc
+
       - name: Package binaries
         shell: bash
         run: |
@@ -123,10 +130,12 @@ jobs:
             cp target/${{ matrix.target }}/release/rf-agent.exe dist/${{ matrix.artifact }}-agent.exe
             cp target/${{ matrix.target }}/release/rf-relay.exe dist/${{ matrix.artifact }}-relay.exe
             cp target/${{ matrix.target }}/release/rf.exe dist/${{ matrix.artifact }}-cli.exe
+            cp target/${{ matrix.target }}/release/rf-mcp-server.exe dist/${{ matrix.artifact }}-mcp-server.exe
           else
             cp target/${{ matrix.target }}/release/rf-agent dist/${{ matrix.artifact }}-agent
             cp target/${{ matrix.target }}/release/rf-relay dist/${{ matrix.artifact }}-relay
             cp target/${{ matrix.target }}/release/rf dist/${{ matrix.artifact }}-cli
+            cp target/${{ matrix.target }}/release/rf-mcp-server dist/${{ matrix.artifact }}-mcp-server
           fi
 
       - name: Create portable ZIP (Windows)

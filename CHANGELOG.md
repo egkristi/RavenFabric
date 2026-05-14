@@ -5,6 +5,19 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-05-14
+
+### Added
+- **Release: rf-mcp-server in binaries** — MCP server now included in release artifacts for all platforms (was previously source-only). Install script downloads all 4 binaries: rf-agent, rf-relay, rf, rf-mcp-server
+- **v0.3.0 features shipped** — QUIC, WireGuard direct, STUN hole-punching, interactive shell, port-forwarding, playbooks, full mesh VPN, MagicDNS, sealed secrets, Reticulum, Tor, serial drivers — all confirmed code-complete and tested
+
+### Fixed
+- **install.sh**: Fixed "unbound variable" error when piped to bash (`curl | bash`). The EXIT trap referenced a local variable (`tmpdir`) that was out of scope after `main()` returned. Moved to global cleanup function
+- **Release workflow**: Added `rf-mcp-server` build step and packaging — previously only rf-agent, rf-relay, and rf (CLI) were included in release artifacts
+
+### Changed
+- **Version**: Bumped to 0.3.0 across all crates, deploy manifests, SDKs, and documentation
+
 ## [Unreleased]
 
 ### Security

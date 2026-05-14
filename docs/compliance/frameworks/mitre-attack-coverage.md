@@ -4,7 +4,7 @@
 > techniques, demonstrating which attack techniques are mitigated, detected,
 > or unaffected by the system's architecture.
 
-**RavenFabric version:** v0.2.0  
+**RavenFabric version:** v0.3.0  
 **ATT&CK version:** v14 (October 2023)  
 **Matrix:** Enterprise  
 **Last updated:** 2026-05-10

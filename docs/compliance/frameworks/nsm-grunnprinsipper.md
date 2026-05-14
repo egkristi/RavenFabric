@@ -3,7 +3,7 @@
 > Dette dokumentet kartlegger RavenFabric mot Nasjonal sikkerhetsmyndighets (NSM)
 > grunnprinsipper for IKT-sikkerhet, versjon 2.1.
 
-**RavenFabric-versjon:** v0.2.0  
+**RavenFabric-versjon:** v0.3.0  
 **Standard:** NSM Grunnprinsipper for IKT-sikkerhet 2.1  
 **Sist oppdatert:** 2026-05-10
 

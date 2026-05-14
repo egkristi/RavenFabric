@@ -3,7 +3,7 @@
 > This document maps RavenFabric against the OWASP Application Security
 > Verification Standard (ASVS) 4.0.3, targeting Level 2 compliance.
 
-**RavenFabric version:** v0.2.0  
+**RavenFabric version:** v0.3.0  
 **Standard:** OWASP ASVS 4.0.3  
 **Target level:** Level 2 (Standard)  
 **Last updated:** 2026-05-10

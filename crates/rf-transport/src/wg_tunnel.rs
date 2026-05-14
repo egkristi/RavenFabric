@@ -4,13 +4,13 @@
 //! WireGuard packet processing. Behind the `wireguard` feature flag.
 
 #[cfg(feature = "wireguard")]
-mod wg_tunnel {
+mod inner {
     use std::net::SocketAddr;
     use std::sync::Arc;
 
     use tokio::net::UdpSocket;
     use tokio::sync::Mutex;
-    use tracing::{debug, warn};
+    use tracing::debug;
 
     use crate::wireguard::WgInterfaceConfig;
 
@@ -55,12 +55,14 @@ mod wg_tunnel {
         peers: Vec<WgPeer>,
         /// Interface config.
         config: WgInterfaceConfig,
-        /// Buffer for outgoing packets.
+        /// Buffer for outgoing packets (used by boringtun integration).
+        #[allow(dead_code)]
         send_buf: Arc<Mutex<Vec<u8>>>,
     }
 
     /// A configured WireGuard peer.
     #[derive(Debug, Clone)]
+    #[allow(dead_code)]
     struct WgPeer {
         /// Peer public key (32 bytes).
         public_key: [u8; 32],
@@ -146,7 +148,7 @@ mod wg_tunnel {
             let peer = self
                 .peers
                 .get(peer_idx)
-                .ok_or_else(|| WgTunnelError::PeerNotFound(format!("index {}", peer_idx)))?;
+                .ok_or_else(|| WgTunnelError::PeerNotFound(format!("index {peer_idx}")))?;
 
             let endpoint = peer.endpoint.ok_or(WgTunnelError::HandshakeIncomplete)?;
 
@@ -198,7 +200,7 @@ mod wg_tunnel {
         // Simple base64 decode without pulling in the base64 crate
         // Use a minimal decoder for WireGuard keys (always 44 chars for 32 bytes)
         let bytes = minimal_base64_decode(encoded)
-            .map_err(|e| WgTunnelError::InvalidKey(format!("{}: {}", e, encoded)))?;
+            .map_err(|e| WgTunnelError::InvalidKey(format!("{e}: {encoded}")))?;
 
         if bytes.len() != 32 {
             return Err(WgTunnelError::InvalidKey(format!(
@@ -372,4 +374,4 @@ mod wg_tunnel {
 }
 
 #[cfg(feature = "wireguard")]
-pub use wg_tunnel::{TunResult, WgTunnel, WgTunnelError};
+pub use inner::{TunResult, WgTunnel, WgTunnelError};

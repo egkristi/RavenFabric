@@ -3,7 +3,7 @@
 > This document details the cryptographic algorithms, protocols, and key management
 > practices implemented in RavenFabric.
 
-**RavenFabric version:** v0.2.0  
+**RavenFabric version:** v0.3.0  
 **Last updated:** 2026-05-10
 
 ---

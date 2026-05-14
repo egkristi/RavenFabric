@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
 
 PackageIdentifier: RavenFabric.RavenFabric
-PackageVersion: 0.2.0
+PackageVersion: 0.3.0
 PackageName: RavenFabric
 Publisher: Erling Kristiansen
 PublisherUrl: https://ravenfabric.io
@@ -30,7 +30,7 @@ Tags:
 Installers:
   - Architecture: x64
     InstallerType: zip
-    InstallerUrl: https://github.com/egkristi/RavenFabric-Published/releases/download/v0.2.0/ravenfabric-windows-x64.zip
+    InstallerUrl: https://github.com/egkristi/RavenFabric-Published/releases/download/v0.3.0/ravenfabric-windows-x64.zip
     InstallerSha256: ""
     NestedInstallerType: portable
     NestedInstallerFiles:

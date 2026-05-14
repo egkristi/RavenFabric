@@ -61,6 +61,15 @@ download() {
     fi
 }
 
+TMPDIR_CLEANUP=""
+
+cleanup() {
+    if [ -n "$TMPDIR_CLEANUP" ]; then
+        rm -rf "$TMPDIR_CLEANUP"
+    fi
+}
+trap cleanup EXIT
+
 main() {
     echo ""
     echo -e "${BOLD}RavenFabric Installer${RESET}"
@@ -87,9 +96,9 @@ main() {
 
     local tmpdir
     tmpdir="$(mktemp -d)"
-    trap 'rm -rf "$tmpdir"' EXIT
+    TMPDIR_CLEANUP="$tmpdir"
 
-    local binaries=("agent" "relay" "cli")
+    local binaries=("agent" "relay" "cli" "mcp-server")
     for bin in "${binaries[@]}"; do
         local ext=""
         local name="${artifact}-${bin}"
@@ -113,11 +122,13 @@ main() {
     $use_sudo cp "${tmpdir}/${artifact}-agent" "${INSTALL_DIR}/rf-agent"
     $use_sudo cp "${tmpdir}/${artifact}-relay" "${INSTALL_DIR}/rf-relay"
     $use_sudo cp "${tmpdir}/${artifact}-cli"   "${INSTALL_DIR}/rf"
+    $use_sudo cp "${tmpdir}/${artifact}-mcp-server" "${INSTALL_DIR}/rf-mcp-server"
 
     echo ""
-    ok "rf-agent installed to ${INSTALL_DIR}/rf-agent"
-    ok "rf-relay installed to ${INSTALL_DIR}/rf-relay"
-    ok "rf       installed to ${INSTALL_DIR}/rf"
+    ok "rf-agent      installed to ${INSTALL_DIR}/rf-agent"
+    ok "rf-relay      installed to ${INSTALL_DIR}/rf-relay"
+    ok "rf            installed to ${INSTALL_DIR}/rf"
+    ok "rf-mcp-server installed to ${INSTALL_DIR}/rf-mcp-server"
     echo ""
     echo -e "${DIM}Run 'rf --help' to get started.${RESET}"
     echo -e "${DIM}Docs: https://ravenfabric.io/docs/${RESET}"

@@ -1,6 +1,6 @@
 name: ravenfabric
 base: core22
-version: '0.2.0'
+version: '0.3.0'
 summary: Secure remote execution and mesh networking agent
 description: |
   RavenFabric is a secure remote execution and mesh networking agent written in
@@ -36,7 +36,7 @@ parts:
     plugin: rust
     source: .
     source-type: git
-    source-tag: v0.2.0
+    source-tag: v0.3.0
     rust-channel: "1.88"
     rust-features: []
     build-packages:
