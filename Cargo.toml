@@ -98,7 +98,7 @@ base64 = "0.22"
 libc = "0.2"
 
 # System info
-sysinfo = "0.38"
+sysinfo = "0.39"
 
 # JSON (for audit logger)
 serde_json = "1"
