@@ -77,21 +77,28 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
-      - name: Install cargo-tarpaulin
-        run: |
-          curl -sL https://github.com/xd009642/tarpaulin/releases/latest/download/cargo-tarpaulin-x86_64-unknown-linux-musl.tar.gz | tar xz -C /usr/local/bin
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
       - name: Generate coverage
         run: |
-          cargo tarpaulin --out xml --skip-clean --exclude-files "crates/rf-cli/*" "crates/rf-agent/*" "crates/rf-relay/*" 2>&1 | tee coverage-output.txt
-          COVERAGE=$(grep -oP '\d+\.\d+% coverage' coverage-output.txt | grep -oP '\d+\.\d+')
+          cargo llvm-cov --all-features --workspace \
+            --ignore-filename-regex "(crates/rf-cli/|crates/rf-agent/|crates/rf-relay/)" \
+            --codecov --output-path codecov.json 2>&1 | tee coverage-output.txt
+          # Also produce summary for the log
+          cargo llvm-cov --all-features --workspace \
+            --ignore-filename-regex "(crates/rf-cli/|crates/rf-agent/|crates/rf-relay/)" \
+            --summary-only 2>&1 | tee coverage-summary.txt
+          COVERAGE=$(grep -oP 'TOTAL.*?(\d+\.\d+)%' coverage-summary.txt | grep -oP '\d+\.\d+' | tail -1)
           echo "Coverage: ${COVERAGE}%"
           # Fail if coverage drops below 60%
-          awk "BEGIN {exit ($COVERAGE < 60.0) ? 1 : 0}"
+          awk "BEGIN {exit (${COVERAGE:-0} < 60.0) ? 1 : 0}"
       - name: Upload to Codecov
         uses: codecov/codecov-action@v6
         with:
-          files: cobertura.xml
+          files: codecov.json
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 

@@ -46,6 +46,7 @@
 - [Configuration File](reference/config.md)
 - [Policy YAML Format](reference/policy-yaml.md)
 - [RPC Protocol](reference/rpc.md)
+- [Wire Protocol Stability](reference/wire-protocol-stability.md)
 - [Audit Log Format](reference/audit-log-format.md)
 - [AI Agent Skill](reference/ai-agent-skill.md)
 - [Glossary](reference/glossary.md)

@@ -2115,6 +2115,7 @@ dependencies = [
  "anyhow",
  "hex",
  "rf-audit",
+ "rf-bootstrap",
  "rf-crypto",
  "rf-executor",
  "rf-mcp-server",

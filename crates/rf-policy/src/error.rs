@@ -1,5 +1,6 @@
 /// Errors from policy loading and validation.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum PolicyError {
     #[error("I/O error reading policy file: {0}")]
     Io(#[from] std::io::Error),

@@ -254,6 +254,9 @@ impl Executor {
                 self.handle_execute(&request.id, command, env, workdir, start)
                     .await
             }
+            _ => RpcResult::Error {
+                message: format!("unsupported action: {:?}", request.action),
+            },
         };
 
         Response {

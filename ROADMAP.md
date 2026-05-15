@@ -924,3 +924,40 @@ All critical and important issues resolved. Minor items tracked below.
 | 2026-05-05 | Feature-flag architecture | `full` vs `minimal` feature sets allow same codebase to target 10 MB Raspberry Pi and 15 MB router |
 | 2026-05-06 | MCP server as translation layer | Policy enforced by rf-agent, not MCP server. Compromised MCP binary cannot bypass policy. AI agent access uses same crypto/audit/policy as human operators |
 | 2026-05-06 | Local IPC as first-class transports | UNIX sockets, named pipes, stdio, vsock are not shortcuts — they go through the same Noise XX handshake and policy engine. Local does not mean trusted |
+| 2026-05-15 | Stay alpha until soak-tested | Beta is a stability promise. Feature-completeness is necessary but not sufficient — requires real-world deployment, external testing, and wire protocol stability guarantee |
+
+---
+
+## Path to Beta
+
+**Current status:** Alpha v0.3.0 — feature-complete, 13 crates, ~53,900 LOC, 1,111 tests, 0 vulnerabilities, 0 clippy warnings.
+
+**Beta means:** "Ready for external testers with relatively stable APIs and wire protocol." It is a stability promise, not a feature milestone.
+
+### Beta Prerequisites
+
+| # | Requirement | Status | Notes |
+|---|-------------|--------|-------|
+| 1 | **Soak test** — continuous deployment for 2-4 weeks | Not started | Run agent + relay in real environment. Document uptime, reconnects, memory, crashes |
+| 2 | **Wire protocol stability guarantee** | Done | `docs/src/reference/wire-protocol-stability.md` + backward-compat integration tests |
+| 3 | **Code coverage metrics** | Done | `cargo-llvm-cov` in CI with 60% threshold, Codecov upload |
+| 4 | **Security self-audit** | Done | 17 tests: key zeroization, OTP replay, policy bypass, wire protocol rejection |
+| 5 | **API stability markers** | Done | `#[non_exhaustive]` on core enums (CryptoError, RpcError, PolicyError, Action, RpcResult) |
+| 6 | **External testers** (2-3 people) | Not started | Deploy with only README as guide. Friction reports reveal gaps |
+| 7 | **SECURITY.md updated** | Done | Supported versions reflects current release |
+| 8 | **Publish to crates.io** | Not started | (#44) Enables `cargo install ravenfabric` |
+
+### Why Not Beta Yet
+
+Despite 97.7% roadmap completion (425/435 items), several factors indicate premature beta:
+
+1. **No production deployment** — demos are Docker scripts; no evidence of sustained real-world operation
+2. **No external users** — zero bug reports from real operators in diverse environments
+3. **Single developer** — no peer review on security-critical crypto/policy implementations
+4. **Exotic transports untested on real hardware** — LoRa, BLE, satellite, AX.25, HF radio, audio modem likely only mock-tested
+5. **No external security audit** — a tool replacing SSH/WireGuard/Ansible needs independent cryptographic review
+6. **Wire protocol may still change** — no formal backward-compatibility commitment between versions
+
+### Target: v0.4.0-beta.1
+
+Once prerequisites 1-6 are complete (estimated 4-6 weeks of real-world bake time), the project can declare beta with confidence.

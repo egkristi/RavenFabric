@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Security audit tests**: 17 new integration tests covering key zeroization, OTP replay prevention, policy bypass, wire protocol rejection, and codec stability (`security_audit.rs`)
+- **Wire protocol stability doc**: Formal stability guarantees for wire format, handshake sequence, and RPC serialization (`docs/src/reference/wire-protocol-stability.md`)
+- **API stability markers**: `#[non_exhaustive]` on core public enums (`CryptoError`, `RpcError`, `PolicyError`, `Action`, `RpcResult`) — prevents downstream breakage when new variants are added
+
 ### Security
 - **wasmtime**: Upgraded from v29 to v36.0.9, resolving all 16 security advisories (GHSA-q8hx-mm92-4wbg, GHSA-4w5q-m7x3-bxgf, GHSA-v39r-r8gw-p945, GHSA-5wvc-xrjx-h2xq, GHSA-5jmc-43q8-x28q, GHSA-7mpv-9xg9-5jx4, GHSA-75hq-h9g9-4gjr, GHSA-5wgq-hcmq-3rf7, GHSA-5j3r-j6x2-23x2, GHSA-cx96-5vf6-8x3f, GHSA-34ch-7c68-q6x6, GHSA-rj3g-829c-8jpc, GHSA-pp24-53gm-jr4j, GHSA-4x44-w425-m2p3, GHSA-jcr4-92f4-r3jm, GHSA-w2mj-m73j-q22c). v36.0.9 is optimal: MSRV-compatible (requires Rust 1.86, project uses 1.88) and covers all backported fix ranges
 
@@ -27,6 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps**: Migrated rf-executor, rf-policy, rf-rpc from `sha2 = "0.10"` to workspace `sha2 = "0.11"` — eliminates direct dependency version mismatch (#99)
 - **code quality**: Replaced 2 production `unwrap()` calls in rf-transport (overlay.rs, quic.rs) with `expect()` + justification
 - **docs**: Fixed inaccurate test counts in README (rf-transport 551→542, rf-rpc 120→112, rf-mcp-client 15→14) and copilot-instructions
+
+### Changed
+- **ci**: Replaced `cargo-tarpaulin` with `cargo-llvm-cov` for more accurate coverage measurement
+- **deps**: Bumped `criterion` from 0.5.1 to 0.8.2
+- **deps**: Bumped `toml` from 0.8.23 to 1.1.2
+- **deps**: Bumped `rusqlite` from 0.35.0 to 0.39.0
+- **ci**: Bumped `docker/login-action` from 3 to 4
+- **ci**: Bumped `docker/build-push-action` from 6 to 7
+- **ci**: Bumped `docker/setup-qemu-action` from 3 to 4
+- **ci**: Bumped `actions/upload-pages-artifact` from 3 to 5
+- **ci**: Bumped `actions/deploy-pages` from 4 to 5
+- **security**: Updated SECURITY.md supported versions (0.3.x is now supported, 0.2.x deprecated)
 
 ### Added
 - **Direct connection mode**: Agent `--listen` flag starts a WebSocket server for point-to-point connections (like sshd). CLI `--connect` flag dials the agent directly, bypassing the relay. Same Noise XX encryption, policy enforcement, and audit logging as relay mode

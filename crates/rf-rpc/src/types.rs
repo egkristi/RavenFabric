@@ -15,6 +15,7 @@ pub struct Request {
 
 /// The action to perform on the agent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum Action {
     Execute {
         command: String,
@@ -137,6 +138,7 @@ pub struct Response {
 
 /// The result of an RPC action.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum RpcResult {
     Success {
         stdout: String,

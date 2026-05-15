@@ -498,6 +498,10 @@ async fn exec_command(
                 println!("{line}");
             }
         }
+        _ => {
+            error!("unexpected response: {:?}", response.result);
+            std::process::exit(1);
+        }
     }
 
     let _ = chan.close_notify().await;
