@@ -326,20 +326,20 @@ v0.1 foundation is done: all crates implemented, 35 tests passing, integration t
 
 ## Website (ravenfabric.io)
 
-The project landing page is at [ravenfabric.io](https://ravenfabric.io), served via GitHub Pages.
+The project landing page is at [ravenfabric.io](https://ravenfabric.io), served via Cloudflare Pages.
 
 ### Stack
 
 - **Static HTML/CSS** — single `index.html` with inlined CSS, zero JS dependencies
-- **GitHub Pages** — hosting via `.github/workflows/pages.yml`
-- **Custom domain** — `ravenfabric.io` (CNAME file in `website/`)
+- **Cloudflare Pages** — builds directly from GitHub (no Actions workflow needed)
+- **Custom domain** — `ravenfabric.io` (DNS configured in Cloudflare dashboard)
 
 ### Structure
 
 ```
 website/
 ├── index.html              # Single-page landing (all CSS inlined)
-├── CNAME                   # Custom domain for GitHub Pages
+├── _headers                # Security headers (Cloudflare Pages native support)
 ├── robots.txt              # SEO crawler directives
 ├── sitemap.xml             # Sitemap for search engines
 ├── .well-known/
@@ -352,9 +352,9 @@ website/
 
 ### Deployment
 
-Auto-deploys on push to `main` when files under `website/` change:
+Auto-deploys on push to `main` via Cloudflare Pages (connected to GitHub repo):
 ```
-git push origin main → GitHub Actions → live at ravenfabric.io (~1-2 min)
+git push origin main → Cloudflare Pages builds from repo → live at ravenfabric.io (~1-2 min)
 ```
 
 ### Maintenance Rules
@@ -362,7 +362,7 @@ git push origin main → GitHub Actions → live at ravenfabric.io (~1-2 min)
 - **No build step** — edit `website/index.html` directly, no bundlers or frameworks
 - **No JavaScript** — keep the site static HTML/CSS only
 - **No localhost references** — CI validates no `localhost` or `127.0.0.1` in HTML
-- **Required files** — `index.html`, `CNAME`, `assets/favicon.svg`, `assets/og-image.png` must exist (CI validates)
-- **CNAME must stay** — removing it breaks the custom domain
+- **Required files** — `index.html`, `assets/favicon.svg`, `assets/og-image.png` must exist (CI validates)
 - **Test locally** with `python3 -m http.server 8000` in the `website/` directory
 - **og-image.png** must be 1200×630 for proper Open Graph social card rendering
+- **Security headers** — defined in `website/_headers`, served natively by Cloudflare Pages

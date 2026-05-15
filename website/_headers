@@ -1,6 +1,5 @@
-# Security headers for ravenfabric.io
-# Works on Cloudflare Pages and Netlify. GitHub Pages ignores this file.
-# To activate: migrate to Cloudflare Pages or put Cloudflare proxy in front.
+# Security headers for ravenfabric.io (Cloudflare Pages)
+# These are served automatically by Cloudflare Pages on every response.
 
 /*
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload

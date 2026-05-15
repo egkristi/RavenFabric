@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **website**: Migrated hosting from GitHub Pages to Cloudflare Pages (builds directly from GitHub). Security headers (`_headers`) now served natively. HSTS preload active. Removed `website/CNAME` and `.github/workflows/pages.yml`
+
 ### Added
 - **Security audit tests**: 17 new integration tests covering key zeroization, OTP replay prevention, policy bypass, wire protocol rejection, and codec stability (`security_audit.rs`)
 - **Wire protocol stability doc**: Formal stability guarantees for wire format, handshake sequence, and RPC serialization (`docs/src/reference/wire-protocol-stability.md`)
