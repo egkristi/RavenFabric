@@ -707,8 +707,8 @@
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F916;</div>
-                    <h3>MCP Protocol Native</h3>
-                    <p>Model Context Protocol server built-in. Works with Claude Desktop, Claude Code, Cursor, Aider, and any MCP-compatible AI. Drop-in integration in minutes.</p>
+                    <h3>Works With Every AI Agent</h3>
+                    <p>Native MCP (Model Context Protocol) server and agentic skills support. Compatible with Claude Desktop, Claude Code, Cursor, Windsurf, Aider, GitHub Copilot, OpenAI Agents, LangChain, CrewAI, AutoGen, and any AI platform that supports MCP or custom tool/skill integration. One integration point for all of them.</p>
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F9E0;</div>
@@ -930,14 +930,34 @@ Zero inbound ports required. Single static binary on target.</span></pre>
             <h2 class="section-title">What makes this <em>different</em></h2>
 
             <div class="diff-block">
-                <h4>Comparison</h4>
+                <h4>Competitive Landscape</h4>
                 <div class="diff-row">
-                    <span class="label">Others</span>
-                    <span class="bad">Bolt security onto existing execution tools (Ansible + vault + audit daemon + firewall rules + hope)</span>
+                    <span class="label" style="min-width: 180px;">Policy Engines<br><span style="font-size: 0.6875rem; color: var(--text-tertiary);">OPA, Gatekeeper, Cerbos, OpenFGA, Permit.io</span></span>
+                    <span class="bad">Policy-only. No execution, no transport, no audit trail. Require you to build the enforcement layer yourself. Kubernetes-centric — useless for edge, embedded, air-gapped systems.</span>
                 </div>
                 <div class="diff-row">
-                    <span class="label">RavenFabric</span>
-                    <span class="good">Security is the architecture. Policy engine is the foundation. Execution happens within its bounds only.</span>
+                    <span class="label" style="min-width: 180px;">Access Proxies<br><span style="font-size: 0.6875rem; color: var(--text-tertiary);">Teleport, Boundary, StrongDM</span></span>
+                    <span class="bad">Human-first identity proxies. Designed for SSH/RDP/DB sessions by human operators. No AI agent protocol support (MCP, skills). No policy engine for command-level control. No prompt injection defense.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 180px;">AI Platform Vendors<br><span style="font-size: 0.6875rem; color: var(--text-tertiary);">Anthropic, OpenAI, Google</span></span>
+                    <span class="bad">Building permissions into their own clients. Vendor lock-in by design. Your policy lives in their cloud, not yours. No cross-vendor governance. No on-prem option. You don&rsquo;t control the enforcement point.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 180px;">Security Platforms<br><span style="font-size: 0.6875rem; color: var(--text-tertiary);">CrowdStrike, Wiz, Palo Alto</span></span>
+                    <span class="bad">Will expand into AI governance — but as a feature in a massive platform. Enterprise pricing. Cloud-only. Months-long sales cycles. They detect threats; they don&rsquo;t control execution. Observation, not enforcement.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 180px;">RavenFabric</span>
+                    <span class="good"><strong>The full stack in one binary.</strong> Policy engine + execution layer + transport + audit + AI agent protocols (MCP + skills) + prompt injection defense + anomaly detection. Works with every AI vendor, runs anywhere, enforces locally. Open core, self-hosted, no vendor lock-in.</span>
+                </div>
+            </div>
+
+            <div class="diff-block" style="margin-top: 1.5rem;">
+                <h4>Why Not &ldquo;Just Add a Feature&rdquo;</h4>
+                <div class="diff-row">
+                    <span class="label">Gap</span>
+                    <span class="good">No existing tool combines policy enforcement, command execution, encrypted transport, AI protocol support, prompt injection defense, and audit logging in a single, self-contained binary. Competitors would need to build 5+ integrations. RavenFabric ships it as one architecture.</span>
                 </div>
             </div>
 
@@ -968,7 +988,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
         <div class="container">
             <h2 class="cta-title">Interested?</h2>
             <p class="cta-lead">
-                RavenFabric is seeking strategic partners and investment to accelerate from alpha to production. The technology is built. The market is ready. The regulations require it.
+                RavenFabric is seeking strategic partners and investment to accelerate from early release to general availability. The technology is built. The market is ready. The regulations require it.
             </p>
             <a href="mailto:support@ravenfabric.io?subject=RavenFabric%20Partnership%20%2F%20Investment%20Inquiry" class="btn btn-primary" style="font-size: 1rem; padding: 1rem 2rem;">Contact Us &rarr;</a>
             <p style="margin-top: 1.25rem; font-family: var(--font-mono); font-size: 1.125rem; color: var(--accent-gold); letter-spacing: 0.02em;">support@ravenfabric.io</p>
