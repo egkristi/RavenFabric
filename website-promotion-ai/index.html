@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RavenFabric — The security layer between AI agents and production systems. Policy-controlled access, full audit logging, regulatory compliance. EU AI Act ready.">
+    <meta name="author" content="Erling Kristiansen">
+    <meta name="theme-color" content="#0a0b0d">
+    <meta name="color-scheme" content="dark">
+    <meta name="robots" content="noindex, nofollow">
+
+    <title>RavenFabric — AI Agent Security Layer for the Enterprise</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+
+    <style>
+        @font-face {
+            font-family: 'IBM Plex Sans';
+            font-style: normal;
+            font-weight: 300 600;
+            font-display: swap;
+            src: url(assets/fonts/ibm-plex-sans-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'IBM Plex Serif';
+            font-style: normal;
+            font-weight: 400 600;
+            font-display: swap;
+            src: url(assets/fonts/ibm-plex-serif-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'IBM Plex Serif';
+            font-style: italic;
+            font-weight: 400;
+            font-display: swap;
+            src: url(assets/fonts/ibm-plex-serif-italic-latin.woff2) format('woff2');
+        }
+        @font-face {
+            font-family: 'JetBrains Mono';
+            font-style: normal;
+            font-weight: 400 700;
+            font-display: swap;
+            src: url(assets/fonts/jetbrains-mono-latin.woff2) format('woff2');
+        }
+
+        :root {
+            --bg-deep: #0a0b0d;
+            --bg-elevated: #111316;
+            --bg-overlay: #15171b;
+            --border-subtle: #1f2228;
+            --border-medium: #2a2e35;
+
+            --text-primary: #e8e6e3;
+            --text-secondary: #a8a39a;
+            --text-tertiary: #8a8579;
+
+            --accent-gold: #c9a961;
+            --accent-gold-dim: #8b7642;
+            --accent-cyan: #5fa8a8;
+            --accent-blood: #8b3a3a;
+
+            --success: #6b9461;
+            --warning: #c9a961;
+            --danger: #8b3a3a;
+
+            --font-display: 'IBM Plex Serif', Georgia, serif;
+            --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+            --container-max: 1100px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: var(--font-body);
+            font-weight: 400;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-deep);
+            background-image:
+                radial-gradient(ellipse at top right, rgba(201, 169, 97, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom left, rgba(95, 168, 168, 0.03) 0%, transparent 50%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: var(--container-max);
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        /* === Top bar === */
+        .topbar {
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            background: rgba(10, 11, 13, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        .topbar-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.0625rem;
+        }
+
+        .brand svg {
+            width: 28px;
+            height: 28px;
+            color: var(--accent-gold);
+        }
+
+        .topnav {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+        }
+
+        .topnav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-left: 1.5rem;
+        }
+
+        .topnav a:hover { color: var(--accent-gold); }
+
+        /* === Hero === */
+        .hero {
+            padding: 6rem 0 4rem;
+        }
+
+        .hero-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            opacity: 0;
+            animation: fade-up 0.6s ease 0.1s forwards;
+        }
+
+        .hero-eyebrow::before {
+            content: '';
+            width: 32px;
+            height: 1px;
+            background: var(--accent-gold);
+        }
+
+        .hero-title {
+            font-family: var(--font-display);
+            font-size: clamp(2.25rem, 5.5vw, 4rem);
+            font-weight: 400;
+            line-height: 1.1;
+            letter-spacing: -0.025em;
+            margin-bottom: 2rem;
+            max-width: 20ch;
+            opacity: 0;
+            animation: fade-up 0.7s ease 0.2s forwards;
+        }
+
+        .hero-title em {
+            font-style: italic;
+            color: var(--accent-gold);
+        }
+
+        .hero-subtitle {
+            font-size: 1.1875rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            max-width: 58ch;
+            margin-bottom: 3rem;
+            opacity: 0;
+            animation: fade-up 0.7s ease 0.3s forwards;
+        }
+
+        .hero-subtitle strong {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 2rem;
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 2rem;
+            margin-top: 3rem;
+            opacity: 0;
+            animation: fade-up 0.7s ease 0.4s forwards;
+        }
+
+        .stat-label {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .stat-value .accent { color: var(--accent-gold); }
+
+        /* === Sections === */
+        section {
+            padding: 5rem 0;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .section-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-eyebrow::before {
+            content: '';
+            width: 24px;
+            height: 1px;
+            background: var(--accent-gold);
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+            font-weight: 400;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.5rem;
+            max-width: 28ch;
+        }
+
+        .section-title em {
+            font-style: italic;
+            color: var(--accent-gold);
+        }
+
+        .section-lead {
+            font-size: 1.0625rem;
+            line-height: 1.65;
+            color: var(--text-secondary);
+            max-width: 60ch;
+            margin-bottom: 3rem;
+        }
+
+        /* === Cards === */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            padding: 2rem;
+            border-radius: 4px;
+            transition: border-color 0.2s ease;
+            position: relative;
+        }
+
+        .card:hover {
+            border-color: var(--border-medium);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 2px; height: 100%;
+            background: var(--accent-gold);
+            transform: scaleY(0);
+            transform-origin: top;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .card-icon {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card h3 {
+            font-family: var(--font-display);
+            font-size: 1.125rem;
+            font-weight: 500;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .card p {
+            font-size: 0.9375rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        /* === Problem statement === */
+        .problem-list {
+            list-style: none;
+            max-width: 680px;
+        }
+
+        .problem-list li {
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            font-size: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .problem-list li:last-child { border-bottom: none; }
+
+        .problem-list .marker {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent-blood);
+            background: rgba(139, 58, 58, 0.15);
+            padding: 0.2rem 0.5rem;
+            border-radius: 2px;
+            white-space: nowrap;
+            margin-top: 0.15rem;
+        }
+
+        /* === Regulation table === */
+        .reg-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2rem;
+            font-size: 0.9375rem;
+        }
+
+        .reg-table th {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-medium);
+        }
+
+        .reg-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            vertical-align: top;
+        }
+
+        .reg-table td:first-child {
+            color: var(--text-primary);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .reg-table .check {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        /* === Architecture diagram === */
+        .arch-block {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            padding: 2rem;
+            margin-top: 2rem;
+            overflow-x: auto;
+        }
+
+        .arch-block pre {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            white-space: pre;
+        }
+
+        .arch-block .highlight { color: var(--accent-gold); }
+        .arch-block .dim { color: var(--text-tertiary); }
+        .arch-block .safe { color: var(--success); }
+
+        /* === CTA === */
+        .cta-section {
+            text-align: center;
+            padding: 6rem 0;
+        }
+
+        .cta-title {
+            font-family: var(--font-display);
+            font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+            font-weight: 400;
+            margin-bottom: 1rem;
+        }
+
+        .cta-lead {
+            font-size: 1.0625rem;
+            color: var(--text-secondary);
+            max-width: 48ch;
+            margin: 0 auto 2.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.5rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: var(--accent-gold);
+            color: var(--bg-deep);
+            border-color: var(--accent-gold);
+        }
+
+        .btn-primary:hover {
+            background: transparent;
+            color: var(--accent-gold);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border-color: var(--border-medium);
+            margin-left: 1rem;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-secondary);
+        }
+
+        /* === Footer === */
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 2rem 0;
+            font-size: 0.8125rem;
+            color: var(--text-tertiary);
+            text-align: center;
+        }
+
+        /* === Capabilities list === */
+        .cap-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .cap-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .cap-item .cap-check {
+            color: var(--success);
+            font-size: 1rem;
+        }
+
+        /* === Differentiator === */
+        .diff-block {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .diff-block h4 {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            margin-bottom: 1rem;
+        }
+
+        .diff-row {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 0.9375rem;
+        }
+
+        .diff-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+        .diff-row .label {
+            min-width: 120px;
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+        }
+
+        .diff-row .bad {
+            color: var(--accent-blood);
+            flex: 1;
+        }
+
+        .diff-row .good {
+            color: var(--success);
+            flex: 1;
+        }
+
+        /* === Responsive === */
+        @media (max-width: 640px) {
+            .hero-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .topnav { display: none; }
+            .diff-row { flex-direction: column; gap: 0.5rem; }
+            .reg-table { font-size: 0.8125rem; }
+            .reg-table td, .reg-table th { padding: 0.5rem; }
+        }
+
+        /* === Animations === */
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top bar -->
+    <header class="topbar">
+        <div class="container topbar-inner">
+            <a href="#" class="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                <span>Raven<em>Fabric</em></span>
+            </a>
+            <nav class="topnav">
+                <a href="#problem">Problem</a>
+                <a href="#solution">Solution</a>
+                <a href="#compliance">Compliance</a>
+                <a href="#reach">Reach</a>
+                <a href="#contact">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-eyebrow">Investor Brief</div>
+            <h1 class="hero-title">The <em>security layer</em> AI agents need before they touch production</h1>
+            <p class="hero-subtitle">
+                Every company deploying AI agents faces the same question: <strong>how do you give an AI access to your systems without losing control?</strong> RavenFabric is the answer. Policy-controlled, fully audited, cryptographically verified access &mdash; for AI agents and human operators alike. Local or remote. Any system, anywhere.
+            </p>
+            <div class="hero-stats">
+                <div>
+                    <div class="stat-label">Codebase</div>
+                    <div class="stat-value"><span class="accent">53,900</span> LOC</div>
+                </div>
+                <div>
+                    <div class="stat-label">Test coverage</div>
+                    <div class="stat-value"><span class="accent">1,111</span> tests</div>
+                </div>
+                <div>
+                    <div class="stat-label">Language</div>
+                    <div class="stat-value">Rust</div>
+                </div>
+                <div>
+                    <div class="stat-label">Binary</div>
+                    <div class="stat-value">&lt; 15 MB static</div>
+                </div>
+                <div>
+                    <div class="stat-label">Status</div>
+                    <div class="stat-value">Alpha v0.3</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem -->
+    <section id="problem">
+        <div class="container">
+            <div class="section-eyebrow">The Problem</div>
+            <h2 class="section-title">AI agents with <em>unsupervised</em> system access</h2>
+            <p class="section-lead">
+                AI coding assistants and autonomous agents are already executing commands on production systems. Without guardrails, every AI action is a liability &mdash; legally, financially, and operationally.
+            </p>
+            <ul class="problem-list">
+                <li>
+                    <span class="marker">RISK</span>
+                    <span>AI agent runs <code>rm -rf /</code> or drops a database. No policy prevented it. No audit trail exists.</span>
+                </li>
+                <li>
+                    <span class="marker">RISK</span>
+                    <span>Prompt injection causes an AI to exfiltrate credentials. No detection, no containment, no evidence.</span>
+                </li>
+                <li>
+                    <span class="marker">RISK</span>
+                    <span>EU AI Act requires human oversight and traceability for high-risk AI. Your current stack has neither.</span>
+                </li>
+                <li>
+                    <span class="marker">RISK</span>
+                    <span>An employee is personally liable for AI-caused damage. With no audit log proving due diligence, they have no legal defense.</span>
+                </li>
+                <li>
+                    <span class="marker">RISK</span>
+                    <span>Multiple AI agents across teams, each with ad-hoc access. No central visibility, no unified policy, no kill switch.</span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Solution -->
+    <section id="solution">
+        <div class="container">
+            <div class="section-eyebrow">The Solution</div>
+            <h2 class="section-title">One binary between AI and <em>everything</em></h2>
+            <p class="section-lead">
+                RavenFabric sits between AI agents and the systems they access. Every action is policy-checked, cryptographically authenticated, and audit-logged. Deny-by-default. The AI can only do what the policy explicitly permits.
+            </p>
+
+            <div class="arch-block">
+                <pre><span class="dim">AI Agent (Claude, GPT, Cursor, Aider, custom)</span>
+    │
+    ▼
+<span class="highlight">RavenFabric MCP Server</span>
+    ├── <span class="safe">Policy check</span>: Is this command allowed? For this agent? Right now?
+    ├── <span class="safe">Prompt injection detection</span>: Heuristics + scoring + auto-containment
+    ├── <span class="safe">Human approval</span>: Require sign-off for sensitive operations
+    ├── <span class="safe">Audit log</span>: Structured JSON-lines, every action, immutable
+    └── <span class="safe">Rate limiting</span>: Prevent runaway loops from exhausting resources
+
+    │ <span class="dim">Noise XX E2E encrypted (mutual authentication)</span>
+    ▼
+
+<span class="highlight">RavenFabric Agent</span> (on target system &mdash; local OR remote)
+    ├── <span class="safe">Re-validates policy locally</span> (agent is final authority)
+    ├── Execute within resource bounds (CPU, memory, output, timeout)
+    ├── Stream results back encrypted
+    └── Append audit entry
+
+<span class="dim">Target system is untouched. Agent is a single static binary. No runtime deps.</span></pre>
+            </div>
+
+            <div class="card-grid" style="margin-top: 3rem;">
+                <div class="card">
+                    <div class="card-icon">&#x1F6E1;</div>
+                    <h3>Deny-by-Default Policy</h3>
+                    <p>Nothing executes unless explicitly permitted. YAML-defined rules for commands, filesystem paths, and resources. Immutable deny lists for destructive operations.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F4DC;</div>
+                    <h3>Full Audit Trail</h3>
+                    <p>Every AI action produces a structured JSON log entry: who, what, when, why (AI reasoning captured), policy decision, duration, output hash. Append-only, tamper-evident.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F916;</div>
+                    <h3>MCP Protocol Native</h3>
+                    <p>Model Context Protocol server built-in. Works with Claude Desktop, Claude Code, Cursor, Aider, and any MCP-compatible AI. Drop-in integration in minutes.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F9E0;</div>
+                    <h3>Prompt Injection Defense</h3>
+                    <p>Detects base64 payloads, unicode homoglyphs, eval patterns, and known injection markers. Suspicion scoring per session with automatic capability reduction.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F46B;</div>
+                    <h3>Human-in-the-Loop</h3>
+                    <p>Configurable approval workflows for sensitive operations. SHA-256 bound, one-time-use, 30-minute TTL. The AI requests, a human approves, the system executes.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F50D;</div>
+                    <h3>Behavioral Anomaly Detection</h3>
+                    <p>Per-identity baselines. Statistical deviation alerting on command velocity, path novelty, timing patterns, and escalation attempts. Auto-containment on threshold breach.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Capabilities -->
+    <section id="capabilities">
+        <div class="container">
+            <div class="section-eyebrow">Full Capability Set</div>
+            <h2 class="section-title">Not just execute &mdash; <em>everything</em> an agent needs</h2>
+            <p class="section-lead">
+                RavenFabric provides the complete operational surface for AI agents, all under the same policy engine and audit system.
+            </p>
+            <div class="cap-grid">
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Command execution</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> File read/write</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Port forwarding</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Interactive shell</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Desired-state convergence</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Multi-agent orchestration</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Sealed secrets injection</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> System metrics collection</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Policy pre-flight check</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Capability discovery</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Self-audit query</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Session recording</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Playbook rollout</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Rollback on failure</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Rate limiting per session</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> RBAC per caller identity</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Compliance -->
+    <section id="compliance">
+        <div class="container">
+            <div class="section-eyebrow">Regulatory Compliance</div>
+            <h2 class="section-title">Built for the <em>regulations</em> that are already here</h2>
+            <p class="section-lead">
+                The EU AI Act is enforceable. NIS2 mandates are active. NIST AI RMF is the benchmark. Companies without auditable AI governance face fines, and individuals face personal liability for negligence.
+            </p>
+
+            <table class="reg-table">
+                <thead>
+                    <tr>
+                        <th>Regulation</th>
+                        <th>Requirement</th>
+                        <th>RavenFabric</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>EU AI Act</td>
+                        <td>Human oversight of high-risk AI systems</td>
+                        <td class="check">Human-in-loop approval workflow with evidence trail</td>
+                    </tr>
+                    <tr>
+                        <td>EU AI Act</td>
+                        <td>Traceability and logging of AI decisions</td>
+                        <td class="check">Structured audit log with AI reasoning capture</td>
+                    </tr>
+                    <tr>
+                        <td>EU AI Act</td>
+                        <td>Risk management and mitigation</td>
+                        <td class="check">Deny-by-default policy, anomaly detection, auto-containment</td>
+                    </tr>
+                    <tr>
+                        <td>NIS2</td>
+                        <td>Incident detection and response</td>
+                        <td class="check">Real-time anomaly alerts, session termination, full timeline reconstruction</td>
+                    </tr>
+                    <tr>
+                        <td>NIS2</td>
+                        <td>Supply chain security</td>
+                        <td class="check">Cryptographic identity, capability-based auth, zero-trust architecture</td>
+                    </tr>
+                    <tr>
+                        <td>NIST AI RMF</td>
+                        <td>Govern, Map, Measure, Manage</td>
+                        <td class="check">Policy templates, compliance reports, risk scoring, containment actions</td>
+                    </tr>
+                    <tr>
+                        <td>GDPR / DPA</td>
+                        <td>Data minimization, access control</td>
+                        <td class="check">Filesystem path policies, output limiting, sealed secrets</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="diff-block" style="margin-top: 3rem;">
+                <h4>Personal Liability Protection</h4>
+                <div class="diff-row">
+                    <span class="label">Without</span>
+                    <span class="bad">AI causes damage. No logs. No policy. Employee is personally liable for negligence. No legal defense.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label">With RavenFabric</span>
+                    <span class="good">Full audit trail proves due diligence. Policy enforcement proves controls were in place. Human approval proves oversight. Evidence for legal defense is automatic.</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reach -->
+    <section id="reach">
+        <div class="container">
+            <div class="section-eyebrow">Not Just Local</div>
+            <h2 class="section-title">Give AI controlled access to <em>any system, anywhere</em></h2>
+            <p class="section-lead">
+                RavenFabric is not limited to the machine where the AI agent runs. The same policy engine, audit trail, and encrypted transport extend to any system on any network. From a developer's laptop to a fleet of production servers across continents.
+            </p>
+
+            <div class="arch-block">
+                <pre><span class="highlight">AI Agent</span> (your IDE, your automation)
+    │
+    │  <span class="dim">Same policy. Same audit. Same encryption.</span>
+    │
+    ├──▶ <span class="safe">Local system</span> (laptop, dev machine)
+    ├──▶ <span class="safe">Production servers</span> (cloud, on-prem, hybrid)
+    ├──▶ <span class="safe">Edge devices</span> (IoT, Raspberry Pi, routers)
+    ├──▶ <span class="safe">Air-gapped systems</span> (serial, radio, DTN)
+    └──▶ <span class="safe">Mobile devices</span> (Android, iOS)
+
+<span class="dim">30+ transport drivers. Works through NAT, firewalls, proxies.
+Zero inbound ports required. Single static binary on target.</span></pre>
+            </div>
+
+            <div class="card-grid" style="margin-top: 3rem;">
+                <div class="card">
+                    <div class="card-icon">&#x1F3E2;</div>
+                    <h3>Enterprise Scale</h3>
+                    <p>Multi-tenant isolation. RBAC. Fleet orchestration with rolling deployments and automatic rollback. Central policy distribution via CRDT convergence.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F464;</div>
+                    <h3>Personal Use</h3>
+                    <p>Single binary, single config file. Give your AI coding assistant safe access to your projects in 5 minutes. Free under AGPL-3.0.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F310;</div>
+                    <h3>Network Agnostic</h3>
+                    <p>WebSocket, QUIC, WireGuard, Tor, serial port, Bluetooth, LoRa, satellite. If bytes can move, RavenFabric works. 30+ transport drivers, automatic failover.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Market -->
+    <section id="market">
+        <div class="container">
+            <div class="section-eyebrow">Market Opportunity</div>
+            <h2 class="section-title">Every AI deployment is a <em>customer</em></h2>
+            <p class="section-lead">
+                The AI agent market is growing exponentially. Every deployment creates demand for security, compliance, and governance tooling. RavenFabric is positioned at the intersection.
+            </p>
+
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-icon">&#x1F4C8;</div>
+                    <h3>AI Coding Assistants</h3>
+                    <p>Every developer using Cursor, Claude Code, GitHub Copilot, or Aider needs guardrails on what the AI can execute. Millions of users today.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F3ED;</div>
+                    <h3>Enterprise AI Automation</h3>
+                    <p>Autonomous AI agents managing infrastructure, deployments, and operations. Requires policy, audit, and compliance by regulation.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F3DB;</div>
+                    <h3>Regulated Industries</h3>
+                    <p>Finance, healthcare, government, critical infrastructure. Cannot adopt AI without provable oversight. RavenFabric provides the proof.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F6E0;</div>
+                    <h3>MSPs and Platform Teams</h3>
+                    <p>Managed service providers offering AI-powered operations need per-tenant isolation, audit trails, and blast-radius containment.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Differentiators -->
+    <section id="differentiators">
+        <div class="container">
+            <div class="section-eyebrow">Why RavenFabric</div>
+            <h2 class="section-title">What makes this <em>different</em></h2>
+
+            <div class="diff-block">
+                <h4>Comparison</h4>
+                <div class="diff-row">
+                    <span class="label">Others</span>
+                    <span class="bad">Bolt security onto existing execution tools (Ansible + vault + audit daemon + firewall rules + hope)</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label">RavenFabric</span>
+                    <span class="good">Security is the architecture. Policy engine is the foundation. Execution happens within its bounds only.</span>
+                </div>
+            </div>
+
+            <div class="diff-block" style="margin-top: 1.5rem;">
+                <h4>Technical Moat</h4>
+                <div class="diff-row">
+                    <span class="label">Crypto</span>
+                    <span class="good">Noise XX mutual authentication (same protocol core as WireGuard). No TLS. No certificates. No PKI.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label">Transport</span>
+                    <span class="good">30+ drivers including censorship-resistant (Tor, domain fronting, MASQUE) and air-gap (serial, radio, DTN).</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label">Platform</span>
+                    <span class="good">Single static binary. Runs on Linux, macOS, Windows, Android, iOS, Raspberry Pi, routers, embedded. &lt; 15 MB, &lt; 10 MB RAM.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label">Language</span>
+                    <span class="good">Written in Rust. Memory-safe. No GC pauses. No runtime dependencies. unsafe_code = "forbid".</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section" id="contact">
+        <div class="container">
+            <h2 class="cta-title">Interested?</h2>
+            <p class="cta-lead">
+                RavenFabric is seeking investment to accelerate from alpha to production. The technology is built. The market is ready. The regulations require it.
+            </p>
+            <a href="mailto:support@ravenfabric.io?subject=Investor%20Inquiry%20%E2%80%94%20RavenFabric" class="btn btn-primary">Get in Touch</a>
+            <a href="https://ravenfabric.io" class="btn btn-secondary">Main Website</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 RavenFabric. Built in Norway. Security-first by design.</p>
+        </div>
+    </footer>
+
+</body>
+</html>
