@@ -764,7 +764,7 @@
                 <div class="card">
                     <div class="card-icon">&#x1F4DC;</div>
                     <h3>Full Audit Trail</h3>
-                    <p>Every AI action produces a structured JSON log entry: who, what, when, the requesting prompt/tool call, policy decision, duration, and SHA-256 output hash. Append-only log with sequential entry hashing for tamper detection. Logs are written locally on the agent (survives relay outages) with optional centralized aggregation for fleet-wide compliance reporting. Forensic-grade evidence for incident reconstruction and regulatory review.</p>
+                    <p>Every AI action produces a structured JSON log entry: who, what, when, the requesting prompt/tool call, policy decision, and duration. Append-only log written locally on the agent (survives relay outages) with optional centralized aggregation for fleet-wide compliance reporting. Forensic-grade evidence for incident reconstruction and regulatory review.</p>
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F916;</div>
@@ -788,13 +788,13 @@
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F9E9;</div>
-                    <h3>Agentic Skills Framework</h3>
-                    <p>Pre-built, composable skill definitions that AI agents discover and invoke autonomously. Not an automation framework &mdash; skills are thin, policy-gated wrappers around operational actions. The agent decides what to do; RavenFabric decides whether it&rsquo;s allowed, executes it safely, and logs every detail.</p>
+                    <h3>Composable MCP Tools</h3>
+                    <p>AI agents discover and invoke operational actions via MCP tool definitions. Each tool is policy-gated: the agent decides what to do; RavenFabric decides whether it&rsquo;s allowed, executes it safely, and logs every detail.</p>
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F527;</div>
-                    <h3>Ready-Made Skill Library</h3>
-                    <p>Ships with production-ready skills: health checks, log analysis, service restarts, config validation, security scanning, backup verification, and certificate rotation. Extend with custom skills in YAML.</p>
+                    <h3>Ready-Made Tool Set</h3>
+                    <p>Ships with production-ready tools: command execution, file operations, system metrics, health checks, service management, and desired-state convergence. Extend with custom policy definitions in YAML.</p>
                 </div>
             </div>
         </div>
@@ -817,18 +817,18 @@
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Fleet-wide orchestration</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Environment secrets injection</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> System metrics collection</div>
-                <div class="cap-item"><span class="cap-check">&#x2713;</span> Policy pre-flight check</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Policy dry-run validation</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Capability discovery</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Self-audit query</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Session recording</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Playbook rollout</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Rollback on failure</div>
-                <div class="cap-item"><span class="cap-check">&#x2713;</span> Rate limiting per session</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Rate limiting</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> RBAC per caller identity</div>
-                <div class="cap-item"><span class="cap-check">&#x2713;</span> Agentic skill discovery</div>
-                <div class="cap-item"><span class="cap-check">&#x2713;</span> Composable skill chains</div>
-                <div class="cap-item"><span class="cap-check">&#x2713;</span> Skill version control</div>
-                <div class="cap-item"><span class="cap-check">&#x2713;</span> Custom skill definitions</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> MCP tool discovery</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Desired-state convergence</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Webhook alerting</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Custom policy definitions</div>
             </div>
         </div>
     </section>
@@ -884,7 +884,7 @@
                     <tr>
                         <td>GDPR / DPA</td>
                         <td>Data minimization, access control</td>
-                        <td class="check">Filesystem path policies, output limiting, sealed secrets</td>
+                        <td class="check">Filesystem path policies, output limiting, environment secrets</td>
                     </tr>
                 </tbody>
             </table>
@@ -926,7 +926,7 @@
     ├──▶ <span class="safe">Air-gapped systems</span> (serial, radio, DTN)
     └──▶ <span class="safe">Mobile devices</span> (Android, iOS)
 
-<span class="dim">30+ transport drivers. Works through NAT, firewalls, proxies.
+<span class="dim">20+ transport drivers. Works through NAT, firewalls, proxies.
 Zero inbound ports required. Single static binary on target.</span></pre>
             </div>
 
@@ -944,7 +944,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 <div class="card">
                     <div class="card-icon">&#x1F310;</div>
                     <h3>Network Agnostic</h3>
-                    <p>WebSocket, QUIC, WireGuard, Tor, serial port, Bluetooth, LoRa, satellite. If bytes can move, RavenFabric works. 30+ transport drivers, automatic failover.</p>
+                    <p>WebSocket, QUIC, WireGuard, Tor, serial port, Bluetooth, LoRa, satellite. If bytes can move, RavenFabric works. 20+ transport drivers, automatic failover.</p>
                 </div>
             </div>
         </div>
@@ -1138,7 +1138,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label">Transport</span>
-                    <span class="good">30+ transport drivers spanning standard (WebSocket, QUIC), censorship-resistant, and air-gap channels. Automatic failover between paths. The breadth of transport support is a multi-year engineering investment that competitors cannot shortcut.</span>
+                    <span class="good">20+ transport drivers spanning standard (WebSocket, QUIC), censorship-resistant, and air-gap channels. Automatic failover between paths. The breadth of transport support is a multi-year engineering investment that competitors cannot shortcut.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label">Platform</span>
@@ -1281,8 +1281,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
 <span class="dim">  "command": "rm -rf /etc/nginx",</span>
 <span class="dim">  "decision": "<span style="color: var(--accent-blood);">deny</span>",</span>
 <span class="dim">  "reason": "deny_pattern: .*rm.*-rf.*",</span>
-<span class="dim">  "hash": "sha256:a4f8..3b21",</span>
-<span class="dim">  "prev_hash": "sha256:91e2..f740"</span>
+<span class="dim">  "duration_ms": 0</span>
 <span class="dim">}</span>
 
 <span class="dim"># AI agent retries with an allowed command:</span>
@@ -1290,8 +1289,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
 <span class="highlight">$ rf exec web-01 "systemctl reload nginx"</span>
 <span class="safe">&#x2713; Policy allowed. Executing on web-01.</span>
 <span class="dim">  nginx.service reloaded successfully</span>
-<span class="dim">  Duration: 142ms</span>
-<span class="dim">  Output hash: sha256:d8c1..94a7</span></pre>
+<span class="dim">  Duration: 142ms</span></pre>
             </div>
         </div>
     </section>
@@ -1403,7 +1401,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 120px;">What&rsquo;s Done</span>
-                    <span class="good">54K LOC Rust codebase. 1,111 tests. 13 crates. Cross-platform binaries. MCP server. Policy engine. Audit system. Encryption layer. 30+ transport drivers. CI/CD. Documentation. Website.</span>
+                    <span class="good">54K LOC Rust codebase. 1,111 tests. 13 crates. Cross-platform binaries. MCP server. Policy engine. Audit system. Encryption layer. 20+ transport drivers. CI/CD. Documentation. Website.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 120px;">What&rsquo;s Next</span>
@@ -1411,7 +1409,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 120px;">Why Now</span>
-                    <span class="good">EU AI Act enforcement is live. AI agent adoption is accelerating. No incumbent owns this category. AI platform vendors will add policy features to their own protocols &mdash; but protocol specs define policy language, not enforcement across 30+ transports, cross-vendor, on-prem, and air-gapped. RavenFabric is the enforcement layer for any protocol, not a protocol competitor. The vendor-neutral, open-core alternative must exist before walled-garden solutions lock in the market.</span>
+                    <span class="good">EU AI Act enforcement is live. AI agent adoption is accelerating. No incumbent owns this category. AI platform vendors will add policy features to their own protocols &mdash; but protocol specs define policy language, not enforcement across 20+ transports, cross-vendor, on-prem, and air-gapped. RavenFabric is the enforcement layer for any protocol, not a protocol competitor. The vendor-neutral, open-core alternative must exist before walled-garden solutions lock in the market.</span>
                 </div>
             </div>
             <a href="mailto:support@ravenfabric.io?subject=RavenFabric%20Partnership%20%2F%20Investment%20Inquiry" class="btn btn-primary" style="font-size: 1rem; padding: 1rem 2rem;">Contact Us &rarr;</a>

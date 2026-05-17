@@ -1357,7 +1357,7 @@ $ rf exec local "rm -rf /"
             <p class="section-lead">
                 Every layer is a separate crate — testable, replaceable, auditable independently.
                 Policy and audit sit beside execution, not bolted on after the fact.
-                13 crates, ~53,700 lines of Rust, 1,094 tests.
+                13 crates, ~54,300 lines of Rust, 1,111 tests.
             </p>
             <img src="assets/architecture.svg" alt="RavenFabric 7-layer architecture diagram showing crypto, transport, RPC, audit, policy, executor, and application layers" width="800" height="600" style="width:100%;max-width:800px;margin:2rem auto;display:block;border-radius:8px;">
         </div>
@@ -1511,7 +1511,7 @@ $ rf exec local "rm -rf /"
                 <div class="what-card">
                     <div class="card-num">04</div>
                     <h3>Human-in-loop approval workflows</h3>
-                    <p>Sensitive operations require explicit human approval before execution. The agent requests, the human decides. Approval routing via terminal prompt, Slack, or email. Timeout-enforced — no silent waiting forever.</p>
+                    <p>Sensitive operations require explicit human approval before execution. The agent requests, the human decides. Approval via terminal prompt or API. Timeout-enforced — no silent waiting forever.</p>
                 </div>
                 <div class="what-card">
                     <div class="card-num">05</div>
@@ -1581,7 +1581,7 @@ $ rf exec local "rm -rf /"
                 </div>
                 <div class="feature-card">
                     <h3>Is it production-ready?</h3>
-                    <p>Not yet. v0.1 is feature-complete alpha — the architecture is proven, security model sound, transport diversity implemented (WebSocket, QUIC, WireGuard, DNS tunnel, serial), fuzz-tested, and CI-verified across 8 targets. Stabilization and API finalization remain before a production label.</p>
+                    <p>Not yet. v0.3 is a feature-complete early release — the architecture is proven, security model sound, transport diversity implemented (WebSocket, QUIC, WireGuard, Tor, serial, LoRa), and CI-verified across 8 targets. API stabilization and external security audit remain before a production label.</p>
                 </div>
                 <div class="feature-card">
                     <h3>Who is this for?</h3>
@@ -1620,7 +1620,7 @@ $ rf exec local "rm -rf /"
                 </div>
                 <div class="feature-card">
                     <h3>OWASP ASVS Level 2</h3>
-                    <p>91% pass rate across 58 applicable verification requirements. Authentication, cryptography, data protection, and access control fully satisfied.</p>
+                    <p>93% pass rate across 58 applicable verification requirements (self-assessment). Authentication, cryptography, data protection, and access control fully satisfied.</p>
                 </div>
                 <div class="feature-card">
                     <h3>MITRE ATT&CK</h3>
