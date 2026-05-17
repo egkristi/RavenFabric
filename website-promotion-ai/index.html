@@ -703,12 +703,12 @@
                 <div class="card">
                     <div class="card-icon">&#x1F4DC;</div>
                     <h3>Full Audit Trail</h3>
-                    <p>Every AI action produces a structured JSON log entry: who, what, when, why (AI reasoning captured), policy decision, duration, output hash. Append-only, tamper-evident.</p>
+                    <p>Every AI action produces a structured JSON log entry: who, what, when, why (AI reasoning captured), policy decision, duration, and SHA-256 output hash. Append-only log with sequential entry hashing for tamper detection. Forensic-grade evidence for incident reconstruction and regulatory review.</p>
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F916;</div>
                     <h3>Works With Every AI Agent</h3>
-                    <p>Native MCP (Model Context Protocol) server and agentic skills support. Compatible with Claude Desktop, Claude Code, Cursor, Windsurf, Aider, GitHub Copilot, OpenAI Agents, LangChain, CrewAI, AutoGen, and any AI platform that supports MCP or custom tool/skill integration. One integration point for all of them.</p>
+                    <p>Native MCP (Model Context Protocol) server and agentic skills support. Compatible with Claude Desktop, Claude Code, Cursor, Windsurf, Aider, GitHub Copilot, OpenAI Agents, LangChain, CrewAI, AutoGen, and any AI platform that supports MCP or custom tool/skill integration. MCP is an evolving standard &mdash; RavenFabric tracks it closely and hedges with protocol-agnostic skill definitions, so the security layer survives regardless of which AI integration standard wins.</p>
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F9E0;</div>
@@ -829,14 +829,14 @@
             </table>
 
             <div class="diff-block" style="margin-top: 3rem;">
-                <h4>Personal Liability Protection</h4>
+                <h4>Demonstrable Due Diligence</h4>
                 <div class="diff-row">
                     <span class="label">Without</span>
-                    <span class="bad">AI causes damage. No logs. No policy. Employee is personally liable for negligence. No legal defense.</span>
+                    <span class="bad">AI causes damage. No logs exist, no policy was in place. The organization cannot demonstrate that reasonable controls were applied. Regulatory inquiries have no evidence to review.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label">With RavenFabric</span>
-                    <span class="good">Full audit trail proves due diligence. Policy enforcement proves controls were in place. Human approval proves oversight. Evidence for legal defense is automatic.</span>
+                    <span class="good">Structured audit trail documents every AI action. Policy enforcement demonstrates that controls were defined and applied. Human approval records prove oversight was exercised. Evidence is generated automatically &mdash; before an incident occurs, not after.</span>
                 </div>
             </div>
         </div>
@@ -965,7 +965,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 <h4>Technical Moat</h4>
                 <div class="diff-row">
                     <span class="label">Crypto</span>
-                    <span class="good">Noise XX mutual authentication (same protocol core as WireGuard). No TLS. No certificates. No PKI.</span>
+                    <span class="good">Noise_XX_25519_ChaChaPoly_BLAKE2s &mdash; mutual authentication using Curve25519 key pairs, ChaCha20-Poly1305 AEAD encryption, BLAKE2s hashing. Same protocol core as WireGuard. No TLS. No certificates. No PKI. Keys are file-permission protected and zeroed from memory on drop.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label">Transport</span>
@@ -978,6 +978,101 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 <div class="diff-row">
                     <span class="label">Language</span>
                     <span class="good">Written in Rust. Memory-safe. No GC pauses. No runtime dependencies. unsafe_code = "forbid".</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Details -->
+    <section id="architecture">
+        <div class="container">
+            <div class="section-eyebrow">Technical Architecture</div>
+            <h2 class="section-title">Questions technical evaluators <em>will</em> ask</h2>
+            <p class="section-lead">
+                We have answers. These are the details that matter in a due diligence conversation.
+            </p>
+
+            <div class="diff-block">
+                <h4>Key Rotation &amp; Trust Model</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Key Rotation</span>
+                    <span class="good">Agent key pairs are Curve25519. Rotation is supported via the enrollment flow: generate new key pair, re-enroll with OTP, old key is revoked. No certificate authority to manage. No expiry dates to track. Key material is zeroed from memory on drop (<code>zeroize</code> crate).</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Binary Trust</span>
+                    <span class="good">The agent binary is a single static executable with no runtime dependencies. Binary integrity is verified via SHA-256 checksums published alongside releases. The agent trusts only its configured controller public key &mdash; no implicit trust of network, DNS, or CA infrastructure.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Trust Bootstrap</span>
+                    <span class="good">One-time password (OTP) enrollment: hash-stored, single-use, TTL-enforced. Agent receives controller&rsquo;s public key during enrollment. After that, mutual Noise XX authentication on every connection. No TOFU. No leap-of-faith.</span>
+                </div>
+            </div>
+
+            <div class="diff-block" style="margin-top: 1.5rem;">
+                <h4>Deployment &amp; High Availability</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">HA Model</span>
+                    <span class="good">Relay is stateless &mdash; run multiple behind a load balancer. Agents reconnect with exponential backoff + jitter. No session state on the relay means any relay instance can serve any agent. Policy is distributed via CRDT convergence (no single point of failure for policy updates).</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Scaling</span>
+                    <span class="good">Each relay handles thousands of concurrent WebSocket connections. Horizontal scaling by adding relay instances. Agent-side: single static binary, &lt; 10 MB RAM idle. No database required for core operation.</span>
+                </div>
+            </div>
+
+            <div class="diff-block" style="margin-top: 1.5rem;">
+                <h4>IAM Integration</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Current</span>
+                    <span class="good">Identity is cryptographic: each agent and client has a Curve25519 key pair. RBAC policies bind permissions to caller identity (public key fingerprint). Policy files define which identities can execute which commands on which systems.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Roadmap</span>
+                    <span class="good">OIDC/SAML bridge planned for enterprise IAM (Entra ID, Okta, Google Workspace). Maps external identity tokens to RavenFabric key identities. The bridge issues scoped, time-limited credentials &mdash; the policy engine remains the enforcement point regardless of identity source.</span>
+                </div>
+            </div>
+
+            <div class="diff-block" style="margin-top: 1.5rem;">
+                <h4>Policy Language</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">vs. Rego</span>
+                    <span class="good">RavenFabric uses YAML policy definitions, not a general-purpose policy language. This is intentional: the policy surface is domain-specific (commands, filesystem paths, resources, timeouts). YAML is auditable by non-developers, version-controllable, and diff-friendly. Rego is powerful but requires specialized knowledge to write, review, and audit &mdash; a liability when regulators ask &ldquo;show me your policy.&rdquo;</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Capabilities</span>
+                    <span class="good">Regex pattern matching on commands. Path-based filesystem rules with symlink resolution. Resource limits (output bytes, timeout, CPU). Deny lists are immutable (cannot be overridden by allow rules). Template variables for environment-specific policies. Injection detection rules integrated into policy evaluation.</span>
+                </div>
+            </div>
+
+            <div class="diff-block" style="margin-top: 1.5rem;">
+                <h4>Testing &amp; Code Quality</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">1,111 Tests</span>
+                    <span class="good">Mix of unit, integration, and end-to-end tests. Security-critical paths (policy evaluation, crypto handshake, OTP validation, injection detection) have both positive and negative test coverage. Serialization types have roundtrip tests. Error paths are tested, not just happy paths.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Why Not More?</span>
+                    <span class="good">Rust&rsquo;s type system eliminates entire categories of bugs at compile time: null references, data races, use-after-free, buffer overflows. Code that would require runtime tests in Go or Python is caught by the compiler in Rust. The test suite focuses on logic and behavior, not type safety &mdash; the compiler already handles that. <code>#[forbid(unsafe_code)]</code> is enforced workspace-wide.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">CI Pipeline</span>
+                    <span class="good">Every commit runs the full test suite, Clippy (zero warnings policy), format check, MSRV verification, cross-compilation for 5 targets, and CodeQL security analysis. Coverage is tracked. No merge without green CI.</span>
+                </div>
+            </div>
+
+            <div class="diff-block" style="margin-top: 1.5rem;">
+                <h4>Go-to-Market: SaaS vs. On-Prem</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Phase 1</span>
+                    <span class="good"><strong>Open core, self-hosted.</strong> AGPL-3.0 for the core. Free for individuals and small teams. This builds adoption, community, and trust. The security layer must be inspectable &mdash; closed-source security tooling has a credibility problem.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Phase 2</span>
+                    <span class="good"><strong>Commercial license for enterprise.</strong> Multi-tenant management plane, fleet dashboard, compliance reporting, SSO/IAM integration, SLA support. On-prem or private cloud deployment &mdash; the data never leaves the customer&rsquo;s infrastructure.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Phase 3</span>
+                    <span class="good"><strong>Managed SaaS option.</strong> Hosted relay infrastructure, managed policy distribution, centralized audit aggregation. For organizations that want the security guarantees without operating the infrastructure. End-to-end encryption means we never see customer commands or outputs.</span>
                 </div>
             </div>
         </div>
