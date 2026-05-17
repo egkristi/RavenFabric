@@ -557,6 +557,65 @@
             flex: 1;
         }
 
+        /* === Comparison table === */
+        .compare-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2rem;
+            font-size: 0.875rem;
+        }
+
+        .compare-table th {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            text-align: center;
+            padding: 0.75rem 0.75rem;
+            border-bottom: 1px solid var(--border-medium);
+        }
+
+        .compare-table th:first-child {
+            text-align: left;
+        }
+
+        .compare-table td {
+            padding: 0.75rem 0.75rem;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .compare-table td:first-child {
+            color: var(--text-primary);
+            font-weight: 500;
+            text-align: left;
+            font-size: 0.8125rem;
+        }
+
+        .compare-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .compare-table .yes {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .compare-table .no {
+            color: var(--accent-blood);
+        }
+
+        .compare-table .partial {
+            color: var(--accent-gold-dim);
+        }
+
+        .compare-table .rf-col {
+            background: rgba(201, 169, 97, 0.06);
+        }
+
         /* === Responsive === */
         @media (max-width: 640px) {
             .hero-stats {
@@ -589,8 +648,9 @@
             <nav class="topnav">
                 <a href="#problem">Problem</a>
                 <a href="#solution">Solution</a>
+                <a href="#compare">Compare</a>
                 <a href="#compliance">Compliance</a>
-                <a href="#reach">Reach</a>
+                <a href="#roadmap">Roadmap</a>
                 <a href="#team">Team</a>
                 <a href="#contact">Contact</a>
             </nav>
@@ -940,35 +1000,127 @@ Zero inbound ports required. Single static binary on target.</span></pre>
         </div>
     </section>
 
+    <!-- Head-to-Head Comparison -->
+    <section id="compare">
+        <div class="container">
+            <div class="section-eyebrow">Head-to-Head</div>
+            <h2 class="section-title">How RavenFabric <em>compares</em></h2>
+            <p class="section-lead">
+                No single competitor covers the full surface. RavenFabric is the only solution that integrates policy, execution, transport, audit, and AI agent protocols in one binary.
+            </p>
+
+            <div class="arch-block" style="padding: 0; overflow-x: auto;">
+                <table class="compare-table">
+                    <thead>
+                        <tr>
+                            <th>Capability</th>
+                            <th>OPA / Cerbos</th>
+                            <th>Teleport / StrongDM</th>
+                            <th>Anthropic / OpenAI</th>
+                            <th>CrowdStrike / Wiz</th>
+                            <th class="rf-col">RavenFabric</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Policy engine</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="partial">Partial</td>
+                            <td class="partial">Partial</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Command execution</td>
+                            <td class="no">&mdash;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Encrypted transport</td>
+                            <td class="no">&mdash;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Audit trail</td>
+                            <td class="no">&mdash;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="partial">Partial</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>AI agent protocols (MCP)</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Prompt injection defense</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="partial">Partial</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Anomaly detection</td>
+                            <td class="no">&mdash;</td>
+                            <td class="partial">Partial</td>
+                            <td class="no">&mdash;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Cross-vendor / on-prem</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="partial">Cloud</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Single binary, no deps</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Edge / air-gapped / IoT</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Open source core</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="partial">Partial</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
     <!-- Differentiators -->
     <section id="differentiators">
         <div class="container">
             <div class="section-eyebrow">Why RavenFabric</div>
             <h2 class="section-title">What makes this <em>different</em></h2>
-
-            <div class="diff-block">
-                <h4>Competitive Landscape</h4>
-                <div class="diff-row">
-                    <span class="label" style="min-width: 180px;">Policy Engines<br><span style="font-size: 0.6875rem; color: var(--text-tertiary);">OPA, Gatekeeper, Cerbos, OpenFGA, Permit.io</span></span>
-                    <span class="bad">Policy-only. No execution, no transport, no audit trail. Require you to build the enforcement layer yourself. Kubernetes-centric — useless for edge, embedded, air-gapped systems.</span>
-                </div>
-                <div class="diff-row">
-                    <span class="label" style="min-width: 180px;">Access Proxies<br><span style="font-size: 0.6875rem; color: var(--text-tertiary);">Teleport, Boundary, StrongDM</span></span>
-                    <span class="bad">Human-first identity proxies. Designed for SSH/RDP/DB sessions by human operators. No AI agent protocol support (MCP, skills). No policy engine for command-level control. No prompt injection defense.</span>
-                </div>
-                <div class="diff-row">
-                    <span class="label" style="min-width: 180px;">AI Platform Vendors<br><span style="font-size: 0.6875rem; color: var(--text-tertiary);">Anthropic, OpenAI, Google</span></span>
-                    <span class="bad">Building permissions into their own clients. Vendor lock-in by design. Your policy lives in their cloud, not yours. No cross-vendor governance. No on-prem option. You don&rsquo;t control the enforcement point. Even if Anthropic adds native policy to MCP, it covers one protocol from one vendor &mdash; it cannot enforce across vendors, transports, and on-prem/air-gapped deployments. RavenFabric is the vendor-neutral enforcement layer.</span>
-                </div>
-                <div class="diff-row">
-                    <span class="label" style="min-width: 180px;">Security Platforms<br><span style="font-size: 0.6875rem; color: var(--text-tertiary);">CrowdStrike, Wiz, Palo Alto</span></span>
-                    <span class="bad">Will expand into AI governance &mdash; but as a feature in a massive platform. Enterprise pricing. Cloud-only. Months-long sales cycles. They detect threats; they don&rsquo;t control execution. Observation, not enforcement. An acquisition of an OPA veteran gives them policy &mdash; not transport, not execution, not AI agent protocols. Building the full stack takes years.</span>
-                </div>
-                <div class="diff-row">
-                    <span class="label" style="min-width: 180px;">RavenFabric</span>
-                    <span class="good"><strong>The full stack in one binary.</strong> Policy engine + execution layer + transport + audit + AI agent protocols (MCP + skills) + prompt injection defense + anomaly detection. Works with every AI vendor, runs anywhere, enforces locally. Open core, self-hosted, no vendor lock-in.</span>
-                </div>
-            </div>
 
             <div class="diff-block" style="margin-top: 1.5rem;">
                 <h4>Why Not &ldquo;Just Add a Feature&rdquo;</h4>
@@ -1094,6 +1246,115 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 <div class="diff-row">
                     <span class="label" style="min-width: 140px;">Phase 3</span>
                     <span class="good"><strong>Managed SaaS option.</strong> Hosted relay infrastructure, managed policy distribution, centralized audit aggregation. For organizations that want the security guarantees without operating the infrastructure. End-to-end encryption means we never see customer commands or outputs.</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo -->
+    <section id="demo">
+        <div class="container">
+            <div class="section-eyebrow">See It Work</div>
+            <h2 class="section-title">Policy enforcement in <em>action</em></h2>
+            <p class="section-lead">
+                An AI agent requests a destructive command. RavenFabric blocks it, logs the attempt, and continues operating. This is what deny-by-default looks like in practice.
+            </p>
+
+            <div class="arch-block">
+                <pre><span class="dim"># AI agent requests: rm -rf /etc/nginx</span>
+
+<span class="highlight">$ rf exec web-01 "rm -rf /etc/nginx"</span>
+<span style="color: var(--accent-blood);">&#x2717; Policy denied: command matches deny pattern .*rm.*-rf.*</span>
+<span class="dim">  Agent:    web-01</span>
+<span class="dim">  Caller:   f7a3..c912 (ai-deploy-bot)</span>
+<span class="dim">  Action:   exec</span>
+<span class="dim">  Command:  rm -rf /etc/nginx</span>
+<span class="dim">  Decision: DENY (immutable deny list)</span>
+<span class="dim">  Duration: 0.2ms</span>
+
+<span class="dim"># Audit entry generated automatically:</span>
+<span class="dim">{</span>
+<span class="dim">  "seq": 1847,</span>
+<span class="dim">  "ts": "2026-05-17T10:23:41Z",</span>
+<span class="dim">  "caller": "f7a3..c912",</span>
+<span class="dim">  "action": "exec",</span>
+<span class="dim">  "command": "rm -rf /etc/nginx",</span>
+<span class="dim">  "decision": "<span style="color: var(--accent-blood);">deny</span>",</span>
+<span class="dim">  "reason": "deny_pattern: .*rm.*-rf.*",</span>
+<span class="dim">  "hash": "sha256:a4f8..3b21",</span>
+<span class="dim">  "prev_hash": "sha256:91e2..f740"</span>
+<span class="dim">}</span>
+
+<span class="dim"># AI agent retries with an allowed command:</span>
+
+<span class="highlight">$ rf exec web-01 "systemctl reload nginx"</span>
+<span class="safe">&#x2713; Policy allowed. Executing on web-01.</span>
+<span class="dim">  nginx.service reloaded successfully</span>
+<span class="dim">  Duration: 142ms</span>
+<span class="dim">  Output hash: sha256:d8c1..94a7</span></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Roadmap -->
+    <section id="roadmap">
+        <div class="container">
+            <div class="section-eyebrow">Roadmap</div>
+            <h2 class="section-title">Path to <em>general availability</em></h2>
+
+            <div class="diff-block">
+                <h4>2026 Milestones</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Q2 2026</span>
+                    <span class="good"><strong>Design partner onboarding.</strong> 3&ndash;5 enterprises running RavenFabric in controlled environments. Feedback loop on policy language, deployment, and integration. External security audit engagement.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Q3 2026</span>
+                    <span class="good"><strong>v1.0 GA release.</strong> Stable API. Enterprise IAM bridge (OIDC/SAML). Fleet management dashboard. Documentation and onboarding guides. Community launch and open-source release.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Q4 2026</span>
+                    <span class="good"><strong>Commercial licensing.</strong> Per-node enterprise license. Compliance reporting module. SOC 2 Type I preparation. First paying customers from design partner cohort.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Q1 2027</span>
+                    <span class="good"><strong>Managed SaaS launch.</strong> Hosted relay infrastructure. Centralized audit aggregation. Self-service onboarding. Expansion into European regulated industries (finance, healthcare, public sector).</span>
+                </div>
+            </div>
+
+            <div class="diff-block" style="margin-top: 1.5rem;">
+                <h4>Security Assurance</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Audit Status</span>
+                    <span class="good">External security audit planned for the core crate (crypto, policy engine, transport). Engagement with a recognized security firm will coincide with design partner onboarding. Results will be published.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Current</span>
+                    <span class="good">CodeQL static analysis on every commit. <code>#[forbid(unsafe_code)]</code> workspace-wide. 1,111 tests including security-critical positive and negative cases. Dependency auditing via <code>cargo audit</code>.</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Validation -->
+    <section id="validation">
+        <div class="container">
+            <div class="section-eyebrow">Validation</div>
+            <h2 class="section-title">Early traction from <em>the right sectors</em></h2>
+
+            <div class="diff-block">
+                <h4>Design Partner Program</h4>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Status</span>
+                    <span class="good">In evaluation with organizations across regulated industries. Design partners are under NDA &mdash; names available in qualified investor conversations.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">Sectors</span>
+                    <span class="good">Public sector IT, financial services, and managed service providers. The common thread: regulated environments that need provable AI oversight before they can adopt AI agents operationally.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">What They Get</span>
+                    <span class="good">Early access to binaries, direct input on the policy language and enterprise features, priority integration support, and favorable commercial terms at GA.</span>
                 </div>
             </div>
         </div>
