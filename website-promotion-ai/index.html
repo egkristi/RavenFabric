@@ -769,7 +769,7 @@
                 <div class="card">
                     <div class="card-icon">&#x1F916;</div>
                     <h3>Works With Every AI Agent</h3>
-                    <p>Native MCP (Model Context Protocol) server and agentic skills support. Compatible with Claude Desktop, Claude Code, Cursor, Windsurf, Aider, GitHub Copilot, OpenAI Agents, LangChain, CrewAI, AutoGen, and any AI platform that supports MCP or custom tool/skill integration. MCP is an evolving standard &mdash; RavenFabric tracks it closely and hedges with protocol-agnostic skill definitions, so the security layer survives regardless of which AI integration standard wins.</p>
+                    <p>Native MCP (Model Context Protocol) server for direct integration with MCP-compatible clients: Claude Desktop, Claude Code, Cursor, Windsurf, Aider. For AI platforms that use other integration patterns (GitHub Copilot, OpenAI Agents, LangChain, CrewAI, AutoGen), RavenFabric exposes protocol-agnostic skill definitions and a standard CLI/API surface. MCP is an evolving standard &mdash; RavenFabric tracks it closely and hedges with protocol-agnostic interfaces, so the security layer works regardless of which AI integration standard wins.</p>
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F9E0;</div>
@@ -784,7 +784,7 @@
                 <div class="card">
                     <div class="card-icon">&#x1F50D;</div>
                     <h3>Behavioral Anomaly Detection</h3>
-                    <p>Per-identity baselines with threshold-based alerting on command velocity, path novelty, timing patterns, and escalation attempts. Auto-containment when configurable thresholds are breached. No black-box ML &mdash; deterministic rules that auditors can inspect and verify.</p>
+                    <p>Per-identity baselines with threshold-based alerting on command velocity, path novelty, timing patterns, and escalation attempts. Auto-containment when configurable thresholds are breached. Thresholds are tunable per tenant with sensible defaults. No black-box ML &mdash; deterministic rules that auditors can inspect, verify, and adjust to minimize false positives.</p>
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F9E9;</div>
@@ -897,7 +897,7 @@
                 </div>
                 <div class="diff-row">
                     <span class="label">With RavenFabric</span>
-                    <span class="good">Structured audit trail documents every AI action. Policy enforcement demonstrates that controls were defined and applied. Human approval records prove oversight was exercised. Evidence is generated automatically &mdash; before an incident occurs, not after.</span>
+                    <span class="good">Structured audit trail documents every AI action &mdash; providing the technical evidence that controls were in place and enforced. Policy enforcement demonstrates that security boundaries were defined and applied. Human approval records prove oversight was exercised. This does not replace legal due diligence, but it provides the technical foundation that legal and compliance teams need to demonstrate it.</span>
                 </div>
             </div>
         </div>
@@ -1150,7 +1150,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label">Licensing</span>
-                    <span class="good">Dual-licensed. Core is AGPL-3.0 (open for trust and inspection). Commercial license available for organizations that need it &mdash; straightforward per-node pricing, no AGPL obligations. Internal use without redistribution does not trigger AGPL. Same model as MongoDB, GitLab, and Grafana. Enterprise compliance teams get a clean commercial license; the open-source community gets full source access.</span>
+                    <span class="good">Dual-licensed. Core is AGPL-3.0 (open for trust and inspection). Commercial license available with straightforward per-node pricing and no copyleft obligations. If you&rsquo;re building a product, a SaaS, or an internal portal that uses RavenFabric &mdash; the commercial license is the simple path. Same model as MongoDB, GitLab, and Grafana. Enterprise compliance teams get a clean commercial license; the open-source community gets full source access.</span>
                 </div>
             </div>
         </div>
@@ -1189,7 +1189,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 140px;">Scaling</span>
-                    <span class="good">Each relay handles thousands of concurrent WebSocket connections. Horizontal scaling by adding relay instances. Agent-side: single static binary, &lt; 10 MB RAM idle. No database required for core operation.</span>
+                    <span class="good">Relay is lightweight and designed for high concurrency (benchmarks forthcoming with design partner deployments). Horizontal scaling by adding relay instances. Agent-side: single static binary, &lt; 10 MB RAM idle. No database required for core operation.</span>
                 </div>
             </div>
 
@@ -1318,7 +1318,11 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 140px;">Q1 2027</span>
-                    <span class="good"><strong>Managed SaaS launch.</strong> Hosted relay infrastructure. Centralized audit aggregation. Self-service onboarding. Expansion into European regulated industries (finance, healthcare, public sector).</span>
+                    <span class="good"><strong>Managed SaaS launch.</strong> Hosted relay infrastructure. Centralized audit aggregation. Self-service onboarding. Initial market: European regulated industries (finance, healthcare, public sector) &mdash; where AI governance mandates create immediate buyer urgency.</span>
+                </div>
+                <div class="diff-row">
+                    <span class="label" style="min-width: 140px;">2027+</span>
+                    <span class="good"><strong>Global expansion.</strong> US enterprise market entry as NIST AI RMF adoption and emerging state-level AI regulation create equivalent demand. The product is already cross-platform, vendor-neutral, and protocol-agnostic &mdash; the go-to-market adapts, not the technology.</span>
                 </div>
             </div>
 
@@ -1407,7 +1411,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 120px;">Why Now</span>
-                    <span class="good">EU AI Act enforcement is live. AI agent adoption is accelerating. No incumbent owns this category. First-mover advantage in AI agent security has a narrow window &mdash; the hyperscalers will build their own walled-garden solutions within 18&ndash;24 months. The vendor-neutral, open-core alternative must exist before that happens.</span>
+                    <span class="good">EU AI Act enforcement is live. AI agent adoption is accelerating. No incumbent owns this category. AI platform vendors will add policy features to their own protocols &mdash; but protocol specs define policy language, not enforcement across 30+ transports, cross-vendor, on-prem, and air-gapped. RavenFabric is the enforcement layer for any protocol, not a protocol competitor. The vendor-neutral, open-core alternative must exist before walled-garden solutions lock in the market.</span>
                 </div>
             </div>
             <a href="mailto:support@ravenfabric.io?subject=RavenFabric%20Partnership%20%2F%20Investment%20Inquiry" class="btn btn-primary" style="font-size: 1rem; padding: 1rem 2rem;">Contact Us &rarr;</a>
