@@ -176,12 +176,12 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - [x] Idle timeout + max duration — configurable limits prevent resource exhaustion from abandoned tunnels
 
 #### HTTP-Aware Proxy (Policy-Rich)
-- [ ] HTTP request inspection — agent parses method, path, headers before forwarding to upstream
-- [ ] HTTP policy rules — allow/deny by method + path pattern (e.g., allow `GET /api/**`, deny `DELETE /**`)
+- [x] HTTP request inspection — agent parses method, path, headers before forwarding to upstream
+- [x] HTTP policy rules — allow/deny by method + path pattern (e.g., allow `GET /api/**`, deny `DELETE /**`)
 - [ ] Header injection/stripping — policy can require/forbid specific headers (auth tokens, X-Forwarded-For)
-- [ ] Per-request audit logging — method, path, status code, latency, response size logged with caller identity
-- [ ] Request body size limits — configurable max request/response body (prevent exfiltration of large datasets)
-- [ ] `rf proxy <agent> --target http://localhost:8080 --http --listen :3000` — HTTP-aware mode
+- [x] Per-request audit logging — method, path, status code, latency, response size logged with caller identity
+- [x] Request body size limits — configurable max request/response body (prevent exfiltration of large datasets)
+- [x] `rf proxy <agent> --target http://localhost:8080 --http --listen :3000` — HTTP-aware mode
 
 #### MCP + AI Agent Integration
 - [ ] MCP tool: `rf_http_request` — AI agents call private APIs through RavenFabric with full policy enforcement

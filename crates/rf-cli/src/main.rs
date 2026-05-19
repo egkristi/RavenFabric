@@ -165,6 +165,11 @@ enum Commands {
         /// Maximum connection duration in seconds (hard cap)
         #[arg(long)]
         max_duration: Option<u32>,
+
+        /// Enable HTTP-aware mode: parse incoming HTTP requests and forward
+        /// them via HttpForward RPC (with per-request audit + policy enforcement)
+        #[arg(long)]
+        http: bool,
     },
 }
 
@@ -296,6 +301,7 @@ async fn main() -> anyhow::Result<()> {
             listen,
             idle_timeout,
             max_duration,
+            http,
         } => {
             proxy_command(
                 &cli.relay,
@@ -306,6 +312,7 @@ async fn main() -> anyhow::Result<()> {
                 &listen,
                 idle_timeout,
                 max_duration,
+                http,
             )
             .await?;
         }
@@ -1498,6 +1505,7 @@ async fn cp_command(
 }
 
 /// Open a TCP proxy tunnel through an agent.
+#[allow(clippy::too_many_arguments)]
 async fn proxy_command(
     relay_url: &str,
     direct_addr: Option<&str>,
@@ -1507,6 +1515,7 @@ async fn proxy_command(
     listen: &str,
     idle_timeout: Option<u32>,
     max_duration: Option<u32>,
+    http_mode: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
@@ -1541,6 +1550,10 @@ async fn proxy_command(
             eprintln!("  idle timeout: {eff_idle}s, max duration: {eff_max}s");
             eprintln!("listening on {listen} (press Ctrl+C to stop)");
 
+            if http_mode {
+                eprintln!("  mode: HTTP-aware (per-request policy enforcement)");
+            }
+
             // Listen for local connections
             let listener = tokio::net::TcpListener::bind(listen).await?;
             let cancel = CancellationToken::new();
@@ -1562,22 +1575,35 @@ async fn proxy_command(
                         match accept {
                             Ok((stream, addr)) => {
                                 eprintln!("connection from {addr}");
-                                // For each local connection, use port forwarding to proxy through agent
                                 let chan_clone = chan.clone();
                                 let target_clone = target.to_string();
-                                tokio::spawn(async move {
-                                    if let Err(e) = handle_proxy_connection(
-                                        stream,
-                                        chan_clone,
-                                        &target_clone,
-                                        eff_idle,
-                                        eff_max,
-                                    )
-                                    .await
-                                    {
-                                        eprintln!("proxy connection error: {e}");
-                                    }
-                                });
+                                if http_mode {
+                                    tokio::spawn(async move {
+                                        if let Err(e) = handle_http_proxy_connection(
+                                            stream,
+                                            chan_clone,
+                                            &target_clone,
+                                        )
+                                        .await
+                                        {
+                                            eprintln!("http proxy error: {e}");
+                                        }
+                                    });
+                                } else {
+                                    tokio::spawn(async move {
+                                        if let Err(e) = handle_proxy_connection(
+                                            stream,
+                                            chan_clone,
+                                            &target_clone,
+                                            eff_idle,
+                                            eff_max,
+                                        )
+                                        .await
+                                        {
+                                            eprintln!("proxy connection error: {e}");
+                                        }
+                                    });
+                                }
                             }
                             Err(e) => {
                                 eprintln!("accept error: {e}");
@@ -1689,6 +1715,185 @@ fn rand_id() -> String {
         .unwrap_or_default()
         .as_nanos();
     format!("{t:x}")
+}
+
+/// Handle an incoming HTTP connection in HTTP-aware proxy mode.
+/// Reads the full HTTP request, sends HttpForward RPC to the agent,
+/// and writes the response back to the local client.
+async fn handle_http_proxy_connection(
+    mut local: tokio::net::TcpStream,
+    chan: Arc<tokio::sync::Mutex<AgentChannel>>,
+    target: &str,
+) -> anyhow::Result<()> {
+    use std::collections::HashMap;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // Read incoming HTTP request (headers + body)
+    let mut buf = vec![0u8; 65536];
+    let mut total_read = 0usize;
+
+    // Read until we have complete headers
+    loop {
+        if total_read >= buf.len() {
+            anyhow::bail!("request too large for header buffer");
+        }
+        let n = local.read(&mut buf[total_read..]).await?;
+        if n == 0 {
+            return Ok(()); // Client disconnected
+        }
+        total_read += n;
+
+        // Check if we have complete headers
+        if buf[..total_read].windows(4).any(|w| w == b"\r\n\r\n") {
+            break;
+        }
+    }
+
+    // Parse the HTTP request
+    let mut headers_arr = [httparse::EMPTY_HEADER; 64];
+    let mut req = httparse::Request::new(&mut headers_arr);
+    let header_len = match req.parse(&buf[..total_read]) {
+        Ok(httparse::Status::Complete(len)) => len,
+        Ok(httparse::Status::Partial) => {
+            anyhow::bail!("incomplete HTTP request");
+        }
+        Err(e) => {
+            anyhow::bail!("invalid HTTP request: {e}");
+        }
+    };
+
+    let method = req.method.unwrap_or("GET").to_string();
+    let path = req.path.unwrap_or("/").to_string();
+
+    // Extract headers
+    let mut headers = HashMap::new();
+    let mut content_length: usize = 0;
+    for h in req.headers.iter() {
+        if h.name.is_empty() {
+            break;
+        }
+        let value = String::from_utf8_lossy(h.value).to_string();
+        if h.name.eq_ignore_ascii_case("content-length") {
+            content_length = value.parse().unwrap_or(0);
+        }
+        headers.insert(h.name.to_string(), value);
+    }
+
+    // Read remaining body if content-length specified
+    let _body_so_far = total_read - header_len;
+    let mut body = buf[header_len..total_read].to_vec();
+    while body.len() < content_length {
+        let remaining = content_length - body.len();
+        let mut chunk = vec![0u8; remaining.min(8192)];
+        let n = local.read(&mut chunk).await?;
+        if n == 0 {
+            break;
+        }
+        body.extend_from_slice(&chunk[..n]);
+    }
+
+    // Send HttpForward RPC
+    let request = Request {
+        id: format!("http-{}", rand_id()),
+        action: Action::HttpForward {
+            target: target.to_string(),
+            method: method.clone(),
+            path: path.clone(),
+            headers,
+            body,
+        },
+        timeout_ms: Some(30000),
+        reason: None,
+    };
+
+    let encoded = codec::encode(&request)?;
+    let ch = chan.lock().await;
+    ch.send(&encoded).await?;
+    let resp_bytes = ch.recv().await?;
+    drop(ch);
+
+    let resp: Response = codec::decode(&resp_bytes)?;
+    match resp.result {
+        RpcResult::HttpResponse {
+            status_code,
+            headers: resp_headers,
+            body: resp_body,
+            latency_ms,
+        } => {
+            // Build raw HTTP response
+            let status_text = http_status_text(status_code);
+            let mut raw_response = format!("HTTP/1.1 {status_code} {status_text}\r\n");
+            for (key, value) in &resp_headers {
+                raw_response.push_str(&format!("{key}: {value}\r\n"));
+            }
+            // Ensure content-length is set
+            if !resp_headers
+                .keys()
+                .any(|k| k.eq_ignore_ascii_case("content-length"))
+            {
+                raw_response.push_str(&format!("Content-Length: {}\r\n", resp_body.len()));
+            }
+            raw_response.push_str("\r\n");
+
+            local.write_all(raw_response.as_bytes()).await?;
+            if !resp_body.is_empty() {
+                local.write_all(&resp_body).await?;
+            }
+
+            eprintln!(
+                "  {method} {path} → {status_code} ({} bytes, {latency_ms}ms)",
+                resp_body.len()
+            );
+        }
+        RpcResult::Denied { reason, rule } => {
+            // Return 403 to client
+            let body_text = format!("Denied: {reason} (rule: {rule})");
+            let raw = format!(
+                "HTTP/1.1 403 Forbidden\r\nContent-Length: {}\r\nContent-Type: text/plain\r\n\r\n{body_text}",
+                body_text.len()
+            );
+            local.write_all(raw.as_bytes()).await?;
+            eprintln!("  {method} {path} → 403 (denied: {reason})");
+        }
+        RpcResult::Error { message } => {
+            let body_text = format!("Proxy error: {message}");
+            let raw = format!(
+                "HTTP/1.1 502 Bad Gateway\r\nContent-Length: {}\r\nContent-Type: text/plain\r\n\r\n{body_text}",
+                body_text.len()
+            );
+            local.write_all(raw.as_bytes()).await?;
+            eprintln!("  {method} {path} → 502 ({message})");
+        }
+        _ => {
+            let raw = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n";
+            local.write_all(raw.as_bytes()).await?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Map HTTP status code to reason phrase.
+fn http_status_text(code: u16) -> &'static str {
+    match code {
+        200 => "OK",
+        201 => "Created",
+        204 => "No Content",
+        301 => "Moved Permanently",
+        302 => "Found",
+        304 => "Not Modified",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        405 => "Method Not Allowed",
+        409 => "Conflict",
+        500 => "Internal Server Error",
+        502 => "Bad Gateway",
+        503 => "Service Unavailable",
+        504 => "Gateway Timeout",
+        _ => "OK",
+    }
 }
 
 /// Recursively collect all file entries in a directory.

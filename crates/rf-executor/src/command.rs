@@ -296,6 +296,16 @@ impl Executor {
                 )
                 .await
             }
+            Action::HttpForward {
+                target,
+                method,
+                path,
+                headers,
+                body,
+            } => {
+                self.handle_http_forward(&request.id, target, method, path, headers, body, start)
+                    .await
+            }
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
             },
@@ -1870,6 +1880,250 @@ impl Executor {
             },
         }
     }
+
+    /// Handle an HTTP forward request: inspect method+path against HTTP policy,
+    /// check network target, connect to upstream, send raw HTTP, read response.
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_http_forward(
+        &self,
+        request_id: &str,
+        target: &str,
+        method: &str,
+        path: &str,
+        headers: &HashMap<String, String>,
+        body: &[u8],
+        start: Instant,
+    ) -> RpcResult {
+        let policy = self.policy.read().await;
+
+        // Check HTTP policy (method + path)
+        let http_decision = policy.check_http_request(method, path);
+        if !http_decision.allowed {
+            self.audit(
+                request_id,
+                "http_forward",
+                Some(format!("{method} {path}")),
+                "denied",
+                http_decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: http_decision.reason,
+                rule: http_decision.matched_rule,
+            };
+        }
+
+        // Check network target policy (CIDR/hostname/port rules)
+        let net_decision = policy.check_network_target(target);
+        if !net_decision.allowed {
+            self.audit(
+                request_id,
+                "http_forward",
+                Some(format!("{method} {path} -> {target}")),
+                "denied",
+                net_decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: net_decision.reason,
+                rule: net_decision.matched_rule,
+            };
+        }
+
+        // Check request body size limit
+        let max_req_body = policy.max_request_body_bytes;
+        let max_resp_body = policy.max_response_body_bytes;
+        if body.len() as u64 > max_req_body {
+            self.audit(
+                request_id,
+                "http_forward",
+                Some(format!("{method} {path}")),
+                "denied",
+                "max_request_body_bytes".to_string(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: format!("request body too large: {} > {max_req_body}", body.len()),
+                rule: "max_request_body_bytes".to_string(),
+            };
+        }
+
+        let matched_rule = http_decision.matched_rule.clone();
+        drop(policy);
+
+        // Connect to upstream
+        let mut stream = match tokio::net::TcpStream::connect(target).await {
+            Ok(s) => s,
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("connect to {target}: {e}"),
+                };
+            }
+        };
+
+        // Build raw HTTP request
+        let mut raw_request = format!("{method} {path} HTTP/1.1\r\nHost: {target}\r\n");
+        for (key, value) in headers {
+            // Prevent header injection (no \r\n in header values)
+            if key.contains('\r')
+                || key.contains('\n')
+                || value.contains('\r')
+                || value.contains('\n')
+            {
+                return RpcResult::Denied {
+                    reason: "header injection detected".to_string(),
+                    rule: "header_injection_check".to_string(),
+                };
+            }
+            raw_request.push_str(&format!("{key}: {value}\r\n"));
+        }
+        if !body.is_empty() {
+            raw_request.push_str(&format!("Content-Length: {}\r\n", body.len()));
+        }
+        raw_request.push_str("\r\n");
+
+        // Send request
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        if let Err(e) = stream.write_all(raw_request.as_bytes()).await {
+            return RpcResult::Error {
+                message: format!("write request to {target}: {e}"),
+            };
+        }
+        if !body.is_empty() {
+            if let Err(e) = stream.write_all(body).await {
+                return RpcResult::Error {
+                    message: format!("write request body to {target}: {e}"),
+                };
+            }
+        }
+
+        // Read response (up to max_response_body_bytes + header overhead)
+        let max_read = max_resp_body as usize + 65536; // extra for headers
+        let mut buf = vec![0u8; max_read.min(16 * 1024 * 1024)]; // cap at 16 MB
+        let mut total_read = 0usize;
+
+        // Read until we have complete headers + body
+        loop {
+            if total_read >= buf.len() {
+                break;
+            }
+            match stream.read(&mut buf[total_read..]).await {
+                Ok(0) => break,
+                Ok(n) => {
+                    total_read += n;
+                    // Check if we have the full response (headers + content-length body)
+                    if let Some(header_end) = find_header_end(&buf[..total_read]) {
+                        // Parse headers to find content-length
+                        let mut resp_headers = [httparse::EMPTY_HEADER; 64];
+                        let mut response = httparse::Response::new(&mut resp_headers);
+                        if response.parse(&buf[..total_read]).is_ok() {
+                            let content_length = response
+                                .headers
+                                .iter()
+                                .find(|h| h.name.eq_ignore_ascii_case("content-length"))
+                                .and_then(|h| std::str::from_utf8(h.value).ok())
+                                .and_then(|v| v.parse::<usize>().ok())
+                                .unwrap_or(0);
+                            if total_read >= header_end + content_length {
+                                break;
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    return RpcResult::Error {
+                        message: format!("read response from {target}: {e}"),
+                    };
+                }
+            }
+        }
+
+        let response_data = &buf[..total_read];
+
+        // Parse response with httparse
+        let mut resp_headers = [httparse::EMPTY_HEADER; 64];
+        let mut response = httparse::Response::new(&mut resp_headers);
+        let header_len = match response.parse(response_data) {
+            Ok(httparse::Status::Complete(len)) => len,
+            Ok(httparse::Status::Partial) => {
+                return RpcResult::Error {
+                    message: "incomplete HTTP response from upstream".to_string(),
+                };
+            }
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("invalid HTTP response from upstream: {e}"),
+                };
+            }
+        };
+
+        let status_code = response.code.unwrap_or(0);
+        let mut resp_header_map = HashMap::new();
+        for h in response.headers.iter() {
+            if h.name.is_empty() {
+                break;
+            }
+            resp_header_map.insert(
+                h.name.to_string(),
+                String::from_utf8_lossy(h.value).to_string(),
+            );
+        }
+
+        let resp_body = response_data[header_len..].to_vec();
+
+        // Check response body size
+        if resp_body.len() as u64 > max_resp_body {
+            self.audit(
+                request_id,
+                "http_forward",
+                Some(format!("{method} {path} -> {target}")),
+                "denied",
+                "max_response_body_bytes".to_string(),
+                Some(resp_body.len() as i32),
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: format!(
+                    "response body too large: {} > {max_resp_body}",
+                    resp_body.len()
+                ),
+                rule: "max_response_body_bytes".to_string(),
+            };
+        }
+
+        let latency_ms = start.elapsed().as_millis() as u64;
+
+        // Audit success
+        self.audit(
+            request_id,
+            "http_forward",
+            Some(format!("{method} {path} -> {target}")),
+            "allowed",
+            matched_rule,
+            Some(status_code as i32),
+            latency_ms,
+        );
+
+        RpcResult::HttpResponse {
+            status_code,
+            headers: resp_header_map,
+            body: resp_body,
+            latency_ms,
+        }
+    }
+}
+
+/// Find the end of HTTP headers (double CRLF) in a buffer.
+fn find_header_end(buf: &[u8]) -> Option<usize> {
+    for i in 0..buf.len().saturating_sub(3) {
+        if &buf[i..i + 4] == b"\r\n\r\n" {
+            return Some(i + 4);
+        }
+    }
+    None
 }
 
 #[cfg(test)]

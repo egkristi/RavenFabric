@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] — 2026-05-14
 
 ### Added
+- **HTTP-aware proxy mode** — `rf proxy --http` enables per-request HTTP policy enforcement. Agent parses method, path, headers via `httparse` before forwarding to upstream. New `HttpForward` RPC action and `HttpResponse` result type. HTTP policy rules in YAML (`http.allow`/`http.deny` by method + path regex). Request/response body size limits (`maxRequestBodyBytes`/`maxResponseBodyBytes`). Per-request audit logging with method, path, status code, latency. Header injection detection prevents CRLF attacks. 10 new tests.
 - **Proxy idle timeout + max duration** — Configurable per-connection limits prevent resource exhaustion from abandoned tunnels. Policy defaults (`proxyIdleTimeoutSeconds: 300`, `proxyMaxDurationSeconds: 3600`) with per-request override via `--idle-timeout` and `--max-duration` CLI flags. Effective values returned in `ProxyConnected` response. 2 new tests.
 - **Network policy rules for proxy targets** — `check_network_target()` enforces CIDR/hostname/port allow/deny rules on TCP proxy connections. Immutable deny blocks link-local/metadata addresses (169.254.0.0/16, fe80::/10). IPv4, IPv6 (bracket notation), port ranges, hostname globs (`*.internal.com`), deny-by-default. 14 new tests.
 - **MCP tool: `rf_file_transfer`** — AI agents can copy files on-agent with full policy enforcement, integrity verification (SHA-256), and audit logging. 9th MCP tool.

@@ -3,7 +3,7 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.3.0)** — Foundation complete. 13 crates, ~54,400 LOC, 1,129 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.3.0)** — Foundation complete. 13 crates, ~54,600 LOC, 1,141 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
@@ -166,7 +166,7 @@ spec:
 
 ## Policy (Security First)
 
-### RPCPolicy — commands, filesystem, resources
+### RPCPolicy — commands, filesystem, network, HTTP, resources
 ```yaml
 spec:
   commands:
@@ -185,9 +185,22 @@ spec:
     deny:
       - path: /etc/shadow
       - path: /root
+  http:
+    allow:
+      - method: "GET"
+        path: "^/api/.*"
+      - method: "POST"
+        path: "^/api/users$"
+      - path: "^/health$"
+    deny:
+      - method: "DELETE"
+        path: "^/api/admin.*"
+      - path: "^/internal/.*"
   resources:
     maxOutputBytes: 10485760  # 10MB
     timeoutSeconds: 300
+    maxRequestBodyBytes: 10485760
+    maxResponseBodyBytes: 10485760
 ```
 
 ### SecurityPolicy — immutable rules
@@ -533,6 +546,7 @@ What works today:
 - `rf forward -L` CLI command (connect, request forward on agent, keep alive until Ctrl+C)
 - Bulk file transfer: `rf cp` — chunked upload/download with SHA-256 verification, atomic writes, resumable transfers
 - TCP proxy tunneling: `rf proxy` — local listener tunnels through agent to target host:port, policy-enforced
+- HTTP-aware proxy: `rf proxy --http` — per-request method+path policy enforcement, audit logging, body size limits
 - PTY allocation on Unix (real openpty, shell spawn, resize, signal) + RPC Shell actions
 - `rf shell` interactive terminal: raw mode, bidirectional stdin/stdout over encrypted channel
 - Multi-agent orchestration via `rf playbook` (rolling, canary, parallel strategies with rollback)

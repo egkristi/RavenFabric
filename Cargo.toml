@@ -106,6 +106,9 @@ serde_json = "1"
 # Benchmarking
 criterion = { version = "0.8", features = ["html_reports"] }
 
+# HTTP parsing
+httparse = "1"
+
 # Temp files (for tests)
 tempfile = "3"
 

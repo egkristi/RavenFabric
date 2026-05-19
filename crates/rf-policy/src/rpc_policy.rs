@@ -167,7 +167,7 @@ fn parse_ports(ports: &[String]) -> Result<Vec<PortRange>, PolicyError> {
     Ok(result)
 }
 
-/// RPCPolicy — commands, filesystem, network, resources.
+/// RPCPolicy — commands, filesystem, network, HTTP, resources.
 pub struct RpcPolicy {
     allowed_commands: Vec<Regex>,
     denied_commands: Vec<Regex>,
@@ -175,12 +175,18 @@ pub struct RpcPolicy {
     denied_paths: Vec<PathBuf>,
     allowed_networks: Vec<NetworkRule>,
     denied_networks: Vec<NetworkRule>,
+    allowed_http: Vec<HttpRule>,
+    denied_http: Vec<HttpRule>,
     pub max_output_bytes: u64,
     pub timeout_seconds: u32,
     /// Proxy idle timeout in seconds (no data = close). Default 300s (5 min).
     pub proxy_idle_timeout_seconds: u32,
     /// Proxy max duration in seconds (hard cap). Default 3600s (1 hour).
     pub proxy_max_duration_seconds: u32,
+    /// Maximum request body size in bytes. Default 10 MB.
+    pub max_request_body_bytes: u64,
+    /// Maximum response body size in bytes. Default 10 MB.
+    pub max_response_body_bytes: u64,
     /// Immutable deny patterns — cannot be overridden by policy configuration.
     /// These prevent catastrophic commands regardless of YAML allow rules.
     immutable_deny: Vec<String>,
@@ -197,6 +203,7 @@ struct PolicySpec {
     commands: Option<CommandSpec>,
     filesystem: Option<FilesystemSpec>,
     network: Option<NetworkSpec>,
+    http: Option<HttpSpec>,
     resources: Option<ResourceSpec>,
 }
 
@@ -236,12 +243,51 @@ struct NetworkEntry {
 }
 
 #[derive(Debug, Deserialize)]
+struct HttpSpec {
+    allow: Option<Vec<HttpEntry>>,
+    deny: Option<Vec<HttpEntry>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HttpEntry {
+    method: Option<String>,
+    path: Option<String>,
+}
+
+/// A compiled HTTP policy rule (method + path pattern).
+#[derive(Debug, Clone)]
+struct HttpRule {
+    method: Option<String>,
+    path_regex: Option<Regex>,
+}
+
+impl HttpRule {
+    fn matches(&self, method: &str, path: &str) -> bool {
+        // Check method constraint (None = any method)
+        if let Some(m) = &self.method {
+            if !m.eq_ignore_ascii_case(method) {
+                return false;
+            }
+        }
+        // Check path constraint (None = any path)
+        if let Some(re) = &self.path_regex {
+            if !re.is_match(path) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ResourceSpec {
     max_output_bytes: Option<u64>,
     timeout_seconds: Option<u32>,
     proxy_idle_timeout_seconds: Option<u32>,
     proxy_max_duration_seconds: Option<u32>,
+    max_request_body_bytes: Option<u64>,
+    max_response_body_bytes: Option<u64>,
 }
 
 impl RpcPolicy {
@@ -322,6 +368,32 @@ impl RpcPolicy {
             .transpose()?
             .unwrap_or_default();
 
+        let allowed_http = spec
+            .http
+            .as_ref()
+            .and_then(|h| h.allow.as_ref())
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(compile_http_rule)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
+
+        let denied_http = spec
+            .http
+            .as_ref()
+            .and_then(|h| h.deny.as_ref())
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(compile_http_rule)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
+
         let resources = spec.resources.as_ref();
 
         Ok(Self {
@@ -331,6 +403,8 @@ impl RpcPolicy {
             denied_paths,
             allowed_networks,
             denied_networks,
+            allowed_http,
+            denied_http,
             max_output_bytes: resources
                 .and_then(|r| r.max_output_bytes)
                 .unwrap_or(10_485_760),
@@ -341,6 +415,12 @@ impl RpcPolicy {
             proxy_max_duration_seconds: resources
                 .and_then(|r| r.proxy_max_duration_seconds)
                 .unwrap_or(3600),
+            max_request_body_bytes: resources
+                .and_then(|r| r.max_request_body_bytes)
+                .unwrap_or(10_485_760),
+            max_response_body_bytes: resources
+                .and_then(|r| r.max_response_body_bytes)
+                .unwrap_or(10_485_760),
             immutable_deny: Self::default_immutable_deny(),
         })
     }
@@ -473,6 +553,30 @@ impl RpcPolicy {
         // Default: deny
         Decision::deny_default()
     }
+
+    /// Check if an HTTP request (method + path) is allowed by policy.
+    /// Deny rules checked first, then allow rules. Default: deny.
+    pub fn check_http_request(&self, method: &str, path: &str) -> Decision {
+        // Explicit deny rules
+        for (i, rule) in self.denied_http.iter().enumerate() {
+            if rule.matches(method, path) {
+                return Decision::deny(
+                    format!("HTTP request denied by rule: {method} {path}"),
+                    format!("http:deny[{i}]"),
+                );
+            }
+        }
+
+        // Allow rules
+        for (i, rule) in self.allowed_http.iter().enumerate() {
+            if rule.matches(method, path) {
+                return Decision::allow(format!("http:allow[{i}]"));
+            }
+        }
+
+        // Default: deny
+        Decision::deny_default()
+    }
 }
 
 /// Check if an IP is in the link-local range (169.254.0.0/16 for IPv4, fe80::/10 for IPv6).
@@ -534,6 +638,13 @@ fn compile_network_rule(entry: &NetworkEntry) -> Result<NetworkRule, PolicyError
         hostname,
         ports,
     })
+}
+
+/// Compile an HTTP policy rule entry into a compiled HttpRule.
+fn compile_http_rule(entry: &HttpEntry) -> Result<HttpRule, PolicyError> {
+    let method = entry.method.clone();
+    let path_regex = entry.path.as_deref().map(compile_anchored).transpose()?;
+    Ok(HttpRule { method, path_regex })
 }
 
 /// Compile a regex pattern, ensuring it is anchored (^...$).
@@ -906,5 +1017,118 @@ spec:
         let policy = RpcPolicy::from_yaml(yaml).unwrap();
         assert_eq!(policy.proxy_idle_timeout_seconds, 60);
         assert_eq!(policy.proxy_max_duration_seconds, 7200);
+    }
+
+    fn http_policy() -> RpcPolicy {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  http:
+    allow:
+      - method: "GET"
+        path: "^/api/.*"
+      - method: "POST"
+        path: "^/api/users$"
+      - path: "^/health$"
+    deny:
+      - method: "DELETE"
+        path: "^/api/admin.*"
+      - path: "^/internal/.*"
+  resources:
+    maxRequestBodyBytes: 1024
+    maxResponseBodyBytes: 2048
+"#;
+        RpcPolicy::from_yaml(yaml).unwrap()
+    }
+
+    #[test]
+    fn test_http_allow_method_and_path() {
+        let policy = http_policy();
+        assert!(policy.check_http_request("GET", "/api/users").allowed);
+        assert!(policy.check_http_request("GET", "/api/orders/123").allowed);
+        assert!(policy.check_http_request("POST", "/api/users").allowed);
+    }
+
+    #[test]
+    fn test_http_allow_any_method() {
+        let policy = http_policy();
+        // Rule with no method matches any method
+        assert!(policy.check_http_request("GET", "/health").allowed);
+        assert!(policy.check_http_request("POST", "/health").allowed);
+        assert!(policy.check_http_request("HEAD", "/health").allowed);
+    }
+
+    #[test]
+    fn test_http_deny_by_rule() {
+        let policy = http_policy();
+        // DELETE /api/admin/* is denied
+        let d = policy.check_http_request("DELETE", "/api/admin/users");
+        assert!(!d.allowed);
+        assert!(d.matched_rule.contains("http:deny"));
+    }
+
+    #[test]
+    fn test_http_deny_path_any_method() {
+        let policy = http_policy();
+        // /internal/* is denied for any method
+        assert!(!policy.check_http_request("GET", "/internal/secret").allowed);
+        assert!(
+            !policy
+                .check_http_request("POST", "/internal/config")
+                .allowed
+        );
+    }
+
+    #[test]
+    fn test_http_deny_default() {
+        let policy = http_policy();
+        // Path not matching any allow/deny rule → default deny
+        let d = policy.check_http_request("GET", "/unknown/path");
+        assert!(!d.allowed);
+        assert_eq!(d.matched_rule, "implicit-deny");
+    }
+
+    #[test]
+    fn test_http_deny_wins_over_allow() {
+        let policy = http_policy();
+        // DELETE /api/admin/users matches both allow (GET /api/*) and deny (DELETE /api/admin*)
+        // But deny is checked first, so it wins — and DELETE doesn't match GET allow anyway
+        assert!(
+            !policy
+                .check_http_request("DELETE", "/api/admin/users")
+                .allowed
+        );
+    }
+
+    #[test]
+    fn test_http_body_size_limits() {
+        let policy = http_policy();
+        assert_eq!(policy.max_request_body_bytes, 1024);
+        assert_eq!(policy.max_response_body_bytes, 2048);
+    }
+
+    #[test]
+    fn test_http_body_size_defaults() {
+        let policy = test_policy();
+        // Default: 10 MB
+        assert_eq!(policy.max_request_body_bytes, 10_485_760);
+        assert_eq!(policy.max_response_body_bytes, 10_485_760);
+    }
+
+    #[test]
+    fn test_http_no_rules_default_deny() {
+        // Policy without http section → all HTTP requests denied by default
+        let policy = test_policy();
+        assert!(!policy.check_http_request("GET", "/anything").allowed);
+    }
+
+    #[test]
+    fn test_http_method_case_insensitive() {
+        let policy = http_policy();
+        // Method matching is case-insensitive
+        assert!(policy.check_http_request("get", "/api/users").allowed);
+        assert!(policy.check_http_request("Get", "/api/users").allowed);
     }
 }

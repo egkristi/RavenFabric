@@ -160,6 +160,21 @@ pub enum Action {
         #[serde(skip_serializing_if = "Option::is_none")]
         max_duration_secs: Option<u32>,
     },
+    /// Forward an HTTP request through the agent to an upstream target.
+    /// Agent inspects method + path against HTTP policy rules before forwarding.
+    HttpForward {
+        /// Target base URL (e.g., "localhost:8080")
+        target: String,
+        /// HTTP method (GET, POST, PUT, DELETE, etc.)
+        method: String,
+        /// Request path (e.g., "/api/v1/users")
+        path: String,
+        /// Request headers
+        headers: HashMap<String, String>,
+        /// Request body (empty for GET/HEAD/DELETE)
+        #[serde(default)]
+        body: Vec<u8>,
+    },
 }
 
 /// Identifies which output stream a chunk belongs to.
@@ -287,6 +302,17 @@ pub enum RpcResult {
         idle_timeout_secs: u32,
         /// Effective max duration in seconds (applied by client)
         max_duration_secs: u32,
+    },
+    /// Response to an HttpForward action — upstream HTTP response.
+    HttpResponse {
+        /// HTTP status code (e.g., 200, 404, 500)
+        status_code: u16,
+        /// Response headers
+        headers: HashMap<String, String>,
+        /// Response body
+        body: Vec<u8>,
+        /// Latency in milliseconds (time to receive full response from upstream)
+        latency_ms: u64,
     },
 }
 
