@@ -3,7 +3,7 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.3.0)** — Foundation complete. 13 crates, ~54,600 LOC, 1,141 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.3.0)** — Foundation complete. 13 crates, ~56,800 LOC, 1,141 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
@@ -489,7 +489,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~54,400 LOC | 1,129 Rust tests + 53 SDK tests | 0 clippy warnings**
+**~56,800 LOC | 1,141 Rust tests + 53 SDK tests | 0 clippy warnings**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -879,16 +879,16 @@ NOT observable: command content, file content, agent identity, traffic type
 | `rf-crypto` | Noise XX handshake, SecureChannel, StaticKey, sealed secrets, 0-RTT resumption, post-quantum KEM, no_std frame_codec (WASM/bare-metal) | Done (~1,800 LOC, 42 tests) |
 | `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, LoRa, BLE, AX.25, satellite, mixnet, audio modem, QR-stream, socket activation, fd-passing, MASQUE, ECH | Done (~21,900 LOC, 542 tests) |
 | `rf-mcp-client` | MCP client SDK — stdio transport, typed tool wrappers for exec/policy/files/capabilities | Done (~720 LOC, 14 tests) |
-| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~6,400 LOC, 112 tests) |
+| `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~6,500 LOC, 117 tests) |
 | `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~650 LOC, 14 tests) |
-| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection | Done (~5,200 LOC, 118 tests) |
-| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping, desired-state convergence, event triggers, result parsing, grains | Done (~10,100 LOC, 167 tests) |
+| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection, HTTP policy rules | Done (~5,500 LOC, 130 tests) |
+| `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping, desired-state convergence, event triggers, result parsing, grains | Done (~10,700 LOC, 167 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done (~530 LOC) |
-| `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, completions) | Done (~1,200 LOC) |
+| `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, cp, proxy, completions) | Done (~2,000 LOC) |
 | `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider) | Done (~3,300 LOC, 46 tests) |
-| `rf-integration-tests` | End-to-end integration tests (relay pipeline + MCP server E2E) | Done (~1,700 LOC, 33 tests) |
+| `rf-integration-tests` | End-to-end integration tests (relay pipeline + MCP server E2E) | Done (~2,050 LOC, 50 tests) |
 | `sdks/python` | Python MCP client SDK — pip-installable, async + sync API, LangChain + CrewAI + OpenAI + Anthropic + AutoGen integrations | Done (41 tests) |
 | `sdks/typescript` | TypeScript MCP client SDK — npm package, fully typed async API | Done (12 tests) |
 
