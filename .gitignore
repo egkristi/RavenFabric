@@ -36,3 +36,8 @@ fuzz/artifacts/
 fuzz/corpus/
 
 .wrangler/
+
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
