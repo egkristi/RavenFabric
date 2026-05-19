@@ -194,6 +194,12 @@ pub struct RpcPolicy {
     pub max_response_body_bytes: u64,
     /// Maximum file size for FilePush/FilePull in bytes. Default 100 MB.
     pub max_file_size_bytes: u64,
+    /// Maximum HTTP requests to a single destination per rate-limit window. 0 = unlimited.
+    pub max_http_requests_per_window: u32,
+    /// Duration of the HTTP rate-limit window in seconds. Default 60s.
+    pub http_rate_limit_window_secs: u64,
+    /// Maximum file transfer rate in bytes/sec for FilePush/FilePull. 0 = unlimited.
+    pub max_transfer_bytes_per_sec: u64,
     /// Immutable deny patterns — cannot be overridden by policy configuration.
     /// These prevent catastrophic commands regardless of YAML allow rules.
     immutable_deny: Vec<String>,
@@ -304,6 +310,12 @@ struct ResourceSpec {
     max_response_body_bytes: Option<u64>,
     /// Maximum file size for FilePush/FilePull. Default 100 MB.
     max_file_size_bytes: Option<u64>,
+    /// Maximum HTTP requests per destination per rate-limit window. 0 = unlimited.
+    max_http_requests_per_window: Option<u32>,
+    /// HTTP rate-limit window duration in seconds. Default 60s.
+    http_rate_limit_window_secs: Option<u64>,
+    /// Maximum file transfer rate in bytes/sec. 0 = unlimited.
+    max_transfer_bytes_per_sec: Option<u64>,
 }
 
 impl RpcPolicy {
@@ -458,6 +470,15 @@ impl RpcPolicy {
             max_file_size_bytes: resources
                 .and_then(|r| r.max_file_size_bytes)
                 .unwrap_or(104_857_600), // 100 MB default
+            max_http_requests_per_window: resources
+                .and_then(|r| r.max_http_requests_per_window)
+                .unwrap_or(0), // 0 = unlimited
+            http_rate_limit_window_secs: resources
+                .and_then(|r| r.http_rate_limit_window_secs)
+                .unwrap_or(60),
+            max_transfer_bytes_per_sec: resources
+                .and_then(|r| r.max_transfer_bytes_per_sec)
+                .unwrap_or(0), // 0 = unlimited
             immutable_deny: Self::default_immutable_deny(),
         })
     }
@@ -1305,5 +1326,38 @@ spec:
         let policy = http_policy();
         let headers = HashMap::from([("x-anything".to_string(), "value".to_string())]);
         assert!(policy.check_http_headers(&headers).allowed);
+    }
+
+    #[test]
+    fn test_rate_limit_defaults() {
+        // Without resources section, defaults are: unlimited (0), 60s window, unlimited transfer (0)
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        assert_eq!(policy.max_http_requests_per_window, 0);
+        assert_eq!(policy.http_rate_limit_window_secs, 60);
+        assert_eq!(policy.max_transfer_bytes_per_sec, 0);
+    }
+
+    #[test]
+    fn test_rate_limit_custom() {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  resources:
+    maxHttpRequestsPerWindow: 10
+    httpRateLimitWindowSecs: 30
+    maxTransferBytesPerSec: 1048576
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        assert_eq!(policy.max_http_requests_per_window, 10);
+        assert_eq!(policy.http_rate_limit_window_secs, 30);
+        assert_eq!(policy.max_transfer_bytes_per_sec, 1_048_576);
     }
 }

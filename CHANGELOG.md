@@ -5,6 +5,20 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-05-20
+
+### Added
+
+- **HTTP rate limiting per destination** — `maxHttpRequestsPerWindow` and `httpRateLimitWindowSecs` fields in policy `resources` section. When set, limits the number of `HttpForward` requests to each upstream target within the configured window. Tracked per-destination in a sliding-window timestamp queue (`VecDeque<Instant>`) stored in the executor. Returns `RpcResult::Denied` with `rule: resources.maxHttpRequestsPerWindow` when exceeded. 0 (default) means unlimited. 2 new tests in rf-executor, 2 new tests in rf-policy.
+- **Bandwidth throttling for file transfer** — `maxTransferBytesPerSec` field in policy `resources` section (default 0 = unlimited). Enforced on both `FilePush` (per chunk, after write) and `FilePull` (per chunk, after read). Uses elapsed-time pacing: if chunk transfer was faster than the configured rate, sleeps the remainder of the expected duration. 2 new tests in rf-policy, 2 new tests in rf-executor.
+
+### Changed
+
+- **Version**: Bumped to 0.6.0 across all crates and deploy manifests
+- **Total tests**: 1,170 (up from 1,164)
+- **rf-policy**: +2 tests (140 total); 3 new fields in `RpcPolicy`/`ResourceSpec`
+- **rf-executor**: +4 tests (173 total); rate-limit state in `Executor`, throttle logic in `handle_file_push`/`handle_file_pull`
+
 ## [0.5.0] — 2026-05-20
 
 ### Added

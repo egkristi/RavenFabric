@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.5.0 (Alpha) — Released 2026-05-19
+**Version:** 0.6.0 (Alpha) — Released 2026-05-20
 
-**Stats:** 13 crates, ~57,700 LOC, 1,164 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~57,900 LOC, 1,170 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -121,7 +121,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.5.0 — all planned features implemented and tested.
+**Current:** Alpha v0.6.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -187,7 +187,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - [x] MCP tool: `rf_http_request` — AI agents call private APIs through RavenFabric with full policy enforcement
 - [x] Structured responses — JSON body returned to AI agent with status code, headers, parsed body
 - [ ] Policy-gated endpoints — different AI agents get different API access based on their RBAC profile
-- [ ] Rate limiting per destination — prevent AI agent loops from overwhelming upstream services
+- [x] Rate limiting per destination — prevent AI agent loops from overwhelming upstream services
 
 ---
 
@@ -259,7 +259,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Path policy enforcement — same allow/deny rules as existing `Read`/`Write` actions
 - [x] Size limits — per-transfer max file size configurable in policy (prevent disk exhaustion)
 - [x] Audit logging — source path, destination path, file size, checksum, duration, caller identity
-- [ ] Bandwidth throttling — optional rate limit per transfer (prevent saturating network)
+- [x] Bandwidth throttling — optional rate limit per transfer (prevent saturating network)
 
 #### Advanced Features
 - [x] Recursive directory transfer — `rf cp -r` with directory tree traversal

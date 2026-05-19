@@ -63,6 +63,8 @@ pub struct Executor {
     /// Cached sysinfo System to avoid re-scanning on every metrics request.
     #[cfg(feature = "sysinfo")]
     sysinfo_cache: Arc<Mutex<sysinfo::System>>,
+    /// Per-destination HTTP request timestamps for rate limiting.
+    http_dest_rate: Arc<tokio::sync::Mutex<HashMap<String, std::collections::VecDeque<Instant>>>>,
 }
 
 impl Executor {
@@ -84,6 +86,7 @@ impl Executor {
             secrets: None,
             #[cfg(feature = "sysinfo")]
             sysinfo_cache: Arc::new(Mutex::new(sysinfo::System::new_all())),
+            http_dest_rate: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         }
     }
 
@@ -1655,6 +1658,18 @@ impl Executor {
             };
         }
 
+        // Bandwidth throttle: pace chunk delivery to stay within the configured transfer rate
+        {
+            let throttle = self.policy.read().await.max_transfer_bytes_per_sec;
+            if throttle > 0 && !data.is_empty() {
+                let expected_us = (data.len() as u64 * 1_000_000) / throttle;
+                let elapsed_us = start.elapsed().as_micros() as u64;
+                if expected_us > elapsed_us {
+                    tokio::time::sleep(Duration::from_micros(expected_us - elapsed_us)).await;
+                }
+            }
+        }
+
         let new_offset = offset + data.len() as u64;
 
         // If done, verify checksum and atomically rename
@@ -1815,6 +1830,18 @@ impl Executor {
             }
         };
         buf.truncate(bytes_read);
+
+        // Bandwidth throttle: pace chunk delivery to stay within the configured transfer rate
+        {
+            let throttle = self.policy.read().await.max_transfer_bytes_per_sec;
+            if throttle > 0 && bytes_read > 0 {
+                let expected_us = (bytes_read as u64 * 1_000_000) / throttle;
+                let elapsed_us = start.elapsed().as_micros() as u64;
+                if expected_us > elapsed_us {
+                    tokio::time::sleep(Duration::from_micros(expected_us - elapsed_us)).await;
+                }
+            }
+        }
 
         // Compute checksum on last chunk
         let is_last = offset + bytes_read as u64 >= total_size;
@@ -1999,7 +2026,45 @@ impl Executor {
         }
 
         let matched_rule = http_decision.matched_rule.clone();
+        let max_http_reqs = policy.max_http_requests_per_window;
+        let http_window_secs = policy.http_rate_limit_window_secs;
         drop(policy);
+
+        // Per-destination rate limit: prevent AI agent loops from overwhelming upstream services
+        if max_http_reqs > 0 {
+            let now = Instant::now();
+            let window = Duration::from_secs(http_window_secs);
+            let mut rates = self.http_dest_rate.lock().await;
+            let timestamps = rates
+                .entry(target.to_string())
+                .or_insert_with(std::collections::VecDeque::new);
+            // Evict timestamps that have expired from the window
+            while let Some(&front) = timestamps.front() {
+                if now.duration_since(front) > window {
+                    timestamps.pop_front();
+                } else {
+                    break;
+                }
+            }
+            if timestamps.len() as u32 >= max_http_reqs {
+                self.audit(
+                    request_id,
+                    "http_forward",
+                    Some(format!("{method} {path} -> {target}")),
+                    "denied",
+                    "resources.maxHttpRequestsPerWindow".to_string(),
+                    None,
+                    start.elapsed().as_millis() as u64,
+                );
+                return RpcResult::Denied {
+                    reason: format!(
+                        "rate limit exceeded: {max_http_reqs} requests per {http_window_secs}s to {target}"
+                    ),
+                    rule: "resources.maxHttpRequestsPerWindow".to_string(),
+                };
+            }
+            timestamps.push_back(now);
+        }
 
         // Connect to upstream
         let mut stream = match tokio::net::TcpStream::connect(target).await {
@@ -2962,5 +3027,133 @@ spec:
         );
         // Cleanup
         let _ = tokio::fs::remove_file("/tmp/rf_test_size_ok.txt").await;
+    }
+
+    #[tokio::test]
+    async fn test_http_rate_limit_blocked() {
+        // With maxHttpRequestsPerWindow=1, the second request to the same target must be denied
+        let audit = Arc::new(TestAuditLogger::new());
+        let policy = RpcPolicy::from_yaml(
+            r#"
+spec:
+  http:
+    allow:
+      - path: ".*"
+  network:
+    allow:
+      - cidr: "127.0.0.0/8"
+        ports: ["19876"]
+  resources:
+    maxHttpRequestsPerWindow: 1
+    httpRateLimitWindowSecs: 60
+"#,
+        )
+        .unwrap();
+        let policy = Arc::new(RwLock::new(policy));
+        let exec = Executor::new(policy, audit.clone(), "test-key".into());
+
+        let make_req = |id: &str| Request {
+            id: id.to_string(),
+            action: Action::HttpForward {
+                target: "127.0.0.1:19876".into(),
+                method: "GET".into(),
+                path: "/test".into(),
+                headers: HashMap::new(),
+                body: vec![],
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+
+        // First request — passes rate limit (counter incremented), may fail at TCP
+        let resp1 = exec.handle(make_req("req-rl-1")).await;
+        assert!(
+            !matches!(&resp1.result, RpcResult::Denied { rule, .. } if rule == "resources.maxHttpRequestsPerWindow"),
+            "first request should not be rate-limited, got {:?}",
+            resp1.result
+        );
+
+        // Second request to same target — must be blocked by rate limit
+        let resp2 = exec.handle(make_req("req-rl-2")).await;
+        assert!(
+            matches!(&resp2.result, RpcResult::Denied { rule, .. } if rule == "resources.maxHttpRequestsPerWindow"),
+            "second request should be rate-limited, got {:?}",
+            resp2.result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_http_rate_limit_unlimited() {
+        // maxHttpRequestsPerWindow=0 (default) disables rate limiting
+        let audit = Arc::new(TestAuditLogger::new());
+        let policy = RpcPolicy::from_yaml(
+            r#"
+spec:
+  http:
+    allow:
+      - path: ".*"
+  network:
+    allow:
+      - cidr: "127.0.0.0/8"
+        ports: ["19877"]
+"#,
+        )
+        .unwrap();
+        let policy = Arc::new(RwLock::new(policy));
+        let exec = Executor::new(policy, audit.clone(), "test-key".into());
+
+        let make_req = |id: &str| Request {
+            id: id.to_string(),
+            action: Action::HttpForward {
+                target: "127.0.0.1:19877".into(),
+                method: "GET".into(),
+                path: "/test".into(),
+                headers: HashMap::new(),
+                body: vec![],
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+
+        // Multiple requests must all pass the rate limit check (may fail at TCP — that's fine)
+        for id in ["req-unl-1", "req-unl-2", "req-unl-3"] {
+            let resp = exec.handle(make_req(id)).await;
+            assert!(
+                !matches!(&resp.result, RpcResult::Denied { rule, .. } if rule == "resources.maxHttpRequestsPerWindow"),
+                "request {id} should not be rate-limited, got {:?}",
+                resp.result
+            );
+        }
+    }
+
+    #[test]
+    fn test_bandwidth_throttle_policy_defaults() {
+        let policy = RpcPolicy::from_yaml(
+            r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+"#,
+        )
+        .unwrap();
+        // Default: unlimited (0)
+        assert_eq!(policy.max_transfer_bytes_per_sec, 0);
+    }
+
+    #[test]
+    fn test_bandwidth_throttle_policy_custom() {
+        let policy = RpcPolicy::from_yaml(
+            r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  resources:
+    maxTransferBytesPerSec: 524288
+"#,
+        )
+        .unwrap();
+        assert_eq!(policy.max_transfer_bytes_per_sec, 524_288);
     }
 }

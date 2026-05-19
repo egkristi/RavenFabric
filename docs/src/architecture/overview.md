@@ -47,7 +47,7 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | ~720 | 15 |
 | `rf-integration-tests` | End-to-end integration tests | ~1,700 | 33 |
 
-**Total: ~57,700 LOC | 1,164 tests | 0 clippy warnings**
+**Total: ~57,900 LOC | 1,170 tests | 0 clippy warnings**
 
 ## Data Flow
 
