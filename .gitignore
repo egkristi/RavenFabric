@@ -35,3 +35,4 @@ docs/book/
 fuzz/artifacts/
 fuzz/corpus/
 
+.wrangler/
