@@ -2932,7 +2932,13 @@ spec:
 
         let resp = exec.handle(req).await;
         assert!(
-            matches!(resp.result, RpcResult::FileChunkAck { finalized: true, .. }),
+            matches!(
+                resp.result,
+                RpcResult::FileChunkAck {
+                    finalized: true,
+                    ..
+                }
+            ),
             "expected FileChunkAck(finalized), got {:?}",
             resp.result
         );

@@ -902,8 +902,8 @@ impl McpServer {
                 let body_str = String::from_utf8_lossy(&resp_body).into_owned();
 
                 // Try to parse as JSON for structured response
-                let parsed_body: Value = serde_json::from_str(&body_str)
-                    .unwrap_or(Value::String(body_str.clone()));
+                let parsed_body: Value =
+                    serde_json::from_str(&body_str).unwrap_or(Value::String(body_str.clone()));
 
                 let result = json!({
                     "status_code": status_code,
@@ -923,15 +923,14 @@ impl McpServer {
             RpcResult::Denied { reason, rule } => Ok(tools::error_content(format!(
                 "DENIED: {reason}\nRule: {rule}\nThe HTTP policy rules do not permit {method_upper} {path} to {target}."
             ))),
-            RpcResult::Error { message } => Ok(tools::error_content(format!(
-                "Error: {message}"
-            ))),
+            RpcResult::Error { message } => Ok(tools::error_content(format!("Error: {message}"))),
             _ => Ok(tools::error_content("unexpected response type from agent")),
         }
     }
 
     /// List capabilities allowed by the current policy.
-    async fn tool_list_capabilities(&self) -> Result<Value, String> {        let policy = self.policy.read().await;
+    async fn tool_list_capabilities(&self) -> Result<Value, String> {
+        let policy = self.policy.read().await;
         let info = json!({
             "max_output_bytes": policy.max_output_bytes,
             "timeout_seconds": policy.timeout_seconds,
@@ -2753,10 +2752,12 @@ policy = "/etc/rf/dev-policy.yaml"
         // Invalid method returns error content (Ok with isError), not Err
         let response = result.unwrap();
         assert_eq!(response["isError"], true);
-        assert!(response["content"][0]["text"]
-            .as_str()
-            .unwrap()
-            .contains("Invalid HTTP method"));
+        assert!(
+            response["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("Invalid HTTP method")
+        );
     }
 
     #[tokio::test]
@@ -2839,6 +2840,10 @@ policy = "/etc/rf/dev-policy.yaml"
 
         let response = server.handle_request(&request).await;
         // Should succeed at the dispatch level (connection error is a valid tool response)
-        assert!(response.error.is_none(), "dispatch error: {:?}", response.error);
+        assert!(
+            response.error.is_none(),
+            "dispatch error: {:?}",
+            response.error
+        );
     }
 }
