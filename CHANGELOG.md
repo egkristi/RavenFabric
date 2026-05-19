@@ -5,6 +5,18 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-05-20
+
+### Added
+
+- **Generic webhook audit log forwarding** — new `WebhookAuditLogger` in `rf-audit::logger`. Wraps any existing `AuditLogger` (e.g., `FileAuditLogger`) and forwards each audit entry to a remote HTTP endpoint via an asynchronous fire-and-forget HTTP POST. Payload is a JSON-serialized `AuditEntry` (same format as JSON-lines files). Supports `http://host:port/path` scheme. Connection and write failures are logged at `warn` level and never surface as errors to the caller. 5 new tests: `test_webhook_audit_logger_delivers_entry` (TCP listener verifies HTTP POST), `test_webhook_audit_logger_delegates_to_inner` (file logger also receives entry), `test_parse_webhook_url_with_port_and_path`, `test_parse_webhook_url_default_port`, `test_parse_webhook_url_invalid`.
+
+### Changed
+
+- **Version**: Bumped to 0.8.0 across all crates and deploy manifests
+- **Total tests**: 1,179 (up from 1,174)
+- **rf-audit**: +5 tests (32 total); `WebhookAuditLogger`, `parse_webhook_url()`, `post_audit_webhook()` added to `logger` module
+
 ## [0.7.0] — 2026-05-20
 
 ### Added
