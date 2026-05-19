@@ -79,9 +79,9 @@ exists for individual tools).
 
 | Requirement | RavenFabric Capability | Evidence |
 |-------------|------------------------|----------|
-| Secure development | Rust memory safety, 1,094 tests, clippy linting, format checks | CI pipeline enforces all checks |
+| Secure development | Rust memory safety, 1,164 tests, clippy linting, format checks | CI pipeline enforces all checks |
 | Vulnerability handling | Private security advisory reporting, SECURITY.md | GitHub Security Advisories enabled |
-| Security testing | Unit tests for all security-critical paths (policy, crypto, OTP) | 1,094 tests including negative/edge cases |
+| Security testing | Unit tests for all security-critical paths (policy, crypto, OTP) | 1,164 tests including negative/edge cases |
 
 **How RavenFabric helps:** Built in a memory-safe language with comprehensive testing, automated security scanning, and responsible disclosure processes.
 

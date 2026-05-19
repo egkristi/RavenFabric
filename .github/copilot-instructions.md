@@ -36,7 +36,7 @@ Cargo workspace with 13 crates:
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~56,800 LOC, 1,164 tests, 0 clippy warnings.**
+**Total: ~57,700 LOC, 1,164 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
@@ -269,6 +269,36 @@ Every new feature **must** include the following before it is considered done:
 
 1. **Changelog updated** — add entry to `CHANGELOG.md` describing the feature
 2. **Relevant documentation updated** — update `README.md`, `ROADMAP.md`, and any other affected docs to reflect the new functionality
+
+## Version & Metric Consistency (Mandatory)
+
+Every version bump **must** update all of the following locations atomically. No location may be left behind:
+
+| Location | What to update |
+|---|---|
+| `Cargo.toml` (`[workspace.package]`) | `version` field |
+| All `crates/*/Cargo.toml` inter-crate deps | version strings |
+| `CHANGELOG.md` | new dated section header |
+| `ROADMAP.md` | Current Status version + stats (LOC, tests) |
+| `ARCHITECTURE.md` (root) | stats line + example Cargo.toml snippet |
+| `README.md` | status line, version badge, stats header |
+| `docs/` (any files with version/stats) | version and stats references |
+| `website/index.html` | hero eyebrow, architecture stats, status section release label + all item version badges |
+| `website-promotion-ai/index.html` | LOC stat, test stat, and all prose references |
+| `sdks/typescript/package.json` + `package-lock.json` | `version` field |
+| `sdks/python/pyproject.toml` | `version` field |
+| `deploy/helm/ravenfabric/Chart.yaml` | `version` + `appVersion` |
+| `deploy/snap/snapcraft.yaml` | `version` |
+| `deploy/fdroid/metadata/*.yml` | `versionName` |
+| `.github/copilot-instructions.md` | Total LOC + test count in the crate table footer |
+
+**LOC and test counts** must be recalculated from source before every version bump:
+```bash
+find crates -name "*.rs" | xargs wc -l | tail -1          # total LOC
+cargo test --workspace 2>&1 | grep "test result" | awk '{sum += $4} END {print sum}'  # total tests
+```
+
+**Rule:** If a commit changes code, every metric-bearing document in this list must reflect the new numbers before the commit is pushed. Stale counts in any document are a defect.
 
 ## Policy YAML Format
 
