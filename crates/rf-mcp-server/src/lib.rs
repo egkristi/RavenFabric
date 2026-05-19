@@ -7,6 +7,7 @@
 //! - `rf_exec` — policy-validated command execution
 //! - `rf_query_policy` — pre-flight policy check without execution
 //! - `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
+//! - `rf_file_transfer` — copy files with policy enforcement and integrity verification
 //! - `rf_list_my_capabilities` — dynamic capability discovery
 //! - `rf_audit_query` — self-audit (query own recent actions)
 //! - `rf_request_approval` — human-in-loop approval for sensitive ops

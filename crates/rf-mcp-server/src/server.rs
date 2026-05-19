@@ -492,6 +492,7 @@ impl McpServer {
             "rf_audit_query" => self.tool_audit_query(&arguments).await,
             "rf_request_approval" => self.tool_request_approval(&arguments).await,
             "rf_check_approval" => self.tool_check_approval(&arguments).await,
+            "rf_file_transfer" => self.tool_file_transfer(&arguments).await,
             _ => Err(format!("Unknown tool: {tool_name}")),
         };
 
@@ -700,6 +701,125 @@ impl McpServer {
                 "DENIED: {reason}\nRule: {rule}"
             ))),
             RpcResult::Error { message } => Ok(tools::error_content(message)),
+            _ => Ok(tools::error_content("unexpected response type")),
+        }
+    }
+
+    /// Transfer (copy) a file on the agent filesystem with policy enforcement.
+    #[allow(clippy::too_many_lines)]
+    async fn tool_file_transfer(&self, args: &Value) -> Result<Value, String> {
+        let source = args
+            .get("source")
+            .and_then(|p| p.as_str())
+            .ok_or("missing 'source' argument")?;
+        let destination = args
+            .get("destination")
+            .and_then(|p| p.as_str())
+            .ok_or("missing 'destination' argument")?;
+        let mode = args.get("mode").and_then(Value::as_u64).map(|m| m as u32);
+        let reason = args
+            .get("reason")
+            .and_then(|r| r.as_str())
+            .unwrap_or("MCP file transfer");
+
+        // Approval enforcement — file transfers are mutating
+        let transfer_command = format!("transfer:{source}:{destination}");
+        if self.requires_approval(&transfer_command) {
+            let approval_id = args
+                .get("approval_id")
+                .and_then(|id| id.as_str())
+                .ok_or_else(|| {
+                    format!(
+                        "DENIED: file transfer requires human approval. \
+                         Call rf_request_approval with command='transfer:{source}:{destination}', \
+                         wait for operator approval, then pass the approval_id to rf_file_transfer."
+                    )
+                })?;
+
+            self.validate_approval(approval_id, &transfer_command)
+                .await?;
+        }
+
+        // Step 1: Read the source file (policy-checked)
+        let read_request = Request {
+            id: uuid::Uuid::new_v4().to_string(),
+            action: Action::Read {
+                path: source.to_string(),
+            },
+            timeout_ms: None,
+            reason: Some(reason.to_string()),
+        };
+
+        let read_response = self.executor.handle(read_request).await;
+
+        let data = match &read_response.result {
+            RpcResult::Success { stdout, .. } => stdout.as_bytes().to_vec(),
+            RpcResult::Denied { reason, rule } => {
+                self.record_audit(
+                    &format!("transfer:{source}→{destination}"),
+                    &read_response,
+                    Some(reason),
+                )
+                .await;
+                return Ok(tools::error_content(format!(
+                    "DENIED (source read): {reason}\nRule: {rule}"
+                )));
+            }
+            RpcResult::Error { message } => {
+                return Ok(tools::error_content(format!(
+                    "Error reading source: {message}"
+                )));
+            }
+            _ => {
+                return Ok(tools::error_content("unexpected response from read"));
+            }
+        };
+
+        // Step 2: Write to destination (policy-checked)
+        let write_request = Request {
+            id: uuid::Uuid::new_v4().to_string(),
+            action: Action::Write {
+                path: destination.to_string(),
+                data: data.clone(),
+                mode,
+            },
+            timeout_ms: None,
+            reason: Some(reason.to_string()),
+        };
+
+        let write_response = self.executor.handle(write_request).await;
+        self.record_audit(
+            &format!("transfer:{source}→{destination}"),
+            &write_response,
+            Some(reason),
+        )
+        .await;
+
+        match write_response.result {
+            RpcResult::Success { .. } => {
+                // Compute checksum for verification
+                use sha2::{Digest, Sha256};
+                use std::fmt::Write;
+                let digest = Sha256::digest(&data);
+                let checksum =
+                    digest
+                        .iter()
+                        .fold(String::with_capacity(64), |mut acc, b| {
+                            let _ = write!(acc, "{b:02x}");
+                            acc
+                        });
+
+                Ok(tools::text_content(format!(
+                    "Transferred {source} → {destination} ({} bytes, SHA-256: {checksum})",
+                    data.len()
+                )))
+            }
+            RpcResult::Denied { reason, rule } => Ok(tools::error_content(format!(
+                "DENIED (destination write): {reason}\nRule: {rule}"
+            ))),
+            RpcResult::Error { message } => Ok(tools::error_content(format!(
+                "Error writing destination: {message}"
+            ))),
             _ => Ok(tools::error_content("unexpected response type")),
         }
     }
@@ -1270,7 +1390,7 @@ mod tests {
         let response = server.handle_request(&request).await;
         let result = response.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 8);
+        assert_eq!(tools.len(), 9);
     }
 
     #[tokio::test]

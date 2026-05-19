@@ -138,6 +138,10 @@ enum Commands {
         /// Chunk size in bytes (default 256KB)
         #[arg(long, default_value = "262144")]
         chunk_size: u32,
+
+        /// Recursive copy (for directories)
+        #[arg(short, long)]
+        recursive: bool,
     },
     /// Open a TCP proxy tunnel through an agent
     #[command(name = "proxy")]
@@ -264,6 +268,7 @@ async fn main() -> anyhow::Result<()> {
             source,
             dest,
             chunk_size,
+            recursive,
         } => {
             cp_command(
                 &cli.relay,
@@ -273,6 +278,7 @@ async fn main() -> anyhow::Result<()> {
                 &source,
                 &dest,
                 chunk_size,
+                recursive,
             )
             .await?;
         }
@@ -1288,6 +1294,7 @@ async fn cp_command(
     source: &str,
     dest: &str,
     chunk_size: u32,
+    recursive: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
@@ -1296,7 +1303,31 @@ async fn cp_command(
     let is_push = !source.contains(':') && dest.contains(':');
     let is_pull = source.contains(':') && !dest.contains(':');
 
-    if is_push {
+    if is_push && recursive {
+        // Recursive upload: walk local directory tree
+        let remote_base = dest.split_once(':').map_or(dest, |(_, p)| p);
+        let source_path = std::path::Path::new(source);
+        if !source_path.is_dir() {
+            anyhow::bail!("{source} is not a directory (use -r only with directories)");
+        }
+        let mut entries = Vec::new();
+        collect_dir_entries(source_path, source_path, &mut entries)?;
+        let total_files = entries.len();
+        eprintln!("uploading {total_files} files from {source} → agent:{remote_base}");
+
+        for (i, (rel_path, local_path)) in entries.iter().enumerate() {
+            let remote_file = format!("{remote_base}/{rel_path}");
+            let local_data = tokio::fs::read(local_path).await?;
+            push_single_file(&chan, &local_data, &remote_file, chunk_size).await?;
+            eprintln!(
+                "[{}/{}] {}",
+                i + 1,
+                total_files,
+                rel_path
+            );
+        }
+        eprintln!("done: {total_files} files transferred");
+    } else if is_push {
         // Upload local file to agent
         let remote_path = dest.split_once(':').map_or(dest, |(_, p)| p);
         let local_data = tokio::fs::read(source).await?;
@@ -1606,4 +1637,89 @@ fn rand_id() -> String {
         .unwrap_or_default()
         .as_nanos();
     format!("{t:x}")
+}
+
+/// Recursively collect all file entries in a directory.
+fn collect_dir_entries(
+    base: &std::path::Path,
+    dir: &std::path::Path,
+    entries: &mut Vec<(String, std::path::PathBuf)>,
+) -> anyhow::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_dir_entries(base, &path, entries)?;
+        } else if path.is_file() {
+            let rel = path
+                .strip_prefix(base)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            entries.push((rel, path));
+        }
+    }
+    Ok(())
+}
+
+/// Push a single file to the agent via chunked FilePush.
+async fn push_single_file(
+    chan: &Arc<tokio::sync::Mutex<AgentChannel>>,
+    data: &[u8],
+    remote_path: &str,
+    chunk_size: u32,
+) -> anyhow::Result<()> {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(data);
+    let checksum: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+    let total = data.len();
+    let chunk_sz = chunk_size as usize;
+    let mut offset = 0u64;
+    let mut chunk_num = 0u64;
+
+    while offset < total as u64 {
+        let end = ((offset as usize) + chunk_sz).min(total);
+        let chunk = data[offset as usize..end].to_vec();
+        let is_last = end == total;
+
+        let request = Request {
+            id: format!("cp-push-{chunk_num}"),
+            action: Action::FilePush {
+                path: remote_path.to_string(),
+                offset,
+                data: chunk,
+                done: is_last,
+                checksum: if is_last {
+                    Some(checksum.clone())
+                } else {
+                    None
+                },
+                mode: None,
+            },
+            timeout_ms: Some(60000),
+            reason: None,
+        };
+
+        let encoded = codec::encode(&request)?;
+        let ch = chan.lock().await;
+        ch.send(&encoded).await?;
+        let resp_bytes = ch.recv().await?;
+        drop(ch);
+
+        let resp: Response = codec::decode(&resp_bytes)?;
+        match resp.result {
+            RpcResult::FileChunkAck { .. } => {}
+            RpcResult::Denied { reason, rule } => {
+                anyhow::bail!("denied: {reason} (rule: {rule})");
+            }
+            RpcResult::Error { message } => {
+                anyhow::bail!("error: {message}");
+            }
+            _ => anyhow::bail!("unexpected response"),
+        }
+
+        offset = end as u64;
+        chunk_num += 1;
+    }
+    Ok(())
 }

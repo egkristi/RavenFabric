@@ -552,7 +552,7 @@ What works today:
 - Corporate proxy detection: HTTP CONNECT probing, auth detection (407), TCP RTT measurement
 - Collection policy: include/exclude glob patterns, label filters, sampling rate, batch limiting
 - Offline telemetry buffering: MetricBuffer with overflow, batch flush, drop counter
-- MCP server (`rf-mcp-server`): 8 tools (exec, query policy, file read/write, capabilities, audit query, approval request/check), API token auth, rate limiting, anomaly detection, RBAC per caller
+- MCP server (`rf-mcp-server`): 9 tools (exec, query policy, file read/write, file transfer, capabilities, audit query, approval request/check), API token auth, rate limiting, anomaly detection, RBAC per caller
 - Named pipe transport driver for Windows IPC (`\\.\pipe\ravenfabric`)
 - Vsock transport driver for VM-to-hypervisor communication (Firecracker, QEMU)
 - Abstract namespace socket driver (Linux-only, no filesystem cleanup)
@@ -622,7 +622,7 @@ AI Agent (Claude Code, Cursor, Aider, custom)
 | Feature | Status | Description |
 |---------|--------|-------------|
 | **Stdio pipe transport** | Done | Parent-child process communication (MCP stdio protocol) |
-| **MCP server binary** | Done | `rf-mcp-server` for native Claude/Cursor integration (8 tools, JSON-RPC 2.0) |
+| **MCP server binary** | Done | `rf-mcp-server` for native Claude/Cursor integration (9 tools, JSON-RPC 2.0) |
 | **API token authentication** | Done | `--api-token` / `RF_API_TOKEN`, constant-time validation |
 | **Per-session rate limiting** | Done | Sliding window throttle (`--rate-limit`, default 60/min) |
 | **Session isolation** | Done | Unique session ID, process-level sandbox, fail-closed on policy error |

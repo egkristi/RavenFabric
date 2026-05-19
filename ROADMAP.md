@@ -262,12 +262,12 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [ ] Bandwidth throttling — optional rate limit per transfer (prevent saturating network)
 
 #### Advanced Features
-- [ ] Recursive directory transfer — `rf cp -r` with directory tree traversal
+- [x] Recursive directory transfer — `rf cp -r` with directory tree traversal
 - [ ] Delta/incremental sync — rsync-like rolling checksum for efficient updates of large files
 - [ ] Compression — optional zstd compression for transfer (transparent, negotiated)
 - [ ] Glob patterns — `rf cp agent:/var/log/*.gz ./logs/` wildcard expansion
 - [x] `rf cp` CLI command — familiar syntax: `rf cp <agent>:<path> <local>` and `rf cp <local> <agent>:<path>`
-- [ ] MCP tool: `rf_file_transfer` — AI agents can move files with policy enforcement
+- [x] MCP tool: `rf_file_transfer` — AI agents can move files with policy enforcement
 
 ---
 

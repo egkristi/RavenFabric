@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] — 2026-05-14
 
 ### Added
+- **MCP tool: `rf_file_transfer`** — AI agents can copy files on-agent with full policy enforcement, integrity verification (SHA-256), and audit logging. 9th MCP tool.
+- **Recursive directory transfer** — `rf cp -r` flag for uploading entire directory trees to agents with automatic file enumeration
 - **Bulk file transfer** — `FilePush` and `FilePull` RPC actions with chunked transfer, SHA-256 integrity verification, atomic writes (temp + rename), resumable offset tracking, and full policy enforcement
 - **TCP proxy tunneling** — `Proxy` RPC action with policy-checked TCP connect, `rf proxy` CLI command for local listener tunneling through agent to remote targets
 - **`rf cp` CLI command** — familiar scp-like syntax (`rf cp local agent:/path` and `rf cp agent:/path local`) with progress reporting and checksum verification

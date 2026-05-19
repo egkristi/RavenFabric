@@ -153,6 +153,36 @@ pub fn list_tools() -> Value {
                     },
                     "required": ["approval_id"]
                 }
+            },
+            {
+                "name": "rf_file_transfer",
+                "description": "Transfer a file between the local filesystem on the agent. Supports copying files to new locations with integrity verification (SHA-256). Subject to path policy enforcement — source must be readable and destination must be writable. When approval mode is active, requires approval_id (use command='transfer:<source>:<dest>').",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "source": {
+                            "type": "string",
+                            "description": "Absolute path to the source file"
+                        },
+                        "destination": {
+                            "type": "string",
+                            "description": "Absolute path to the destination file"
+                        },
+                        "mode": {
+                            "type": "integer",
+                            "description": "Unix file permissions for destination (octal, e.g., 0644). Optional — preserves source permissions if omitted."
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Explanation of why this transfer is needed (recorded in audit log)"
+                        },
+                        "approval_id": {
+                            "type": "string",
+                            "description": "Approval ID from rf_request_approval (required when approval mode is active)"
+                        }
+                    },
+                    "required": ["source", "destination"]
+                }
             }
         ]
     })
@@ -204,7 +234,8 @@ mod tests {
         assert!(names.contains(&"rf_audit_query"));
         assert!(names.contains(&"rf_request_approval"));
         assert!(names.contains(&"rf_check_approval"));
-        assert_eq!(names.len(), 8);
+        assert!(names.contains(&"rf_file_transfer"));
+        assert_eq!(names.len(), 9);
     }
 
     #[test]
