@@ -13,4 +13,5 @@ default-theme = "navy"
 preferred-dark-theme = "navy"
 site-url = "/docs/"
 additional-css = ["theme/custom.css"]
+additional-js = ["theme/single-page-toggle.js"]
 no-section-label = false
