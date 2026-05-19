@@ -11,6 +11,12 @@ pub enum PolicyError {
         pattern: String,
         source: regex::Error,
     },
+    #[error("invalid CIDR '{cidr}': {reason}")]
+    InvalidCidr { cidr: String, reason: String },
+    #[error("invalid port specification: {spec}")]
+    InvalidPortSpec { spec: String },
+    #[error("invalid network rule: {reason}")]
+    InvalidNetworkRule { reason: String },
     #[error("policy validation error: {0}")]
     Validation(String),
 }

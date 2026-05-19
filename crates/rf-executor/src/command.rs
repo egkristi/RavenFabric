@@ -1799,10 +1799,9 @@ impl Executor {
     }
 
     async fn handle_proxy(&self, request_id: &str, target: &str, start: Instant) -> RpcResult {
-        // Policy check — proxy requires command policy check with synthesized command
+        // Policy check — use network target policy (CIDR/hostname/port rules)
         let policy = self.policy.read().await;
-        let synthetic_cmd = format!("__proxy_connect {target}");
-        let decision = policy.check_command(&synthetic_cmd);
+        let decision = policy.check_network_target(target);
         if !decision.allowed {
             self.audit(
                 request_id,

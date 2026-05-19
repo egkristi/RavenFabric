@@ -169,7 +169,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 
 #### TCP Tunnel (Foundation)
 - [x] `Proxy` RPC action — agent opens TCP connection to target host:port, bridges bytes over yamux stream
-- [ ] Policy rules for network targets — allow/deny by CIDR, port, hostname (mirrors filesystem policy structure)
+- [x] Policy rules for network targets — allow/deny by CIDR, port, hostname (mirrors filesystem policy structure)
 - [x] `rf proxy <agent> --target <host:port> --listen <local:port>` — CLI command opens local listener, tunnels to agent
 - [x] Connection audit logging — every tunnel open/close recorded with caller identity, target, bytes transferred, duration
 - [ ] Concurrent tunnels — multiple proxy sessions multiplexed over single agent connection via yamux

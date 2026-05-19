@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] — 2026-05-14
 
 ### Added
+- **Network policy rules for proxy targets** — `check_network_target()` enforces CIDR/hostname/port allow/deny rules on TCP proxy connections. Immutable deny blocks link-local/metadata addresses (169.254.0.0/16, fe80::/10). IPv4, IPv6 (bracket notation), port ranges, hostname globs (`*.internal.com`), deny-by-default. 14 new tests.
 - **MCP tool: `rf_file_transfer`** — AI agents can copy files on-agent with full policy enforcement, integrity verification (SHA-256), and audit logging. 9th MCP tool.
 - **Recursive directory transfer** — `rf cp -r` flag for uploading entire directory trees to agents with automatic file enumeration
 - **Bulk file transfer** — `FilePush` and `FilePull` RPC actions with chunked transfer, SHA-256 integrity verification, atomic writes (temp + rename), resumable offset tracking, and full policy enforcement
