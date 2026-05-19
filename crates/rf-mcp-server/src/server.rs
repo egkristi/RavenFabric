@@ -2762,9 +2762,9 @@ policy = "/etc/rf/dev-policy.yaml"
 
     #[tokio::test]
     async fn test_tool_http_request_policy_deny() {
+        use std::io::Write;
         // Policy with no network rules — default deny
         let mut f = tempfile::NamedTempFile::new().unwrap();
-        use std::io::Write;
         writeln!(
             f,
             r#"spec:
