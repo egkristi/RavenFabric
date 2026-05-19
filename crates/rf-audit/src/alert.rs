@@ -345,7 +345,10 @@ mod tests {
         let rule = AlertRule::new("hook-rule", "denied", 0)
             .unwrap()
             .with_webhook("http://localhost:9999/hook");
-        assert_eq!(rule.webhook_url.as_deref(), Some("http://localhost:9999/hook"));
+        assert_eq!(
+            rule.webhook_url.as_deref(),
+            Some("http://localhost:9999/hook")
+        );
     }
 
     #[test]
@@ -380,10 +383,22 @@ mod tests {
         let n = conn.read(&mut buf).await.unwrap();
         let request = String::from_utf8_lossy(&buf[..n]);
 
-        assert!(request.contains("POST /alert HTTP/1.0"), "expected POST line in {request}");
-        assert!(request.contains("application/json"), "expected content-type in {request}");
-        assert!(request.contains("webhook-rule"), "expected rule name in payload: {request}");
-        assert!(request.contains("\"action\":\"exec\""), "expected action in payload: {request}");
+        assert!(
+            request.contains("POST /alert HTTP/1.0"),
+            "expected POST line in {request}"
+        );
+        assert!(
+            request.contains("application/json"),
+            "expected content-type in {request}"
+        );
+        assert!(
+            request.contains("webhook-rule"),
+            "expected rule name in payload: {request}"
+        );
+        assert!(
+            request.contains("\"action\":\"exec\""),
+            "expected action in payload: {request}"
+        );
     }
 
     #[tokio::test]
@@ -404,7 +419,10 @@ mod tests {
         let second = engine.evaluate(&e); // should be suppressed
 
         assert_eq!(first.len(), 1, "first evaluation must fire");
-        assert!(second.is_empty(), "second evaluation must be suppressed by dedup");
+        assert!(
+            second.is_empty(),
+            "second evaluation must be suppressed by dedup"
+        );
 
         // Exactly one connection arrives (from the first fire).
         let (mut conn, _) =
@@ -418,6 +436,9 @@ mod tests {
         // No second connection should arrive.
         let second_conn =
             tokio::time::timeout(std::time::Duration::from_millis(200), listener.accept()).await;
-        assert!(second_conn.is_err(), "no second webhook expected after dedup");
+        assert!(
+            second_conn.is_err(),
+            "no second webhook expected after dedup"
+        );
     }
 }
