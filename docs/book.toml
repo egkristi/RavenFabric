@@ -11,7 +11,7 @@ build-dir = "book"
 [output.html]
 default-theme = "navy"
 preferred-dark-theme = "navy"
-site-url = "/docs/"
+site-url = "/"
 additional-css = ["theme/custom.css"]
 additional-js = ["theme/single-page-toggle.js"]
 no-section-label = false

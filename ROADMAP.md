@@ -2,9 +2,7 @@
 
 > For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md).
 
-## Implementation Order (Dependency Graph)
-
-The crates must be built bottom-up. Each layer depends only on layers below it.
+## Architecture (Dependency Graph)
 
 ```
                     ┌─────────┐
@@ -34,930 +32,470 @@ The crates must be built bottom-up. Each layer depends only on layers below it.
     └────┬───┘
          │
     ┌────┴───┐
-    │rf-crypto│  (foundation — build FIRST)
+    │rf-crypto│  (foundation)
     └────────┘
 ```
 
-### Build Sequence (v0.1)
+---
 
-| Phase | Crate | Depends on | Deliverable |
-|-------|-------|-----------|-------------|
-| 1 | `rf-crypto` | nothing | Noise XX handshake, SecureChannel, key management |
-| 2 | `rf-transport` | `rf-crypto` | Driver trait, WebSocket driver |
-| 3 | `rf-rpc` | `rf-transport` | yamux mux, msgpack codec, Request/Response types |
-| 4 | `rf-audit` | nothing | Structured JSON audit logger |
-| 5 | `rf-policy` | `rf-audit` | RPCPolicy loading + enforcement |
-| 6 | `rf-executor` | `rf-policy`, `rf-rpc`, `rf-audit` | Command execution under policy |
-| 7 | `rf-bootstrap` | `rf-crypto` | OTP enrollment flow |
-| 8 | `rf-relay` | `rf-transport` | Stateless broker binary |
-| 9 | `rf-agent` | `rf-executor`, `rf-transport`, `rf-bootstrap` | Agent binary |
-| 10 | `rf-cli` | `rf-rpc`, `rf-crypto`, `rf-transport` | CLI binary |
+## Current Status
 
-**Phase 1–3 are the critical path.** Once crypto + transport + RPC work, everything else builds on top.
+**Version:** 0.3.0 (Alpha) — Released 2026-05-14
 
-### First Working Demo (target: end of Phase 10)
+**Stats:** 13 crates, ~53,900 LOC, 1,111 tests, 0 clippy warnings, 0 known vulnerabilities.
 
-```bash
-# Terminal 1: Start relay
-rf-relay --listen 127.0.0.1:8443 --dev
-
-# Terminal 2: Start agent
-rf-agent --relay ws://127.0.0.1:8443 --id test-agent --dev
-
-# Terminal 3: Execute command
-rf exec test-agent "uname -a"
-# → Linux myhost 6.8.0 #1 SMP x86_64 GNU/Linux
-```
+**What works today:**
+- Full E2E encrypted remote execution (`rf exec agent "cmd"`)
+- Interactive shell with session recording (`rf shell agent`)
+- Port forwarding: local (-L), remote (-R), SOCKS5 (-D)
+- Multi-agent orchestration with playbooks and rollback
+- Mesh VPN with MagicDNS and sealed secrets
+- 46+ transport drivers (WebSocket, QUIC, WireGuard, LoRa, BLE, Tor, satellite, etc.)
+- Delay-tolerant networking (store-carry-forward, custody transfer)
+- MCP server for AI agent integration (Claude, Cursor, Aider)
+- Behavioral anomaly detection and AI compliance reporting
+- Desired-state convergence with drift detection
+- Web UI dashboard with REST API
+- WASM plugin system, RBAC, multi-tenancy
+- Post-quantum hybrid KEM (ML-KEM + X25519)
 
 ---
 
-## v0.1 — Foundation
+## Completed Milestones
 
-**Goal:** Prove the architecture. One transport. Full E2E encryption. Functional RPC. Linux.
+<details>
+<summary><strong>v0.1 — Foundation</strong></summary>
 
-**Success criteria:** `rf exec my-agent "uname -a"` returns output, E2E encrypted, policy-checked, audited.
+Proved the architecture. Noise XX handshake, SecureChannel, wire protocol (RVNF magic + version byte), WebSocket + in-memory transport drivers, yamux multiplexing, msgpack RPC codec, deny-by-default policy engine with symlink resolution, structured JSON audit logging, OTP enrollment, stateless relay with rate limiting, agent with reconnect + backoff, CLI with exec/dev/status/completions, direct-connect mode, Dockerfile, systemd units, 5-platform release workflow.
+</details>
 
-### Workspace Setup
-- [x] Cargo workspace (`Cargo.toml` with all 13 crate members)
-- [x] CI: GitHub Actions (build, test, clippy, fmt, coverage, MSRV)
-- [x] CI: Binary size gate (< 15 MB per binary, enforced in CI)
-- [x] Cross-platform release workflow (Linux, macOS, ARM64)
-- [x] CodeQL security scanning
-- [x] Dependabot for dependency updates
-- [x] Pre-commit hook (fmt + clippy + test)
-- [x] In-memory transport driver for testing (no network required)
-- [x] Integration test harness: spawn relay + agent + client in-process
+<details>
+<summary><strong>v0.2 — Multi-Transport + Data Collection</strong></summary>
 
-### Crypto Layer (Phase 1) — DONE
-- [x] `rf-crypto/src/noise.rs` — Noise XX handshake + wire protocol (RVNF magic + version)
-- [x] `rf-crypto/src/keys.rs` — StaticKey (load/save/generate, 0600 permissions, zeroed on drop)
-- [x] `rf-crypto/src/channel.rs` — SecureChannel (send/recv, 64KB frames, concurrent via split Mutex)
-- [x] `rf-crypto/src/error.rs` — CryptoError enum (typed errors)
-- [x] Wire protocol version byte in handshake
-- [x] **Fix:** `handshake()` uses `StatelessTransportState` for split-free concurrent SecureChannel
-- [x] **Fix:** Wire magic (`RVNF`) and version byte sent and validated during handshake
-- [x] **Fix:** Replace `unwrap()` with `expect()` with justification in `StaticKey::generate()` and noise pattern parsing
-- [x] **Fix:** `yamux` dependency removed from `rf-crypto`
+QUIC + WireGuard drivers, Happy Eyeballs (RFC 8305), STUN NAT detection, ICE candidates, UDP hole punching, birthday-paradox port prediction, connection manager with relay-first + background probe, OS network change detection, tamper detection with automatic transport migration, censorship escalation (5 tiers), DTN metrics propagation, desired-state convergence engine (packages, files, services, sysctl), event triggers (cron, file watch, process exit, webhook, timer), result parsing (JSON/YAML/CSV/KV), grains system, Prometheus metrics endpoint, application scraping, log tailing with rotation detection, OTLP/InfluxDB exporters, health check probes, offline telemetry buffering.
+</details>
 
-### Transport Layer (Phase 2) — DONE
-- [x] `rf-transport/src/driver.rs` — Driver trait + AsyncStream + Target + DriverConfig + Listener trait
-- [x] `rf-transport/src/error.rs` — TransportError enum
-- [x] **Fix:** `#[derive(Debug, Clone)]` added to `Target` type
-- [x] `rf-transport/src/websocket.rs` — WebSocket transport driver (bridge pattern)
-- [x] `rf-transport/src/memory.rs` — In-memory driver (for tests, with unit tests)
+<details>
+<summary><strong>v0.3 — Shell + Tunnels + Playbooks + MCP + AI (Released 2026-05-14)</strong></summary>
 
-### RPC Layer (Phase 3) — DONE
-- [x] `rf-rpc/src/types.rs` — Request/Response/Action/RpcResult types (incl. streaming variants)
-- [x] `rf-rpc/src/mux.rs` — RPC session over SecureChannel (request/response semantics)
-- [x] `rf-rpc/src/yamux_mux.rs` — Yamux multiplexing for concurrent RPC (MuxClient/MuxServer)
-- [x] `rf-rpc/src/codec.rs` — msgpack frame codec (length-delimited, roundtrip tested)
-- [x] `rf-rpc/src/error.rs` — RpcError enum (typed errors)
+Interactive PTY shell, session recording (asciicast v2), local/remote port forwarding, SOCKS5 dynamic forward, cross-protocol path upgrade with 0-RTT resumption, multi-agent orchestrator with rollback, UNIX/named-pipe/stdio/vsock/abstract socket drivers, fd-passing (SCM_RIGHTS), socket activation (systemd/launchd), MCP server (stdio + HTTP+SSE), 10 MCP tools, human-in-loop approval workflow, per-session crypto identity, token rotation, RBAC per caller, rate limiting, prompt injection detection with suspicion scoring, 8 policy templates with composition.
+</details>
 
-### Audit (Phase 4) — DONE (with known debt)
-- [x] `rf-audit/src/types.rs` — AuditEntry struct (timestamp, action, decision, duration, caller)
-- [x] `rf-audit/src/logger.rs` — AuditLogger trait + FileAuditLogger (JSON-lines append)
-- [x] **Fix:** Return `Result` from `log()` instead of silently swallowing write errors
-- [x] **Fix:** Add `Deserialize` derive to `AuditEntry` for log reading
-- [x] Add unit tests for logger (write, rotation, error handling)
+<details>
+<summary><strong>v0.4 — VPN + DNS + Secrets + DTN</strong></summary>
 
-### Policy Layer (Phase 5) — DONE
-- [x] `rf-policy/src/rpc_policy.rs` — RPCPolicy enforcement (allow/deny regex, path rules, symlink resolution)
-- [x] `rf-policy/src/decision.rs` — Decision type (allowed/denied + reason + rule)
-- [x] **Fix:** Replace `Box<dyn Error>` in `load()`/`from_yaml()` with typed `PolicyError`
-- [x] Hot-reload via SIGHUP (atomic policy swap)
+TUN device (Linux/macOS), mesh IPv6 from public key, MagicDNS (UDP, AAAA, petnames), sealed secret store (ChaCha20-Poly1305), template substitution at execution time, offline queue (heap + SQLite), custody transfer protocol, schedule-aware routing, opportunistic sync, NNCP-style physical media transport, multi-hop store-carry-forward, content-addressed payloads.
+</details>
 
-### Executor (Phase 6) — DONE
-- [x] `rf-executor/src/command.rs` — Policy-checked execution with timeout + output limiting
-- [x] Metrics action handler (sysinfo)
-- [x] **Done:** Unit tests (policy denial, successful exec, timeout, output limiting, env, metrics)
-- [x] Streaming stdout/stderr via mux stream (`rf-executor/src/streaming.rs`)
+<details>
+<summary><strong>v0.5 — Alternative Transports + Censorship Resistance</strong></summary>
 
-### Bootstrap (Phase 7) — DONE
-- [x] `rf-bootstrap/src/otp.rs` — OTP generation, validation, single-use, TTL-enforced, hash-stored
-- [x] **Fix:** `RwLock::write()` uses `unwrap_or_else(|p| p.into_inner())` — handles poisoning gracefully
-- [x] Agent enrollment flow (token → key exchange → registered) (`rf-bootstrap/src/enrollment.rs`)
+HTTP/3 MASQUE, ECH, domain fronting, DNS tunneling, ICMP tunneling, Shadowsocks mimicry, Reticulum, Tor hidden service, serial port, BLE (Nordic UART), Wi-Fi Direct, audio modem (2-FSK), QR-stream, LoRa/Meshtastic, AX.25 packet radio, HF radio/Winlink, Iridium satellite, Yggdrasil, I2P (SAM), Veilid, Mixnet (Sphinx + SURB), mDNS/DNS-SD discovery, Kademlia DHT, gossip (SWIM/HyParView), signed DNS records, BLE beacon discovery, announce-flood, STUN server, TURN relay, multipath scheduling, traffic analysis resistance, interface migration.
+</details>
 
-### Relay (Phase 8) — DONE
-- [x] `rf-relay/src/main.rs` — Full relay broker binary
-- [x] WebSocket listener + meet-token pairing
-- [x] Channel-based agent/client pairing (bidirectional forwarding)
-- [x] Per-IP rate limiting
-- [x] HMAC token auth (meet tokens)
+<details>
+<summary><strong>v0.6 — WASM Plugins + Multi-Tenant + Advanced Security + Mobile</strong></summary>
 
-### Agent Binary (Phase 9) — DONE
-- [x] `rf-agent/src/main.rs` — Full agent binary
-- [x] Connect to relay, perform Noise handshake, run RPC loop
-- [x] Policy-checked executor integration
-- [x] Config loading (raven.toml)
-- [x] Reconnect loop with exponential backoff + jitter
-- [x] Graceful shutdown (drain in-flight, flush audit)
-- [x] Direct-listen mode (`--listen`) — agent acts as server (like sshd), accepts WebSocket connections, per-connection handshake + RPC
+Android/iOS/OpenWrt/WASM/no_std targets, single-threaded runtime mode, wasmtime plugin registry with hash verification + capability checking, tenant isolation, RBAC (admin/operator/viewer/auditor), security policy with immutable rules, Biscuit capability tokens with delegation + attenuation, post-quantum hybrid KEM (HKDF-SHA256), PQXDH ratchet, CRDT state convergence (GSet, LWW, OrSet, PolicyCrdt), append-only signed policy logs, SPIFFE workload identity.
+</details>
 
-### CLI Binary (Phase 10) — DONE
-- [x] `rf-cli/src/main.rs` — clap CLI with exec/dev/status subcommands
-- [x] `rf exec` — connect, handshake, send Request, display Response
-- [x] `rf dev` — local relay + agent in one process (no auth)
-- [x] `rf status` — show connected agents
-- [x] Shell completions (bash, zsh, fish)
-- [x] **Fix:** `close_notify()` sent after exec/status commands to ensure agent reconnects cleanly
-- [x] Direct connect (`--connect`) — CLI dials agent directly (bypasses relay), same Noise XX handshake
+<details>
+<summary><strong>v0.7 — Web UI + API + AI Compliance</strong></summary>
 
-### Packaging
-- [x] Dockerfile (multi-stage alpine build → scratch runtime)
-- [x] Release workflow (5 platform targets)
-- [x] Linux amd64 + arm64 static binaries (musl)
-- [x] systemd service units (agent + relay)
+Controller binary with AgentRegistry + ApiRouter (8 REST routes), embedded web dashboard, REST+gRPC API with auth middleware, OpenTelemetry traces (W3C traceparent), Prometheus metrics endpoint, behavioral anomaly detection (velocity, novelty, timing, escalation), session anomaly scoring with automatic capability reduction, EU AI Act traceability, NIST AI RMF alignment, audit report generation, human-in-loop evidence, incident reconstruction, JSON/CSV/SIEM export.
+</details>
 
-### Workspace Cleanup (from audit)
-- [x] Remove unused workspace deps (`proptest`, `base64`, `crc32fast`)
-- [x] Move `yamux` dep from `rf-crypto` to `rf-rpc` (removed from crypto; yamux available for future use)
-- [x] Align CI clippy settings with workspace lint config
-- [x] Fix release workflow `|| true` on binary copy
+<details>
+<summary><strong>v1.0 — Production Ready</strong></summary>
 
----
+4 fuzz targets (codec, policy, frame, MCP), criterion benchmarks (crypto + codec), Kubernetes CRDs + operator (Reconciler with state diffing), mdBook documentation site, Named Data Networking policy distribution, subsea-cable resilience, SPIFFE compliance.
+</details>
 
-## v0.3.0 — Released (2026-05-14)
+<details>
+<summary><strong>Post-v1.0 — Framework SDKs</strong></summary>
 
-All four feature sets shipped in **v0.3.0**. Code complete, tested, and released.
-
-### 1. QUIC + WireGuard direct + STUN hole-punching
-
-Production transport diversity and NAT traversal.
-
-- [x] QUIC transport driver (`QuicDriver`, `QuicListener`) with 0-RTT reconnection
-- [x] WireGuard userspace tunnel (`WgTunnel`) — no kernel module required
-- [x] WireGuard peer/interface config and corporate proxy detection
-- [x] STUN client — RFC 5389/8489 binding requests, NAT type detection (RFC 5780)
-- [x] STUN server — self-hosted NAT detection, IPv4/IPv6
-- [x] ICE candidate gathering and prioritization (RFC 8445)
-- [x] UDP hole punching (`HolePuncher`) with PUNCH_MAGIC protocol
-- [x] Birthday-paradox port prediction for symmetric NAT
-- [x] TURN relay config fallback
-
-### 2. Interactive shell, port-forwarding, playbooks
-
-Operator workflows and multi-agent orchestration.
-
-- [x] PTY session management (`PtySession::spawn`) with full signal support
-- [x] Terminal resize (TIOCSWINSZ) and read/write streaming
-- [x] Session recording in asciinema v2 format (NDJSON)
-- [x] Local port forwarding (`start_local_forward`, ssh -L style)
-- [x] Remote port forwarding and SOCKS5 proxy support
-- [x] Per-forward connection statistics
-- [x] Corporate proxy detection (env vars, suffix-match bypass)
-- [x] Multi-agent orchestrator with rollout strategies (parallel, sequential, rolling %, canary)
-- [x] Grain-based targeting (agent ID, label, group, pattern, all)
-- [x] Rollback policy and batch failure handling
-
-### 3. Full mesh VPN, MagicDNS, sealed secrets
-
-Zero-config networking and encrypted secret injection.
-
-- [x] Cross-platform TUN device (Linux ioctl, macOS utun, stubs for others)
-- [x] Deterministic mesh IPv6 from public key (`fd00:5256::/32` ULA)
-- [x] Petname registry (human-readable names to crypto IDs)
-- [x] MagicDNS resolution (`agent-name.rf.local` to mesh IPv6)
-- [x] Async DNS server with packet parsing/generation (TTL 60s)
-- [x] Group membership queries
-- [x] Sealed secrets with ChaCha20-Poly1305 (256-bit key, random nonce)
-- [x] Tamper detection via Poly1305 MAC
-- [x] Template substitution (`{{ secrets.DB_PASS }}` at execution time)
-- [x] Secret store CRUD (seal, unseal, list, remove)
-
-### 4. Reticulum, Tor, serial drivers — air-gap support
-
-Censorship resistance and offline-capable nodes.
-
-- [x] Reticulum transport driver — TCP to local RTN, announce/link-request framing
-- [x] Tor SOCKS5 transport driver — .onion service connectivity via local proxy
-- [x] SOCKS5 handshake with full error code handling (IPv4, IPv6, domain)
-- [x] Exotic transport definitions (18 types):
-  - [x] Steganographic: DNS tunnel, ICMP tunnel, domain fronting, MASQUE, protocol mimicry, ECH
-  - [x] Physical: serial (RS-232/USB), BLE, Wi-Fi Direct, LoRa/Meshtastic, satellite, HF radio, audio modem, QR, USB direct
-  - [x] Overlay: Veilid, I2P, Yggdrasil
-
----
-
-## Website (ravenfabric.io)
-
-The site is live at [ravenfabric.io](https://ravenfabric.io). Below are prioritized improvements.
-
-### Validation & SEO Setup
-- [x] Test Open Graph cards — all OG/Twitter meta tags validated, og-image.png 1200×630 confirmed (manual platform testing requires human)
-- [ ] Set up Google Search Console (DNS TXT verification via Namecheap) — requires human (#38)
-- [ ] Submit sitemap: `https://ravenfabric.io/sitemap.xml` — requires Google Search Console (#38)
-- [x] Run Lighthouse audit: `npx lighthouse https://ravenfabric.io --view`
-- [x] Run broken link check: `npx broken-link-checker https://ravenfabric.io --recursive --ordered`
-
-### Critical Quick-Wins (this week)
-- [x] Fix broken links — create stubs for `SECURITY.md`, `LICENSING.md`, `CONTRIBUTING.md`, `CHANGELOG.md`
-- [x] Threat model section (what relay cannot see, agent compromise scope, controller compromise scope, immutable rules)
-- [x] About / "Built by" section (name + LinkedIn, gives credibility)
-- [x] JSON-LD structured data (`SoftwareApplication` schema)
-- [x] Add `og:image:alt`, `og:image:width`, `og:image:height` meta tags
-
-### Content Improvements (high value, low effort)
-- [x] ~~"Why" section between hero and "What it is" (one binary, one policy, one trust root)~~
-- [x] ~~Live GitHub stats (shields.io badges for stars, last commit)~~
-- [x] ~~Concrete comparison table (RavenFabric vs Tailscale vs Ansible — E2E encryption, policy, air-gap)~~
-- [x] ~~Architecture diagram as SVG (from README's 6-layer ASCII diagram)~~
-- [x] ~~"Why now" section (2026 context: cable sabotage, NIS2, ZTNA mandates, monoculture risk)~~
-- [x] ~~Use-case personas (public sector architects, MSPs, remote-first, edge/IoT)~~
-- [x] ~~FAQ section (vs Tailscale+Ansible, why Rust, why AGPLv3, production-ready?, who)~~
-- [x] ~~Terminal example tab-style rotation (reduce visual noise on desktop)~~ — CSS-only tabs at 1100px+
-
-### Technical Improvements
-- [x] Skip-link for accessibility (`<a href="#main" class="skip-link">Skip to content</a>`)
-- [x] Declare `color-scheme: dark` (prevent flash-of-white)
-- [x] Preload critical fonts (self-hosted in `website/assets/fonts/`, no Google Fonts dependency)
-- [x] Content-Security-Policy meta tag (strict, no external font CDN)
-- [x] Twitter card meta tags (`twitter:creator`, `twitter:site`)
-- [x] ~~Mobile-responsive tables (stack layout on `<600px`)~~
-- [x] OG image in WebP/AVIF format (reduce 117KB PNG)
-
-### When v0.1 Ships
-- [x] **Asciinema demo script** created (`docs/demo/demo-record.sh`) — recording requires human (`asciinema rec`)
-- [x] **Live demos page** — [ravenfabric.io/demos/](https://ravenfabric.io/demos/) with animated SVG recordings
-- [x] **Multi-Node Ubuntu demo** — 2-agent Docker demo with setup/teardown scripts (`demos/multi-node-ubuntu/`)
-- [x] **Multi-Distro Linux demo** — 9 distros (Ubuntu, Debian, Fedora, Rocky, Manjaro, openSUSE, Alpine, Amazon, Void) (`demos/multi-distro-linux/`)
-- [x] **Kubernetes + CloudNativePG demo** — CNPG PostgreSQL cluster with rf-agent in K8s (`demos/kubernetes-cnpg/`)
-- [x] **Asciinema recordings** — recorded and converted to animated SVGs for website embedding
-- [x] **Demo scenarios** — 17 scenarios per demo: policy denial, audit trail, port forwarding, dev mode, fleet orchestration, human approval for AI agents
-- [x] **Direct connection demo** — SSH-like point-to-point agent access (`demos/direct-connection/`), 4 scenarios
-- [x] **Blog post: Demo 1 walkthrough** — "Demo 1: Multi-Node Ubuntu — 17 Scenarios, Two Agents, Zero Trust"
-- [ ] Submit to Hacker News (`Show HN`), Lobsters, r/rust, r/selfhosted, r/sysadmin, kode24.no — requires human (#40)
-- [x] Blog post #2: "How RavenFabric stops AI agents from running `rm -rf /`"
-- [x] Blog post #3: "Zero-trust mesh networking without certificates — Noise XX deep dive"
-- [x] First blog post ("Why Noise XX over TLS" or "Why air-gap support is first-class")
-- [x] ~~Status badge in header (build status, version, last release date)~~ — shields.io badges
-
-### Marketing Launch Plan
-- [x] Record asciinema demos — 3 recordings (multi-node, multi-distro, k8s-cnpg) in `demos/recordings/`
-- [x] Animated SVG exports — embedded on [ravenfabric.io/demos/](https://ravenfabric.io/demos/) (no JS required)
-- [x] Write `Show HN` post (title + 300-word description of what makes it different) — `marketing/show-hn.md`
-- [x] Prepare Reddit posts: r/rust (technical), r/selfhosted (deployment), r/sysadmin (replaces what) — `marketing/reddit-posts.md`
-- [ ] Schedule submissions: HN weekday morning US-east, Reddit staggered over 3 days — requires human (#40)
-- [ ] Lobsters invite + submission (needs existing member invite) — requires human (#40)
-- [ ] kode24.no pitch (Norwegian tech press) — requires human (#40)
-- [x] Conference pitch: prepare 5-min lightning talk proposal (NDC Oslo, RustConf, FOSDEM Security devroom) — `marketing/conference-pitch.md`
-
-### Medium-Term
-- [x] Documentation sub-site (`docs.ravenfabric.io` via mdBook)
-- [x] `/blog/` section with RSS feed (`/feed.xml`)
-- [x] `/demos/` section with animated SVG recordings (multi-node, multi-distro, k8s-cnpg)
-- [x] Newsletter signup (Buttondown, not Mailchimp) — form added to website
-- [ ] Live demo sandbox (`rf-demo.ravenfabric.io`) — requires infrastructure (#42)
-
-### Demo Consolidation & Improvements
-
-Audit of the 6 demos in `demos/` identified duplication and gaps. The following changes are planned:
-
-**Consolidation (reduce redundancy):**
-- [x] **multi-distro-linux**: Scenarios 12-17 (port-forwarding, policy-denial, audit-trail, dev-mode, fleet-orchestration, human-approval) have identical filenames to multi-node-ubuntu but contain distro-specific content tailored to the multi-distro environment — **not true duplicates**, no consolidation needed
-- [x] **kubernetes-cnpg**: Scenarios 12-17 have identical filenames but contain K8s/CNPG-specific content (e.g., pod exec, PostgreSQL commands) — **not true duplicates**, no consolidation needed
-- [x] **multi-node-ubuntu**: Keep as-is — primary feature showcase (17 scenarios covering all core capabilities)
-
-**Missing demos to add:**
-- [x] **MCP/AI agent demo** (`demos/mcp-agent/`) — end-to-end demo with rf-mcp-server, 6 scenarios covering policy discovery, command execution, policy denial, human approval, audit trail, and file operations
-- [x] **Resilience demo** (`demos/resilience/`) — agent reconnect after relay restart, network partition recovery, graceful degradation, backoff behavior visualization (5 scenarios, 4 containers)
-- [x] **Controller/Web UI demo** (`demos/controller/`) — HTTP API server, fleet status dashboard, REST endpoints for agent list, health check, remote execution, policy view (5 scenarios)
-
-**Asciinema recording improvements:**
-- [ ] Re-record all `.cast` files with live terminal sessions — requires human (#98)
-- [x] Add recordings for new demos (mcp-agent, resilience, controller, data-collection, transport-showcase, desired-state) — simulated recordings + animated SVGs generated
-- [ ] Automate recording generation from scenario scripts — requires human (#98)
-
-### Explicitly Not Planned
-- No cookie banner (no cookies, no analytics)
-- No animated hero backgrounds (CPU waste, AI-slop aesthetic)
-- No "Get Started" CTA before product works (use "Download Latest Release")
-- No live chat widget (signals sales, not engineering)
-- No pricing page before commercial features exist
-
----
-
-## v0.2 — Multi-Transport + Data Collection
-
-**Goal:** Transport diversity. Task mode. File operations. Data collection agent. Windows + macOS.
-
-> **Legend:** `[x]` = fully implemented and tested, `[~]` = types/interfaces defined (not yet functional), `[ ]` = not started
-
-### Transport Expansion
-- [x] ~~WebSocket driver implementation (tokio-tungstenite)~~
-- [x] ~~In-memory driver for testing~~
-- [x] ~~QUIC driver (quinn, 0-RTT, connection migration, multiplexed streams)~~
-- [x] WireGuard userspace — `WgTunnel` with UDP socket, key handling, peer management (9 tests)
-- [x] Happy Eyeballs (RFC 8305) — `race_connect()` and `race_connect_multi()` with real TCP racing, resolution delay, staggered starts (3 async tests)
-- [x] IPv6-first with NAT64/464XLAT awareness — NAT64 prefix detection (RFC 7050), IPv6 synthesis, `detect_nat64()` with 4 tests
-
-### Network Environment Probing (Phase 4 of Connectivity Value Chain)
-- [x] NetworkProbe struct — `quick_probe()` checks IPv4/IPv6/UDP availability + `EgressClass` classification (functional)
-- [x] STUN-based NAT type detection — real UDP STUN binding requests in `stun_client.rs`
-- [x] Corporate proxy detection — HTTP CONNECT probing with TCP RTT measurement, auth detection (407), status parsing (3 async tests)
-- [x] Per-relay latency measurement — TCP connect RTT prober, probe_all(), continuous loop with cancellation (3 async tests)
-
-### Path Selection Engine (Phase 5 of Connectivity Value Chain)
-- [x] Transport catalog with tier classification — working in-memory data structure
-- [x] Path selection strategies — `PathStrategy` enum (Sequential, Race, Parallel, TieredRace, PolicyDriven)
-- [x] Policy-driven path selection — `select_with_policy()` works on catalog data
-
-### NAT Traversal (ICE-style)
-- [x] STUN client — real UDP binding requests in `stun_client.rs` (RFC 5389/8489), 9 tests
-- [x] UDP/TCP hole punching — real UDP socket coordination, probe/ACK protocol, concurrent punch (2 async tests)
-- [x] ICE candidate gathering — `gather_candidates()` with host + server-reflexive via STUN
-- [x] Birthday paradox port prediction — `generate_candidates()` with deterministic PRNG, `collision_probability()`, peer coordination support
-- [x] NAT type detection — `detect_nat_type()` compares bindings from multiple servers
-
-### Connection Upgrade (DCUtR Pattern)
-- [x] ConnectionManager with relay-first, background probe, migration — `ConnectionRunner` async wrapper wired to real `Driver::dial()` with 4 tests
-
-### Health Monitoring & Failover (Phase 11 of Connectivity Value Chain)
-- [x] Heartbeat-based liveness detection — Ping/Pong RPC action types
-- [x] RTT baseline tracking — `RttTracker` with EWMA math (functional)
-- [x] Automatic failover — `ConnectionRunner::report_failure()` triggers failback_to_relay + automatic reconnect
-- [x] OS network change events — NetworkWatcher with polling, snapshot diff, gateway detection (Linux /proc, macOS route), watch loop (7 tests)
-
-### Tamper Detection & Adaptive Transport
-- [x] MAC failure / frame injection detection — error types + audit events defined
-- [x] Latency anomaly detection — `HeartbeatStatus::LatencyAnomaly` enum
-- [x] Compromised path blacklisting — `catalog.blacklist/unblacklist` (functional)
-- [x] Automatic session migration on tamper — `ConnectionRunner::report_tamper()` blacklists + migrates to alternative
-- [x] Escalation to censorship-resistant tier — `CensorshipEscalation` state machine with 5 tiers, failure counting, tamper detection (immediate escalation), de-escalation (blocked after tamper), 5 tests
-
-### Connection Metrics & Monitoring (DTN-aware)
-- [x] Per-path metrics types — `PathMetrics` with VecDeque buffer (functional in-memory)
-- [x] DTN metrics propagation, priority delivery, mesh gossip — `MetricsPropagator` bundles metrics into DTN store-carry-forward, chunked delivery, decode on receive, 4 tests
-- [x] Path switch event logging — audit entries defined
-
-### Graceful Teardown (Phase 12 of Connectivity Value Chain)
-- [x] ~~Drain in-flight requests, flush audit, key zeroization~~ — working in agent shutdown
-- [x] ~~Reconnect strategies: exponential backoff + jitter~~ — working in agent
-
-### Execution Modes
-- [x] ~~Background exec with ID tracking + signal + wait~~ — fully working
-- [x] Real-time stdout/stderr streaming — fully working (`streaming.rs`)
-
-### Desired-State Convergence Engine
-- [x] `DesiredStateSpec` YAML parsing — full spec with packages, files, services, sysctl resources
-- [x] `ConvergenceEngine` — check actual vs desired state via `SystemProbe` trait
-- [x] Drift detection — per-resource `DriftItem` with `DriftStatus` (Converged/Drifted/Remediated/Failed)
-- [x] Remediation mode — `Remediator` trait, auto-fix drifted resources when `mode: remediate`
-- [x] Version constraint matching — exact, `>=`, `>`, `<`, `<=` operators
-- [x] `ConvergenceReport` — JSON-serializable report with `is_converged()`, `drift_count()`
-- [x] 18 unit tests covering all resource types, drift scenarios, remediation success/failure
-
-### Event System (Trigger-Based Execution)
-- [x] `EventTrigger` enum — Cron, FileWatch, ProcessExit, Webhook, Timer triggers
-- [x] `EventBus` — broadcast-based pub/sub, trigger registration/removal, fire by name
-- [x] `TimerScheduler` — background timer with repeat/one-shot, cancel support
-- [x] `Action` types — Exec, Converge, Notify
-- [x] 12 unit tests covering parsing, bus operations, timer firing
-
-### Result Parsing & Assertions
-- [x] Multi-format parser — JSON (flattened), YAML, CSV, key-value, lines, raw
-- [x] Assertion engine — Eq, Ne, Contains, NotContains, Matches (regex), Gt, Lt, Gte, Lte, Exists
-- [x] Nested JSON/YAML flattening with dot-notation paths
-- [x] `ParseResult` with `all_passed()` / `failure_count()`
-- [x] 18 unit tests covering all formats and assertion operators
-
-### Grains (System Facts Collection)
-- [x] `Grains::collect()` — OS, arch, hostname, env, pointer width
-- [x] `GrainValue` enum — String, Integer, Float, Bool, List
-- [x] Label selector matching — `matches_labels()` for targeting
-- [x] Merge support — overlay custom grains on system-collected facts
-- [x] 10 unit tests covering collection, matching, serialization
-
-### File Operations
-- [x] ~~Push/pull file + atomic writes~~ — fully working (Read/Write/List actions)
-
-### Cross-Platform (Tier 1)
-- [x] ~~Windows/macOS/Linux binaries + service installers~~ — release.yml + deploy scripts
-- [x] ~~Feature flags: `full` vs `minimal`~~
-- [x] ~~`#[cfg()]` for all OS-specific code~~
-
-### Data Collection Agent
-- [x] Metrics collector framework — `SystemMetricsCollector` with real sysinfo (CPU, memory, load, disk)
-- [x] Built-in system metrics via `sysinfo` — working in executor `Action::Metrics` handler + standalone collector
-- [x] Prometheus `/metrics` endpoint — lightweight TCP HTTP server in `metrics_server.rs`, agent integration
-- [x] Application metrics scraping — `scrape_target()` HTTP GET + Prometheus parser + filters + prefix/labels (1 async integration test)
-- [x] Log tailing — `FileTailer` with rotation detection, JSON/logfmt parsing, include/exclude filters
-- [x] OTLP/Prometheus-remote-write/InfluxDB exporters — `MetricExporter` with 3 formats (Prometheus exposition, OTLP JSON, InfluxDB line protocol), prefix/label support, histogram handling, 4 tests
-- [x] Health check probes — `execute_probe()` with real TCP connect, HTTP GET, process check, command check
-- [x] Collection policy — include/exclude patterns, label filters, sampling rate, histogram toggle, batch size limit (5 tests)
-- [x] Offline telemetry buffering — MetricBuffer with overflow handling, batch flush, drop counter (2 tests)
-
----
-
-## v0.3 — Shell + Tunnels + Playbooks + Local IPC
-
-**Goal:** Interactive shell. Port forwarding. Multi-agent orchestration. Cross-protocol path upgrade. Local IPC transports for zero-network agent communication.
-
-### Interactive Shell
-- [x] PTY allocation — real `openpty` on Unix with `PtySession` (spawn, read, write, resize, signal)
-- [x] Session recording — `SessionRecorder` with asciicast v2 output (functional)
-- [x] `rf shell <agent>` — Full interactive shell via RPC: raw mode terminal, bidirectional stdin/stdout, Shell/ShellInput/ShellResize/ShellClose actions
-
-### Port Forwarding
-- [x] Local port forward — `start_local_forward()` with real TCP listener + bidirectional copy + RPC PortForward/PortForwardClose actions
-- [x] `rf forward -L` CLI command — connect to agent, request forward, keep alive until Ctrl+C
-- [x] Remote port forward — `start_remote_forward()` with agent-side listener + bidirectional copy + RemoteForward RPC action
-- [x] SOCKS5 dynamic forward — full `Socks5Server` TCP proxy: method negotiation, CONNECT handling, policy check, bidirectional relay (1 async integration test)
-
-### Cross-Protocol Path Upgrade (Phase 10 of Connectivity Value Chain)
-- [x] Background transport upgrade — `SessionMigration` wired to `ConnectionRunner::migrate_session()` with peer key verification (2 async tests)
-- [x] Session ticket resumption — `SessionTicket` persists across migrations, transport recorded
-- [x] Atomic swap (make-before-break) — overlap window with peer verification before old path close
-- [x] 0-RTT resumption — ZeroRttCache with ticket storage, try_resume, validate_incoming, eviction, use-count replay protection (6 tests)
-
-### Playbook Engine
-- [x] Multi-agent orchestration — `Orchestrator` + `rf playbook` CLI command connected to real agent RPC sessions
-- [x] Rollback on failure — automatic rollback command execution on agents that succeeded before failure
-- [x] Grain-based targeting — `TargetGrain` with agent-list targeting for CLI
-
-### Local IPC Transports (Zero-Network Local-to-Local)
-- [x] UNIX domain socket driver — `UnixSocketDriver` implementing `Driver` trait for same-host communication (Linux, macOS, FreeBSD)
-- [x] Named pipe driver — `NamedPipeDriver` for Windows local IPC (`\\.\pipe\ravenfabric`)
-- [x] Stdio pipe driver — `StdioDriver` for parent-child process communication (MCP stdio transport, embedded agents)
-- [x] Vsock driver — `VsockDriver` for VM-to-hypervisor communication (firecracker, cloud-hypervisor, QEMU)
-- [x] Abstract namespace sockets — Linux-specific `@ravenfabric/<session-id>` (no filesystem cleanup needed)
-- [x] Automatic driver selection — `AutoSelectDriver` probes available transports and selects best (vsock > unix > named-pipe > loopback)
-- [x] File-descriptor passing — `fd_passing` module: send/recv pre-authenticated FDs over UNIX sockets via SCM_RIGHTS (4 tests)
-- [x] Socket activation — systemd/launchd socket activation for on-demand agent start (sd_listen_fds / launchd plist)
-- [x] Permission enforcement — socket file mode 0600/0660, peer credential verification via `SO_PEERCRED` (Linux) / `LOCAL_PEERCRED` (macOS)
-
-### MCP Server (AI Agent Integration)
-- [x] `rf-mcp-server` binary — Model Context Protocol server translating MCP tool calls to RavenFabric operations
-- [x] stdio transport — single-user, single-session (Claude Desktop, IDE extensions)
-- [x] HTTP+SSE transport — multi-user, server deployment (web-based AI applications)
-- [x] Tool: `rf_exec` — policy-validated command execution with structured errors (denial, approval, rate-limit)
-- [x] Tool: `rf_query_policy` — pre-flight policy check without execution
-- [x] Tool: `rf_request_approval` — human-in-loop approval workflow for sensitive operations
-- [x] Approval enforcement — `--approval-pattern` regex, SHA-256 command hash binding, one-time-use, 30-minute TTL, enforced in `tool_exec()`
-- [x] Tool: `rf_list_my_capabilities` — dynamic capability discovery filtered by agent policy
-- [x] Tool: `rf_audit_query` — self-audit (agent queries its own recent actions)
-- [x] Tool: `rf_file_read` / `rf_file_write` — filesystem operations subject to path policy
-- [x] API token authentication — `--api-token` / `RF_API_TOKEN` env, constant-time validation, reject unauthenticated requests
-- [x] Per-session cryptographic identity — short-lived Curve25519 keys per MCP session
-- [x] Token rotation — comma-separated tokens for grace period, --api-token-file for external rotation
-- [x] RBAC per caller — map API tokens to policy profiles (different callers get different permissions)
-- [x] Rate limiting per session — sliding window request throttle (configurable max requests/minute)
-- [x] Agent reasoning capture — optional `reason` parameter recorded in audit log
-- [x] Claude Desktop integration — `claude_desktop_config.json` reference setup, docs/src/integrations/claude-desktop.md
-- [x] Claude Code integration — `claude mcp add` reference setup, docs/src/integrations/claude-code.md
-- [x] Cursor integration — MCP server config, workspace-scoped policy, docs/src/integrations/cursor.md
-- [x] Aider integration — `.aider.conf.yml` setup, docs/src/integrations/aider.md
-- [x] Design spec: [docs/src/use-cases/ai-agent-access.md](docs/src/use-cases/ai-agent-access.md)
-
-### Policy Templates Library
-- [x] "Coding assistant" template — filesystem read/write in project dir, git, package managers, test runners; deny network mutation
-- [x] "Production read-only" template — allow query/status commands, deny all writes, deny destructive operations
-- [x] "Security investigator" template — broad read access, deny writes, deny exfiltration, approval for credential access
-- [x] "CI/CD agent" template — build/test/deploy commands, scoped to repo workdir, approval for production push
-- [x] "Database query agent" template — SELECT allowed, DML denied by default, approval for schema changes
-- [x] Template validation CLI — `rf policy validate --template coding-assistant`
-- [x] Template composition — layer multiple templates with deny-wins conflict resolution
-
-### Prompt Injection Detection
-- [x] Command-level heuristics — detect base64-encoded payloads, hex-encoded commands, unicode homoglyphs in arguments
-- [x] Pattern library — known injection markers (markdown escapes, instruction overrides, role-play triggers)
-- [x] Evasion detection — obfuscated commands (string concatenation, variable indirection, eval patterns)
-- [x] Configurable response — `block` (deny + audit), `flag` (allow + alert), `log` (allow + record suspicion score)
-- [x] Suspicion scoring — cumulative score per session; threshold triggers automatic capability reduction
-- [x] Integration with audit log — injection attempts recorded with matched pattern and confidence level
-
----
-
-## v0.4 — VPN + DNS + Secrets + Delay-Tolerant Delivery
-
-**Goal:** Full mesh VPN. MagicDNS. Secrets injection. DTN store-carry-forward.
-
-### Mesh VPN
-- [x] TUN device creation — Linux (/dev/net/tun + ioctl) and macOS (utun control socket), read/write/drop, 3 tests
-- [x] Mesh IP allocation — `derive_mesh_ip()` hash function (functional)
-- [x] MagicDNS — UDP DNS server with AAAA query handling, label-length parsing, NXDOMAIN (2 async tests)
-- [x] Petname system — local name mapping (functional)
-
-### Secrets
-- [x] Sealed secret store (encrypted at rest) — `SecretStore` with ChaCha20-Poly1305, seal/unseal, key zeroize on drop (8 tests)
-- [x] `{{ secrets.KEY }}` resolution at execution time — integrated into Executor, commands resolved before `sh -c`
-
-### Delay-Tolerant Networking
-- [x] Offline queue — in-memory `BinaryHeap` + SQLite persistence (`dtn_persistent.rs`, 8 tests)
-- [x] Custody transfer protocol — `CustodyAgent` with initiate/ack/timeout state machine, retry logic, event notifications, 5 tests
-- [x] Schedule-aware routing — `ContactWindow`, `Recurrence`, `RoutingDecision`, `is_window_active()`, `next_window()`, `select_route()` (6 tests)
-- [x] Opportunistic sync — `OpportunisticSync` controller with peer discovery trigger, queue drain, re-sync on reconnect, 3 tests
-- [x] NNCP-style physical media transport — `NncpTransport` with filesystem write/read, bundle JSON serialization, deduplication, 2 tests
-- [x] TTL, priority, and idempotency — `DtnQueue` with priority ordering, dedup, TTL expiry, critical-never-expires, hop limits
-- [x] Multi-hop store-carry-forward — `HopForwarder` with direct/relay/store/drop decisions, neighbor management, 4 tests
-- [x] Content-addressed command payloads — `Bundle::content_addressed()` with SHA-256 hash, `verify_content_address()` integrity check, 2 tests
-
----
-
-## v0.5 — Alternative Transports + Censorship Resistance
-
-**Goal:** Air-gap support. Anonymity. Hostile network traversal. Peer discovery. Radio mesh.
-
-### Censorship-Resistant Transports
-- [x] HTTP/3 MASQUE driver — `MasqueTransport` with RFC 9297/9298 capsule encoding, CONNECT-UDP/CONNECT-IP, varint framing, session management (8 tests)
-- [x] Traffic obfuscation layer — basic padding/depadding functional (~50 lines logic)
-- [x] Encrypted Client Hello (ECH) — `EchTransport` with RFC 9460 config parsing, HPKE cipher suite selection, GREASE fallback, base64 config list decoder (6 tests)
-- [x] Domain fronting transport — `DomainFronter` with SNI/Host rewriting, tunnel request generation, response parsing (3 tests)
-- [x] DNS tunneling driver — `DnsTunnelCodec` with base32/hex encoding, query fragmentation, response decoding (5 tests)
-- [x] ICMP tunneling driver — `IcmpTunnelFramer` with echo request framing, serialize/deserialize, session multiplexing (3 tests)
-- [x] Shadowsocks/Trojan-style mimicry — `MimicryCodec` with ChaCha20-Poly1305 AEAD, counter-derived nonces, protocol stats (4 tests)
-
-### Air-Gap and Proximity Transports
-- [x] Reticulum Network Stack driver — `ReticulumDriver` with shared instance TCP, 2-byte framed protocol, hex destination hash validation, announce/link_request, FNV-1a hashing (18 tests)
-- [x] Tor hidden service driver — `TorDriver` with SOCKS5 CONNECT through local Tor proxy, .onion address validation, protocol prefix stripping (8 tests)
-- [x] Serial port driver — `SerialFramer` with sync bytes, CRC-16/CCITT, frame detection, encode/decode (5 tests)
-- [x] Bluetooth/BLE driver — `BleDriver` with Nordic UART Service GATT proxy, MAC address validation, MTU-based fragmentation/reassembly with 3-byte header (17 tests)
-- [x] Wi-Fi Direct driver — `WifiDirectDriver` with wpa_supplicant ctrl, P2P device address validation, connect/find commands, peer info parsing (12 tests)
-- [x] Audio modem driver — `AudioModemDriver` with 2-FSK modulation, near-ultrasonic 18/19kHz, zero-crossing detection, CRC-16/CCITT framing (15 tests)
-- [x] QR-stream visual channel — `QrStreamDriver` with QR frame sequencing, fragment/reassemble, ECC levels, bitrate estimation (15 tests)
-
-### Radio Transports
-- [x] LoRa/Meshtastic driver — `LoraDriver` with Meshtastic serial/TCP protocol, magic-byte framing, node ID validation, spreading factor airtime estimation (17 tests)
-- [x] AX.25 packet radio driver — `Ax25Driver` with KISS TNC framing, callsign/SSID parsing, AX.25 UI frames, KISS escape encoding (19 tests)
-- [x] HF radio / Winlink bridge — `HfRadioDriver` with VARA HF modem TCP interface, CONNECT/MYCALL/LISTEN commands, message framing (16 tests)
-- [x] Satellite link driver — `SatelliteDriver` with Iridium SBD AT commands, IMEI validation, SBD checksum, orbital pass window estimation (17 tests)
-
-### Overlay Networks
-- [x] Yggdrasil driver — `YggdrasilDriver` with TCP over Yggdrasil IPv6 mesh (200::/7), bracketed address parsing, listen support (7 tests)
-- [x] I2P driver — SAM bridge transport (TCP 7656), stream connect/accept, destination validation (15 tests)
-- [x] Veilid driver — JSON-RPC API transport, DHT route-based addressing, app_call protocol (15 tests)
-- [x] Mixnet integration — `MixnetDriver` with Sphinx packet format, multi-hop routing, SURB anonymous replies, cover traffic latency estimation (20 tests)
-
-### Peer Discovery
-- [x] mDNS/DNS-SD — DiscoveryAgent with UDP broadcast/listen, JSON announcement protocol, self-filtering (2 async tests)
-- [x] DHT (Kademlia-style) — `KademliaTable` with 256 k-buckets, XOR distance, closest-node lookup, insert/remove, 5 tests
-- [x] Gossip protocol (SWIM/HyParView) — GossipAgent with real UDP transport, JSON serialization, bidirectional health propagation (2 async tests)
-- [x] Signed DNS records — `SignedDnsRecord`, `DnsRelayDiscovery` with DNSSEC validation requirement, SRV/TXT/TLSA record types, DANE support, 3 tests
-- [x] BLE beacon discovery — `BleDiscovery` with RSSI-based range filtering, service UUID matching, peer tracking, 3 tests
-- [x] Announce-flood — `AnnounceFlood` gossip protocol with dedup, rate limiting, TTL decrement, re-broadcast, 4 tests
-
-### Advanced NAT Traversal
-- [x] STUN server — `StunServer` with UDP binding, XOR-MAPPED-ADDRESS responses (RFC 5389), client-server roundtrip verified, 6 tests
-- [x] TURN relay mode — `TurnRelay` with UDP allocations, permissions, data relay, capacity limits, 5 tests
-- [x] Multipath TCP/QUIC — `MultipathFrameScheduler` with 5 algorithms (RoundRobin, LowestLatency, LatencyWeighted, Redundant, BandwidthWeighted), critical frame redundancy, receiver dedup, 6 tests
-- [x] Traffic analysis resistance — `TrafficShaper` with constant-rate/adaptive modes, dummy cover traffic, frame splitting, bandwidth accounting, 7 tests
-- [x] Connection migration across interfaces — `InterfaceMigration` with auto-migrate, preferred patterns, netwatch integration, 3 tests
-
----
-
-## v0.6 — WASM Plugins + Multi-Tenant + Advanced Security + Mobile
-
-**Goal:** Extensibility without recompiling. RBAC. Quantum-resistant cryptography. Capability-based auth. Mobile/embedded agents.
-
-### Platform Expansion (Tier 2 + 3)
-- [x] Android agent — NDK cross-compile config, AndroidManifest.xml, Termux instructions in `deploy/android/`
-- [x] iOS agent — build config, Network Extension entitlements, cargo config in `deploy/ios/`
-- [x] Linux armv7 (Raspberry Pi 3/4/Zero 2W) — verified CI target (cross-check in CI)
-- [x] Linux riscv64 — cross-compile verification (cross-check in CI)
-- [x] FreeBSD agent — cross-compile verification (cross-check in CI)
-- [x] OpenWrt package (MIPS/ARM, minimal feature set) — Makefile + init script in `deploy/openwrt/`
-- [x] WASM/WASI compilation target (browser-side client, edge workers) — `rf-crypto --no-default-features` compiles for `wasm32-wasip1`, `frame_codec` module available in WASM
-- [x] `no_std` subset evaluation for bare-metal ARM (ESP32, nRF52) — evaluation doc + `rf-crypto` feature-gated (`--no-default-features` compiles), `frame_codec` module provides no_std encrypt/decrypt, 7 new tests
-- [x] Single-threaded async runtime mode — `rt-single-thread` feature flag in rf-agent, uses `current_thread` runtime for constrained devices
-
-### Plugin System
-- [x] Wasmtime-based plugin runtime — `PluginRegistry` with hash verification, capability checking, lifecycle management (Loaded→Ready→Running→Failed→Disabled), invocation tracking, 7 tests
-- [x] Custom resource types via WASM — `PluginType::ResourceType` in registry with full manifest/sandbox support
-- [x] Custom transport drivers via WASM — `PluginType::TransportDriver` in registry with capability-gated host interface
-
-### Multi-Tenant & RBAC
-- [x] Tenant isolation — `TenantIsolation` with cross-tenant blocking, agent-to-tenant mapping (4 tests)
-- [x] RBAC (admin, operator, viewer, auditor) — role-based access in `ApiRouter` with required_role enforcement
-- [x] SecurityPolicy with immutable rules — `SecurityPolicy` with immutable deny list, delegation depth, token lifetime, policy change roles (4 tests)
-
-### Capability-Based Authorization
-- [x] Biscuit token integration — `CapabilityToken` with sign/verify, serialization, expiry (5 tests)
-- [x] Capability delegation — `delegate()` with attenuation, depth limits (2 tests)
-- [x] Attenuation — capabilities narrowed via subset restriction, never widened
-- [x] Offline-verifiable — Ed25519 signature verification, no central authority needed
-
-### Post-Quantum Cryptography
-- [x] Post-quantum hybrid handshake — `HybridKemContext` combining classical + PQ secrets via HKDF-SHA256 (3 tests)
-- [x] Signal PQXDH-inspired key exchange — `PqxdhRatchet` double ratchet with skipped key tracking (3 tests)
-- [x] Harvest-now-decrypt-later resistance — hybrid KEM ensures PQ protection for stored data
-
-### CRDT State Propagation
-- [x] CRDT-based desired-state convergence — `GSet`, `LwwRegister`, `OrSet`, `PolicyCrdt` with deny-wins semantics (12 tests)
-- [x] Append-only signed policy logs — `PolicyLog` with SHA-256 hash chain + HMAC-SHA256 signatures, integrity verification (3 tests)
-- [x] Opportunistic policy sync — `sync_state()` and `entries_since()` for neighbor sync
-- [x] Conflict-free policy merging — `PolicyCrdt::merge()` with union semantics, idempotent
-- [x] Content-addressed policy distribution — `compute_policy_hash()` SHA-256 content addressing (1 test)
-- [x] SPIFFE-style workload identity (identity independent of network position)
-
----
-
-## v0.7 — Web UI + API + AI Compliance
-
-**Goal:** Web dashboard. REST/gRPC API. Observability. AI agent behavioral analysis and compliance reporting.
-
-- [x] Controller binary — `AgentRegistry` (heartbeat, stale detection, label selection), `ApiRouter` with 8 REST routes, path matching, role-based access, 7 tests
-- [x] Web UI — embedded HTML/CSS/JS dashboard with real-time agent metrics, activity feed, connected agents table
-- [x] REST + gRPC API — `ApiDispatcher` with health/agents endpoints, auth middleware, role-based access (4 tests)
-- [x] OpenTelemetry traces — `TraceContext` (W3C traceparent), `Span` with OTLP JSON export, SpanKind/Status/Events (5 tests)
-- [x] Prometheus metrics endpoint — `metrics_server.rs` HTTP server + agent `--metrics-addr` flag
-
-### Behavioral Anomaly Detection
-- [x] Per-identity baseline collection — command frequency, timing patterns, resource access patterns over rolling window
-- [x] Statistical deviation alerting — Z-score threshold on command rate, new-path-access rate, denial rate
-- [x] Session anomaly scoring — cumulative risk score per session; high score triggers automatic capability reduction or session termination
-- [x] Anomaly types: velocity (too many commands), novelty (accessing paths never accessed before), timing (unusual hours), escalation (repeated denied-then-reformulated attempts)
-- [x] Integration with audit log — anomaly events enriched with baseline comparison data
-- [x] Alert routing — anomaly alerts to webhook via --alert-webhook / RF_ALERT_WEBHOOK
-
-### AI Compliance Reporting
-- [x] EU AI Act traceability report — per-agent decision log with reasoning, human oversight records, risk classification
-- [x] NIST AI Risk Management Framework alignment — map RavenFabric controls to NIST AI RMF functions (Govern, Map, Measure, Manage)
-- [x] Audit report generation — structured reports from audit log data, filterable by agent, time range, action type
-- [x] Human-in-loop evidence — approval workflow records as proof of human oversight for high-risk AI operations
-- [x] Incident reconstruction — timeline view of agent actions leading to an incident, with reasoning and policy decisions
-- [x] Export formats — JSON, CSV for compliance submissions; SIEM-compatible event streams
-
----
-
-## v1.0 — Production Ready
-
-**Goal:** Battle-tested. Fully documented. Packaged. The first system where "network" is fully abstracted from application and policy layers.
-
-- [x] Fuzz testing (transport, policy, codec, MCP) — 4 fuzz targets via cargo-fuzz (fuzz_codec, fuzz_policy, fuzz_frame, fuzz_mcp_protocol)
-- [x] Performance benchmarks (criterion benches for crypto + codec) — crypto_bench + codec_bench
-- [x] Kubernetes CRDs + operator — `Reconciler` with desired/observed state diffing, Create/Update/Delete/Skip actions, orphan detection (4 tests)
-- [x] ~~Homebrew formula, apt/rpm repos, AUR, Nix flake~~ — packaging infrastructure ready
-- [x] Documentation site — mdBook at ravenfabric.io/docs/
-- [x] Named Data Networking concepts for policy distribution (interest/data pattern)
-- [x] Subsea-cable resilience (mesh fallback when physical links fail)
-- [x] Full SPIFFE workload identity compliance
-
----
-
-## Post-v1.0 — Framework SDKs & Ecosystem
-
-**Goal:** Native integration with AI agent frameworks beyond MCP. SDK-level access for framework authors.
-
-- [x] LangChain integration — `LangChainTool` class in `sdks/python/src/ravenfabric/integrations/langchain.py`
-- [x] CrewAI integration — `CrewAITool` class in `sdks/python/src/ravenfabric/integrations/crewai.py`
-- [x] AutoGen integration — `AutoGenExecutor` in `sdks/python/src/ravenfabric/integrations/autogen.py`
-- [x] Custom MCP client SDK (Rust) — `rf-mcp-client` library crate: stdio transport, typed tool wrappers (exec, query_policy, file_read/write, list_capabilities, request_approval), 15 tests
-- [x] Custom MCP client SDK (Python) — pip-installable client (`sdks/python/`): async + sync API, StdioTransport, LangChain + CrewAI + OpenAI + Anthropic integrations, 40 tests
-- [x] Custom MCP client SDK (TypeScript) — npm package (`sdks/typescript/`): fully typed async API, StdioTransport, 12 tests
-- [x] OpenAI function-calling adapter — `OpenAIAdapter` with tool definitions in `sdks/python/src/ravenfabric/integrations/openai.py`
-- [x] Anthropic tool-use adapter — `AnthropicAdapter` with tool definitions in `sdks/python/src/ravenfabric/integrations/anthropic.py`
-- [x] Agent framework benchmark suite — `sdks/python/benchmarks/run.py`: measures policy overhead, latency, throughput across all frameworks
-
----
-
-## Productize AI Agent Integration
-
-**Goal:** Make RavenFabric the zero-friction security layer between AI agents and production systems. Extremely sellable: every team running AI coding assistants needs this yesterday.
-
-### Ship: Hardened rf-mcp-server
-- [x] Production-hardened `rf-mcp-server` binary — audit-tested, fuzzed (fuzz_mcp_protocol target), zero known vulnerabilities
-- [x] Session isolation — each AI agent session runs in its own policy sandbox, no cross-session bleed
-- [x] Rate limiting per session — prevent runaway AI loops from exhausting system resources
-- [x] Graceful degradation — if policy engine is unreachable, deny all (fail-closed)
-
-### Clear Install Guides
-- [x] Claude Code integration guide — `claude mcp add ravenfabric` one-liner, config reference, troubleshooting
-- [x] Cursor integration guide — MCP server config for Cursor IDE, workspace-scoped policy
-- [x] Aider integration guide — stdio transport setup, `.aider.conf.yml` reference
-
-### Opinionated Policy Templates (ready-to-use)
-- [x] "Safe Dev Mode" — AI can read/write project files, run tests, use git; cannot touch system, credentials, or network
-- [x] "Production AI Guardrails" — read-only production access, require human approval for any mutation, full audit trail
-- [x] "Read-only Infrastructure AI" — query logs, metrics, status; block all writes, block all exfiltration paths
-
-### Make It Trivial To:
-- [x] **Drop RavenFabric between AI and system** — single binary, single config file, working in < 5 minutes
-- [x] **Block `rm -rf`** — immutable deny rules ship by default, not opt-in
-- [x] **Require approval for production changes** — human-in-loop approval workflow with CLI notification and status polling
-- [x] **Log AI reasoning** — every command includes optional `reason` field recorded in structured audit log
-- [x] Quick-start tutorial — "Secure your AI agent in 5 minutes" (docs/src/getting-started/ai-quickstart.md)
-- [x] Demo video / asciinema — recording script at `docs/demo/demo-record.sh` (shows deny, allow, audit)
-
----
-
-## Distribution & Packaging
-
-**Goal:** RavenFabric installs natively on every platform through the user's preferred package manager. One command to install, one command to update.
-
-**Principle:** All packaging, signing, and publishing is handled entirely in the GitHub Actions CI/CD pipeline. No manual builds, no local packaging steps. A tagged release triggers automated builds for all platforms and pushes artifacts to the respective package repositories.
-
-### Windows
-
-| Method | Package / Artifact | Status |
-|--------|--------------------|--------|
-| winget | `RavenFabric.RavenFabric` | [x] Manifest ready (`deploy/winget/`) — needs store submission |
-| Chocolatey | `ravenfabric` | [x] Nuspec ready (`deploy/chocolatey/`) — needs store submission |
-| Scoop | `extras/ravenfabric` | [x] Manifest ready (`deploy/scoop/`) — needs store submission |
-| MSI installer | `ravenfabric-x64.msi` | [x] WiX manifest ready (`deploy/wix/`) — needs code signing |
-| EXE installer | `ravenfabric-x64-setup.exe` | [x] NSIS script ready (`deploy/nsis/`) — needs code signing |
-| Portable ZIP | `ravenfabric-windows-x64.zip` | [x] CI builds on release |
-
-### macOS
-
-| Method | Package / Artifact | Status |
-|--------|--------------------|--------|
-| Homebrew | `brew install egkristi/tap/ravenfabric` | [x] Formula ready (`deploy/ravenfabric.rb`) — tap: [egkristi/homebrew-tap](https://github.com/egkristi/homebrew-tap) |
-| DMG | `RavenFabric.dmg` (universal binary) | [x] Build script ready (`deploy/macos/build-dmg.sh`) — needs code signing |
-| pkg installer | `RavenFabric.pkg` (signed) | [x] Build script ready (`deploy/macos/build-pkg.sh`) — needs Apple signing |
-
-### Linux
-
-| Method | Package / Artifact | Status |
-|--------|--------------------|--------|
-| apt (Debian/Ubuntu) | `ravenfabric.deb` + PPA | [x] cargo-deb configured — CI builds on release |
-| dnf (Fedora/RHEL) | `ravenfabric.rpm` + Copr | [x] cargo-generate-rpm configured — CI builds on release |
-| pacman (Arch) | AUR `ravenfabric` | [x] PKGBUILD ready (`deploy/aur/PKGBUILD`) — needs AUR submission |
-| zypper (openSUSE) | `ravenfabric.rpm` (OBS) | [x] Spec ready (`deploy/obs/`) — needs OBS submission |
-| apk (Alpine) | `ravenfabric` (aports) | [x] APKBUILD ready (`deploy/alpine/`) — needs aports submission |
-| snap | `snap install ravenfabric` | [x] snapcraft.yaml ready — needs Snapcraft submission |
-| Flatpak | `io.ravenfabric.Agent` | [x] Manifest ready (`deploy/flatpak/`) — needs Flathub submission |
-| Nix | `nix profile install ravenfabric` | [x] flake.nix ready |
-| AppImage | `RavenFabric-x86_64.AppImage` | [x] Build script ready (`deploy/appimage/`) |
-| Static binary | `ravenfabric-linux-{amd64,arm64,armv7}-musl` | [x] Done — release workflow |
-
-### Android
-
-| Method | Package / Artifact | Status |
-|--------|--------------------|--------|
-| Google Play Store | `io.ravenfabric.agent` | [ ] Planned — requires APK wrapper |
-| APK (sideload) | `ravenfabric.apk` | [x] AndroidManifest + NDK config ready (`deploy/android/`) |
-| Termux (pkg) | `pkg install ravenfabric` | [x] Build instructions in `deploy/android/README.md` |
-| F-Droid | `io.ravenfabric.agent` | [x] Metadata ready (`deploy/fdroid/`) — needs F-Droid submission |
-
-### iOS / iPadOS
-
-| Method | Package / Artifact | Status |
-|--------|--------------------|--------|
-| App Store | RavenFabric (Network Extension) | [ ] Planned — requires Apple Developer account |
-| TestFlight | Beta builds | [ ] Planned — requires Apple Developer account |
-
-### Cross-Platform / Generic
-
-| Method | Package / Artifact | Status |
-|--------|--------------------|--------|
-| Cargo | `cargo install ravenfabric` | [x] Metadata ready — needs `cargo publish` (#44) |
-| Container (Docker/OCI) | `ghcr.io/egkristi/ravenfabric` | [x] Dockerfile + CI workflow ready |
-| Helm chart | `helm install ravenfabric` | [x] Chart ready (`deploy/helm/`) |
-| curl \| sh | `curl -fsSL https://ravenfabric.io/install.sh \| sh` | [x] Script ready (`deploy/install.sh`) |
-
----
-
-## Testing Strategy
-
-### Unit Tests
-- Every crate has isolated unit tests (no network, no filesystem)
-- In-memory transport driver for all RPC tests
-- Fuzz testing for codec/parser edge cases (via `cargo-fuzz`)
-
-### Integration Tests
-- Full pipeline: client → relay → agent → policy → execute → response (in-process)
-- Policy denial verification (E2E denied flows)
-- MCP server E2E: initialize, auth, tools/list, exec (allow/deny), policy query, rate limiting (8 tests)
-- Reconnect after relay restart
-- Hot-reload policy during active session
-
-### Fuzz Testing
-- Transport frame parsing (malformed frames must not panic)
-- Policy YAML parsing (malformed input must not crash)
-- RPC codec (malformed msgpack must not crash)
-- Noise handshake (malformed messages must fail cleanly)
-
-### CI Pipeline
-- `cargo fmt --check` — formatting
-- `cargo clippy --all-targets -- -D warnings` — lints
-- `cargo test --all` — all unit + integration tests
-- Coverage threshold: 60%
-- Cross-compile: Linux (amd64, arm64, armv7, riscv64, musl), macOS (amd64, arm64), FreeBSD
-- MSRV check: Rust 1.88
-
----
-
-## Performance Targets
-
-| Metric | Target | Why |
-|--------|--------|-----|
-| Connection setup (first time) | < 2 RTT | Noise XX = 1.5 RTT |
-| Shell latency overhead | < 10ms | Must be imperceptible vs raw TCP |
-| `rf exec` simple command | < 100ms | Faster than SSH |
-| File transfer throughput | Line speed | ChaCha20 saturates >10 Gbps on modern CPUs |
-| Agent idle memory | < 10 MB | Must run on Raspberry Pi, IoT |
-| Agent binary size | < 15 MB | Static musl build, stripped |
-| Relay throughput | 10k concurrent sessions | Per-relay |
-
----
-
-## Security Hardening Milestones
-
-| Version | Hardening |
-|---------|-----------|
-| v0.1 | Noise XX mutual auth, deny-by-default policy, structured audit, `unsafe_code = "forbid"` |
-| v0.2 | Symlink traversal protection, output limiting, timeout enforcement |
-| v0.3 | Session recording, forced command mode, tunnel time limits, MCP server per-session identity, prompt injection detection, policy templates |
-| v0.4 | Sealed secrets, key rotation, secret masking in logs |
-| v0.5 | Traffic analysis resistance (noise floor, packet normalization) |
-| v0.5.1 | HKDF-SHA256 for PQ KEM, ChaCha20-Poly1305 mimicry codec, HMAC-signed policy logs, SHA-256 WireGuard key derivation, cryptographic trace IDs |
-| v0.6 | WASM sandboxing, RBAC, approval workflows |
-| v0.7 | Behavioral anomaly detection, AI compliance reporting (EU AI Act, NIST AI RMF) |
-| v1.0 | Fuzz-tested, binary integrity, DDoS mitigation |
-
----
-
-## Technical Debt (Audit Findings — 10 May 2026)
-
-All critical and important issues resolved. Minor items tracked below.
-
-### Critical
-- [x] ~~**Executor has zero tests**~~ — resolved: 12 tests covering policy denial, exec, timeout, output limiting, streaming
-
-### Important (code correctness)
-- [x] ~~`unwrap()` in library code~~ — resolved: all production code uses `?` or `expect()` with justification
-- [x] ~~Wire magic/version constants defined but never exchanged during handshake~~ — resolved: RVNF + version byte sent and validated
-- [x] ~~`TransportState` API gap~~ — resolved: `handshake()` returns `StatelessTransportState` for split-free SecureChannel
-- [x] ~~`RwLock` poisoning not handled in `rf-bootstrap`~~ — resolved: `unwrap_or_else(|p| p.into_inner())`
-- [x] ~~Audit log write errors silently swallowed~~ — resolved: `log()` returns `Result<(), AuditError>`
-- [x] ~~sha2 version mismatch (rf-executor, rf-policy, rf-rpc used 0.10 vs workspace 0.11)~~ — resolved: all crates use `sha2 = { workspace = true }` (#99)
-
-### Minor (code hygiene)
-- [x] ~~Unused workspace deps: `proptest`, `base64`, `crc32fast`~~ — removed
-- [x] ~~`yamux` declared in `rf-crypto` Cargo.toml (should be in `rf-rpc`)~~ — fixed, yamux now in rf-rpc
-- [x] ~~`Target` type in `rf-transport` missing `Debug`/`Clone` derives~~ — fixed
-- [x] ~~`rf-rpc` types have no serialization roundtrip tests~~ — added 8 roundtrip tests
-- [x] ~~`RpcPolicy` error types use `Box<dyn Error>` instead of typed error~~ — resolved: uses `PolicyError` enum
-- [x] ~~`sysinfo::System::new_all()` called per-request in executor metrics (should cache)~~ — uses `Arc<Mutex<System>>` now
-- [x] ~~`#[allow(dead_code)]` on `agent_id` field in `rf-bootstrap`~~ — field now used
-- [x] ~~CI clippy allows `unwrap_used` but workspace has it as `warn`~~ — aligned
-- [x] ~~Release workflow uses `|| true` on binary copy~~ — fixed
-- [x] ~~Production `unwrap()` in rf-transport (overlay.rs, quic.rs)~~ — replaced with `expect()` + justification
-
-### Upstream (not actionable)
-- [ ] `snow v0.10.0` pins `sha2 v0.10` causing duplicate crypto dependency tree — waiting for upstream update (#99)
-
----
-
-## Design Decisions Log
-
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-05-05 | Rust over Go | Memory safety without GC. Single static binary. Fearless concurrency |
-| 2026-05-05 | yamux for multiplexing | Battle-tested (libp2p). Per-stream flow control |
-| 2026-05-05 | msgpack over JSON for RPC | Smaller frames, faster parse, binary-safe |
-| 2026-05-05 | Wire protocol version in handshake | Enables rolling upgrades |
-| 2026-05-05 | `rf` as CLI name | Short, memorable, fast to type |
-| 2026-05-05 | Cargo workspace with 13 crates | Compile-time isolation, parallel compilation |
-| 2026-05-05 | Noise XX over all transports | Formally verified, no PKI needed |
-| 2026-05-05 | Relay is stateless and dumb | Minimizes relay's value as attack target |
-| 2026-05-05 | `unsafe_code = "forbid"` | Enforced at workspace level via lints |
-| 2026-05-05 | AGPLv3 + Commercial dual-license | Protects against silent forks as managed services |
-| 2026-05-05 | Identity = key hash (Reticulum-inspired) | IP is implementation detail. Address derives from identity key |
-| 2026-05-05 | DTN store-carry-forward | Disconnection is normal state. NASA Bundle Protocol concepts |
-| 2026-05-05 | Transport = any byte-moving channel | USB sticks, radio, sound, QR are valid transports |
-| 2026-05-05 | Capability-based auth | Biscuit tokens scale better than centralized ACL in distributed mesh |
-| 2026-05-05 | CRDT state convergence | Desired-state reconciliation without master. Works over intermittent links |
-| 2026-05-05 | Content-addressed payloads | Hash-identified commands/policies. Dedup, verify, cache naturally |
-| 2026-05-05 | Transport-aware policy | Sensitivity level determines acceptable transport channels |
-| 2026-05-05 | 13-phase connectivity value chain | Connection lifecycle is a formal pipeline (CONNECTIVITY.md). Each phase is independent and composable |
-| 2026-05-05 | Universal platform target | Agent runs anywhere: server, desktop, mobile, IoT, embedded. No platform excluded by design |
-| 2026-05-05 | Feature-flag architecture | `full` vs `minimal` feature sets allow same codebase to target 10 MB Raspberry Pi and 15 MB router |
-| 2026-05-06 | MCP server as translation layer | Policy enforced by rf-agent, not MCP server. Compromised MCP binary cannot bypass policy. AI agent access uses same crypto/audit/policy as human operators |
-| 2026-05-06 | Local IPC as first-class transports | UNIX sockets, named pipes, stdio, vsock are not shortcuts — they go through the same Noise XX handshake and policy engine. Local does not mean trusted |
-| 2026-05-15 | Stay alpha until soak-tested | Beta is a stability promise. Feature-completeness is necessary but not sufficient — requires real-world deployment, external testing, and wire protocol stability guarantee |
+LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Python (40 tests), TypeScript (12 tests). OpenAI + Anthropic adapters. Agent framework benchmark suite.
+</details>
 
 ---
 
 ## Path to Beta
 
-**Current status:** Alpha v0.3.0 — feature-complete, 13 crates, ~53,900 LOC, 1,111 tests, 0 vulnerabilities, 0 clippy warnings.
+**Current:** Alpha v0.3.0 — all planned features implemented and tested.
 
-**Beta means:** "Ready for external testers with relatively stable APIs and wire protocol." It is a stability promise, not a feature milestone.
+**Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
-### Beta Prerequisites
+| # | Requirement | Status |
+|---|-------------|--------|
+| 1 | **Soak test** — continuous deployment 2-4 weeks | Not started |
+| 2 | **Wire protocol stability guarantee** | Done |
+| 3 | **Code coverage metrics** (60% threshold) | Done |
+| 4 | **Security self-audit** (17 tests) | Done |
+| 5 | **API stability markers** (`#[non_exhaustive]`) | Done |
+| 6 | **External testers** (2-3 people) | Not started |
+| 7 | **SECURITY.md updated** | Done |
+| 8 | **Publish to crates.io** | Not started (#44) |
 
-| # | Requirement | Status | Notes |
-|---|-------------|--------|-------|
-| 1 | **Soak test** — continuous deployment for 2-4 weeks | Not started | Run agent + relay in real environment. Document uptime, reconnects, memory, crashes |
-| 2 | **Wire protocol stability guarantee** | Done | `docs/src/reference/wire-protocol-stability.md` + backward-compat integration tests |
-| 3 | **Code coverage metrics** | Done | `cargo-llvm-cov` in CI with 60% threshold, Codecov upload |
-| 4 | **Security self-audit** | Done | 17 tests: key zeroization, OTP replay, policy bypass, wire protocol rejection |
-| 5 | **API stability markers** | Done | `#[non_exhaustive]` on core enums (CryptoError, RpcError, PolicyError, Action, RpcResult) |
-| 6 | **External testers** (2-3 people) | Not started | Deploy with only README as guide. Friction reports reveal gaps |
-| 7 | **SECURITY.md updated** | Done | Supported versions reflects current release |
-| 8 | **Publish to crates.io** | Not started | (#44) Enables `cargo install ravenfabric` |
+**Why not beta yet:** No production deployment. No external users. Single developer (no peer review on security-critical code). Exotic transports untested on real hardware. No external security audit.
 
-### Why Not Beta Yet
+**Target:** v1.0.0-beta.1 — after 4-6 weeks of real-world bake time with prerequisites complete.
 
-Despite 97.7% roadmap completion (425/435 items), several factors indicate premature beta:
+---
 
-1. **No production deployment** — demos are Docker scripts; no evidence of sustained real-world operation
-2. **No external users** — zero bug reports from real operators in diverse environments
-3. **Single developer** — no peer review on security-critical crypto/policy implementations
-4. **Exotic transports untested on real hardware** — LoRa, BLE, satellite, AX.25, HF radio, audio modem likely only mock-tested
-5. **No external security audit** — a tool replacing SSH/WireGuard/Ansible needs independent cryptographic review
-6. **Wire protocol may still change** — no formal backward-compatibility commitment between versions
+## Planned: v1.1 — Secure Access Layer
 
-### Target: v0.4.0-beta.1
+### Secure API Proxy
 
-Once prerequisites 1-6 are complete (estimated 4-6 weeks of real-world bake time), the project can declare beta with confidence.
+**Goal:** Proxy HTTP/TCP traffic through RavenFabric agents to private services — no VPN, no port-forwards, no exposed ports. Full policy enforcement and audit logging on every request.
+
+Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a single, policy-controlled, audited mechanism.
+
+**Security-first defaults (non-negotiable):**
+- All API access requires authentication by default — no anonymous access, no opt-in auth
+- API tokens mandatory — cryptographically random, minimum 256-bit entropy, constant-time comparison
+- RBAC enforced on every request — caller identity mapped to role, role mapped to permitted operations
+- Deny-by-default — if no explicit allow rule matches, the request is rejected
+- Rate limiting enabled by default — per-caller sliding window, configurable but never disabled
+- TLS required — plaintext HTTP rejected; minimum TLS 1.2, prefer 1.3
+- Request validation — reject malformed requests, validate Content-Type, enforce size limits
+- No sensitive data in URLs — tokens and secrets must be in headers, never query parameters
+- Response sanitization — strip internal headers, stack traces, and debug info in production mode
+- CORS restricted — no wildcard origins; explicit allowlist only
+- Security headers on every response — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store` for authenticated responses
+- Token expiration — all tokens have configurable TTL, no permanent tokens without explicit policy override
+- Token rotation — grace period support for zero-downtime rotation
+- Audit every authentication event — success, failure, token used, source IP, timestamp
+- Brute-force protection — exponential backoff after repeated auth failures per source IP
+
+#### TCP Tunnel (Foundation)
+- [ ] `Proxy` RPC action — agent opens TCP connection to target host:port, bridges bytes over yamux stream
+- [ ] Policy rules for network targets — allow/deny by CIDR, port, hostname (mirrors filesystem policy structure)
+- [ ] `rf proxy <agent> --target <host:port> --listen <local:port>` — CLI command opens local listener, tunnels to agent
+- [ ] Connection audit logging — every tunnel open/close recorded with caller identity, target, bytes transferred, duration
+- [ ] Concurrent tunnels — multiple proxy sessions multiplexed over single agent connection via yamux
+- [ ] Idle timeout + max duration — configurable limits prevent resource exhaustion from abandoned tunnels
+
+#### HTTP-Aware Proxy (Policy-Rich)
+- [ ] HTTP request inspection — agent parses method, path, headers before forwarding to upstream
+- [ ] HTTP policy rules — allow/deny by method + path pattern (e.g., allow `GET /api/**`, deny `DELETE /**`)
+- [ ] Header injection/stripping — policy can require/forbid specific headers (auth tokens, X-Forwarded-For)
+- [ ] Per-request audit logging — method, path, status code, latency, response size logged with caller identity
+- [ ] Request body size limits — configurable max request/response body (prevent exfiltration of large datasets)
+- [ ] `rf proxy <agent> --target http://localhost:8080 --http --listen :3000` — HTTP-aware mode
+
+#### MCP + AI Agent Integration
+- [ ] MCP tool: `rf_http_request` — AI agents call private APIs through RavenFabric with full policy enforcement
+- [ ] Structured responses — JSON body returned to AI agent with status code, headers, parsed body
+- [ ] Policy-gated endpoints — different AI agents get different API access based on their RBAC profile
+- [ ] Rate limiting per destination — prevent AI agent loops from overwhelming upstream services
+
+---
+
+### Secure Reverse Proxy (Ingress)
+
+**Goal:** Expose private services through RavenFabric without opening ports, VPNs, or third-party tunnels. External callers hit a public ingress endpoint; requests route over existing agent connections to upstream services.
+
+Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default policy, per-request audit, and zero third-party dependency.
+
+**Security-first defaults (non-negotiable):**
+- Authentication required on every request — no unauthenticated access to any proxied service
+- Multiple auth methods supported — API tokens (default), mTLS client certificates, OAuth2/OIDC bearer tokens
+- API tokens: cryptographically random (256-bit), constant-time validation, automatic expiration
+- RBAC per caller — each authenticated identity maps to a role with explicit allowed endpoints/methods
+- Deny-by-default — ingress rejects any request that doesn't match an explicit allow rule
+- Double authentication — ingress authenticates the external caller AND the agent re-validates against its own policy
+- Rate limiting per caller and per endpoint — prevents abuse, DDoS, and credential stuffing
+- TLS 1.3 required on public ingress — no TLS 1.0/1.1, no weak cipher suites
+- Input validation — reject oversized headers, malformed requests, invalid Content-Type before routing
+- Request body limits — configurable max size (default 10MB), enforced before forwarding to agent
+- No sensitive data in URLs or logs — tokens redacted in audit entries, no query-string auth
+- IP allowlisting — optional but available; restrict access to known CIDR ranges
+- Automatic token revocation — compromised tokens can be revoked instantly across all ingress instances
+- Security headers enforced — HSTS, X-Content-Type-Options, X-Frame-Options, CSP on all responses
+- Brute-force protection — lockout after N failed auth attempts per source IP (configurable, default 5/minute)
+- Audit every request — caller identity, source IP, target agent, method, path, response status, latency
+- No CORS wildcards — explicit origin allowlist per endpoint, credentials never exposed cross-origin
+- Token scoping — tokens can be scoped to specific agents, endpoints, or methods (principle of least privilege)
+- Short-lived tokens preferred — default TTL 24h for API tokens; long-lived tokens require explicit policy approval
+
+#### Ingress Component (`rf-ingress`)
+- [ ] HTTP ingress server — TLS-terminating public endpoint (axum/hyper), accepts inbound HTTPS requests
+- [ ] Agent routing table — map incoming requests to connected agents by subdomain, path prefix, or header (`X-RF-Agent`)
+- [ ] Caller authentication — API key, mTLS, OAuth token validation at the edge before routing
+- [ ] Rate limiting per caller — sliding window throttle at ingress to prevent abuse
+- [ ] Ingress audit logging — external caller identity, source IP, target agent, timing, response status
+- [ ] Health check passthrough — configurable health endpoints that don't require full auth (for load balancers)
+
+#### Agent-Side Reverse Proxy Handler
+- [ ] `ReverseProxy` RPC action — agent receives HTTP request metadata + body over yamux stream
+- [ ] Policy enforcement — same HTTP-aware rules as forward proxy (method + path pattern allow/deny)
+- [ ] Agent-level audit logging — full request details (method, path, headers, caller, policy decision, latency)
+- [ ] Upstream connection — agent connects to local service, forwards request, streams response back
+- [ ] Response size limits — configurable max response body to prevent data exfiltration
+- [ ] Timeout enforcement — per-request timeout kills slow upstream connections
+
+#### Routing & Registration
+- [ ] Agent self-registration — agent declares "I serve requests for target X" on connect
+- [ ] Dynamic routing updates — agents can register/deregister endpoints without ingress restart
+- [ ] Multi-agent load balancing — multiple agents serving same endpoint, round-robin or least-connections
+- [ ] Sticky sessions — optional session affinity by caller identity or cookie
+
+---
+
+### Bulk File Transfer
+
+**Goal:** Native streaming file transfer replacing scp, rsync, and Ansible's `copy` module. Efficient over the existing encrypted channel with full policy enforcement, progress reporting, and audit logging.
+
+#### Core Transfer Engine
+- [ ] `FilePush` RPC action — chunked upload from client to agent (configurable chunk size, default 256KB)
+- [ ] `FilePull` RPC action — chunked download from agent to client
+- [ ] Streaming over yamux — chunks flow over a dedicated mux stream, no base64 encoding overhead
+- [ ] Progress reporting — byte count, percentage, transfer rate reported back to caller
+- [ ] Integrity verification — SHA-256 checksum of entire file verified after transfer completes
+- [ ] Atomic write — transfer to temp file, rename on completion (no partial files on failure)
+- [ ] Resumable transfers — track byte offset, resume interrupted transfers without restarting
+
+#### Policy & Security
+- [ ] Path policy enforcement — same allow/deny rules as existing `Read`/`Write` actions
+- [ ] Size limits — per-transfer max file size configurable in policy (prevent disk exhaustion)
+- [ ] Audit logging — source path, destination path, file size, checksum, duration, caller identity
+- [ ] Bandwidth throttling — optional rate limit per transfer (prevent saturating network)
+
+#### Advanced Features
+- [ ] Recursive directory transfer — `rf cp -r` with directory tree traversal
+- [ ] Delta/incremental sync — rsync-like rolling checksum for efficient updates of large files
+- [ ] Compression — optional zstd compression for transfer (transparent, negotiated)
+- [ ] Glob patterns — `rf cp agent:/var/log/*.gz ./logs/` wildcard expansion
+- [ ] `rf cp` CLI command — familiar syntax: `rf cp <agent>:<path> <local>` and `rf cp <local> <agent>:<path>`
+- [ ] MCP tool: `rf_file_transfer` — AI agents can move files with policy enforcement
+
+---
+
+## Planned: v1.2 — Fleet Operations
+
+### Agent Auto-Update
+
+**Goal:** Agents update themselves without manual intervention. Staged rollout with health-check gates, automatic rollback on failure, and full audit trail.
+
+#### Update Mechanism
+- [ ] Version announcement — controller/relay broadcasts available version to connected agents
+- [ ] Update policy — agents check local policy before accepting update (allow/deny version ranges)
+- [ ] Binary download — agent pulls new binary from configured artifact source (HTTPS + checksum)
+- [ ] Integrity verification — SHA-256 + Ed25519 signature validation before applying
+- [ ] Atomic binary swap — download to temp, verify, rename over running binary
+- [ ] Graceful restart — drain active RPC sessions, then exec() new binary (zero-downtime on Linux)
+- [ ] Rollback on failure — if new binary fails health-check within 60s, revert to previous version
+
+#### Fleet Coordination
+- [ ] Staged rollout — canary (1 agent) → percentage (10%) → fleet (100%)
+- [ ] Health-check gates — proceed to next stage only if all updated agents pass health check
+- [ ] Rollout pause/abort — controller can halt rollout mid-flight
+- [ ] Version pinning — specific agents can be pinned to a version (skip auto-update)
+- [ ] Update windows — only apply updates during configured maintenance windows
+
+#### Audit & Observability
+- [ ] Update audit log — version transitions recorded with timestamp, source, verification status
+- [ ] Fleet version dashboard — controller reports version distribution across agents
+- [ ] Update failure alerts — webhook notification on rollback events
+
+---
+
+### Secrets Lifecycle Management
+
+**Goal:** Automated secret rotation with grace periods, external secret manager integration, and full audit trail. Zero-downtime rotation.
+
+#### Automated Rotation
+- [ ] Time-based rotation triggers — configurable TTL per secret (e.g., rotate every 30 days)
+- [ ] Rotation hooks — execute custom command/script to generate new secret value
+- [ ] Grace period — old and new secret both valid during configurable overlap window
+- [ ] Rotation audit trail — every rotation event logged (who triggered, old hash, new hash, TTL)
+- [ ] Health-check after rotation — verify new secret works before retiring old
+
+#### External Secret Manager Integration
+- [ ] HashiCorp Vault — read/write via Vault HTTP API (AppRole or Token auth)
+- [ ] AWS Secrets Manager — fetch/rotate via AWS SDK (IAM role-based auth)
+- [ ] Azure Key Vault — managed identity or service principal authentication
+- [ ] GCP Secret Manager — workload identity federation
+- [ ] Generic HTTP backend — configurable URL + auth headers for custom backends
+- [ ] Sync mode — external manager is source of truth; agent pulls on schedule
+
+#### Secret Distribution
+- [ ] Fleet-wide secret push — update across all agents with grace period
+- [ ] Per-agent secrets — different values for same secret name per agent
+- [ ] Secret versioning — track version history, audit access patterns
+- [ ] Emergency revocation — immediately invalidate across all agents
+
+---
+
+### Log Forwarding & SIEM Export
+
+**Goal:** Push audit logs and telemetry to external systems in real-time. Enterprise SOC integration.
+
+#### Remote Log Sinks
+- [ ] Syslog (RFC 5424) — UDP/TCP/TLS with facility/severity mapping
+- [ ] Splunk HEC — HTTP Event Collector with token auth, batching, retry
+- [ ] Elasticsearch/OpenSearch — direct indexing via bulk API
+- [ ] Datadog — log forwarding via Datadog agent API
+- [ ] Generic webhook — configurable HTTP POST with JSON payload
+
+#### Audit Log Formats
+- [ ] CEF (Common Event Format) — standard SIEM format
+- [ ] LEEF (Log Event Extended Format) — IBM QRadar compatible
+- [ ] OCSF (Open Cybersecurity Schema Framework) — modern security event schema
+- [ ] Native JSON-lines — existing format, now with remote push
+
+#### Fleet Aggregation
+- [ ] Centralized audit collector — agents push events to controller in real-time
+- [ ] Buffered delivery — local queue for network interruptions, guaranteed delivery
+- [ ] Deduplication — handle replay during reconnect without duplicate events
+- [ ] Retention policies — configurable per-agent log retention before forwarding
+
+#### Alerting
+- [ ] Real-time alert rules — pattern matching on audit events (policy denial → alert)
+- [ ] Alert destinations — Slack, PagerDuty, OpsGenie, generic webhook
+- [ ] Alert deduplication — suppress repeated alerts within configurable window
+
+---
+
+## Planned: v1.3 — Enterprise & Compliance
+
+### Hardware Security Module Support
+
+**Goal:** Hardware-backed key storage for FIPS 140-2, PCI-DSS, and government environments.
+
+#### PKCS#11 Integration
+- [ ] PKCS#11 provider trait — `HsmKeyProvider` implementing `StaticKey` interface
+- [ ] Key generation in HSM — generate Curve25519 keys inside hardware module
+- [ ] Sign/verify operations — Noise XX handshake uses HSM for private key operations
+- [ ] Token/PIN management — configurable slot, PIN from env or sealed secret
+- [ ] YubiHSM2 support — tested with YubiHSM2 via yubihsm-connector
+
+#### TPM Integration
+- [ ] TPM 2.0 key storage — seal keys to PCR state (Linux tpm2-tss, Windows TBS)
+- [ ] Platform attestation — prove agent identity via TPM quote
+- [ ] Measured boot — verify agent binary integrity via PCR extension
+
+#### Feature Gating
+- [ ] Behind `hsm` feature flag — no compile-time or runtime cost when unused
+- [ ] Graceful fallback — if HSM unavailable, log warning and use file-based keys
+- [ ] FIPS mode — when HSM is configured, enforce FIPS-approved algorithms only
+
+---
+
+### Geolocation-Aware Routing
+
+**Goal:** Lowest-latency relay selection based on geographic proximity for global deployments.
+
+#### Geo-Routing
+- [ ] GeoIP database integration — MaxMind GeoLite2 or ip2location for relay location mapping
+- [ ] Relay region tags — relays self-report region (us-east, eu-west, ap-south, etc.)
+- [ ] Nearest-relay selection — agents connect to geographically closest relay on startup
+- [ ] Multi-relay affinity — prefer regional relay but failover to global
+- [ ] Latency-weighted selection — combine geo proximity with measured RTT for optimal path
+
+#### Global Fleet
+- [ ] Region-aware orchestration — target agents by region (e.g., "all eu-west agents")
+- [ ] Regional relay clusters — multiple relays per region with load balancing
+- [ ] Cross-region routing — requests to agents in other regions route via optimal relay chain
+
+---
+
+## Distribution & Packaging
+
+All packaging handled by GitHub Actions CI/CD. No manual builds.
+
+| Platform | Methods | Status |
+|----------|---------|--------|
+| **Linux** | apt (.deb), dnf (.rpm), pacman (AUR), apk (Alpine), snap, Flatpak, Nix, AppImage, static musl binary | Ready — needs store submissions |
+| **macOS** | Homebrew, DMG, pkg | Ready — needs code signing |
+| **Windows** | winget, Chocolatey, Scoop, MSI, EXE, portable ZIP | Ready — needs store submissions |
+| **Android** | APK (sideload), Termux, F-Droid | Ready — needs submissions |
+| **iOS** | App Store, TestFlight | Planned — requires Apple Developer account |
+| **Generic** | `cargo install`, Docker/OCI, Helm chart, `curl \| sh` | Ready |
+
+---
+
+## Website & Marketing
+
+**Site:** [ravenfabric.io](https://ravenfabric.io) (Cloudflare Workers) | **Docs:** [docs.ravenfabric.io](https://docs.ravenfabric.io) (mdBook)
+
+**Completed:** Landing page, blog (3 posts + RSS), demos page (13 scenarios with animated SVGs), newsletter signup, security headers, JSON-LD, OG cards, self-hosted fonts, accessibility skip-link.
+
+**Pending (requires human):**
+- [ ] Google Search Console setup + sitemap submission (#38)
+- [ ] Submit to Hacker News, Lobsters, Reddit, kode24.no (#40)
+- [ ] Live demo sandbox (`rf-demo.ravenfabric.io`) (#42)
+- [ ] Re-record asciinema demos with live sessions (#98)
+
+---
+
+## Testing Strategy
+
+| Layer | Approach |
+|-------|----------|
+| Unit | Every crate has isolated tests (no network, no filesystem). In-memory transport for RPC |
+| Integration | Full pipeline: client → relay → agent → policy → execute → response (in-process) |
+| Security | 17 dedicated tests: key zeroization, OTP replay, policy bypass, wire protocol rejection |
+| Fuzz | 4 targets via cargo-fuzz: codec, policy, frame, MCP protocol |
+| CI | fmt + clippy + test + coverage (60%) + cross-compile (7 targets) + MSRV (1.88) + binary size gate (<15MB) |
+
+---
+
+## Performance Targets
+
+| Metric | Target | Rationale |
+|--------|--------|-----------|
+| Connection setup | < 2 RTT | Noise XX = 1.5 RTT |
+| Shell latency overhead | < 10ms | Imperceptible vs raw TCP |
+| `rf exec` simple command | < 100ms | Faster than SSH |
+| File transfer throughput | Line speed | ChaCha20 saturates >10 Gbps |
+| Agent idle memory | < 10 MB | Raspberry Pi, IoT |
+| Agent binary size | < 15 MB | Static musl, stripped |
+| Relay throughput | 10k concurrent sessions | Per-relay |
+
+---
+
+## Security Hardening (by version)
+
+| Version | Hardening |
+|---------|-----------|
+| v0.1 | Noise XX mutual auth, deny-by-default policy, structured audit, `unsafe_code = "forbid"` |
+| v0.2 | Symlink traversal protection, output limiting, timeout enforcement |
+| v0.3 | Session recording, tunnel time limits, per-session crypto identity, prompt injection detection |
+| v0.4 | Sealed secrets, key rotation, secret masking in logs |
+| v0.5 | Traffic analysis resistance, HMAC-signed policy logs, cryptographic trace IDs |
+| v0.6 | WASM sandboxing, RBAC, Biscuit capability tokens, post-quantum hybrid KEM |
+| v0.7 | Behavioral anomaly detection, AI compliance reporting |
+| v1.0 | Fuzz-tested, binary integrity, DDoS mitigation |
+| v1.1 | API security defaults (auth, RBAC, rate limiting, TLS, brute-force protection on all endpoints) |
+| v1.2 | Ed25519-signed binary updates, secret rotation with grace periods |
+| v1.3 | HSM/TPM key storage, FIPS mode, platform attestation |
+
+---
+
+## Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Rust over Go | Memory safety without GC. Single static binary. Fearless concurrency |
+| Noise XX over TLS | Formally verified, no PKI needed, mutual auth by default |
+| yamux multiplexing | Battle-tested (libp2p). Per-stream flow control |
+| msgpack over JSON (wire) | Smaller frames, faster parse, binary-safe |
+| Relay is stateless | Minimizes relay's value as attack target |
+| Identity = key hash | IP is implementation detail. Address derives from identity key |
+| `unsafe_code = "forbid"` | Enforced at workspace level via lints |
+| AGPLv3 + Commercial | Protects against silent forks as managed services |
+| Transport = any byte channel | USB sticks, radio, sound, QR are valid transports |
+| Capability-based auth | Biscuit tokens scale better than centralized ACL in mesh |
+| CRDT state convergence | Works over intermittent links. No master required |
+| Feature-flag architecture | Same codebase targets 10 MB Pi and 15 MB router |
+| MCP as translation layer | Policy enforced by agent, not MCP server. Compromised MCP cannot bypass policy |
+| Local IPC through same handshake | UNIX sockets go through Noise XX. Local does not mean trusted |
+
+---
+
+## Technical Debt
+
+All critical and important issues resolved. One upstream dependency issue remains:
+
+- [ ] `snow v0.10.0` pins `sha2 v0.10` causing duplicate crypto dependency tree — waiting for upstream (#99)

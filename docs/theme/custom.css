@@ -2,3 +2,60 @@
 :root {
     --sidebar-width: 280px;
 }
+
+/* Ensure code blocks use light text on dark themes regardless of JS state */
+.navy .hljs,
+.coal .hljs {
+    background: #1d1f21;
+    color: #c5c8c6;
+}
+
+.navy :not(pre) > .hljs,
+.coal :not(pre) > .hljs {
+    background: rgba(29, 31, 33, 0.6);
+    color: var(--inline-code-color);
+}
+
+/* Tomorrow Night token colors for dark themes (navy/coal) */
+.navy .hljs-comment, .navy .hljs-quote,
+.coal .hljs-comment, .coal .hljs-quote {
+    color: #969896;
+}
+
+.navy .hljs-variable, .navy .hljs-template-variable,
+.navy .hljs-tag, .navy .hljs-name, .navy .hljs-selector-id,
+.navy .hljs-selector-class, .navy .hljs-regexp, .navy .hljs-deletion,
+.navy .hljs-attr,
+.coal .hljs-variable, .coal .hljs-template-variable,
+.coal .hljs-tag, .coal .hljs-name, .coal .hljs-selector-id,
+.coal .hljs-selector-class, .coal .hljs-regexp, .coal .hljs-deletion,
+.coal .hljs-attr {
+    color: #cc6666;
+}
+
+.navy .hljs-number, .navy .hljs-built_in, .navy .hljs-literal,
+.navy .hljs-type, .navy .hljs-params, .navy .hljs-meta, .navy .hljs-link,
+.coal .hljs-number, .coal .hljs-built_in, .coal .hljs-literal,
+.coal .hljs-type, .coal .hljs-params, .coal .hljs-meta, .coal .hljs-link {
+    color: #de935f;
+}
+
+.navy .hljs-attribute,
+.coal .hljs-attribute {
+    color: #f0c674;
+}
+
+.navy .hljs-string, .navy .hljs-symbol, .navy .hljs-bullet, .navy .hljs-addition,
+.coal .hljs-string, .coal .hljs-symbol, .coal .hljs-bullet, .coal .hljs-addition {
+    color: #b5bd68;
+}
+
+.navy .hljs-title, .navy .hljs-section,
+.coal .hljs-title, .coal .hljs-section {
+    color: #81a2be;
+}
+
+.navy .hljs-keyword, .navy .hljs-selector-tag,
+.coal .hljs-keyword, .coal .hljs-selector-tag {
+    color: #b294bb;
+}
