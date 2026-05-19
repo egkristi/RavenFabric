@@ -1602,6 +1602,21 @@ impl Executor {
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
+        // Enforce file size limit: offset + this chunk must not exceed max_file_size_bytes
+        {
+            let policy = self.policy.read().await;
+            let chunk_end = offset + data.len() as u64;
+            if chunk_end > policy.max_file_size_bytes {
+                return RpcResult::Denied {
+                    reason: format!(
+                        "file size limit exceeded: {} > {} bytes",
+                        chunk_end, policy.max_file_size_bytes
+                    ),
+                    rule: "resources.maxFileSizeBytes".to_string(),
+                };
+            }
+        }
+
         // Write chunk to temp file
         let temp_path = format!("{path}.rf_transfer");
 
@@ -1755,6 +1770,20 @@ impl Executor {
             }
         };
         let total_size = metadata.len();
+
+        // Enforce file size limit
+        {
+            let policy = self.policy.read().await;
+            if total_size > policy.max_file_size_bytes {
+                return RpcResult::Denied {
+                    reason: format!(
+                        "file size limit exceeded: {} > {} bytes",
+                        total_size, policy.max_file_size_bytes
+                    ),
+                    rule: "resources.maxFileSizeBytes".to_string(),
+                };
+            }
+        }
 
         // Read chunk at offset
         use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -2832,5 +2861,82 @@ spec:
         // Verify allowed vs denied
         assert_eq!(entries[0].decision, "allowed");
         assert_eq!(entries[1].decision, "denied");
+    }
+
+    fn small_file_size_policy() -> RpcPolicy {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  filesystem:
+    allow:
+      - path: /tmp
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30
+    maxFileSizeBytes: 10
+"#;
+        RpcPolicy::from_yaml(yaml).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_file_push_size_limit_denied() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let policy = Arc::new(RwLock::new(small_file_size_policy()));
+        let exec = Executor::new(policy, audit, "test-caller".into());
+
+        // 11 bytes — exceeds the 10-byte limit
+        let req = Request {
+            id: "push-size-1".into(),
+            action: Action::FilePush {
+                path: "/tmp/rf_test_size.txt".into(),
+                offset: 0,
+                data: vec![0u8; 11],
+                done: true,
+                checksum: None,
+                mode: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+
+        let resp = exec.handle(req).await;
+        assert!(
+            matches!(resp.result, RpcResult::Denied { .. }),
+            "expected Denied, got {:?}",
+            resp.result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_file_push_size_limit_allowed() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let policy = Arc::new(RwLock::new(small_file_size_policy()));
+        let exec = Executor::new(policy, audit, "test-caller".into());
+
+        // 5 bytes — within the 10-byte limit
+        let req = Request {
+            id: "push-size-2".into(),
+            action: Action::FilePush {
+                path: "/tmp/rf_test_size_ok.txt".into(),
+                offset: 0,
+                data: b"hello".to_vec(),
+                done: true,
+                checksum: None,
+                mode: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+
+        let resp = exec.handle(req).await;
+        assert!(
+            matches!(resp.result, RpcResult::FileChunkAck { finalized: true, .. }),
+            "expected FileChunkAck(finalized), got {:?}",
+            resp.result
+        );
+        // Cleanup
+        let _ = tokio::fs::remove_file("/tmp/rf_test_size_ok.txt").await;
     }
 }

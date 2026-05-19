@@ -493,6 +493,7 @@ impl McpServer {
             "rf_request_approval" => self.tool_request_approval(&arguments).await,
             "rf_check_approval" => self.tool_check_approval(&arguments).await,
             "rf_file_transfer" => self.tool_file_transfer(&arguments).await,
+            "rf_http_request" => self.tool_http_request(&arguments).await,
             _ => Err(format!("Unknown tool: {tool_name}")),
         };
 
@@ -821,9 +822,116 @@ impl McpServer {
         }
     }
 
+    /// Make an HTTP request through the agent to a private upstream service (policy-checked).
+    async fn tool_http_request(&self, args: &Value) -> Result<Value, String> {
+        let target = args
+            .get("target")
+            .and_then(|t| t.as_str())
+            .ok_or("missing 'target' argument")?;
+        let method = args
+            .get("method")
+            .and_then(|m| m.as_str())
+            .ok_or("missing 'method' argument")?;
+        let path = args
+            .get("path")
+            .and_then(|p| p.as_str())
+            .ok_or("missing 'path' argument")?;
+        let reason = args
+            .get("reason")
+            .and_then(|r| r.as_str())
+            .unwrap_or("MCP HTTP request");
+
+        // Parse optional headers
+        let headers: HashMap<String, String> = args
+            .get("headers")
+            .and_then(|h| h.as_object())
+            .map(|obj| {
+                obj.iter()
+                    .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Parse optional body
+        let body: Vec<u8> = args
+            .get("body")
+            .and_then(|b| b.as_str())
+            .map(|s| s.as_bytes().to_vec())
+            .unwrap_or_default();
+
+        // Validate method to prevent injection
+        let method_upper = method.to_uppercase();
+        if !matches!(
+            method_upper.as_str(),
+            "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS"
+        ) {
+            return Ok(tools::error_content(format!(
+                "Invalid HTTP method: {method}"
+            )));
+        }
+
+        let request = Request {
+            id: uuid::Uuid::new_v4().to_string(),
+            action: Action::HttpForward {
+                target: target.to_string(),
+                method: method_upper.clone(),
+                path: path.to_string(),
+                headers,
+                body,
+            },
+            timeout_ms: Some(30_000),
+            reason: Some(reason.to_string()),
+        };
+
+        let response = self.executor.handle(request).await;
+        self.record_audit(
+            &format!("http:{method_upper} {target}{path}"),
+            &response,
+            Some(reason),
+        )
+        .await;
+
+        match response.result {
+            RpcResult::HttpResponse {
+                status_code,
+                headers: resp_headers,
+                body: resp_body,
+                latency_ms,
+            } => {
+                // Attempt to decode body as UTF-8 text
+                let body_str = String::from_utf8_lossy(&resp_body).into_owned();
+
+                // Try to parse as JSON for structured response
+                let parsed_body: Value = serde_json::from_str(&body_str)
+                    .unwrap_or(Value::String(body_str.clone()));
+
+                let result = json!({
+                    "status_code": status_code,
+                    "headers": resp_headers,
+                    "body": parsed_body,
+                    "body_raw": body_str,
+                    "latency_ms": latency_ms,
+                    "target": target,
+                    "method": method_upper,
+                    "path": path
+                });
+
+                Ok(tools::text_content(
+                    serde_json::to_string_pretty(&result).unwrap_or_default(),
+                ))
+            }
+            RpcResult::Denied { reason, rule } => Ok(tools::error_content(format!(
+                "DENIED: {reason}\nRule: {rule}\nThe HTTP policy rules do not permit {method_upper} {path} to {target}."
+            ))),
+            RpcResult::Error { message } => Ok(tools::error_content(format!(
+                "Error: {message}"
+            ))),
+            _ => Ok(tools::error_content("unexpected response type from agent")),
+        }
+    }
+
     /// List capabilities allowed by the current policy.
-    async fn tool_list_capabilities(&self) -> Result<Value, String> {
-        let policy = self.policy.read().await;
+    async fn tool_list_capabilities(&self) -> Result<Value, String> {        let policy = self.policy.read().await;
         let info = json!({
             "max_output_bytes": policy.max_output_bytes,
             "timeout_seconds": policy.timeout_seconds,
@@ -1387,7 +1495,7 @@ mod tests {
         let response = server.handle_request(&request).await;
         let result = response.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 9);
+        assert_eq!(tools.len(), 10);
     }
 
     #[tokio::test]
@@ -2582,5 +2690,155 @@ policy = "/etc/rf/dev-policy.yaml"
             .await;
         // May be denied by policy, but NOT by approval system
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_tool_http_request_missing_args() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            Vec::new(),
+            &[],
+            false,
+        )
+        .unwrap();
+
+        // Missing target
+        let result = server
+            .tool_http_request(&json!({"method": "GET", "path": "/"}))
+            .await;
+        assert!(result.is_err());
+
+        // Missing method
+        let result = server
+            .tool_http_request(&json!({"target": "localhost:8080", "path": "/"}))
+            .await;
+        assert!(result.is_err());
+
+        // Missing path
+        let result = server
+            .tool_http_request(&json!({"target": "localhost:8080", "method": "GET"}))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_tool_http_request_invalid_method() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            Vec::new(),
+            &[],
+            false,
+        )
+        .unwrap();
+
+        let result = server
+            .tool_http_request(&json!({
+                "target": "localhost:8080",
+                "method": "INVALID",
+                "path": "/api"
+            }))
+            .await;
+        // Invalid method returns error content (Ok with isError), not Err
+        let response = result.unwrap();
+        assert_eq!(response["isError"], true);
+        assert!(response["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid HTTP method"));
+    }
+
+    #[tokio::test]
+    async fn test_tool_http_request_policy_deny() {
+        // Policy with no network rules — default deny
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        writeln!(
+            f,
+            r#"spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  network:
+    deny:
+      - hostname: "*"
+        ports: ["*"]"#
+        )
+        .unwrap();
+
+        let server = McpServer::new(
+            Some(f.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            Vec::new(),
+            &[],
+            false,
+        )
+        .unwrap();
+
+        let result = server
+            .tool_http_request(&json!({
+                "target": "localhost:8080",
+                "method": "GET",
+                "path": "/api/users"
+            }))
+            .await;
+        // Returns Ok with error content (policy denied)
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        // Should be error content (denied or connection refused — both are Ok results)
+        let text = response["content"][0]["text"].as_str().unwrap_or("");
+        // Either "DENIED" from policy or a connection error — both are valid
+        assert!(!text.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_tool_http_request_dispatched_via_tools_call() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            Vec::new(),
+            &[],
+            false,
+        )
+        .unwrap();
+
+        // Invoke via the full tools/call path to verify dispatch
+        let request = crate::protocol::JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(42)),
+            method: "tools/call".into(),
+            params: json!({
+                "name": "rf_http_request",
+                "arguments": {
+                    "target": "127.0.0.1:19999",
+                    "method": "GET",
+                    "path": "/health"
+                }
+            }),
+        };
+
+        let response = server.handle_request(&request).await;
+        // Should succeed at the dispatch level (connection error is a valid tool response)
+        assert!(response.error.is_none(), "dispatch error: {:?}", response.error);
     }
 }

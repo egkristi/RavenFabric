@@ -155,6 +155,42 @@ pub fn list_tools() -> Value {
                 }
             },
             {
+                "name": "rf_http_request",
+                "description": "Make an HTTP request through the RavenFabric agent to a private upstream service. The agent forwards the request to the target and returns the response. Subject to HTTP policy enforcement — method + path combinations not in the allow list are denied. Provides policy-controlled, fully audited access to internal APIs without exposing ports or using VPNs. Response body is returned as a string; JSON bodies are automatically parsed.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Target base URL or host:port (e.g., 'localhost:8080' or 'http://internal-api:3000')"
+                        },
+                        "method": {
+                            "type": "string",
+                            "description": "HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS",
+                            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "Request path including query string (e.g., '/api/v1/users?limit=10')"
+                        },
+                        "headers": {
+                            "type": "object",
+                            "description": "Request headers as key-value pairs (optional)",
+                            "additionalProperties": { "type": "string" }
+                        },
+                        "body": {
+                            "type": "string",
+                            "description": "Request body as a string (optional, used for POST/PUT/PATCH)"
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Explanation of why this request is needed (recorded in audit log)"
+                        }
+                    },
+                    "required": ["target", "method", "path"]
+                }
+            },
+            {
                 "name": "rf_file_transfer",
                 "description": "Transfer a file between the local filesystem on the agent. Supports copying files to new locations with integrity verification (SHA-256). Subject to path policy enforcement — source must be readable and destination must be writable. When approval mode is active, requires approval_id (use command='transfer:<source>:<dest>').",
                 "inputSchema": {
@@ -235,7 +271,8 @@ mod tests {
         assert!(names.contains(&"rf_request_approval"));
         assert!(names.contains(&"rf_check_approval"));
         assert!(names.contains(&"rf_file_transfer"));
-        assert_eq!(names.len(), 9);
+        assert!(names.contains(&"rf_http_request"));
+        assert_eq!(names.len(), 10);
     }
 
     #[test]

@@ -5,6 +5,16 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-05-16
+
+### Added
+- **MCP tool: `rf_http_request`** — AI agents can call private APIs through RavenFabric with full policy enforcement. Supports GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS. Structured JSON response with `status_code`, `headers`, `body` (auto-parsed as JSON when `Content-Type: application/json`), and `latency_ms`. Method validated against allowlist. 4 new tests in rf-mcp-server.
+- **File transfer size limits** — `maxFileSizeBytes` field in policy `resources` section (default 100 MB). Enforced on both `FilePush` (checked per chunk: `offset + chunk_size`) and `FilePull` (checked against file metadata before reading). Returns `RpcResult::Denied` with `rule: resources.maxFileSizeBytes` when exceeded. 2 new tests in rf-executor, 2 new tests in rf-policy.
+
+### Changed
+- **Version**: Bumped to 0.4.0 across all crates and deploy manifests
+- **Total tests**: 1,149 (up from 1,141)
+
 ## [0.3.0] — 2026-05-14
 
 ### Added

@@ -187,6 +187,8 @@ pub struct RpcPolicy {
     pub max_request_body_bytes: u64,
     /// Maximum response body size in bytes. Default 10 MB.
     pub max_response_body_bytes: u64,
+    /// Maximum file size for FilePush/FilePull in bytes. Default 100 MB.
+    pub max_file_size_bytes: u64,
     /// Immutable deny patterns — cannot be overridden by policy configuration.
     /// These prevent catastrophic commands regardless of YAML allow rules.
     immutable_deny: Vec<String>,
@@ -288,6 +290,8 @@ struct ResourceSpec {
     proxy_max_duration_seconds: Option<u32>,
     max_request_body_bytes: Option<u64>,
     max_response_body_bytes: Option<u64>,
+    /// Maximum file size for FilePush/FilePull. Default 100 MB.
+    max_file_size_bytes: Option<u64>,
 }
 
 impl RpcPolicy {
@@ -421,6 +425,9 @@ impl RpcPolicy {
             max_response_body_bytes: resources
                 .and_then(|r| r.max_response_body_bytes)
                 .unwrap_or(10_485_760),
+            max_file_size_bytes: resources
+                .and_then(|r| r.max_file_size_bytes)
+                .unwrap_or(104_857_600), // 100 MB default
             immutable_deny: Self::default_immutable_deny(),
         })
     }
@@ -1130,5 +1137,28 @@ spec:
         // Method matching is case-insensitive
         assert!(policy.check_http_request("get", "/api/users").allowed);
         assert!(policy.check_http_request("Get", "/api/users").allowed);
+    }
+
+    #[test]
+    fn test_max_file_size_bytes_default() {
+        let policy = test_policy();
+        // Default is 100 MB
+        assert_eq!(policy.max_file_size_bytes, 104_857_600);
+    }
+
+    #[test]
+    fn test_max_file_size_bytes_custom() {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30
+    maxFileSizeBytes: 5242880
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        assert_eq!(policy.max_file_size_bytes, 5_242_880);
     }
 }

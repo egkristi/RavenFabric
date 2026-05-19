@@ -668,11 +668,11 @@
             <div class="hero-stats">
                 <div>
                     <div class="stat-label">Codebase</div>
-                    <div class="stat-value"><span class="accent">53,900</span> LOC</div>
+                    <div class="stat-value"><span class="accent">56,800</span> LOC</div>
                 </div>
                 <div>
                     <div class="stat-label">Test coverage</div>
-                    <div class="stat-value"><span class="accent">1,111</span> tests</div>
+                    <div class="stat-value"><span class="accent">1,141</span> tests</div>
                 </div>
                 <div>
                     <div class="stat-label">Language</div>
@@ -796,6 +796,11 @@
                     <h3>Ready-Made Tool Set</h3>
                     <p>Ships with production-ready tools: command execution, file operations, system metrics, health checks, service management, and desired-state convergence. Extend with custom policy definitions in YAML.</p>
                 </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F517;</div>
+                    <h3>Secure API Proxy</h3>
+                    <p>Proxy HTTP and TCP traffic through RavenFabric agents to private services &mdash; no VPN, no exposed ports, no firewall changes. Policy controls which hosts, ports, HTTP methods, and path patterns are reachable. Every connection and every HTTP request is audited with method, path, status code, latency, and caller identity. Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding.</p>
+                </div>
             </div>
         </div>
     </section>
@@ -811,7 +816,8 @@
             <div class="cap-grid">
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Command execution</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> File read/write</div>
-                <div class="cap-item"><span class="cap-check">&#x2713;</span> Port forwarding</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> TCP tunnel proxy</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> HTTP-aware proxy</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Interactive shell</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Desired-state convergence</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Fleet-wide orchestration</div>
@@ -826,7 +832,9 @@
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Rate limiting</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> RBAC per caller identity</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> MCP tool discovery</div>
-                <div class="cap-item"><span class="cap-check">&#x2713;</span> Desired-state convergence</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Network target policy (CIDR / hostname)</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Per-request HTTP policy enforcement</div>
+                <div class="cap-item"><span class="cap-check">&#x2713;</span> Proxy connection audit logging</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Webhook alerting</div>
                 <div class="cap-item"><span class="cap-check">&#x2713;</span> Custom policy definitions</div>
             </div>
@@ -1039,6 +1047,22 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                             <td class="rf-col yes">&#x2713;</td>
                         </tr>
                         <tr>
+                            <td>TCP tunnel to private services</td>
+                            <td class="no">&mdash;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>HTTP-aware proxy (method + path policy)</td>
+                            <td class="no">&mdash;</td>
+                            <td class="partial">Partial</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
                             <td>Encrypted transport</td>
                             <td class="no">&mdash;</td>
                             <td class="yes">&#x2713;</td>
@@ -1146,7 +1170,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label">Language</span>
-                    <span class="good">Written in Rust. Memory-safe without garbage collection. Zero unsafe code. 54K LOC represents 18+ months of focused engineering &mdash; a significant head start in a race that is just beginning.</span>
+                    <span class="good">Written in Rust. Memory-safe without garbage collection. Zero unsafe code. 56,800 LOC represents 18+ months of focused engineering &mdash; a significant head start in a race that is just beginning.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label">Licensing</span>
@@ -1220,8 +1244,8 @@ Zero inbound ports required. Single static binary on target.</span></pre>
             <div class="diff-block" style="margin-top: 1.5rem;">
                 <h4>Testing &amp; Code Quality</h4>
                 <div class="diff-row">
-                    <span class="label" style="min-width: 140px;">1,111 Tests</span>
-                    <span class="good">Mix of unit, integration, and end-to-end tests. Security-critical paths (policy evaluation, crypto handshake, enrollment validation, injection detection) have both positive and negative test coverage. Serialization types have roundtrip tests. Error paths are tested, not just happy paths.</span>
+                    <span class="label" style="min-width: 140px;">1,141 Tests</span>
+                    <span class="good">Mix of unit, integration, and end-to-end tests. Security-critical paths (policy evaluation, crypto handshake, enrollment validation, injection detection, proxy policy enforcement) have both positive and negative test coverage. Serialization types have roundtrip tests. Error paths are tested, not just happy paths.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 140px;">Why Not More?</span>
@@ -1332,7 +1356,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 140px;">Current</span>
-                    <span class="good">CodeQL static analysis on every commit. <code>#[forbid(unsafe_code)]</code> workspace-wide. 1,111 tests including security-critical positive and negative cases. Dependency auditing via <code>cargo audit</code>.</span>
+                    <span class="good">CodeQL static analysis on every commit. <code>#[forbid(unsafe_code)]</code> workspace-wide. 1,141 tests including security-critical positive and negative cases. Dependency auditing via <code>cargo audit</code>.</span>
                 </div>
             </div>
         </div>
@@ -1371,11 +1395,11 @@ Zero inbound ports required. Single static binary on target.</span></pre>
             <div class="diff-block">
                 <div class="diff-row">
                     <span class="label" style="min-width: 140px;">Founder</span>
-                    <span class="good">Led by <strong>Erling Kristiansen</strong> &mdash; systems engineer with background in infrastructure security, automation, and distributed systems. Architect of the 54K LOC codebase, test suite, and CI/CD pipeline.</span>
+                    <span class="good">Led by <strong>Erling Kristiansen</strong> &mdash; systems engineer with background in infrastructure security, automation, and distributed systems. Architect of the 56,800 LOC codebase, test suite, and CI/CD pipeline.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 140px;">Approach</span>
-                    <span class="good">Ship working code, not slide decks. RavenFabric was built product-first: the technology exists, compiles, passes 1,111 tests, and runs on 5+ platforms today. Investment accelerates go-to-market, not R&amp;D.</span>
+                    <span class="good">Ship working code, not slide decks. RavenFabric was built product-first: the technology exists, compiles, passes 1,141 tests, and runs on 5+ platforms today. Investment accelerates go-to-market, not R&amp;D.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 140px;">Team</span>
@@ -1401,7 +1425,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 120px;">What&rsquo;s Done</span>
-                    <span class="good">54K LOC Rust codebase. 1,111 tests. 13 crates. Cross-platform binaries. MCP server. Policy engine. Audit system. Encryption layer. 20+ transport drivers. CI/CD. Documentation. Website.</span>
+                    <span class="good">56,800 LOC Rust codebase. 1,141 tests. 13 crates. Cross-platform binaries. MCP server. Policy engine. Audit system. Encryption layer. 20+ transport drivers. Secure API proxy. CI/CD. Documentation. Website.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 120px;">What&rsquo;s Next</span>

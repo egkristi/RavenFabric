@@ -184,8 +184,8 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - [x] `rf proxy <agent> --target http://localhost:8080 --http --listen :3000` — HTTP-aware mode
 
 #### MCP + AI Agent Integration
-- [ ] MCP tool: `rf_http_request` — AI agents call private APIs through RavenFabric with full policy enforcement
-- [ ] Structured responses — JSON body returned to AI agent with status code, headers, parsed body
+- [x] MCP tool: `rf_http_request` — AI agents call private APIs through RavenFabric with full policy enforcement
+- [x] Structured responses — JSON body returned to AI agent with status code, headers, parsed body
 - [ ] Policy-gated endpoints — different AI agents get different API access based on their RBAC profile
 - [ ] Rate limiting per destination — prevent AI agent loops from overwhelming upstream services
 
@@ -257,7 +257,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 
 #### Policy & Security
 - [x] Path policy enforcement — same allow/deny rules as existing `Read`/`Write` actions
-- [ ] Size limits — per-transfer max file size configurable in policy (prevent disk exhaustion)
+- [x] Size limits — per-transfer max file size configurable in policy (prevent disk exhaustion)
 - [x] Audit logging — source path, destination path, file size, checksum, duration, caller identity
 - [ ] Bandwidth throttling — optional rate limit per transfer (prevent saturating network)
 
