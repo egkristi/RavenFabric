@@ -1319,12 +1319,7 @@ async fn cp_command(
             let remote_file = format!("{remote_base}/{rel_path}");
             let local_data = tokio::fs::read(local_path).await?;
             push_single_file(&chan, &local_data, &remote_file, chunk_size).await?;
-            eprintln!(
-                "[{}/{}] {}",
-                i + 1,
-                total_files,
-                rel_path
-            );
+            eprintln!("[{}/{}] {}", i + 1, total_files, rel_path);
         }
         eprintln!("done: {total_files} files transferred");
     } else if is_push {

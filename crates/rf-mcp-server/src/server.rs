@@ -801,13 +801,10 @@ impl McpServer {
                 use sha2::{Digest, Sha256};
                 use std::fmt::Write;
                 let digest = Sha256::digest(&data);
-                let checksum =
-                    digest
-                        .iter()
-                        .fold(String::with_capacity(64), |mut acc, b| {
-                            let _ = write!(acc, "{b:02x}");
-                            acc
-                        });
+                let checksum = digest.iter().fold(String::with_capacity(64), |mut acc, b| {
+                    let _ = write!(acc, "{b:02x}");
+                    acc
+                });
 
                 Ok(tools::text_content(format!(
                     "Transferred {source} → {destination} ({} bytes, SHA-256: {checksum})",
