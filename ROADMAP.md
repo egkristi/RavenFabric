@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.6.0 (Alpha) — Released 2026-05-20
+**Version:** 0.7.0 (Alpha) — Released 2026-05-20
 
-**Stats:** 13 crates, ~57,900 LOC, 1,170 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~58,100 LOC, 1,174 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -121,7 +121,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.6.0 — all planned features implemented and tested.
+**Current:** Alpha v0.7.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -352,7 +352,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 
 #### Alerting
 - [x] Real-time alert rules — pattern matching on audit events (policy denial → alert)
-- [ ] Alert destinations — Slack, PagerDuty, OpsGenie, generic webhook
+- [x] Alert destinations — Slack, PagerDuty, OpsGenie, generic webhook
 - [x] Alert deduplication — suppress repeated alerts within configurable window
 
 ---

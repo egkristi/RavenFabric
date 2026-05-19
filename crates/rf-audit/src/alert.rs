@@ -7,6 +7,15 @@
 //! Deduplication: the same rule will not fire more than once within
 //! `dedup_window_secs` seconds for the same event key (rule name + action).
 //! This prevents alert storms when a policy denial repeats rapidly.
+//!
+//! ## Alert destinations
+//!
+//! Rules can optionally deliver alerts to an HTTP webhook endpoint via
+//! `AlertRule::with_webhook(url)`. When a non-deduplicated rule fires, an
+//! asynchronous HTTP POST is spawned with a JSON payload describing the event.
+//! The POST is fire-and-forget; delivery failures are logged at `warn` level.
+//!
+//! Supported URL scheme: `http://host:port/path` (plain HTTP only).
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -27,6 +36,9 @@ pub struct AlertRule {
     /// Minimum seconds between repeated alerts for the same rule+action pair.
     /// Set to `0` to disable deduplication.
     pub dedup_window_secs: u64,
+    /// Optional HTTP webhook URL (`http://host:port/path`).
+    /// When set, a JSON POST is sent asynchronously on every non-deduplicated fire.
+    pub webhook_url: Option<String>,
 }
 
 impl AlertRule {
@@ -41,7 +53,22 @@ impl AlertRule {
             name: name.into(),
             pattern: re,
             dedup_window_secs,
+            webhook_url: None,
         })
+    }
+
+    /// Configure a webhook URL for this rule.
+    ///
+    /// When the rule fires (and is not deduplicated), an async HTTP POST is sent
+    /// to `url` with a JSON body containing the alert details. Delivery errors
+    /// are logged at `warn` level but never propagate to the caller.
+    ///
+    /// Only `http://` scheme is supported. The URL format is
+    /// `http://host:port/path`.
+    #[must_use]
+    pub fn with_webhook(mut self, url: impl Into<String>) -> Self {
+        self.webhook_url = Some(url.into());
+        self
     }
 
     /// Returns `true` if this rule matches the given audit entry.
@@ -58,6 +85,60 @@ impl AlertRule {
             }
         }
         false
+    }
+}
+
+// ── webhook delivery ─────────────────────────────────────────────────────────
+
+/// Parse an `http://host:port/path` URL into `(host, port, path)`.
+/// Returns `None` if the URL is not a valid plain-HTTP URL.
+fn parse_http_url(url: &str) -> Option<(String, u16, String)> {
+    let rest = url.strip_prefix("http://")?;
+    let (host_port, path) = if let Some(idx) = rest.find('/') {
+        (&rest[..idx], rest[idx..].to_string())
+    } else {
+        (rest, "/".to_string())
+    };
+    let (host, port) = if let Some(idx) = host_port.rfind(':') {
+        let port: u16 = host_port[idx + 1..].parse().ok()?;
+        (host_port[..idx].to_string(), port)
+    } else {
+        (host_port.to_string(), 80u16)
+    };
+    Some((host, port, path))
+}
+
+/// Fire-and-forget HTTP POST to the configured webhook URL.
+async fn post_webhook(url: String, payload: String) {
+    use tokio::io::AsyncWriteExt;
+
+    let Some((host, port, path)) = parse_http_url(&url) else {
+        tracing::warn!(
+            webhook_url = %url,
+            "alert webhook: invalid URL — expected http://host:port/path"
+        );
+        return;
+    };
+
+    let addr = format!("{host}:{port}");
+    let Ok(mut stream) = tokio::net::TcpStream::connect(&addr).await else {
+        tracing::warn!(webhook_url = %url, "alert webhook: connection failed to {addr}");
+        return;
+    };
+
+    let body_len = payload.len();
+    let request = format!(
+        "POST {path} HTTP/1.0\r\n\
+         Host: {host}\r\n\
+         Content-Type: application/json\r\n\
+         Content-Length: {body_len}\r\n\
+         Connection: close\r\n\
+         \r\n\
+         {payload}"
+    );
+
+    if let Err(e) = stream.write_all(request.as_bytes()).await {
+        tracing::warn!(webhook_url = %url, error = %e, "alert webhook: send failed");
     }
 }
 
@@ -116,6 +197,23 @@ impl AlertEngine {
                     command = ?entry.command,
                     "ALERT: audit event matched rule"
                 );
+
+                // Dispatch webhook asynchronously if configured.
+                if let Some(url) = &rule.webhook_url {
+                    let payload = serde_json::json!({
+                        "rule": rule.name,
+                        "action": entry.action,
+                        "decision": entry.decision,
+                        "request_id": entry.request_id,
+                        "matched_rule": entry.matched_rule,
+                        "command": entry.command,
+                        "timestamp": entry.timestamp.to_rfc3339(),
+                    })
+                    .to_string();
+                    let url = url.clone();
+                    tokio::spawn(post_webhook(url, payload));
+                }
+
                 fired.push(rule.name.clone());
             }
         }
@@ -238,5 +336,88 @@ mod tests {
         ];
         let engine = AlertEngine::new(rules);
         assert_eq!(engine.rule_count(), 2);
+    }
+
+    // ── webhook tests ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_webhook_url_configured() {
+        let rule = AlertRule::new("hook-rule", "denied", 0)
+            .unwrap()
+            .with_webhook("http://localhost:9999/hook");
+        assert_eq!(rule.webhook_url.as_deref(), Some("http://localhost:9999/hook"));
+    }
+
+    #[test]
+    fn test_no_webhook_by_default() {
+        let rule = AlertRule::new("plain-rule", "denied", 0).unwrap();
+        assert!(rule.webhook_url.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_webhook_delivered_on_alert() {
+        use tokio::io::AsyncReadExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let rule = AlertRule::new("webhook-rule", "denied", 0)
+            .unwrap()
+            .with_webhook(format!("http://127.0.0.1:{port}/alert"));
+        let engine = AlertEngine::new(vec![rule]);
+        let e = entry("exec", "denied", None);
+        let fired = engine.evaluate(&e);
+        assert_eq!(fired, vec!["webhook-rule"]);
+
+        // The POST is dispatched asynchronously — accept the connection.
+        let (mut conn, _) =
+            tokio::time::timeout(std::time::Duration::from_secs(2), listener.accept())
+                .await
+                .expect("webhook timed out")
+                .unwrap();
+
+        let mut buf = vec![0u8; 4096];
+        let n = conn.read(&mut buf).await.unwrap();
+        let request = String::from_utf8_lossy(&buf[..n]);
+
+        assert!(request.contains("POST /alert HTTP/1.0"), "expected POST line in {request}");
+        assert!(request.contains("application/json"), "expected content-type in {request}");
+        assert!(request.contains("webhook-rule"), "expected rule name in payload: {request}");
+        assert!(request.contains("\"action\":\"exec\""), "expected action in payload: {request}");
+    }
+
+    #[tokio::test]
+    async fn test_webhook_not_fired_when_deduped() {
+        use tokio::io::AsyncReadExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        // dedup_window_secs = 60 — second fire within window must be suppressed
+        let rule = AlertRule::new("dedup-hook", "denied", 60)
+            .unwrap()
+            .with_webhook(format!("http://127.0.0.1:{port}/alert"));
+        let engine = AlertEngine::new(vec![rule]);
+        let e = entry("exec", "denied", None);
+
+        let first = engine.evaluate(&e);
+        let second = engine.evaluate(&e); // should be suppressed
+
+        assert_eq!(first.len(), 1, "first evaluation must fire");
+        assert!(second.is_empty(), "second evaluation must be suppressed by dedup");
+
+        // Exactly one connection arrives (from the first fire).
+        let (mut conn, _) =
+            tokio::time::timeout(std::time::Duration::from_secs(2), listener.accept())
+                .await
+                .expect("first webhook timed out")
+                .unwrap();
+        let mut consumed = Vec::new();
+        conn.read_to_end(&mut consumed).await.unwrap();
+
+        // No second connection should arrive.
+        let second_conn =
+            tokio::time::timeout(std::time::Duration::from_millis(200), listener.accept()).await;
+        assert!(second_conn.is_err(), "no second webhook expected after dedup");
     }
 }

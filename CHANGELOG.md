@@ -5,6 +5,18 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-05-20
+
+### Added
+
+- **Alert webhook destinations** — `AlertRule::with_webhook(url)` builder method. When an alert fires (and is not suppressed by deduplication), an asynchronous HTTP POST is dispatched to the configured URL with a JSON payload containing `rule`, `action`, `decision`, `request_id`, `matched_rule`, `command`, and `timestamp`. Delivery is fire-and-forget; failures are logged at `warn` level. Supports `http://host:port/path` scheme. 4 new tests in rf-audit: `test_webhook_url_configured`, `test_no_webhook_by_default`, `test_webhook_delivered_on_alert` (binds a TCP listener and verifies the HTTP POST arrives), `test_webhook_not_fired_when_deduped` (verifies suppressed alerts produce no network traffic).
+
+### Changed
+
+- **Version**: Bumped to 0.7.0 across all crates and deploy manifests
+- **Total tests**: 1,174 (up from 1,170)
+- **rf-audit**: +4 tests (27 total); `AlertRule` gains `webhook_url` field and `with_webhook()` builder
+
 ## [0.6.0] — 2026-05-20
 
 ### Added

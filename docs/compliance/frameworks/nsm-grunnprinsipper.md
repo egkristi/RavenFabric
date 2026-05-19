@@ -87,7 +87,7 @@ Ikke direkte relevant for RavenFabric (verken e-post- eller nettlesersystem).
 | Prinsipp | RavenFabric-implementasjon |
 |----------|----------------------------|
 | Minimer eksponert angrepsflate | Ingen lytteporter på agenter — de kobler *ut* til relay. Rate-limiting (20 tilkoblinger/IP/min) på relay. |
-| Beskytt mot kjente sårbarheter | Dependabot, CodeQL, clippy med `-Dwarnings`, 1,170 tester. Rust eliminerer minnefeil. |
+| Beskytt mot kjente sårbarheter | Dependabot, CodeQL, clippy med `-Dwarnings`, 1,174 tester. Rust eliminerer minnefeil. |
 | Valider all inndata | RPC-meldinger deserialiseres via msgpack med typevalidering. Wire-protokoll krever magic + versjon. Policy validerer kommandostrenger mot regex. |
 
 ---
