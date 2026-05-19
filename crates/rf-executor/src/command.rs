@@ -282,7 +282,20 @@ impl Executor {
                 self.handle_file_pull(&request.id, path, *offset, *max_chunk, start)
                     .await
             }
-            Action::Proxy { target } => self.handle_proxy(&request.id, target, start).await,
+            Action::Proxy {
+                target,
+                idle_timeout_secs,
+                max_duration_secs,
+            } => {
+                self.handle_proxy(
+                    &request.id,
+                    target,
+                    *idle_timeout_secs,
+                    *max_duration_secs,
+                    start,
+                )
+                .await
+            }
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
             },
@@ -1798,7 +1811,14 @@ impl Executor {
         }
     }
 
-    async fn handle_proxy(&self, request_id: &str, target: &str, start: Instant) -> RpcResult {
+    async fn handle_proxy(
+        &self,
+        request_id: &str,
+        target: &str,
+        idle_timeout_secs: Option<u32>,
+        max_duration_secs: Option<u32>,
+        start: Instant,
+    ) -> RpcResult {
         // Policy check — use network target policy (CIDR/hostname/port rules)
         let policy = self.policy.read().await;
         let decision = policy.check_network_target(target);
@@ -1818,6 +1838,9 @@ impl Executor {
             };
         }
         let matched_rule = decision.matched_rule.clone();
+        // Resolve effective timeouts: request overrides < policy defaults
+        let effective_idle = idle_timeout_secs.unwrap_or(policy.proxy_idle_timeout_seconds);
+        let effective_max = max_duration_secs.unwrap_or(policy.proxy_max_duration_seconds);
         drop(policy);
 
         // Attempt TCP connection to target
@@ -1836,7 +1859,11 @@ impl Executor {
                     Some(0),
                     start.elapsed().as_millis() as u64,
                 );
-                RpcResult::ProxyConnected { proxy_id }
+                RpcResult::ProxyConnected {
+                    proxy_id,
+                    idle_timeout_secs: effective_idle,
+                    max_duration_secs: effective_max,
+                }
             }
             Err(e) => RpcResult::Error {
                 message: format!("connect to {target}: {e}"),

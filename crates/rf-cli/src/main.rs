@@ -157,6 +157,14 @@ enum Commands {
         /// Local address to listen on
         #[arg(short, long, default_value = "127.0.0.1:8080")]
         listen: String,
+
+        /// Idle timeout in seconds (close connection if no data flows)
+        #[arg(long)]
+        idle_timeout: Option<u32>,
+
+        /// Maximum connection duration in seconds (hard cap)
+        #[arg(long)]
+        max_duration: Option<u32>,
     },
 }
 
@@ -286,6 +294,8 @@ async fn main() -> anyhow::Result<()> {
             token,
             target,
             listen,
+            idle_timeout,
+            max_duration,
         } => {
             proxy_command(
                 &cli.relay,
@@ -294,6 +304,8 @@ async fn main() -> anyhow::Result<()> {
                 &token,
                 &target,
                 &listen,
+                idle_timeout,
+                max_duration,
             )
             .await?;
         }
@@ -1493,6 +1505,8 @@ async fn proxy_command(
     token: &str,
     target: &str,
     listen: &str,
+    idle_timeout: Option<u32>,
+    max_duration: Option<u32>,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
@@ -1503,6 +1517,8 @@ async fn proxy_command(
         id: "proxy-test".into(),
         action: Action::Proxy {
             target: target.to_string(),
+            idle_timeout_secs: idle_timeout,
+            max_duration_secs: max_duration,
         },
         timeout_ms: Some(10000),
         reason: None,
@@ -1516,8 +1532,13 @@ async fn proxy_command(
 
     let resp: Response = codec::decode(&resp_bytes)?;
     match resp.result {
-        RpcResult::ProxyConnected { proxy_id } => {
+        RpcResult::ProxyConnected {
+            proxy_id,
+            idle_timeout_secs: eff_idle,
+            max_duration_secs: eff_max,
+        } => {
             eprintln!("proxy established: {listen} → agent → {target} (id: {proxy_id})");
+            eprintln!("  idle timeout: {eff_idle}s, max duration: {eff_max}s");
             eprintln!("listening on {listen} (press Ctrl+C to stop)");
 
             // Listen for local connections
@@ -1549,6 +1570,8 @@ async fn proxy_command(
                                         stream,
                                         chan_clone,
                                         &target_clone,
+                                        eff_idle,
+                                        eff_max,
                                     )
                                     .await
                                     {
@@ -1581,8 +1604,15 @@ async fn handle_proxy_connection(
     mut local: tokio::net::TcpStream,
     chan: Arc<tokio::sync::Mutex<AgentChannel>>,
     target: &str,
+    idle_timeout_secs: u32,
+    max_duration_secs: u32,
 ) -> anyhow::Result<()> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::time::{Duration, Instant, timeout};
+
+    let idle_dur = Duration::from_secs(u64::from(idle_timeout_secs));
+    let max_dur = Duration::from_secs(u64::from(max_duration_secs));
+    let deadline = Instant::now() + max_dur;
 
     // Use the existing PortForward mechanism
     let request = Request {
@@ -1609,14 +1639,41 @@ async fn handle_proxy_connection(
             // dedicated yamux streams for bidirectional copy
             let mut buf = vec![0u8; 8192];
             loop {
-                let n = local.read(&mut buf).await?;
-                if n == 0 {
+                // Enforce max duration
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    eprintln!(
+                        "proxy connection closed: max duration ({max_duration_secs}s) reached"
+                    );
                     break;
                 }
-                // Send data as exec to echo through the forward
-                // In a full implementation, this would use yamux stream directly
-                let _ = forward_id; // Used for tracking in full impl
-                local.write_all(&buf[..n]).await?;
+
+                // Use the smaller of idle timeout and remaining max duration
+                let effective_timeout = idle_dur.min(remaining);
+
+                match timeout(effective_timeout, local.read(&mut buf)).await {
+                    Ok(Ok(0)) => break, // EOF
+                    Ok(Ok(n)) => {
+                        // Send data as exec to echo through the forward
+                        // In a full implementation, this would use yamux stream directly
+                        let _ = forward_id; // Used for tracking in full impl
+                        local.write_all(&buf[..n]).await?;
+                    }
+                    Ok(Err(e)) => return Err(e.into()),
+                    Err(_) => {
+                        // Timeout — either idle or max duration
+                        if deadline.saturating_duration_since(Instant::now()).is_zero() {
+                            eprintln!(
+                                "proxy connection closed: max duration ({max_duration_secs}s) reached"
+                            );
+                        } else {
+                            eprintln!(
+                                "proxy connection closed: idle timeout ({idle_timeout_secs}s)"
+                            );
+                        }
+                        break;
+                    }
+                }
             }
             Ok(())
         }

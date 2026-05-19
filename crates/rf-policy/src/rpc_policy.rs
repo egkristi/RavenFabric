@@ -177,6 +177,10 @@ pub struct RpcPolicy {
     denied_networks: Vec<NetworkRule>,
     pub max_output_bytes: u64,
     pub timeout_seconds: u32,
+    /// Proxy idle timeout in seconds (no data = close). Default 300s (5 min).
+    pub proxy_idle_timeout_seconds: u32,
+    /// Proxy max duration in seconds (hard cap). Default 3600s (1 hour).
+    pub proxy_max_duration_seconds: u32,
     /// Immutable deny patterns — cannot be overridden by policy configuration.
     /// These prevent catastrophic commands regardless of YAML allow rules.
     immutable_deny: Vec<String>,
@@ -236,6 +240,8 @@ struct NetworkEntry {
 struct ResourceSpec {
     max_output_bytes: Option<u64>,
     timeout_seconds: Option<u32>,
+    proxy_idle_timeout_seconds: Option<u32>,
+    proxy_max_duration_seconds: Option<u32>,
 }
 
 impl RpcPolicy {
@@ -329,6 +335,12 @@ impl RpcPolicy {
                 .and_then(|r| r.max_output_bytes)
                 .unwrap_or(10_485_760),
             timeout_seconds: resources.and_then(|r| r.timeout_seconds).unwrap_or(300),
+            proxy_idle_timeout_seconds: resources
+                .and_then(|r| r.proxy_idle_timeout_seconds)
+                .unwrap_or(300),
+            proxy_max_duration_seconds: resources
+                .and_then(|r| r.proxy_max_duration_seconds)
+                .unwrap_or(3600),
             immutable_deny: Self::default_immutable_deny(),
         })
     }
@@ -865,5 +877,34 @@ spec:
       - ports: ["80"]
 "#;
         assert!(RpcPolicy::from_yaml(yaml).is_err());
+    }
+
+    #[test]
+    fn test_proxy_timeout_defaults() {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        assert_eq!(policy.proxy_idle_timeout_seconds, 300);
+        assert_eq!(policy.proxy_max_duration_seconds, 3600);
+    }
+
+    #[test]
+    fn test_proxy_timeout_custom() {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  resources:
+    proxyIdleTimeoutSeconds: 60
+    proxyMaxDurationSeconds: 7200
+"#;
+        let policy = RpcPolicy::from_yaml(yaml).unwrap();
+        assert_eq!(policy.proxy_idle_timeout_seconds, 60);
+        assert_eq!(policy.proxy_max_duration_seconds, 7200);
     }
 }

@@ -173,7 +173,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - [x] `rf proxy <agent> --target <host:port> --listen <local:port>` — CLI command opens local listener, tunnels to agent
 - [x] Connection audit logging — every tunnel open/close recorded with caller identity, target, bytes transferred, duration
 - [ ] Concurrent tunnels — multiple proxy sessions multiplexed over single agent connection via yamux
-- [ ] Idle timeout + max duration — configurable limits prevent resource exhaustion from abandoned tunnels
+- [x] Idle timeout + max duration — configurable limits prevent resource exhaustion from abandoned tunnels
 
 #### HTTP-Aware Proxy (Policy-Rich)
 - [ ] HTTP request inspection — agent parses method, path, headers before forwarding to upstream

@@ -153,6 +153,12 @@ pub enum Action {
     Proxy {
         /// Target address (host:port) the agent should connect to
         target: String,
+        /// Idle timeout in seconds (no data flowing = connection closed). None = use policy default.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        idle_timeout_secs: Option<u32>,
+        /// Maximum connection duration in seconds (hard cap). None = use policy default.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_duration_secs: Option<u32>,
     },
 }
 
@@ -277,6 +283,10 @@ pub enum RpcResult {
     ProxyConnected {
         /// Unique proxy session ID for this connection
         proxy_id: String,
+        /// Effective idle timeout in seconds (applied by client)
+        idle_timeout_secs: u32,
+        /// Effective max duration in seconds (applied by client)
+        max_duration_secs: u32,
     },
 }
 
@@ -620,6 +630,8 @@ mod tests {
             id: "px-1".into(),
             action: Action::Proxy {
                 target: "10.0.0.5:5432".into(),
+                idle_timeout_secs: Some(60),
+                max_duration_secs: None,
             },
             timeout_ms: Some(10000),
             reason: None,
@@ -632,6 +644,8 @@ mod tests {
             id: "px-1".into(),
             result: RpcResult::ProxyConnected {
                 proxy_id: "proxy-px-1".into(),
+                idle_timeout_secs: 60,
+                max_duration_secs: 3600,
             },
         };
         let bytes = codec::encode(&resp).unwrap();
