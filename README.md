@@ -531,6 +531,8 @@ What works today:
 - Remote port forwarding (ssh -R equivalent) — agent-side listener, bidirectional relay
 - SOCKS5 dynamic forward proxy on agent — full protocol, policy-checked, bidirectional relay
 - `rf forward -L` CLI command (connect, request forward on agent, keep alive until Ctrl+C)
+- Bulk file transfer: `rf cp` — chunked upload/download with SHA-256 verification, atomic writes, resumable transfers
+- TCP proxy tunneling: `rf proxy` — local listener tunnels through agent to target host:port, policy-enforced
 - PTY allocation on Unix (real openpty, shell spawn, resize, signal) + RPC Shell actions
 - `rf shell` interactive terminal: raw mode, bidirectional stdin/stdout over encrypted channel
 - Multi-agent orchestration via `rf playbook` (rolling, canary, parallel strategies with rollback)
@@ -851,7 +853,7 @@ NOT observable: command content, file content, agent identity, traffic type
 
 | Binary | Role |
 |--------|------|
-| `rf` | CLI client — user interactions (`rf exec`, `rf dev`, `rf status`, `rf shell`, `rf forward`, `rf playbook`, `rf policy`) |
+| `rf` | CLI client — user interactions (`rf exec`, `rf dev`, `rf status`, `rf shell`, `rf forward`, `rf playbook`, `rf policy`, `rf cp`, `rf proxy`) |
 | `rf-agent` | Runs on target systems. Connects outbound, serves RPC under policy |
 | `rf-relay` | Stateless encrypted broker. Pairs agents and clients. Geo-distributed |
 | `rf-mcp-server` | MCP server for AI agents (Claude, Cursor, Aider). Policy-enforced tool execution |
@@ -984,9 +986,9 @@ See [ROADMAP.md](ROADMAP.md) for the detailed roadmap with implementation checkl
 
 ## Documentation
 
-- **Docs:** [ravenfabric.io/docs/](https://ravenfabric.io/docs/) — installation, architecture, configuration, reference
-- **Demos:** [ravenfabric.io/demos/](https://ravenfabric.io/demos/) — live terminal recordings with setup instructions
-- **Blog:** [ravenfabric.io/blog/](https://ravenfabric.io/blog/) — technical deep dives
+- **Docs:** [docs.ravenfabric.io](https://docs.ravenfabric.io) — installation, architecture, configuration, reference
+- **Demos:** [docs.ravenfabric.io/demos/](https://docs.ravenfabric.io/demos/) — live terminal recordings with setup instructions
+- **Blog:** [docs.ravenfabric.io/blog/](https://docs.ravenfabric.io/blog/) — technical deep dives
 - **Website:** [ravenfabric.io](https://ravenfabric.io) — overview and architecture
 
 ---

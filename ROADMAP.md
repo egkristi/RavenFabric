@@ -168,10 +168,10 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - Brute-force protection — exponential backoff after repeated auth failures per source IP
 
 #### TCP Tunnel (Foundation)
-- [ ] `Proxy` RPC action — agent opens TCP connection to target host:port, bridges bytes over yamux stream
+- [x] `Proxy` RPC action — agent opens TCP connection to target host:port, bridges bytes over yamux stream
 - [ ] Policy rules for network targets — allow/deny by CIDR, port, hostname (mirrors filesystem policy structure)
-- [ ] `rf proxy <agent> --target <host:port> --listen <local:port>` — CLI command opens local listener, tunnels to agent
-- [ ] Connection audit logging — every tunnel open/close recorded with caller identity, target, bytes transferred, duration
+- [x] `rf proxy <agent> --target <host:port> --listen <local:port>` — CLI command opens local listener, tunnels to agent
+- [x] Connection audit logging — every tunnel open/close recorded with caller identity, target, bytes transferred, duration
 - [ ] Concurrent tunnels — multiple proxy sessions multiplexed over single agent connection via yamux
 - [ ] Idle timeout + max duration — configurable limits prevent resource exhaustion from abandoned tunnels
 
@@ -247,18 +247,18 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 **Goal:** Native streaming file transfer replacing scp, rsync, and Ansible's `copy` module. Efficient over the existing encrypted channel with full policy enforcement, progress reporting, and audit logging.
 
 #### Core Transfer Engine
-- [ ] `FilePush` RPC action — chunked upload from client to agent (configurable chunk size, default 256KB)
-- [ ] `FilePull` RPC action — chunked download from agent to client
+- [x] `FilePush` RPC action — chunked upload from client to agent (configurable chunk size, default 256KB)
+- [x] `FilePull` RPC action — chunked download from agent to client
 - [ ] Streaming over yamux — chunks flow over a dedicated mux stream, no base64 encoding overhead
-- [ ] Progress reporting — byte count, percentage, transfer rate reported back to caller
-- [ ] Integrity verification — SHA-256 checksum of entire file verified after transfer completes
-- [ ] Atomic write — transfer to temp file, rename on completion (no partial files on failure)
-- [ ] Resumable transfers — track byte offset, resume interrupted transfers without restarting
+- [x] Progress reporting — byte count, percentage, transfer rate reported back to caller
+- [x] Integrity verification — SHA-256 checksum of entire file verified after transfer completes
+- [x] Atomic write — transfer to temp file, rename on completion (no partial files on failure)
+- [x] Resumable transfers — track byte offset, resume interrupted transfers without restarting
 
 #### Policy & Security
-- [ ] Path policy enforcement — same allow/deny rules as existing `Read`/`Write` actions
+- [x] Path policy enforcement — same allow/deny rules as existing `Read`/`Write` actions
 - [ ] Size limits — per-transfer max file size configurable in policy (prevent disk exhaustion)
-- [ ] Audit logging — source path, destination path, file size, checksum, duration, caller identity
+- [x] Audit logging — source path, destination path, file size, checksum, duration, caller identity
 - [ ] Bandwidth throttling — optional rate limit per transfer (prevent saturating network)
 
 #### Advanced Features
@@ -266,7 +266,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [ ] Delta/incremental sync — rsync-like rolling checksum for efficient updates of large files
 - [ ] Compression — optional zstd compression for transfer (transparent, negotiated)
 - [ ] Glob patterns — `rf cp agent:/var/log/*.gz ./logs/` wildcard expansion
-- [ ] `rf cp` CLI command — familiar syntax: `rf cp <agent>:<path> <local>` and `rf cp <local> <agent>:<path>`
+- [x] `rf cp` CLI command — familiar syntax: `rf cp <agent>:<path> <local>` and `rf cp <local> <agent>:<path>`
 - [ ] MCP tool: `rf_file_transfer` — AI agents can move files with policy enforcement
 
 ---

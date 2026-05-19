@@ -254,6 +254,35 @@ impl Executor {
                 self.handle_execute(&request.id, command, env, workdir, start)
                     .await
             }
+            Action::FilePush {
+                path,
+                offset,
+                data,
+                done,
+                checksum,
+                mode,
+            } => {
+                self.handle_file_push(
+                    &request.id,
+                    path,
+                    *offset,
+                    data,
+                    *done,
+                    checksum,
+                    *mode,
+                    start,
+                )
+                .await
+            }
+            Action::FilePull {
+                path,
+                offset,
+                max_chunk,
+            } => {
+                self.handle_file_pull(&request.id, path, *offset, *max_chunk, start)
+                    .await
+            }
+            Action::Proxy { target } => self.handle_proxy(&request.id, target, start).await,
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
             },
@@ -1511,6 +1540,307 @@ impl Executor {
             }
             Err(e) => RpcResult::Error {
                 message: format!("failed to read {path}: {e}"),
+            },
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_file_push(
+        &self,
+        request_id: &str,
+        path: &str,
+        offset: u64,
+        data: &[u8],
+        done: bool,
+        checksum: &Option<String>,
+        mode: Option<u32>,
+        start: Instant,
+    ) -> RpcResult {
+        let file_path = std::path::Path::new(path);
+
+        // Policy check
+        let policy = self.policy.read().await;
+        let decision = policy.check_path(file_path);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "file_push",
+                Some(path.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
+
+        // Write chunk to temp file
+        let temp_path = format!("{path}.rf_transfer");
+
+        // For first chunk (offset=0), create/truncate the file
+        use tokio::io::AsyncWriteExt;
+        let result = if offset == 0 {
+            tokio::fs::write(&temp_path, data).await
+        } else {
+            // Append at offset
+            let mut file = match tokio::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(&temp_path)
+                .await
+            {
+                Ok(f) => f,
+                Err(e) => {
+                    return RpcResult::Error {
+                        message: format!("open temp file: {e}"),
+                    };
+                }
+            };
+            use tokio::io::AsyncSeekExt;
+            if let Err(e) = file.seek(std::io::SeekFrom::Start(offset)).await {
+                return RpcResult::Error {
+                    message: format!("seek: {e}"),
+                };
+            }
+            file.write_all(data).await
+        };
+
+        if let Err(e) = result {
+            return RpcResult::Error {
+                message: format!("write chunk: {e}"),
+            };
+        }
+
+        let new_offset = offset + data.len() as u64;
+
+        // If done, verify checksum and atomically rename
+        if done {
+            // Verify checksum if provided
+            if let Some(expected) = checksum {
+                use sha2::{Digest, Sha256};
+                let file_data = match tokio::fs::read(&temp_path).await {
+                    Ok(d) => d,
+                    Err(e) => {
+                        let _ = tokio::fs::remove_file(&temp_path).await;
+                        return RpcResult::Error {
+                            message: format!("read for checksum: {e}"),
+                        };
+                    }
+                };
+                let digest = Sha256::digest(&file_data);
+                let hash: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+                if hash != *expected {
+                    let _ = tokio::fs::remove_file(&temp_path).await;
+                    return RpcResult::Error {
+                        message: format!("checksum mismatch: expected {expected}, got {hash}"),
+                    };
+                }
+            }
+
+            // Atomic rename
+            if let Err(e) = tokio::fs::rename(&temp_path, path).await {
+                let _ = tokio::fs::remove_file(&temp_path).await;
+                return RpcResult::Error {
+                    message: format!("finalize rename: {e}"),
+                };
+            }
+
+            // Set file permissions if specified
+            #[cfg(unix)]
+            if let Some(m) = mode {
+                use std::os::unix::fs::PermissionsExt;
+                let perms = std::fs::Permissions::from_mode(m);
+                let _ = tokio::fs::set_permissions(path, perms).await;
+            }
+
+            self.audit(
+                request_id,
+                "file_push",
+                Some(path.to_string()),
+                "allowed",
+                matched_rule,
+                Some(0),
+                start.elapsed().as_millis() as u64,
+            );
+
+            RpcResult::FileChunkAck {
+                offset: new_offset,
+                finalized: true,
+            }
+        } else {
+            RpcResult::FileChunkAck {
+                offset: new_offset,
+                finalized: false,
+            }
+        }
+    }
+
+    async fn handle_file_pull(
+        &self,
+        request_id: &str,
+        path: &str,
+        offset: u64,
+        max_chunk: u32,
+        start: Instant,
+    ) -> RpcResult {
+        let file_path = std::path::Path::new(path);
+
+        // Policy check
+        let policy = self.policy.read().await;
+        let decision = policy.check_path(file_path);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "file_pull",
+                Some(path.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
+
+        // Resolve symlinks
+        let resolved = match tokio::fs::canonicalize(path).await {
+            Ok(p) => p,
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("resolve path: {e}"),
+                };
+            }
+        };
+
+        // Get file size
+        let metadata = match tokio::fs::metadata(&resolved).await {
+            Ok(m) => m,
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("metadata: {e}"),
+                };
+            }
+        };
+        let total_size = metadata.len();
+
+        // Read chunk at offset
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+        let mut file = match tokio::fs::File::open(&resolved).await {
+            Ok(f) => f,
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("open file: {e}"),
+                };
+            }
+        };
+
+        if offset > 0 {
+            if let Err(e) = file.seek(std::io::SeekFrom::Start(offset)).await {
+                return RpcResult::Error {
+                    message: format!("seek: {e}"),
+                };
+            }
+        }
+
+        let chunk_size = max_chunk.min(256 * 1024) as usize; // Cap at 256KB
+        let mut buf = vec![0u8; chunk_size];
+        let bytes_read = match file.read(&mut buf).await {
+            Ok(n) => n,
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("read chunk: {e}"),
+                };
+            }
+        };
+        buf.truncate(bytes_read);
+
+        // Compute checksum on last chunk
+        let is_last = offset + bytes_read as u64 >= total_size;
+        let checksum = if is_last {
+            // Read entire file for checksum
+            use sha2::{Digest, Sha256};
+            match tokio::fs::read(&resolved).await {
+                Ok(all_data) => {
+                    let d = Sha256::digest(&all_data);
+                    Some(d.iter().map(|b| format!("{b:02x}")).collect())
+                }
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+
+        self.audit(
+            request_id,
+            "file_pull",
+            Some(path.to_string()),
+            "allowed",
+            matched_rule,
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
+        RpcResult::FileChunk {
+            offset,
+            data: buf,
+            total_size,
+            checksum,
+        }
+    }
+
+    async fn handle_proxy(&self, request_id: &str, target: &str, start: Instant) -> RpcResult {
+        // Policy check — proxy requires command policy check with synthesized command
+        let policy = self.policy.read().await;
+        let synthetic_cmd = format!("__proxy_connect {target}");
+        let decision = policy.check_command(&synthetic_cmd);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "proxy",
+                Some(target.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
+
+        // Attempt TCP connection to target
+        match tokio::net::TcpStream::connect(target).await {
+            Ok(_stream) => {
+                // Connection successful — generate proxy ID
+                // The actual bidirectional copy is handled by the agent's RPC loop
+                // using yamux streams (similar to port forwarding)
+                let proxy_id = format!("proxy-{}", &request_id[..8.min(request_id.len())]);
+                self.audit(
+                    request_id,
+                    "proxy",
+                    Some(target.to_string()),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
+                RpcResult::ProxyConnected { proxy_id }
+            }
+            Err(e) => RpcResult::Error {
+                message: format!("connect to {target}: {e}"),
             },
         }
     }

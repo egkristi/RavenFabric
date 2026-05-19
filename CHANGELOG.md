@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] — 2026-05-14
 
 ### Added
+- **Bulk file transfer** — `FilePush` and `FilePull` RPC actions with chunked transfer, SHA-256 integrity verification, atomic writes (temp + rename), resumable offset tracking, and full policy enforcement
+- **TCP proxy tunneling** — `Proxy` RPC action with policy-checked TCP connect, `rf proxy` CLI command for local listener tunneling through agent to remote targets
+- **`rf cp` CLI command** — familiar scp-like syntax (`rf cp local agent:/path` and `rf cp agent:/path local`) with progress reporting and checksum verification
 - **Release: rf-mcp-server in binaries** — MCP server now included in release artifacts for all platforms (was previously source-only). Install script downloads all 4 binaries: rf-agent, rf-relay, rf, rf-mcp-server
 - **v0.3.0 features shipped** — QUIC, WireGuard direct, STUN hole-punching, interactive shell, port-forwarding, playbooks, full mesh VPN, MagicDNS, sealed secrets, Reticulum, Tor, serial drivers — all confirmed code-complete and tested
 

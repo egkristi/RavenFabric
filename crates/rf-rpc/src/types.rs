@@ -120,6 +120,40 @@ pub enum Action {
         path: String,
         lines: Option<u32>,
     },
+    /// Push a file chunk from client to agent (upload).
+    /// Chunked transfer: client sends multiple FilePush requests for large files.
+    FilePush {
+        /// Destination path on agent filesystem
+        path: String,
+        /// Byte offset within the file (for resumable transfers)
+        offset: u64,
+        /// File data chunk
+        data: Vec<u8>,
+        /// If true, this is the final chunk — agent should finalize the file
+        done: bool,
+        /// Expected SHA-256 of the complete file (sent with done=true for verification)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        checksum: Option<String>,
+        /// File mode (permissions) to set on the final file (Unix octal, e.g. 0o644)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mode: Option<u32>,
+    },
+    /// Pull a file chunk from agent to client (download).
+    /// Client specifies offset and max chunk size; agent responds with data.
+    FilePull {
+        /// Source path on agent filesystem
+        path: String,
+        /// Byte offset to start reading from
+        offset: u64,
+        /// Maximum bytes to return in this chunk
+        max_chunk: u32,
+    },
+    /// Open a TCP proxy connection through the agent to a target.
+    /// Agent connects to target and bridges traffic over yamux stream.
+    Proxy {
+        /// Target address (host:port) the agent should connect to
+        target: String,
+    },
 }
 
 /// Identifies which output stream a chunk belongs to.
@@ -219,6 +253,30 @@ pub enum RpcResult {
     TailOutput {
         lines: Vec<String>,
         path: String,
+    },
+    /// Response to a FilePush action — chunk accepted.
+    FileChunkAck {
+        /// Byte offset after this chunk (next expected offset)
+        offset: u64,
+        /// True if file is finalized (all chunks received, checksum verified)
+        finalized: bool,
+    },
+    /// Response to a FilePull action — file data chunk.
+    FileChunk {
+        /// Byte offset this chunk starts at
+        offset: u64,
+        /// File data
+        data: Vec<u8>,
+        /// Total file size in bytes
+        total_size: u64,
+        /// SHA-256 checksum of the entire file (sent with last chunk)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        checksum: Option<String>,
+    },
+    /// Response to a Proxy action — connection established.
+    ProxyConnected {
+        /// Unique proxy session ID for this connection
+        proxy_id: String,
     },
 }
 
@@ -482,6 +540,98 @@ mod tests {
             id: "ping-1".into(),
             result: RpcResult::Pong {
                 timestamp_ms: 1714900000000,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_push() {
+        let req = Request {
+            id: "fp-1".into(),
+            action: Action::FilePush {
+                path: "/tmp/test.bin".into(),
+                offset: 0,
+                data: vec![0xDE, 0xAD, 0xBE, 0xEF],
+                done: false,
+                checksum: None,
+                mode: Some(0o644),
+            },
+            timeout_ms: Some(30000),
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_pull() {
+        let req = Request {
+            id: "fp-2".into(),
+            action: Action::FilePull {
+                path: "/var/log/syslog".into(),
+                offset: 1024,
+                max_chunk: 65536,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_chunk_ack() {
+        let resp = Response {
+            id: "fp-1".into(),
+            result: RpcResult::FileChunkAck {
+                offset: 4,
+                finalized: true,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_chunk() {
+        let resp = Response {
+            id: "fp-2".into(),
+            result: RpcResult::FileChunk {
+                offset: 0,
+                data: vec![1, 2, 3, 4, 5],
+                total_size: 100,
+                checksum: Some("abc123".into()),
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_proxy() {
+        let req = Request {
+            id: "px-1".into(),
+            action: Action::Proxy {
+                target: "10.0.0.5:5432".into(),
+            },
+            timeout_ms: Some(10000),
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+
+        let resp = Response {
+            id: "px-1".into(),
+            result: RpcResult::ProxyConnected {
+                proxy_id: "proxy-px-1".into(),
             },
         };
         let bytes = codec::encode(&resp).unwrap();
