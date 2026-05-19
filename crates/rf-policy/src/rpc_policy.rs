@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
@@ -177,6 +178,10 @@ pub struct RpcPolicy {
     denied_networks: Vec<NetworkRule>,
     allowed_http: Vec<HttpRule>,
     denied_http: Vec<HttpRule>,
+    /// Headers that must be present on every HTTP request (policy-enforced).
+    pub required_headers: Vec<String>,
+    /// Headers that must NOT be present on any HTTP request (forbidden headers).
+    pub forbidden_headers: Vec<String>,
     pub max_output_bytes: u64,
     pub timeout_seconds: u32,
     /// Proxy idle timeout in seconds (no data = close). Default 300s (5 min).
@@ -248,6 +253,13 @@ struct NetworkEntry {
 struct HttpSpec {
     allow: Option<Vec<HttpEntry>>,
     deny: Option<Vec<HttpEntry>>,
+    headers: Option<HeaderPolicySpec>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HeaderPolicySpec {
+    require: Option<Vec<String>>,
+    forbid: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -398,6 +410,22 @@ impl RpcPolicy {
             .transpose()?
             .unwrap_or_default();
 
+        let required_headers = spec
+            .http
+            .as_ref()
+            .and_then(|h| h.headers.as_ref())
+            .and_then(|hp| hp.require.as_ref())
+            .cloned()
+            .unwrap_or_default();
+
+        let forbidden_headers = spec
+            .http
+            .as_ref()
+            .and_then(|h| h.headers.as_ref())
+            .and_then(|hp| hp.forbid.as_ref())
+            .cloned()
+            .unwrap_or_default();
+
         let resources = spec.resources.as_ref();
 
         Ok(Self {
@@ -409,6 +437,8 @@ impl RpcPolicy {
             denied_networks,
             allowed_http,
             denied_http,
+            required_headers,
+            forbidden_headers,
             max_output_bytes: resources
                 .and_then(|r| r.max_output_bytes)
                 .unwrap_or(10_485_760),
@@ -583,6 +613,38 @@ impl RpcPolicy {
 
         // Default: deny
         Decision::deny_default()
+    }
+
+    /// Check whether the request headers satisfy the header policy.
+    ///
+    /// - `required_headers`: every listed header name must be present (case-insensitive).
+    /// - `forbidden_headers`: none of the listed header names may appear (case-insensitive).
+    ///
+    /// Returns `Decision::allow` when all constraints pass.
+    pub fn check_http_headers(&self, headers: &HashMap<String, String>) -> Decision {
+        // Lower-case all incoming header names for case-insensitive comparison
+        let lower: std::collections::HashSet<String> =
+            headers.keys().map(|k| k.to_ascii_lowercase()).collect();
+
+        for name in &self.required_headers {
+            if !lower.contains(&name.to_ascii_lowercase()) {
+                return Decision::deny(
+                    format!("required header missing: {name}"),
+                    format!("http:headers:require:{name}"),
+                );
+            }
+        }
+
+        for name in &self.forbidden_headers {
+            if lower.contains(&name.to_ascii_lowercase()) {
+                return Decision::deny(
+                    format!("forbidden header present: {name}"),
+                    format!("http:headers:forbid:{name}"),
+                );
+            }
+        }
+
+        Decision::allow("http:headers:ok")
     }
 }
 
@@ -1160,5 +1222,88 @@ spec:
 "#;
         let policy = RpcPolicy::from_yaml(yaml).unwrap();
         assert_eq!(policy.max_file_size_bytes, 5_242_880);
+    }
+
+    fn header_policy() -> RpcPolicy {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  http:
+    allow:
+      - path: "^/api/.*"
+    headers:
+      require:
+        - Authorization
+        - X-Request-ID
+      forbid:
+        - X-Internal-Token
+        - X-Forwarded-For
+"#;
+        RpcPolicy::from_yaml(yaml).unwrap()
+    }
+
+    #[test]
+    fn test_header_require_present() {
+        let policy = header_policy();
+        let headers = HashMap::from([
+            ("authorization".to_string(), "Bearer token".to_string()),
+            ("x-request-id".to_string(), "abc123".to_string()),
+        ]);
+        assert!(policy.check_http_headers(&headers).allowed);
+    }
+
+    #[test]
+    fn test_header_require_missing() {
+        let policy = header_policy();
+        // x-request-id is missing
+        let headers = HashMap::from([("authorization".to_string(), "Bearer token".to_string())]);
+        let d = policy.check_http_headers(&headers);
+        assert!(!d.allowed);
+        assert!(d.reason.contains("X-Request-ID"));
+    }
+
+    #[test]
+    fn test_header_forbid_absent() {
+        let policy = header_policy();
+        // No forbidden headers — should pass
+        let headers = HashMap::from([
+            ("authorization".to_string(), "Bearer token".to_string()),
+            ("x-request-id".to_string(), "id-1".to_string()),
+        ]);
+        assert!(policy.check_http_headers(&headers).allowed);
+    }
+
+    #[test]
+    fn test_header_forbid_present() {
+        let policy = header_policy();
+        let headers = HashMap::from([
+            ("authorization".to_string(), "Bearer token".to_string()),
+            ("x-request-id".to_string(), "id-1".to_string()),
+            ("x-internal-token".to_string(), "secret".to_string()),
+        ]);
+        let d = policy.check_http_headers(&headers);
+        assert!(!d.allowed);
+        assert!(d.reason.contains("X-Internal-Token"));
+    }
+
+    #[test]
+    fn test_header_check_case_insensitive() {
+        let policy = header_policy();
+        // Header names must match regardless of case
+        let headers = HashMap::from([
+            ("AUTHORIZATION".to_string(), "Bearer token".to_string()),
+            ("X-REQUEST-ID".to_string(), "id-2".to_string()),
+        ]);
+        assert!(policy.check_http_headers(&headers).allowed);
+    }
+
+    #[test]
+    fn test_header_no_constraints_allows_all() {
+        // Policy without header constraints — any headers pass
+        let policy = http_policy();
+        let headers = HashMap::from([("x-anything".to_string(), "value".to_string())]);
+        assert!(policy.check_http_headers(&headers).allowed);
     }
 }

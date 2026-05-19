@@ -1342,73 +1342,107 @@ async fn cp_command(
         }
         eprintln!("done: {total_files} files transferred");
     } else if is_push {
-        // Upload local file to agent
+        // Upload local file(s) to agent.
+        // If the source contains glob characters, expand the pattern first.
         let remote_path = dest.split_once(':').map_or(dest, |(_, p)| p);
-        let local_data = tokio::fs::read(source).await?;
-        let total = local_data.len();
 
-        // Compute checksum
-        use sha2::{Digest, Sha256};
-        let digest = Sha256::digest(&local_data);
-        let checksum: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+        let sources: Vec<std::path::PathBuf> = if source.contains('*')
+            || source.contains('?')
+            || (source.contains('[') && source.contains(']'))
+        {
+            let matches: Result<Vec<_>, _> = glob::glob(source)
+                .map_err(|e| anyhow::anyhow!("invalid glob pattern '{source}': {e}"))?
+                .collect();
+            let paths = matches.map_err(|e| anyhow::anyhow!("glob error: {e}"))?;
+            if paths.is_empty() {
+                anyhow::bail!("glob pattern '{source}' matched no files");
+            }
+            paths
+        } else {
+            vec![std::path::PathBuf::from(source)]
+        };
 
-        let mut offset = 0u64;
-        let chunk_sz = chunk_size as usize;
-        let mut chunk_num = 0u64;
-
-        while offset < total as u64 {
-            let end = ((offset as usize) + chunk_sz).min(total);
-            let chunk = local_data[offset as usize..end].to_vec();
-            let is_last = end == total;
-
-            let request = Request {
-                id: format!("cp-push-{chunk_num}"),
-                action: Action::FilePush {
-                    path: remote_path.to_string(),
-                    offset,
-                    data: chunk,
-                    done: is_last,
-                    checksum: if is_last {
-                        Some(checksum.clone())
-                    } else {
-                        None
-                    },
-                    mode: None,
-                },
-                timeout_ms: Some(60000),
-                reason: None,
+        for local_path in &sources {
+            let local_str = local_path.display().to_string();
+            // For glob expansions, destination is a directory on the agent: append filename
+            let effective_remote = if sources.len() > 1 {
+                let fname = local_path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| local_str.clone());
+                format!("{remote_path}/{fname}")
+            } else {
+                remote_path.to_string()
             };
 
-            let encoded = codec::encode(&request)?;
-            let ch = chan.lock().await;
-            ch.send(&encoded).await?;
-            let resp_bytes = ch.recv().await?;
-            drop(ch);
+            let local_data = tokio::fs::read(local_path).await?;
+            let total = local_data.len();
 
-            let resp: Response = codec::decode(&resp_bytes)?;
-            match resp.result {
-                RpcResult::FileChunkAck { finalized, .. } => {
-                    if finalized {
-                        let pct = 100;
-                        eprintln!("\r{source} → {dest}: {pct}% ({total} bytes, checksum verified)");
-                    } else {
-                        let pct = (end * 100) / total;
-                        eprint!("\r{source} → {dest}: {pct}%");
+            // Compute checksum
+            use sha2::{Digest, Sha256};
+            let digest = Sha256::digest(&local_data);
+            let checksum: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+
+            let mut offset = 0u64;
+            let chunk_sz = chunk_size as usize;
+            let mut chunk_num = 0u64;
+
+            while offset < total as u64 {
+                let end = ((offset as usize) + chunk_sz).min(total);
+                let chunk = local_data[offset as usize..end].to_vec();
+                let is_last = end == total;
+
+                let request = Request {
+                    id: format!("cp-push-{chunk_num}"),
+                    action: Action::FilePush {
+                        path: effective_remote.clone(),
+                        offset,
+                        data: chunk,
+                        done: is_last,
+                        checksum: if is_last {
+                            Some(checksum.clone())
+                        } else {
+                            None
+                        },
+                        mode: None,
+                    },
+                    timeout_ms: Some(60000),
+                    reason: None,
+                };
+
+                let encoded = codec::encode(&request)?;
+                let ch = chan.lock().await;
+                ch.send(&encoded).await?;
+                let resp_bytes = ch.recv().await?;
+                drop(ch);
+
+                let resp: Response = codec::decode(&resp_bytes)?;
+                match resp.result {
+                    RpcResult::FileChunkAck { finalized, .. } => {
+                        if finalized {
+                            let pct = 100;
+                            eprintln!(
+                                "\r{local_str} → {effective_remote}: {pct}% ({total} bytes, checksum verified)"
+                            );
+                        } else {
+                            let pct = (end * 100) / total;
+                            eprint!("\r{local_str} → {effective_remote}: {pct}%");
+                        }
                     }
+                    RpcResult::Denied { reason, rule } => {
+                        anyhow::bail!("denied: {reason} (rule: {rule})");
+                    }
+                    RpcResult::Error { message } => {
+                        anyhow::bail!("error: {message}");
+                    }
+                    _ => anyhow::bail!("unexpected response"),
                 }
-                RpcResult::Denied { reason, rule } => {
-                    anyhow::bail!("denied: {reason} (rule: {rule})");
-                }
-                RpcResult::Error { message } => {
-                    anyhow::bail!("error: {message}");
-                }
-                _ => anyhow::bail!("unexpected response"),
-            }
 
-            offset = end as u64;
-            chunk_num += 1;
+                offset = end as u64;
+                chunk_num += 1;
+            }
+            eprintln!();
         }
-        eprintln!();
     } else if is_pull {
         // Download file from agent
         let remote_path = source.split_once(':').map_or(source, |(_, p)| p);

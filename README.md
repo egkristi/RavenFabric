@@ -3,7 +3,7 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.4.0)** — Foundation complete. 13 crates, ~56,800 LOC, 1,149 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.5.0)** — Foundation complete. 13 crates, ~56,800 LOC, 1,164 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
@@ -489,7 +489,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~56,800 LOC | 1,149 Rust tests + 53 SDK tests | 0 clippy warnings**
+**~56,800 LOC | 1,164 Rust tests + 53 SDK tests | 0 clippy warnings**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -880,8 +880,8 @@ NOT observable: command content, file content, agent identity, traffic type
 | `rf-transport` | Driver trait, WebSocket + QUIC + Memory + Named Pipe + Vsock + Abstract NS + Auto-select, ConnectionManager, proxy, latency, NAT/ICE, mesh, WireGuard, overlay networks, exotic/physical transports, LoRa, BLE, AX.25, satellite, mixnet, audio modem, QR-stream, socket activation, fd-passing, MASQUE, ECH | Done (~21,900 LOC, 542 tests) |
 | `rf-mcp-client` | MCP client SDK — stdio transport, typed tool wrappers for exec/policy/files/capabilities | Done (~720 LOC, 14 tests) |
 | `rf-rpc` | Request/Response types, Action enum, msgpack codec, yamux, heartbeat, DTN queue, SOCKS5, routing, controller/K8s, embedded Web UI | Done (~6,500 LOC, 117 tests) |
-| `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF) | Done (~650 LOC, 14 tests) |
-| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection, HTTP policy rules | Done (~5,500 LOC, 132 tests) |
+| `rf-audit` | Structured JSON-lines audit logging, AI compliance reporting (EU AI Act, NIST AI RMF), real-time alert rules with deduplication | Done (~650 LOC, 23 tests) |
+| `rf-policy` | RPCPolicy enforcement, RBAC, collection policy, capability tokens, distributed CRDT policy, SPIFFE identity, behavioral anomaly detection, HTTP policy rules with header enforcement | Done (~5,500 LOC, 138 tests) |
 | `rf-executor` | Command execution, file ops, streaming, orchestration, PTY, log tailing, metrics, WASM plugins, scraping, desired-state convergence, event triggers, result parsing, grains | Done (~10,700 LOC, 169 tests) |
 | `rf-bootstrap` | OTP enrollment, TrustStore (single-use, hash-stored, TTL-enforced) | Done (~430 LOC, 11 tests) |
 | `rf-relay` | Stateless encrypted relay broker binary | Done (~390 LOC, 7 tests) |

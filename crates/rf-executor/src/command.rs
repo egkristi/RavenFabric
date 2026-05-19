@@ -1943,6 +1943,24 @@ impl Executor {
             };
         }
 
+        // Check header policy (required / forbidden headers)
+        let header_decision = policy.check_http_headers(headers);
+        if !header_decision.allowed {
+            self.audit(
+                request_id,
+                "http_forward",
+                Some(format!("{method} {path}")),
+                "denied",
+                header_decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: header_decision.reason,
+                rule: header_decision.matched_rule,
+            };
+        }
+
         // Check network target policy (CIDR/hostname/port rules)
         let net_decision = policy.check_network_target(target);
         if !net_decision.allowed {

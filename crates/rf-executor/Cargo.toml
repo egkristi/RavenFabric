@@ -17,10 +17,10 @@ sysinfo = ["dep:sysinfo"]
 wasm-plugins = ["dep:wasmtime"]
 
 [dependencies]
-rf-policy = { path = "../rf-policy", version = "0.4.0" }
-rf-rpc = { path = "../rf-rpc", version = "0.4.0" }
-rf-audit = { path = "../rf-audit", version = "0.4.0" }
-rf-crypto = { path = "../rf-crypto", version = "0.4.0" }
+rf-policy = { path = "../rf-policy", version = "0.5.0" }
+rf-rpc = { path = "../rf-rpc", version = "0.5.0" }
+rf-audit = { path = "../rf-audit", version = "0.5.0" }
+rf-crypto = { path = "../rf-crypto", version = "0.5.0" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }

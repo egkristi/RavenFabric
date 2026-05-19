@@ -178,7 +178,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 #### HTTP-Aware Proxy (Policy-Rich)
 - [x] HTTP request inspection — agent parses method, path, headers before forwarding to upstream
 - [x] HTTP policy rules — allow/deny by method + path pattern (e.g., allow `GET /api/**`, deny `DELETE /**`)
-- [ ] Header injection/stripping — policy can require/forbid specific headers (auth tokens, X-Forwarded-For)
+- [x] Header injection/stripping — policy can require/forbid specific headers (auth tokens, X-Forwarded-For)
 - [x] Per-request audit logging — method, path, status code, latency, response size logged with caller identity
 - [x] Request body size limits — configurable max request/response body (prevent exfiltration of large datasets)
 - [x] `rf proxy <agent> --target http://localhost:8080 --http --listen :3000` — HTTP-aware mode
@@ -265,7 +265,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Recursive directory transfer — `rf cp -r` with directory tree traversal
 - [ ] Delta/incremental sync — rsync-like rolling checksum for efficient updates of large files
 - [ ] Compression — optional zstd compression for transfer (transparent, negotiated)
-- [ ] Glob patterns — `rf cp agent:/var/log/*.gz ./logs/` wildcard expansion
+- [x] Glob patterns — `rf cp agent:/var/log/*.gz ./logs/` wildcard expansion
 - [x] `rf cp` CLI command — familiar syntax: `rf cp <agent>:<path> <local>` and `rf cp <local> <agent>:<path>`
 - [x] MCP tool: `rf_file_transfer` — AI agents can move files with policy enforcement
 
@@ -351,9 +351,9 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [ ] Retention policies — configurable per-agent log retention before forwarding
 
 #### Alerting
-- [ ] Real-time alert rules — pattern matching on audit events (policy denial → alert)
+- [x] Real-time alert rules — pattern matching on audit events (policy denial → alert)
 - [ ] Alert destinations — Slack, PagerDuty, OpsGenie, generic webhook
-- [ ] Alert deduplication — suppress repeated alerts within configurable window
+- [x] Alert deduplication — suppress repeated alerts within configurable window
 
 ---
 

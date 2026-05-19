@@ -5,6 +5,18 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-05-20
+
+### Added
+- **Header injection/stripping policy** — `http.headers.require` and `http.headers.forbid` lists in policy YAML. Required headers must be present on every HTTP request; forbidden headers must not appear. Enforced by `check_http_headers()` in rf-policy, called from `handle_http_forward()` in rf-executor before connecting to the upstream. Case-insensitive header name matching. 6 new tests in rf-policy.
+- **Real-time alert rules** — `AlertRule` and `AlertEngine` in new `rf-audit::alert` module. Rules match audit entries by pattern (regex applied to `action`, `decision`, and `command`). Matching rules emit `tracing::warn!` structured alerts. Alert deduplication: same rule+action pair suppressed within a configurable window (`dedup_window_secs`). 9 new tests in rf-audit.
+- **Glob pattern expansion for `rf cp`** — `rf cp "/var/log/*.gz" agent:/backup/` expands glob patterns locally before uploading. Multiple matched files are pushed individually; destination directory is derived per-file. Powered by the `glob` crate. Invalid patterns and zero-match globs return a clear error.
+
+### Changed
+- **Version**: Bumped to 0.5.0 across all crates and deploy manifests
+- **Total tests**: 1,164 (up from 1,149)
+- **rf-audit**: +9 tests (23 total); added `glob` dependency to workspace
+
 ## [0.4.0] — 2026-05-16
 
 ### Added
