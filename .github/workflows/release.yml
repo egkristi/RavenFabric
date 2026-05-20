@@ -103,6 +103,8 @@ jobs:
           # disable fortification for all musl C compilation via the cc-crate env vars.
           echo "CFLAGS_aarch64_unknown_linux_musl=-U_FORTIFY_SOURCE" >> "$GITHUB_ENV"
           echo "CFLAGS_armv7_unknown_linux_musleabihf=-U_FORTIFY_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Build rf-agent
         run: cargo build --release --target ${{ matrix.target }} -p rf-agent
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
