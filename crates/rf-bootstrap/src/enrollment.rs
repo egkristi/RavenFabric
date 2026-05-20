@@ -31,6 +31,22 @@ pub struct TrustedAgent {
     pub public_key: String,
     /// When the agent was enrolled (RFC 3339)
     pub enrolled_at: String,
+    /// Key version counter — starts at 1, incremented on each rotation
+    #[serde(default = "default_key_version")]
+    pub version: u32,
+    /// Previous public keys, oldest first (secret versioning / key history)
+    #[serde(default)]
+    pub key_history: Vec<String>,
+    /// If true, this agent is immediately revoked — emergency revocation
+    #[serde(default)]
+    pub revoked: bool,
+    /// Timestamp of revocation, if revoked (RFC 3339)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<String>,
+}
+
+fn default_key_version() -> u32 {
+    1
 }
 
 /// Result of an enrollment attempt.
@@ -85,6 +101,10 @@ impl TrustStore {
             agent_id,
             public_key: public_key.clone(),
             enrolled_at: chrono::Utc::now().to_rfc3339(),
+            version: 1,
+            key_history: Vec::new(),
+            revoked: false,
+            revoked_at: None,
         };
 
         let mut agents = self.agents.write().unwrap_or_else(|p| p.into_inner());
@@ -97,10 +117,10 @@ impl TrustStore {
         Ok(())
     }
 
-    /// Check if a public key is trusted.
+    /// Check if a public key is trusted (not revoked).
     pub fn is_trusted(&self, public_key: &str) -> bool {
         let agents = self.agents.read().unwrap_or_else(|p| p.into_inner());
-        agents.contains_key(public_key)
+        agents.get(public_key).is_some_and(|a| !a.revoked)
     }
 
     /// Revoke a trusted agent by public key.
@@ -115,6 +135,50 @@ impl TrustStore {
         }
 
         Ok(existed)
+    }
+
+    /// Immediately revoke an agent — emergency revocation.
+    /// The entry is preserved for audit; `is_trusted` returns false immediately.
+    pub fn revoke_immediate(&self, public_key: &str) -> Result<bool, std::io::Error> {
+        let mut agents = self.agents.write().unwrap_or_else(|p| p.into_inner());
+        let existed = if let Some(agent) = agents.get_mut(public_key) {
+            agent.revoked = true;
+            agent.revoked_at = Some(chrono::Utc::now().to_rfc3339());
+            true
+        } else {
+            false
+        };
+        if existed {
+            if let Some(path) = &self.path {
+                self.save_to_file(path, &agents)?;
+            }
+        }
+        Ok(existed)
+    }
+
+    /// Rotate an agent's public key — increments version, moves old key to history.
+    /// The old key becomes untrusted; only the new key is valid.
+    pub fn rotate_key(
+        &self,
+        old_public_key: &str,
+        new_public_key: String,
+    ) -> Result<bool, std::io::Error> {
+        let mut agents = self.agents.write().unwrap_or_else(|p| p.into_inner());
+        let agent = match agents.remove(old_public_key) {
+            Some(a) => a,
+            None => return Ok(false),
+        };
+        let mut updated = agent;
+        updated.key_history.push(old_public_key.to_string());
+        updated.public_key = new_public_key.clone();
+        updated.version += 1;
+        updated.revoked = false;
+        updated.revoked_at = None;
+        agents.insert(new_public_key, updated);
+        if let Some(path) = &self.path {
+            self.save_to_file(path, &agents)?;
+        }
+        Ok(true)
     }
 
     /// List all trusted agents.
@@ -291,5 +355,72 @@ mod tests {
         // Second attempt with same token fails
         let result = enroll_agent(&otp_store, &trust_store, &token, "agent-2", "key2").unwrap();
         assert!(matches!(result, EnrollmentResult::OtpInvalid(_)));
+    }
+
+    #[test]
+    fn test_is_trusted_false_when_revoked() {
+        let store = TrustStore::new();
+        store
+            .register("agent-rev".into(), "revkey1".into())
+            .unwrap();
+        assert!(store.is_trusted("revkey1"));
+        store.revoke_immediate("revkey1").unwrap();
+        assert!(
+            !store.is_trusted("revkey1"),
+            "revoked key must not be trusted"
+        );
+    }
+
+    #[test]
+    fn test_revoke_immediate_sets_fields() {
+        let store = TrustStore::new();
+        store
+            .register("agent-rev2".into(), "revkey2".into())
+            .unwrap();
+        let ok = store.revoke_immediate("revkey2").unwrap();
+        assert!(ok, "revoke_immediate should return true for known key");
+
+        let agents = store.list();
+        let agent = agents.iter().find(|a| a.public_key == "revkey2").unwrap();
+        assert!(agent.revoked);
+        assert!(agent.revoked_at.is_some());
+    }
+
+    #[test]
+    fn test_revoke_immediate_unknown_key() {
+        let store = TrustStore::new();
+        let ok = store.revoke_immediate("no-such-key").unwrap();
+        assert!(!ok, "revoke_immediate should return false for unknown key");
+    }
+
+    #[test]
+    fn test_rotate_key() {
+        let store = TrustStore::new();
+        store.register("agent-rot".into(), "oldkey".into()).unwrap();
+        assert!(store.is_trusted("oldkey"));
+
+        let ok = store.rotate_key("oldkey", "newkey".into()).unwrap();
+        assert!(ok, "rotate_key should return true");
+
+        assert!(
+            !store.is_trusted("oldkey"),
+            "old key must no longer be trusted"
+        );
+        assert!(store.is_trusted("newkey"), "new key must be trusted");
+    }
+
+    #[test]
+    fn test_key_history_after_rotation() {
+        let store = TrustStore::new();
+        store
+            .register("agent-hist".into(), "key-v1".into())
+            .unwrap();
+        store.rotate_key("key-v1", "key-v2".into()).unwrap();
+        store.rotate_key("key-v2", "key-v3".into()).unwrap();
+
+        let agents = store.list();
+        let agent = agents.iter().find(|a| a.public_key == "key-v3").unwrap();
+        assert_eq!(agent.version, 3);
+        assert_eq!(agent.key_history, vec!["key-v1", "key-v2"]);
     }
 }

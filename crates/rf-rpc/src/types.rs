@@ -137,6 +137,9 @@ pub enum Action {
         /// File mode (permissions) to set on the final file (Unix octal, e.g. 0o644)
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mode: Option<u32>,
+        /// If true, data is zstd-compressed; agent decompresses before writing.
+        #[serde(default)]
+        compress: bool,
     },
     /// Pull a file chunk from agent to client (download).
     /// Client specifies offset and max chunk size; agent responds with data.
@@ -147,6 +150,9 @@ pub enum Action {
         offset: u64,
         /// Maximum bytes to return in this chunk
         max_chunk: u32,
+        /// If true, agent compresses the response chunk with zstd.
+        #[serde(default)]
+        compress: bool,
     },
     /// Open a TCP proxy connection through the agent to a target.
     /// Agent connects to target and bridges traffic over yamux stream.
@@ -293,6 +299,9 @@ pub enum RpcResult {
         /// SHA-256 checksum of the entire file (sent with last chunk)
         #[serde(default, skip_serializing_if = "Option::is_none")]
         checksum: Option<String>,
+        /// True if data is zstd-compressed (matches compress flag in FilePull request).
+        #[serde(default)]
+        compressed: bool,
     },
     /// Response to a Proxy action — connection established.
     ProxyConnected {
@@ -594,6 +603,7 @@ mod tests {
                 done: false,
                 checksum: None,
                 mode: Some(0o644),
+                compress: false,
             },
             timeout_ms: Some(30000),
             reason: None,
@@ -611,6 +621,7 @@ mod tests {
                 path: "/var/log/syslog".into(),
                 offset: 1024,
                 max_chunk: 65536,
+                compress: false,
             },
             timeout_ms: None,
             reason: None,
@@ -643,6 +654,7 @@ mod tests {
                 data: vec![1, 2, 3, 4, 5],
                 total_size: 100,
                 checksum: Some("abc123".into()),
+                compressed: false,
             },
         };
         let bytes = codec::encode(&resp).unwrap();

@@ -1405,6 +1405,7 @@ async fn cp_command(
                             None
                         },
                         mode: None,
+                        compress: false,
                     },
                     timeout_ms: Some(60000),
                     reason: None,
@@ -1458,6 +1459,7 @@ async fn cp_command(
                     path: remote_path.to_string(),
                     offset,
                     max_chunk: chunk_size,
+                    compress: false,
                 },
                 timeout_ms: Some(60000),
                 reason: None,
@@ -1986,6 +1988,7 @@ async fn push_single_file(
                     None
                 },
                 mode: None,
+                compress: false,
             },
             timeout_ms: Some(60000),
             reason: None,

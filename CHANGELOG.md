@@ -5,6 +5,18 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-05-20
+
+### Added
+
+- **zstd compression for file transfer** — `FilePush` and `FilePull` RPC actions now accept an optional `compress: bool` field. When enabled, the client sends compressed chunks (FilePush) or the agent returns compressed chunks (FilePull) using zstd level-3 compression. The `FileChunk` response includes a `compressed` flag so the receiver knows whether to decompress. Transparent and policy-neutral — compression is negotiated per-request. 2 new executor tests: `test_file_push_compress`, `test_file_pull_compress`.
+- **Secret versioning in TrustStore** — `TrustedAgent` now tracks `version: u32` (starts at 1, incremented on each key rotation), `key_history: Vec<String>` (all previous public keys, oldest first), `revoked: bool`, and `revoked_at: Option<String>` (RFC 3339 timestamp). New `rotate_key(old, new)` method atomically increments version and archives the old key.
+- **Emergency revocation** — new `TrustStore::revoke_immediate(public_key)` method immediately marks an agent as revoked (`revoked=true`, `revoked_at=<now>`). `is_trusted()` returns `false` for revoked agents instantly without removing the entry from the store (preserved for audit). 4 new bootstrap tests: `test_is_trusted_false_when_revoked`, `test_revoke_immediate_sets_fields`, `test_revoke_immediate_unknown_key`, `test_rotate_key`, `test_key_history_after_rotation`.
+
+### Changed
+
+- `TrustStore::is_trusted()` now returns `false` for revoked agents (previously only checked key presence).
+
 ## [0.8.0] — 2026-05-20
 
 ### Added

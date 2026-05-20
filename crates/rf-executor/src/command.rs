@@ -264,6 +264,7 @@ impl Executor {
                 done,
                 checksum,
                 mode,
+                compress,
             } => {
                 self.handle_file_push(
                     &request.id,
@@ -273,6 +274,7 @@ impl Executor {
                     *done,
                     checksum,
                     *mode,
+                    *compress,
                     start,
                 )
                 .await
@@ -281,8 +283,9 @@ impl Executor {
                 path,
                 offset,
                 max_chunk,
+                compress,
             } => {
-                self.handle_file_pull(&request.id, path, *offset, *max_chunk, start)
+                self.handle_file_pull(&request.id, path, *offset, *max_chunk, *compress, start)
                     .await
             }
             Action::Proxy {
@@ -1580,6 +1583,7 @@ impl Executor {
         done: bool,
         checksum: &Option<String>,
         mode: Option<u32>,
+        compress: bool,
         start: Instant,
     ) -> RpcResult {
         let file_path = std::path::Path::new(path);
@@ -1604,6 +1608,22 @@ impl Executor {
         }
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
+
+        // Decompress if requested — agent receives zstd-compressed chunk, decompresses before write
+        let decompressed_buf;
+        let data: &[u8] = if compress {
+            decompressed_buf = match zstd::decode_all(data) {
+                Ok(d) => d,
+                Err(e) => {
+                    return RpcResult::Error {
+                        message: format!("zstd decompress: {e}"),
+                    };
+                }
+            };
+            &decompressed_buf
+        } else {
+            data
+        };
 
         // Enforce file size limit: offset + this chunk must not exceed max_file_size_bytes
         {
@@ -1740,6 +1760,7 @@ impl Executor {
         path: &str,
         offset: u64,
         max_chunk: u32,
+        compress: bool,
         start: Instant,
     ) -> RpcResult {
         let file_path = std::path::Path::new(path);
@@ -1843,6 +1864,19 @@ impl Executor {
             }
         }
 
+        // Compress chunk if requested — client decompresses on receipt
+        let (buf, compressed) = if compress && !buf.is_empty() {
+            match zstd::encode_all(buf.as_slice(), 3) {
+                Ok(c) => (c, true),
+                Err(e) => {
+                    tracing::warn!("zstd compress chunk failed: {e}");
+                    (buf, false)
+                }
+            }
+        } else {
+            (buf, false)
+        };
+
         // Compute checksum on last chunk
         let is_last = offset + bytes_read as u64 >= total_size;
         let checksum = if is_last {
@@ -1874,6 +1908,7 @@ impl Executor {
             data: buf,
             total_size,
             checksum,
+            compressed,
         }
     }
 
@@ -2979,6 +3014,7 @@ spec:
                 done: true,
                 checksum: None,
                 mode: None,
+                compress: false,
             },
             timeout_ms: None,
             reason: None,
@@ -3008,6 +3044,7 @@ spec:
                 done: true,
                 checksum: None,
                 mode: None,
+                compress: false,
             },
             timeout_ms: None,
             reason: None,
@@ -3155,5 +3192,96 @@ spec:
         )
         .unwrap();
         assert_eq!(policy.max_transfer_bytes_per_sec, 524_288);
+    }
+
+    #[tokio::test]
+    async fn test_file_push_compress() {
+        let dir = tempfile::tempdir().unwrap();
+        // Get canonical parent so policy works on macOS (/var/folders -> /private/var/folders)
+        let canonical_parent = dir.path().canonicalize().unwrap();
+        let canonical_parent_str = canonical_parent.to_str().unwrap().to_string();
+        // Use canonical path for the file so canonicalize() in check_path matches the policy
+        let path = canonical_parent.join("rf_test_compress_push.txt");
+
+        let audit = Arc::new(TestAuditLogger::new());
+        let policy_yaml = format!(
+            "spec:\n  filesystem:\n    allow:\n      - path: {canonical_parent_str}\n  resources:\n    maxFileSizeBytes: 1048576\n    timeoutSeconds: 30\n"
+        );
+        let policy = Arc::new(RwLock::new(RpcPolicy::from_yaml(&policy_yaml).unwrap()));
+        let exec = Executor::new(policy, audit, "test-caller".into());
+
+        let content = b"compressed transfer test data";
+        let compressed = zstd::encode_all(content.as_slice(), 3).unwrap();
+
+        let req = Request {
+            id: "compress-push-1".into(),
+            action: Action::FilePush {
+                path: path.to_str().unwrap().to_string(),
+                offset: 0,
+                data: compressed,
+                done: true,
+                checksum: None,
+                mode: None,
+                compress: true,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        assert!(
+            matches!(
+                resp.result,
+                RpcResult::FileChunkAck {
+                    finalized: true,
+                    ..
+                }
+            ),
+            "expected finalized ack, got {:?}",
+            resp.result
+        );
+
+        let written = tokio::fs::read(&path).await.unwrap();
+        assert_eq!(written, content);
+    }
+
+    #[tokio::test]
+    async fn test_file_pull_compress() {
+        let content = b"file pull compression test data 12345";
+        // Use tempdir with canonical path so policy works on macOS (/var/folders -> /private/var/folders)
+        let dir = tempfile::tempdir().unwrap();
+        let canonical_dir = dir.path().canonicalize().unwrap();
+        let canonical_dir_str = canonical_dir.to_str().unwrap().to_string();
+        let path = canonical_dir.join("rf_test_compress_pull.txt");
+        tokio::fs::write(&path, content).await.unwrap();
+
+        let audit = Arc::new(TestAuditLogger::new());
+        let policy_yaml = format!(
+            "spec:\n  filesystem:\n    allow:\n      - path: {canonical_dir_str}\n  resources:\n    maxFileSizeBytes: 1048576\n    timeoutSeconds: 30\n"
+        );
+        let policy = Arc::new(RwLock::new(RpcPolicy::from_yaml(&policy_yaml).unwrap()));
+        let exec = Executor::new(policy, audit, "test-caller".into());
+
+        let req = Request {
+            id: "compress-pull-1".into(),
+            action: Action::FilePull {
+                path: path.to_str().unwrap().to_string(),
+                offset: 0,
+                max_chunk: 65536,
+                compress: true,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        match resp.result {
+            RpcResult::FileChunk {
+                data, compressed, ..
+            } => {
+                assert!(compressed, "expected compressed=true");
+                let decompressed = zstd::decode_all(data.as_slice()).unwrap();
+                assert_eq!(decompressed.as_slice(), content);
+            }
+            other => panic!("expected FileChunk, got {:?}", other),
+        }
     }
 }

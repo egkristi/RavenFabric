@@ -42,7 +42,7 @@
 
 **Version:** 0.8.0 (Alpha) — Released 2026-05-20
 
-**Stats:** 13 crates, ~58,400 LOC, 1,179 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~58,611 LOC, 1,186 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -121,7 +121,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.8.0 — all planned features implemented and tested.
+**Current:** Alpha v0.9.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -264,7 +264,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 #### Advanced Features
 - [x] Recursive directory transfer — `rf cp -r` with directory tree traversal
 - [ ] Delta/incremental sync — rsync-like rolling checksum for efficient updates of large files
-- [ ] Compression — optional zstd compression for transfer (transparent, negotiated)
+- [x] Compression — optional zstd compression for transfer (transparent, negotiated)
 - [x] Glob patterns — `rf cp agent:/var/log/*.gz ./logs/` wildcard expansion
 - [x] `rf cp` CLI command — familiar syntax: `rf cp <agent>:<path> <local>` and `rf cp <local> <agent>:<path>`
 - [x] MCP tool: `rf_file_transfer` — AI agents can move files with policy enforcement
@@ -322,8 +322,8 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 #### Secret Distribution
 - [ ] Fleet-wide secret push — update across all agents with grace period
 - [ ] Per-agent secrets — different values for same secret name per agent
-- [ ] Secret versioning — track version history, audit access patterns
-- [ ] Emergency revocation — immediately invalidate across all agents
+- [x] Secret versioning — track version history, audit access patterns
+- [x] Emergency revocation — immediately invalidate across all agents
 
 ---
 
@@ -342,7 +342,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [ ] CEF (Common Event Format) — standard SIEM format
 - [ ] LEEF (Log Event Extended Format) — IBM QRadar compatible
 - [ ] OCSF (Open Cybersecurity Schema Framework) — modern security event schema
-- [ ] Native JSON-lines — existing format, now with remote push
+- [x] Native JSON-lines — existing format, now with remote push
 
 #### Fleet Aggregation
 - [ ] Centralized audit collector — agents push events to controller in real-time
