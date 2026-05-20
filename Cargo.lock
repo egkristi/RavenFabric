@@ -2024,10 +2024,12 @@ dependencies = [
  "rf-transport",
  "serde",
  "serde_yaml",
+ "sha2 0.11.0",
  "tokio",
  "toml",
  "tracing",
  "tracing-subscriber",
+ "zstd",
 ]
 
 [[package]]

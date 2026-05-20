@@ -1378,147 +1378,122 @@ async fn cp_command(
             let local_data = tokio::fs::read(local_path).await?;
             let total = local_data.len();
 
-            // Compute checksum
+            // Streaming upload: one round-trip to negotiate, then raw frames
             use sha2::{Digest, Sha256};
             let digest = Sha256::digest(&local_data);
             let checksum: String = digest.iter().map(|b| format!("{b:02x}")).collect();
 
-            let mut offset = 0u64;
-            let chunk_sz = chunk_size as usize;
-            let mut chunk_num = 0u64;
-
-            while offset < total as u64 {
-                let end = ((offset as usize) + chunk_sz).min(total);
-                let chunk = local_data[offset as usize..end].to_vec();
-                let is_last = end == total;
-
-                let request = Request {
-                    id: format!("cp-push-{chunk_num}"),
-                    action: Action::FilePush {
-                        path: effective_remote.clone(),
-                        offset,
-                        data: chunk,
-                        done: is_last,
-                        checksum: if is_last {
-                            Some(checksum.clone())
-                        } else {
-                            None
-                        },
-                        mode: None,
-                        compress: false,
-                    },
-                    timeout_ms: Some(60000),
-                    reason: None,
-                };
-
-                let encoded = codec::encode(&request)?;
-                let ch = chan.lock().await;
-                ch.send(&encoded).await?;
-                let resp_bytes = ch.recv().await?;
-                drop(ch);
-
-                let resp: Response = codec::decode(&resp_bytes)?;
-                match resp.result {
-                    RpcResult::FileChunkAck { finalized, .. } => {
-                        if finalized {
-                            let pct = 100;
-                            eprintln!(
-                                "\r{local_str} → {effective_remote}: {pct}% ({total} bytes, checksum verified)"
-                            );
-                        } else {
-                            let pct = (end * 100) / total;
-                            eprint!("\r{local_str} → {effective_remote}: {pct}%");
-                        }
-                    }
-                    RpcResult::Denied { reason, rule } => {
-                        anyhow::bail!("denied: {reason} (rule: {rule})");
-                    }
-                    RpcResult::Error { message } => {
-                        anyhow::bail!("error: {message}");
-                    }
-                    _ => anyhow::bail!("unexpected response"),
-                }
-
-                offset = end as u64;
-                chunk_num += 1;
-            }
-            eprintln!();
-        }
-    } else if is_pull {
-        // Download file from agent
-        let remote_path = source.split_once(':').map_or(source, |(_, p)| p);
-        let mut offset = 0u64;
-        let mut file_data = Vec::new();
-        #[allow(unused_assignments)]
-        let mut total_size = 0u64;
-
-        loop {
+            let ch = chan.lock().await;
+            // 1. Send FilePushStream negotiation request
             let request = Request {
-                id: format!("cp-pull-{offset}"),
-                action: Action::FilePull {
-                    path: remote_path.to_string(),
-                    offset,
-                    max_chunk: chunk_size,
+                id: format!("cp-push-{}", hex::encode(&local_data[..4.min(local_data.len())])),
+                action: Action::FilePushStream {
+                    path: effective_remote.clone(),
+                    total_size: total as u64,
+                    checksum: Some(checksum),
+                    mode: None,
                     compress: false,
                 },
-                timeout_ms: Some(60000),
+                timeout_ms: Some(120000),
                 reason: None,
             };
-
             let encoded = codec::encode(&request)?;
-            let ch = chan.lock().await;
             ch.send(&encoded).await?;
+            // 2. Wait for FileStreamReady
             let resp_bytes = ch.recv().await?;
-            drop(ch);
-
             let resp: Response = codec::decode(&resp_bytes)?;
             match resp.result {
-                RpcResult::FileChunk {
-                    data,
-                    total_size: ts,
-                    checksum,
-                    ..
-                } => {
-                    total_size = ts;
-                    let bytes_read = data.len();
-                    file_data.extend_from_slice(&data);
-                    offset += bytes_read as u64;
-
-                    let pct = if total_size > 0 {
-                        (offset * 100) / total_size
-                    } else {
-                        100
-                    };
-                    eprint!("\r{source} → {dest}: {pct}%");
-
-                    if offset >= total_size {
-                        // Verify checksum
-                        if let Some(expected) = checksum {
-                            use sha2::{Digest, Sha256};
-                            let d = Sha256::digest(&file_data);
-                            let actual: String = d.iter().map(|b| format!("{b:02x}")).collect();
-                            if actual != expected {
-                                anyhow::bail!(
-                                    "checksum mismatch: expected {expected}, got {actual}"
-                                );
-                            }
-                        }
-                        break;
-                    }
-                }
+                RpcResult::FileStreamReady { .. } => {}
                 RpcResult::Denied { reason, rule } => {
                     anyhow::bail!("denied: {reason} (rule: {rule})");
                 }
                 RpcResult::Error { message } => {
                     anyhow::bail!("error: {message}");
                 }
-                _ => anyhow::bail!("unexpected response"),
+                _ => anyhow::bail!("unexpected response to FilePushStream"),
+            }
+            // 3. Stream raw file data in 64 KB frames
+            const STREAM_CHUNK: usize = 65536;
+            let mut sent = 0usize;
+            while sent < total {
+                let end = (sent + STREAM_CHUNK).min(total);
+                ch.send(&local_data[sent..end]).await?;
+                sent = end;
+                let pct = (sent * 100) / total.max(1);
+                eprint!("\r{local_str} → {effective_remote}: {pct}%");
+            }
+            // 4. Wait for FileStreamDone
+            let done_bytes = ch.recv().await?;
+            drop(ch);
+            let done_resp: Response = codec::decode(&done_bytes)?;
+            match done_resp.result {
+                RpcResult::FileStreamDone { bytes_transferred, checksum_verified } => {
+                    eprintln!(
+                        "\r{local_str} → {effective_remote}: 100% ({bytes_transferred} bytes{})",
+                        if checksum_verified { ", checksum verified" } else { "" }
+                    );
+                }
+                RpcResult::Error { message } => {
+                    anyhow::bail!("upload failed: {message}");
+                }
+                _ => anyhow::bail!("unexpected response after stream upload"),
+            }
+            eprintln!();
+        }
+    } else if is_pull {
+        // Streaming download: one round-trip to get metadata, then raw frames
+        let remote_path = source.split_once(':').map_or(source, |(_, p)| p);
+        let ch = chan.lock().await;
+        // 1. Send FilePullStream request
+        let request = Request {
+            id: "cp-pull-stream".into(),
+            action: Action::FilePullStream {
+                path: remote_path.to_string(),
+                compress: false,
+            },
+            timeout_ms: Some(120000),
+            reason: None,
+        };
+        let encoded = codec::encode(&request)?;
+        ch.send(&encoded).await?;
+        // 2. Receive FileStreamReady with total_size + checksum
+        let resp_bytes = ch.recv().await?;
+        let resp: Response = codec::decode(&resp_bytes)?;
+        let (total_size, expected_checksum) = match resp.result {
+            RpcResult::FileStreamReady { total_size, checksum } => (total_size, checksum),
+            RpcResult::Denied { reason, rule } => {
+                anyhow::bail!("denied: {reason} (rule: {rule})");
+            }
+            RpcResult::Error { message } => {
+                anyhow::bail!("error: {message}");
+            }
+            _ => anyhow::bail!("unexpected response to FilePullStream"),
+        };
+        // 3. Receive raw file data frames until total_size bytes collected
+        let mut file_data: Vec<u8> = Vec::with_capacity(total_size as usize);
+        while (file_data.len() as u64) < total_size {
+            let chunk = ch.recv().await?;
+            if chunk.is_empty() {
+                anyhow::bail!("connection closed before transfer complete");
+            }
+            file_data.extend_from_slice(&chunk);
+            let pct = (file_data.len() as u64 * 100) / total_size.max(1);
+            eprint!("\r{source} → {dest}: {pct}%");
+        }
+        drop(ch);
+        // 4. Verify checksum
+        if let Some(expected) = expected_checksum {
+            use sha2::{Digest, Sha256};
+            let d = Sha256::digest(&file_data);
+            let actual: String = d.iter().map(|b| format!("{b:02x}")).collect();
+            if actual != expected {
+                anyhow::bail!("checksum mismatch: expected {expected}, got {actual}");
             }
         }
-
-        // Write to local file
+        // 5. Write to local file
         tokio::fs::write(dest, &file_data).await?;
         eprintln!("\r{source} → {dest}: 100% ({total_size} bytes, checksum verified)");
+
     } else {
         anyhow::bail!(
             "invalid copy syntax. Use: rf cp <local> <agent>:/path  or  rf cp <agent>:/path <local>"
@@ -1998,60 +1973,61 @@ async fn push_single_file(
     chan: &Arc<tokio::sync::Mutex<AgentChannel>>,
     data: &[u8],
     remote_path: &str,
-    chunk_size: u32,
+    _chunk_size: u32,
 ) -> anyhow::Result<()> {
     use sha2::{Digest, Sha256};
     let digest = Sha256::digest(data);
     let checksum: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     let total = data.len();
-    let chunk_sz = chunk_size as usize;
-    let mut offset = 0u64;
-    let mut chunk_num = 0u64;
 
-    while offset < total as u64 {
-        let end = ((offset as usize) + chunk_sz).min(total);
-        let chunk = data[offset as usize..end].to_vec();
-        let is_last = end == total;
+    let ch = chan.lock().await;
 
-        let request = Request {
-            id: format!("cp-push-{chunk_num}"),
-            action: Action::FilePush {
-                path: remote_path.to_string(),
-                offset,
-                data: chunk,
-                done: is_last,
-                checksum: if is_last {
-                    Some(checksum.clone())
-                } else {
-                    None
-                },
-                mode: None,
-                compress: false,
-            },
-            timeout_ms: Some(60000),
-            reason: None,
-        };
+    // 1. Negotiate upload
+    let request = Request {
+        id: format!("cp-push-{}", hex::encode(&data[..4.min(total)])),
+        action: Action::FilePushStream {
+            path: remote_path.to_string(),
+            total_size: total as u64,
+            checksum: Some(checksum),
+            mode: None,
+            compress: false,
+        },
+        timeout_ms: Some(120000),
+        reason: None,
+    };
+    let encoded = codec::encode(&request)?;
+    ch.send(&encoded).await?;
 
-        let encoded = codec::encode(&request)?;
-        let ch = chan.lock().await;
-        ch.send(&encoded).await?;
-        let resp_bytes = ch.recv().await?;
-        drop(ch);
-
-        let resp: Response = codec::decode(&resp_bytes)?;
-        match resp.result {
-            RpcResult::FileChunkAck { .. } => {}
-            RpcResult::Denied { reason, rule } => {
-                anyhow::bail!("denied: {reason} (rule: {rule})");
-            }
-            RpcResult::Error { message } => {
-                anyhow::bail!("error: {message}");
-            }
-            _ => anyhow::bail!("unexpected response"),
+    // 2. Wait for FileStreamReady
+    let resp_bytes = ch.recv().await?;
+    let resp: Response = codec::decode(&resp_bytes)?;
+    match resp.result {
+        RpcResult::FileStreamReady { .. } => {}
+        RpcResult::Denied { reason, rule } => {
+            anyhow::bail!("denied: {reason} (rule: {rule})");
         }
-
-        offset = end as u64;
-        chunk_num += 1;
+        RpcResult::Error { message } => {
+            anyhow::bail!("error: {message}");
+        }
+        _ => anyhow::bail!("unexpected response to FilePushStream"),
     }
-    Ok(())
+
+    // 3. Stream raw data in 64 KB frames
+    const CHUNK: usize = 65536;
+    let mut sent = 0;
+    while sent < total {
+        let end = (sent + CHUNK).min(total);
+        ch.send(&data[sent..end]).await?;
+        sent = end;
+    }
+
+    // 4. Wait for FileStreamDone
+    let done_bytes = ch.recv().await?;
+    drop(ch);
+    let done_resp: Response = codec::decode(&done_bytes)?;
+    match done_resp.result {
+        RpcResult::FileStreamDone { .. } => Ok(()),
+        RpcResult::Error { message } => anyhow::bail!("upload failed: {message}"),
+        _ => anyhow::bail!("unexpected response after stream upload"),
+    }
 }

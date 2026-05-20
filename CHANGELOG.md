@@ -5,6 +5,20 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] — 2026-05-21
+
+### Added
+
+- **Streaming file transfer (`FilePushStream` / `FilePullStream`)** — `rf cp` now uses a streaming protocol instead of per-chunk RPC round-trips. Upload: one negotiation request (`FilePushStream`) → `FileStreamReady` → raw `SecureChannel` frames → `FileStreamDone`. Download: one negotiation request (`FilePullStream`) → `FileStreamReady { total_size, checksum }` → raw frames until `total_size` bytes received. Eliminates N round-trips for N chunks — a single negotiation followed by a continuous byte stream. Full policy enforcement, SHA-256 checksum verification, atomic rename on the agent side, and complete audit logging. 4 new roundtrip tests in `rf-rpc`.
+
+### Changed
+
+- **Version**: Bumped to 0.15.0 across all crates and deploy manifests
+- **Total tests**: 1,283 (up from 1,279) — +4 rf-rpc (stream action/result roundtrip serialization)
+- **LOC**: ~63,769 (up from ~63,229)
+
+### Fixed
+
 ## [0.14.0] — 2026-05-21
 
 ### Added

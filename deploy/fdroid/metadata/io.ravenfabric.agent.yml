@@ -40,7 +40,7 @@ RepoType: git
 Repo: https://github.com/egkristi/RavenFabric.git
 
 Builds:
-  - versionName: 0.14.0
+  - versionName: 0.15.0
     versionCode: 4
     commit: v0.5.0
     subdir: .

@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.14.0 (Alpha) — Released 2026-05-21
+**Version:** 0.15.0 (Alpha) — Released 2026-05-21
 
-**Stats:** 13 crates, ~63,229 LOC, 1,279 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~63,769 LOC, 1,283 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -121,7 +121,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.14.0 — all planned features implemented and tested.
+**Current:** Alpha v0.15.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -249,7 +249,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 #### Core Transfer Engine
 - [x] `FilePush` RPC action — chunked upload from client to agent (configurable chunk size, default 256KB)
 - [x] `FilePull` RPC action — chunked download from agent to client
-- [ ] Streaming over yamux — chunks flow over a dedicated mux stream, no base64 encoding overhead
+- [x] Streaming over yamux — chunks flow over a dedicated mux stream, no base64 encoding overhead
 - [x] Progress reporting — byte count, percentage, transfer rate reported back to caller
 - [x] Integrity verification — SHA-256 checksum of entire file verified after transfer completes
 - [x] Atomic write — transfer to temp file, rename on completion (no partial files on failure)

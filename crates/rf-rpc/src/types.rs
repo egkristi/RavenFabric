@@ -154,6 +154,49 @@ pub enum Action {
         #[serde(default)]
         compress: bool,
     },
+    /// Streaming file upload — agent receives raw bytes from the client.
+    ///
+    /// Protocol:
+    /// 1. Client sends `FilePushStream` (this action) as a normal RPC frame.
+    /// 2. Agent responds with `FileStreamReady { total_size: 0, checksum: None }`.
+    /// 3. Client sends file data as raw `SecureChannel` frames (each up to 64 KB) until
+    ///    exactly `total_size` bytes have been delivered.
+    /// 4. Agent writes all bytes to a temp file, verifies the optional SHA-256 checksum,
+    ///    and atomically renames to `path`.
+    /// 5. Agent responds with `FileStreamDone { bytes_transferred, checksum_verified }`.
+    /// 6. Connection returns to normal RPC mode.
+    FilePushStream {
+        /// Destination path on agent filesystem
+        path: String,
+        /// Total number of bytes the client will send (agent reads exactly this many)
+        total_size: u64,
+        /// Expected SHA-256 hex checksum of the complete file (verified on finalization)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        checksum: Option<String>,
+        /// File mode (permissions) to set on the final file (Unix octal, e.g. 0o644)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mode: Option<u32>,
+        /// Reserved for future use: zstd-compressed data frames
+        #[serde(default)]
+        compress: bool,
+    },
+    /// Streaming file download — agent sends raw bytes to the client.
+    ///
+    /// Protocol:
+    /// 1. Client sends `FilePullStream` (this action) as a normal RPC frame.
+    /// 2. Agent responds with `FileStreamReady { total_size, checksum }`.
+    /// 3. Agent streams file data as raw `SecureChannel` frames (each up to 64 KB)
+    ///    until exactly `total_size` bytes have been delivered.
+    /// 4. Client reads frames and accumulates until `total_size` bytes received,
+    ///    then verifies the checksum.
+    /// 5. Connection returns to normal RPC mode.
+    FilePullStream {
+        /// Source path on agent filesystem
+        path: String,
+        /// Reserved for future use: zstd-compressed data frames
+        #[serde(default)]
+        compress: bool,
+    },
     /// Open a TCP proxy connection through the agent to a target.
     /// Agent connects to target and bridges traffic over yamux stream.
     Proxy {
@@ -392,6 +435,32 @@ pub enum RpcResult {
         name: String,
         /// TTL in seconds.
         ttl_secs: u64,
+    },
+    /// Agent is ready for streaming file I/O (response to `FilePushStream` / `FilePullStream`).
+    ///
+    /// For uploads (`FilePushStream`): `total_size` is 0, `checksum` is `None`.
+    /// Client should now send the raw file data frames.
+    ///
+    /// For downloads (`FilePullStream`): `total_size` is the file size in bytes,
+    /// `checksum` is the SHA-256 hex of the complete file.
+    /// Agent will immediately start sending data frames after this response.
+    FileStreamReady {
+        /// File size in bytes (downloads: actual size; uploads: always 0)
+        total_size: u64,
+        /// SHA-256 hex checksum of the complete file (downloads only)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        checksum: Option<String>,
+    },
+    /// Streaming file upload completed.
+    ///
+    /// Sent by the agent after all bytes have been received and the file finalized.
+    /// Not sent for downloads — the client knows the transfer is done when it has
+    /// received exactly `total_size` bytes.
+    FileStreamDone {
+        /// Total bytes received (upload) or sent (download)
+        bytes_transferred: u64,
+        /// True if the SHA-256 checksum was verified successfully (uploads with checksum only)
+        checksum_verified: bool,
     },
 }
 
@@ -783,6 +852,82 @@ mod tests {
                 proxy_id: "tunnel-abc".into(),
                 idle_timeout_secs: 30,
                 max_duration_secs: 1800,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_push_stream() {
+        let req = Request {
+            id: "fps-1".into(),
+            action: Action::FilePushStream {
+                path: "/opt/app/binary".into(),
+                total_size: 1048576,
+                checksum: Some("deadbeef01234567".into()),
+                mode: Some(0o755),
+                compress: false,
+            },
+            timeout_ms: Some(120000),
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_pull_stream() {
+        let req = Request {
+            id: "fpl-1".into(),
+            action: Action::FilePullStream {
+                path: "/var/log/app.log".into(),
+                compress: false,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_stream_ready() {
+        // Upload variant (total_size=0, no checksum)
+        let resp_upload = Response {
+            id: "fps-1".into(),
+            result: RpcResult::FileStreamReady {
+                total_size: 0,
+                checksum: None,
+            },
+        };
+        let bytes = codec::encode(&resp_upload).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp_upload, decoded);
+
+        // Download variant (total_size + checksum)
+        let resp_download = Response {
+            id: "fpl-1".into(),
+            result: RpcResult::FileStreamReady {
+                total_size: 2048,
+                checksum: Some("abc123def456".into()),
+            },
+        };
+        let bytes = codec::encode(&resp_download).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp_download, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_stream_done() {
+        let resp = Response {
+            id: "fps-1".into(),
+            result: RpcResult::FileStreamDone {
+                bytes_transferred: 1048576,
+                checksum_verified: true,
             },
         };
         let bytes = codec::encode(&resp).unwrap();

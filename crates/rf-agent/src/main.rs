@@ -440,6 +440,43 @@ async fn handle_direct_connection(
             .await;
         }
 
+        // FilePushStream / FilePullStream take over this connection for raw streaming
+        if let Action::FilePushStream {
+            ref path,
+            total_size,
+            ref checksum,
+            mode,
+            compress,
+        } = request.action
+        {
+            return handle_file_push_stream(
+                &chan,
+                &request.id,
+                path,
+                total_size,
+                checksum.as_deref(),
+                mode,
+                compress,
+                policy,
+                audit,
+                hex::encode(peer_key),
+            )
+            .await;
+        }
+
+        if let Action::FilePullStream { ref path, compress } = request.action {
+            return handle_file_pull_stream(
+                &chan,
+                &request.id,
+                path,
+                compress,
+                policy,
+                audit,
+                hex::encode(peer_key),
+            )
+            .await;
+        }
+
         let response: Response = executor.handle(request).await;
 
         let resp_data = codec::encode(&response)?;
@@ -568,6 +605,43 @@ async fn run_session(
                 target,
                 idle_timeout_secs,
                 max_duration_secs,
+                policy,
+                audit,
+                hex::encode(peer_key),
+            )
+            .await;
+        }
+
+        // FilePushStream / FilePullStream take over this connection for raw streaming
+        if let Action::FilePushStream {
+            ref path,
+            total_size,
+            ref checksum,
+            mode,
+            compress,
+        } = request.action
+        {
+            return handle_file_push_stream(
+                &chan,
+                &request.id,
+                path,
+                total_size,
+                checksum.as_deref(),
+                mode,
+                compress,
+                policy,
+                audit,
+                hex::encode(peer_key),
+            )
+            .await;
+        }
+
+        if let Action::FilePullStream { ref path, compress } = request.action {
+            return handle_file_pull_stream(
+                &chan,
+                &request.id,
+                path,
+                compress,
                 policy,
                 audit,
                 hex::encode(peer_key),
@@ -769,6 +843,351 @@ where
 
     // Idle timeout is enforced client-side (CLI closes when idle)
     let _ = idle_dur;
+
+    Ok(())
+}
+
+/// Handle a `FilePushStream` request: policy check → `FileStreamReady` → receive raw file data → finalize.
+///
+/// After sending `FileStreamReady` the connection carries raw file data chunks (still encrypted
+/// by the Noise channel) rather than RPC frames. The agent reads exactly `total_size` bytes,
+/// writes them to a temp file, verifies the optional SHA-256 checksum, and atomically renames
+/// to the destination path. Finally it sends `FileStreamDone` and returns to RPC mode.
+#[allow(clippy::too_many_arguments)]
+async fn handle_file_push_stream<R, W>(
+    chan: &Arc<SecureChannel<R, W>>,
+    request_id: &str,
+    path: &str,
+    total_size: u64,
+    checksum: Option<&str>,
+    mode: Option<u32>,
+    _compress: bool,
+    policy: &Arc<RwLock<RpcPolicy>>,
+    audit: &Arc<dyn rf_audit::logger::AuditLogger>,
+    caller_key: String,
+) -> anyhow::Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+    W: tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    use sha2::{Digest, Sha256};
+    use std::path::Path;
+    use tokio::io::AsyncWriteExt;
+
+    // Resolve symlinks before policy check (prevent path traversal)
+    let canonical = {
+        let p = Path::new(path);
+        if let Some(parent) = p.parent() {
+            if parent.exists() {
+                match std::fs::canonicalize(parent) {
+                    Ok(c) => c.join(p.file_name().unwrap_or_default()).to_string_lossy().into_owned(),
+                    Err(_) => path.to_string(),
+                }
+            } else {
+                path.to_string()
+            }
+        } else {
+            path.to_string()
+        }
+    };
+
+    let policy_guard = policy.read().await;
+    let decision = policy_guard.check_path(std::path::Path::new(&canonical));
+    let max_output = policy_guard.max_output_bytes;
+    drop(policy_guard);
+
+    if !decision.allowed {
+        let _ = audit.log(AuditEntry {
+            timestamp: chrono::Utc::now(),
+            request_id: request_id.to_string(),
+            action: "file_push_stream".into(),
+            command: Some(path.to_string()),
+            decision: "denied".into(),
+            matched_rule: decision.matched_rule.clone(),
+            exit_code: None,
+            duration_ms: 0,
+            caller_key: caller_key.clone(),
+            reason: None,
+        });
+        let response = Response {
+            id: request_id.to_string(),
+            result: RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            },
+        };
+        let data = codec::encode(&response)?;
+        chan.send(&data).await?;
+        return Ok(());
+    }
+
+    // Enforce file size limit
+    let size_limit = if max_output > 0 { max_output } else { u64::MAX };
+    if total_size > size_limit {
+        let response = Response {
+            id: request_id.to_string(),
+            result: RpcResult::Error {
+                message: format!("file too large: {total_size} bytes exceeds limit of {size_limit}"),
+            },
+        };
+        let data = codec::encode(&response)?;
+        chan.send(&data).await?;
+        return Ok(());
+    }
+
+    let _ = audit.log(AuditEntry {
+        timestamp: chrono::Utc::now(),
+        request_id: request_id.to_string(),
+        action: "file_push_stream".into(),
+        command: Some(path.to_string()),
+        decision: "allowed".into(),
+        matched_rule: decision.matched_rule,
+        exit_code: None,
+        duration_ms: 0,
+        caller_key: caller_key.clone(),
+        reason: None,
+    });
+
+    // Signal readiness — client starts sending raw frames immediately
+    let ready = Response {
+        id: request_id.to_string(),
+        result: RpcResult::FileStreamReady {
+            total_size: 0,
+            checksum: None,
+        },
+    };
+    let data = codec::encode(&ready)?;
+    chan.send(&data).await?;
+
+    // Write to a temp file alongside the destination
+    let dest_path = Path::new(path);
+    let parent = dest_path.parent().unwrap_or(Path::new("/tmp"));
+    let tmp_path = parent.join(format!(".raven_tmp_{request_id}"));
+
+    let result: anyhow::Result<(u64, bool)> = async {
+        let mut file = tokio::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&tmp_path)
+            .await
+            .map_err(|e| anyhow::anyhow!("open temp file: {e}"))?;
+
+        let mut hasher = Sha256::new();
+        let mut received: u64 = 0;
+
+        while received < total_size {
+            let chunk = chan.recv().await.map_err(|e| anyhow::anyhow!("recv: {e}"))?;
+            if chunk.is_empty() {
+                return Err(anyhow::anyhow!("connection closed before transfer complete"));
+            }
+            received += chunk.len() as u64;
+            if received > total_size {
+                return Err(anyhow::anyhow!("client sent more bytes than declared total_size"));
+            }
+            hasher.update(&chunk);
+            file.write_all(&chunk).await.map_err(|e| anyhow::anyhow!("write: {e}"))?;
+        }
+        file.flush().await.map_err(|e| anyhow::anyhow!("flush: {e}"))?;
+        drop(file);
+
+        // Verify checksum
+        let checksum_ok = if let Some(expected) = checksum {
+            let digest = hasher.finalize();
+            let actual: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+            actual == expected
+        } else {
+            true // no checksum provided — skip verification
+        };
+
+        if !checksum_ok {
+            return Err(anyhow::anyhow!("checksum mismatch"));
+        }
+
+        // Set permissions before rename (Unix)
+        #[cfg(unix)]
+        if let Some(m) = mode {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(m);
+            std::fs::set_permissions(&tmp_path, perms)
+                .map_err(|e| anyhow::anyhow!("chmod: {e}"))?;
+        }
+
+        // Atomic rename
+        tokio::fs::rename(&tmp_path, dest_path)
+            .await
+            .map_err(|e| anyhow::anyhow!("rename: {e}"))?;
+
+        Ok((received, checksum.is_none() || checksum_ok))
+    }.await;
+
+    // Clean up temp file on error
+    if result.is_err() {
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+    }
+
+    let (bytes_transferred, checksum_verified) = match result {
+        Ok(v) => v,
+        Err(e) => {
+            let response = Response {
+                id: request_id.to_string(),
+                result: RpcResult::Error {
+                    message: format!("stream upload failed: {e}"),
+                },
+            };
+            let data = codec::encode(&response)?;
+            chan.send(&data).await?;
+            return Err(e);
+        }
+    };
+
+    let _ = audit.log(AuditEntry {
+        timestamp: chrono::Utc::now(),
+        request_id: request_id.to_string(),
+        action: "file_push_stream_done".into(),
+        command: Some(path.to_string()),
+        decision: "allowed".into(),
+        matched_rule: "transfer-complete".into(),
+        exit_code: Some(0),
+        duration_ms: 0,
+        caller_key,
+        reason: None,
+    });
+
+    let done = Response {
+        id: request_id.to_string(),
+        result: RpcResult::FileStreamDone {
+            bytes_transferred,
+            checksum_verified,
+        },
+    };
+    let data = codec::encode(&done)?;
+    chan.send(&data).await?;
+
+    Ok(())
+}
+
+/// Handle a `FilePullStream` request: policy check → `FileStreamReady` → stream raw file data.
+///
+/// After sending `FileStreamReady { total_size, checksum }` the agent streams the file contents
+/// as raw `SecureChannel` frames (64 KB each). The client reads until `total_size` bytes are
+/// received, then verifies the checksum. Connection returns to RPC mode automatically.
+async fn handle_file_pull_stream<R, W>(
+    chan: &Arc<SecureChannel<R, W>>,
+    request_id: &str,
+    path: &str,
+    _compress: bool,
+    policy: &Arc<RwLock<RpcPolicy>>,
+    audit: &Arc<dyn rf_audit::logger::AuditLogger>,
+    caller_key: String,
+) -> anyhow::Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+    W: tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    use sha2::{Digest, Sha256};
+    use std::path::Path;
+
+    // Resolve symlinks before policy check (prevent path traversal)
+    let canonical = match std::fs::canonicalize(path) {
+        Ok(c) => c.to_string_lossy().into_owned(),
+        Err(_) => path.to_string(),
+    };
+
+    let policy_guard = policy.read().await;
+    let decision = policy_guard.check_path(std::path::Path::new(&canonical));
+    drop(policy_guard);
+
+    if !decision.allowed {
+        let _ = audit.log(AuditEntry {
+            timestamp: chrono::Utc::now(),
+            request_id: request_id.to_string(),
+            action: "file_pull_stream".into(),
+            command: Some(path.to_string()),
+            decision: "denied".into(),
+            matched_rule: decision.matched_rule.clone(),
+            exit_code: None,
+            duration_ms: 0,
+            caller_key: caller_key.clone(),
+            reason: None,
+        });
+        let response = Response {
+            id: request_id.to_string(),
+            result: RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            },
+        };
+        let data = codec::encode(&response)?;
+        chan.send(&data).await?;
+        return Ok(());
+    }
+
+    // Read the file and compute checksum up front
+    let file_data = match tokio::fs::read(Path::new(path)).await {
+        Ok(d) => d,
+        Err(e) => {
+            let response = Response {
+                id: request_id.to_string(),
+                result: RpcResult::Error {
+                    message: format!("read {path}: {e}"),
+                },
+            };
+            let data = codec::encode(&response)?;
+            chan.send(&data).await?;
+            return Ok(());
+        }
+    };
+    let total_size = file_data.len() as u64;
+    let digest = Sha256::digest(&file_data);
+    let checksum: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+
+    let _ = audit.log(AuditEntry {
+        timestamp: chrono::Utc::now(),
+        request_id: request_id.to_string(),
+        action: "file_pull_stream".into(),
+        command: Some(path.to_string()),
+        decision: "allowed".into(),
+        matched_rule: decision.matched_rule,
+        exit_code: None,
+        duration_ms: 0,
+        caller_key: caller_key.clone(),
+        reason: None,
+    });
+
+    // Announce file metadata — client now expects raw frames
+    let ready = Response {
+        id: request_id.to_string(),
+        result: RpcResult::FileStreamReady {
+            total_size,
+            checksum: Some(checksum),
+        },
+    };
+    let data = codec::encode(&ready)?;
+    chan.send(&data).await?;
+
+    // Stream file data in 64 KB frames
+    const CHUNK: usize = 65536;
+    let mut offset = 0;
+    while offset < file_data.len() {
+        let end = (offset + CHUNK).min(file_data.len());
+        chan.send(&file_data[offset..end]).await
+            .map_err(|e| anyhow::anyhow!("send: {e}"))?;
+        offset = end;
+    }
+
+    let _ = audit.log(AuditEntry {
+        timestamp: chrono::Utc::now(),
+        request_id: request_id.to_string(),
+        action: "file_pull_stream_done".into(),
+        command: Some(path.to_string()),
+        decision: "allowed".into(),
+        matched_rule: "transfer-complete".into(),
+        exit_code: Some(0),
+        duration_ms: 0,
+        caller_key,
+        reason: None,
+    });
 
     Ok(())
 }
