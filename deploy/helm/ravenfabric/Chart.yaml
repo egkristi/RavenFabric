@@ -3,7 +3,7 @@ name: ravenfabric
 description: RavenFabric — Security-first distributed execution engine
 type: application
 version: 0.8.0
-appVersion: "0.9.0"
+appVersion: "0.10.0"
 
 home: https://ravenfabric.io
 sources:

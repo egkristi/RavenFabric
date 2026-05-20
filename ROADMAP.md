@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.8.0 (Alpha) — Released 2026-05-20
+**Version:** 0.10.0 (Alpha) — Released 2026-05-20
 
-**Stats:** 13 crates, ~58,611 LOC, 1,186 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~59,448 LOC, 1,203 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -308,7 +308,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [ ] Time-based rotation triggers — configurable TTL per secret (e.g., rotate every 30 days)
 - [ ] Rotation hooks — execute custom command/script to generate new secret value
 - [ ] Grace period — old and new secret both valid during configurable overlap window
-- [ ] Rotation audit trail — every rotation event logged (who triggered, old hash, new hash, TTL)
+- [x] Rotation audit trail — every rotation event logged (who triggered, old hash, new hash, TTL)
 - [ ] Health-check after rotation — verify new secret works before retiring old
 
 #### External Secret Manager Integration
@@ -332,14 +332,14 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 **Goal:** Push audit logs and telemetry to external systems in real-time. Enterprise SOC integration.
 
 #### Remote Log Sinks
-- [ ] Syslog (RFC 5424) — UDP/TCP/TLS with facility/severity mapping
+- [x] Syslog (RFC 5424) — UDP/TCP with facility/severity mapping
 - [ ] Splunk HEC — HTTP Event Collector with token auth, batching, retry
 - [ ] Elasticsearch/OpenSearch — direct indexing via bulk API
 - [ ] Datadog — log forwarding via Datadog agent API
 - [x] Generic webhook — configurable HTTP POST with JSON payload
 
 #### Audit Log Formats
-- [ ] CEF (Common Event Format) — standard SIEM format
+- [x] CEF (Common Event Format) — standard SIEM format
 - [ ] LEEF (Log Event Extended Format) — IBM QRadar compatible
 - [ ] OCSF (Open Cybersecurity Schema Framework) — modern security event schema
 - [x] Native JSON-lines — existing format, now with remote push

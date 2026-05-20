@@ -112,4 +112,4 @@ These compliance documents track the `main` branch. Each document notes the
 RavenFabric version it was written against. As features are added, mappings are
 updated to reflect new capabilities.
 
-Current version: **v0.9.0 (~58,611 LOC, 1,186 tests, 0 clippy warnings), 0 clippy warnings)
+Current version: **v0.10.0 (~59,448 LOC, 1,203 tests, 0 clippy warnings), 0 clippy warnings), 0 clippy warnings)

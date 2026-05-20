@@ -5,6 +5,21 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-05-20
+
+### Added
+
+- **Syslog RFC 5424 audit destination** — new `SyslogAuditLogger` in `rf-audit::syslog`. Implements `AuditLogger` and sends each entry as an RFC 5424 syslog message to a remote server via UDP or TCP. UDP variant reuses a single bound socket (fire-and-forget, no error propagation). TCP variant maintains a persistent connection with 5-second timeouts and reconnects on drop; uses RFC 6587 octet-counting framing. Facility (`SyslogFacility`: Kernel, User, Daemon, Auth, Local0–Local7) and severity (`SyslogSeverity`: Emergency through Debug) are configurable. Priority = `facility * 8 + severity`. Structured data includes `request_id`, `decision`, `matched_rule`, `caller_key`, `duration_ms`. Delivery failures are logged at `warn` level, never surfaced as errors. New constructors: `SyslogAuditLogger::udp()` and `SyslogAuditLogger::tcp()`. 6 new tests.
+- **CEF (Common Event Format) audit wrapper** — new `CefAuditLogger<L>` in `rf-audit::cef`. Generic wrapper around any `AuditLogger`. Converts each `AuditEntry` to a CEF-formatted line (`CEF:0|RavenFabric|RavenFabric|version|class_id|name|severity|extension`) before forwarding to the inner logger. CEF severity maps from audit decision (`denied→8`, `error→7`, `allowed→3`, other→`5`). Extension fields include `rt` (epoch ms), `requestId`, `act`, `outcome`, `dvcpid`, `reason`, `duration`, `cs1Label=matchedRule`, `cs1`, `exitCode`, `suser`. Proper CEF escaping: `|` and `\` in header fields; `=`, `\`, `\n`, `\r` in extension values. Compatible with ArcSight, Splunk, IBM QRadar, and other SIEM systems. 8 new tests.
+- **Rotation audit trail** — `TrustStore` now maintains an in-memory append-only rotation log (`Vec<RotationEvent>`). New types: `RotationEventType` (`Rotate` / `Revoke`) and `RotationEvent` (`timestamp`, `agent_id`, `event_type`, `old_key_hash`, `new_key_hash`, `version`). `rotate_key()` appends a `Rotate` event with the hex digest of both old and new keys, plus the new version number. `revoke_immediate()` appends a `Revoke` event with the old key hash and current version. New `TrustStore::rotation_history()` method returns the full audit trail. 3 new tests: `test_rotation_audit_trail_rotate`, `test_rotation_audit_trail_revoke`, `test_rotation_audit_trail_multiple_events`.
+
+### Changed
+
+- **Version**: Bumped to 0.10.0 across all crates and deploy manifests
+- **Total tests**: 1,203 (up from 1,186) — +14 rf-audit (syslog + CEF), +3 rf-bootstrap (rotation trail)
+- **LOC**: ~59,448 (up from ~58,611)
+- `rf-audit::lib` now exports `cef` and `syslog` modules
+
 ## [0.9.0] — 2026-05-20
 
 ### Added
