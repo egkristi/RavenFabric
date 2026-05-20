@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.10.0 (Alpha) — Released 2026-05-20
+**Version:** 0.11.0 (Alpha) — Released 2026-05-20
 
-**Stats:** 13 crates, ~59,448 LOC, 1,203 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~60,548 LOC, 1,232 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -333,15 +333,15 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 
 #### Remote Log Sinks
 - [x] Syslog (RFC 5424) — UDP/TCP with facility/severity mapping
-- [ ] Splunk HEC — HTTP Event Collector with token auth, batching, retry
+- [x] Splunk HEC — HTTP Event Collector with token auth, batching, retry
 - [ ] Elasticsearch/OpenSearch — direct indexing via bulk API
 - [ ] Datadog — log forwarding via Datadog agent API
 - [x] Generic webhook — configurable HTTP POST with JSON payload
 
 #### Audit Log Formats
 - [x] CEF (Common Event Format) — standard SIEM format
-- [ ] LEEF (Log Event Extended Format) — IBM QRadar compatible
-- [ ] OCSF (Open Cybersecurity Schema Framework) — modern security event schema
+- [x] LEEF (Log Event Extended Format) — IBM QRadar compatible
+- [x] OCSF (Open Cybersecurity Schema Framework) — modern security event schema
 - [x] Native JSON-lines — existing format, now with remote push
 
 #### Fleet Aggregation

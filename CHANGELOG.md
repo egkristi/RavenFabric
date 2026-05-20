@@ -5,6 +5,21 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] — 2026-05-20
+
+### Added
+
+- **LEEF (Log Event Extended Format) audit formatter** — new `LeefAuditLogger<L>` in `rf-audit::leef`. Generic wrapper around any `AuditLogger`. Supports LEEF 1.0 and 2.0 via `LeefVersion` enum (default: V2). LEEF 1.0 header: `LEEF:1.0|Vendor|Product|Version|EventID|attrs`; LEEF 2.0 adds a Label field: `LEEF:2.0|Vendor|Product|Version|EventID|Label|attrs`. Tab-delimited attributes: `devTime`, `requestId`, `act`, `outcome`, `sev`, `src`, `duration`, `matchedRule`, and optionally `cmd`, `exitCode`, `reason`. Proper LEEF escaping (`|`, `\`, `=`) in both header and attribute values. `new()` constructor (defaults to V2) and `with_version()` to select format. IBM QRadar compatible. 9 new tests.
+- **OCSF (Open Cybersecurity Schema Framework) audit formatter** — new `OcsfAuditLogger<L>` in `rf-audit::ocsf`. Converts each `AuditEntry` to OCSF 1.1.0 schema, class_uid 6003 (Application Activity). Types: `OcsfMetadata`, `OcsfProduct`, `OcsfActor`, `OcsfUser`, `OcsfEvent`. Maps audit decisions to OCSF severity codes (0–6) and status codes (0=Unknown, 1=Success, 2=Failure). Public functions: `to_ocsf_event()` and `format_ocsf()`. Serialization errors logged at `warn` level, never surfaced as errors. 12 new tests.
+- **Splunk HEC audit destination** — new `SplunkHecAuditLogger` in `rf-audit::splunk`. Sends audit entries to a Splunk HTTP Event Collector endpoint with token-based authentication. `SplunkHecConfig`: configurable `url`, `token`, `index` (default `"main"`), `batch_size` (default 1). `HecPayload`: `time` (f64 Unix epoch), `source` (`"ravenfabric"`), `sourcetype` (`"rf:audit"`), `index`, `event`. Batch queue (`Arc<Mutex<Vec<String>>>`): accumulates serialized events and flushes at `batch_size`. `Drop` impl: flushes any remaining buffered events on drop; send failures logged at `warn`. 8 new tests.
+
+### Changed
+
+- **Version**: Bumped to 0.11.0 across all crates and deploy manifests
+- **Total tests**: 1,232 (up from 1,203) — +29 rf-audit (9 leef + 12 ocsf + 8 splunk)
+- **LOC**: ~60,548 (up from ~59,448)
+- `rf-audit::lib` now exports `leef`, `ocsf`, and `splunk` modules
+
 ## [0.10.0] — 2026-05-20
 
 ### Added
