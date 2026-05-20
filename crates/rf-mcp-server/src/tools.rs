@@ -2,226 +2,258 @@
 
 use serde_json::{Value, json};
 
-/// Returns the list of tools this MCP server exposes.
+/// Returns the list of tools filtered to only the given names.
+///
+/// If `allowed` is empty, all tools are included (unrestricted access).
+/// Otherwise only tools whose `name` appears in `allowed` are returned.
+/// Unknown names in `allowed` are silently ignored.
 #[allow(clippy::too_many_lines)]
-pub fn list_tools() -> Value {
-    json!({
-        "tools": [
-            {
-                "name": "rf_exec",
-                "description": "Execute a command on the target system. Subject to RavenFabric policy enforcement — commands not matching allow rules will be denied. Immutable deny rules block catastrophic commands regardless of policy. Commands matching approval-required patterns must include an approval_id from a prior rf_request_approval call that has been approved by a human operator.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "command": {
-                            "type": "string",
-                            "description": "The command to execute (e.g., 'ls -la /tmp')"
-                        },
-                        "workdir": {
-                            "type": "string",
-                            "description": "Working directory for command execution (optional)"
-                        },
-                        "reason": {
-                            "type": "string",
-                            "description": "Explanation of why this command is needed (recorded in audit log)"
-                        },
-                        "timeout_ms": {
-                            "type": "integer",
-                            "description": "Execution timeout in milliseconds (optional, default from policy)"
-                        },
-                        "approval_id": {
-                            "type": "string",
-                            "description": "Approval ID from rf_request_approval (required for commands matching approval-required patterns)"
-                        }
+pub fn list_tools_filtered(allowed: &[String]) -> Value {
+    let all: Vec<Value> = vec![
+        json!({
+            "name": "rf_exec",
+            "description": "Execute a command on the target system. Subject to RavenFabric policy enforcement — commands not matching allow rules will be denied. Immutable deny rules block catastrophic commands regardless of policy. Commands matching approval-required patterns must include an approval_id from a prior rf_request_approval call that has been approved by a human operator.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The command to execute (e.g., 'ls -la /tmp')"
                     },
-                    "required": ["command"]
-                }
-            },
-            {
-                "name": "rf_query_policy",
-                "description": "Check whether a command would be allowed by the current policy without executing it. Returns allow/deny decision and matched rule.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "command": {
-                            "type": "string",
-                            "description": "The command to check against policy"
-                        }
+                    "workdir": {
+                        "type": "string",
+                        "description": "Working directory for command execution (optional)"
                     },
-                    "required": ["command"]
-                }
-            },
-            {
-                "name": "rf_file_read",
-                "description": "Read a file from the filesystem. Subject to path policy — files outside allowed paths will be denied.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Absolute path to the file to read"
-                        }
+                    "reason": {
+                        "type": "string",
+                        "description": "Explanation of why this command is needed (recorded in audit log)"
                     },
-                    "required": ["path"]
-                }
-            },
-            {
-                "name": "rf_file_write",
-                "description": "Write content to a file on the filesystem. Subject to path policy — writes outside allowed paths will be denied. When approval mode is active, requires approval_id from a prior rf_request_approval call (use command='write:<path>').",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Absolute path to the file to write"
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Content to write to the file"
-                        },
-                        "mode": {
-                            "type": "integer",
-                            "description": "Unix file permissions (octal, e.g., 0644). Optional."
-                        },
-                        "approval_id": {
-                            "type": "string",
-                            "description": "Approval ID from rf_request_approval (required when approval mode is active, use command='write:<path>')"
-                        }
+                    "timeout_ms": {
+                        "type": "integer",
+                        "description": "Execution timeout in milliseconds (optional, default from policy)"
                     },
-                    "required": ["path", "content"]
-                }
-            },
-            {
-                "name": "rf_list_my_capabilities",
-                "description": "Discover what commands and paths the current policy allows. Returns allowed command patterns, allowed filesystem paths, and resource limits.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-            },
-            {
-                "name": "rf_audit_query",
-                "description": "Query the audit log for recent actions performed in this session. Useful for reviewing what has been done.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of entries to return (default: 20)"
-                        },
-                        "action_filter": {
-                            "type": "string",
-                            "description": "Filter by action type (e.g., 'execute', 'read', 'write')"
-                        }
-                    },
-                    "required": []
-                }
-            },
-            {
-                "name": "rf_request_approval",
-                "description": "Request human approval for a sensitive operation. Blocks until approved or denied by a human operator.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "description": "Description of the operation requiring approval"
-                        },
-                        "command": {
-                            "type": "string",
-                            "description": "The command that will be executed if approved"
-                        },
-                        "reason": {
-                            "type": "string",
-                            "description": "Why this operation is necessary"
-                        }
-                    },
-                    "required": ["operation", "command", "reason"]
-                }
-            },
-            {
-                "name": "rf_check_approval",
-                "description": "Check the status of a pending approval request. Returns approved, denied, or pending.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "approval_id": {
-                            "type": "string",
-                            "description": "The approval ID returned by rf_request_approval"
-                        }
-                    },
-                    "required": ["approval_id"]
-                }
-            },
-            {
-                "name": "rf_http_request",
-                "description": "Make an HTTP request through the RavenFabric agent to a private upstream service. The agent forwards the request to the target and returns the response. Subject to HTTP policy enforcement — method + path combinations not in the allow list are denied. Provides policy-controlled, fully audited access to internal APIs without exposing ports or using VPNs. Response body is returned as a string; JSON bodies are automatically parsed.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "target": {
-                            "type": "string",
-                            "description": "Target base URL or host:port (e.g., 'localhost:8080' or 'http://internal-api:3000')"
-                        },
-                        "method": {
-                            "type": "string",
-                            "description": "HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS",
-                            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
-                        },
-                        "path": {
-                            "type": "string",
-                            "description": "Request path including query string (e.g., '/api/v1/users?limit=10')"
-                        },
-                        "headers": {
-                            "type": "object",
-                            "description": "Request headers as key-value pairs (optional)",
-                            "additionalProperties": { "type": "string" }
-                        },
-                        "body": {
-                            "type": "string",
-                            "description": "Request body as a string (optional, used for POST/PUT/PATCH)"
-                        },
-                        "reason": {
-                            "type": "string",
-                            "description": "Explanation of why this request is needed (recorded in audit log)"
-                        }
-                    },
-                    "required": ["target", "method", "path"]
-                }
-            },
-            {
-                "name": "rf_file_transfer",
-                "description": "Transfer a file between the local filesystem on the agent. Supports copying files to new locations with integrity verification (SHA-256). Subject to path policy enforcement — source must be readable and destination must be writable. When approval mode is active, requires approval_id (use command='transfer:<source>:<dest>').",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "source": {
-                            "type": "string",
-                            "description": "Absolute path to the source file"
-                        },
-                        "destination": {
-                            "type": "string",
-                            "description": "Absolute path to the destination file"
-                        },
-                        "mode": {
-                            "type": "integer",
-                            "description": "Unix file permissions for destination (octal, e.g., 0644). Optional — preserves source permissions if omitted."
-                        },
-                        "reason": {
-                            "type": "string",
-                            "description": "Explanation of why this transfer is needed (recorded in audit log)"
-                        },
-                        "approval_id": {
-                            "type": "string",
-                            "description": "Approval ID from rf_request_approval (required when approval mode is active)"
-                        }
-                    },
-                    "required": ["source", "destination"]
-                }
+                    "approval_id": {
+                        "type": "string",
+                        "description": "Approval ID from rf_request_approval (required for commands matching approval-required patterns)"
+                    }
+                },
+                "required": ["command"]
             }
-        ]
-    })
+        }),
+        json!({
+            "name": "rf_query_policy",
+            "description": "Check whether a command would be allowed by the current policy without executing it. Returns allow/deny decision and matched rule.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The command to check against policy"
+                    }
+                },
+                "required": ["command"]
+            }
+        }),
+        json!({
+            "name": "rf_file_read",
+            "description": "Read a file from the filesystem. Subject to path policy — files outside allowed paths will be denied.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Absolute path to the file to read"
+                    }
+                },
+                "required": ["path"]
+            }
+        }),
+        json!({
+            "name": "rf_file_write",
+            "description": "Write content to a file on the filesystem. Subject to path policy — writes outside allowed paths will be denied. When approval mode is active, requires approval_id from a prior rf_request_approval call (use command='write:<path>').",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Absolute path to the file to write"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Content to write to the file"
+                    },
+                    "mode": {
+                        "type": "integer",
+                        "description": "Unix file permissions (octal, e.g., 0644). Optional."
+                    },
+                    "approval_id": {
+                        "type": "string",
+                        "description": "Approval ID from rf_request_approval (required when approval mode is active, use command='write:<path>')"
+                    }
+                },
+                "required": ["path", "content"]
+            }
+        }),
+        json!({
+            "name": "rf_list_my_capabilities",
+            "description": "Discover what commands and paths the current policy allows. Returns allowed command patterns, allowed filesystem paths, resource limits, and the set of MCP tools available to this caller.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }),
+        json!({
+            "name": "rf_audit_query",
+            "description": "Query the audit log for recent actions performed in this session. Useful for reviewing what has been done.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of entries to return (default: 20)"
+                    },
+                    "action_filter": {
+                        "type": "string",
+                        "description": "Filter by action type (e.g., 'execute', 'read', 'write')"
+                    }
+                },
+                "required": []
+            }
+        }),
+        json!({
+            "name": "rf_request_approval",
+            "description": "Request human approval for a sensitive operation. Blocks until approved or denied by a human operator.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "description": "Description of the operation requiring approval"
+                    },
+                    "command": {
+                        "type": "string",
+                        "description": "The command that will be executed if approved"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why this operation is necessary"
+                    }
+                },
+                "required": ["operation", "command", "reason"]
+            }
+        }),
+        json!({
+            "name": "rf_check_approval",
+            "description": "Check the status of a pending approval request. Returns approved, denied, or pending.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "approval_id": {
+                        "type": "string",
+                        "description": "The approval ID returned by rf_request_approval"
+                    }
+                },
+                "required": ["approval_id"]
+            }
+        }),
+        json!({
+            "name": "rf_http_request",
+            "description": "Make an HTTP request through the RavenFabric agent to a private upstream service. The agent forwards the request to the target and returns the response. Subject to HTTP policy enforcement — method + path combinations not in the allow list are denied. Provides policy-controlled, fully audited access to internal APIs without exposing ports or using VPNs. Response body is returned as a string; JSON bodies are automatically parsed.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Target base URL or host:port (e.g., 'localhost:8080' or 'http://internal-api:3000')"
+                    },
+                    "method": {
+                        "type": "string",
+                        "description": "HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS",
+                        "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Request path including query string (e.g., '/api/v1/users?limit=10')"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Request headers as key-value pairs (optional)",
+                        "additionalProperties": { "type": "string" }
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "Request body as a string (optional, used for POST/PUT/PATCH)"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Explanation of why this request is needed (recorded in audit log)"
+                    }
+                },
+                "required": ["target", "method", "path"]
+            }
+        }),
+        json!({
+            "name": "rf_file_transfer",
+            "description": "Transfer a file between the local filesystem on the agent. Supports copying files to new locations with integrity verification (SHA-256). Subject to path policy enforcement — source must be readable and destination must be writable. When approval mode is active, requires approval_id (use command='transfer:<source>:<dest>').",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source": {
+                        "type": "string",
+                        "description": "Absolute path to the source file"
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": "Absolute path to the destination file"
+                    },
+                    "mode": {
+                        "type": "integer",
+                        "description": "Unix file permissions for destination (octal, e.g., 0644). Optional — preserves source permissions if omitted."
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Explanation of why this transfer is needed (recorded in audit log)"
+                    },
+                    "approval_id": {
+                        "type": "string",
+                        "description": "Approval ID from rf_request_approval (required when approval mode is active)"
+                    }
+                },
+                "required": ["source", "destination"]
+            }
+        }),
+    ];
+
+    let tools: Vec<&Value> = if allowed.is_empty() {
+        all.iter().collect()
+    } else {
+        all.iter()
+            .filter(|t| {
+                t["name"]
+                    .as_str()
+                    .is_some_and(|n| allowed.iter().any(|a| a == n))
+            })
+            .collect()
+    };
+
+    json!({ "tools": tools })
+}
+
+/// Returns a sorted list of all tool names.
+pub fn all_tool_names() -> Vec<&'static str> {
+    vec![
+        "rf_audit_query",
+        "rf_check_approval",
+        "rf_exec",
+        "rf_file_read",
+        "rf_file_transfer",
+        "rf_file_write",
+        "rf_http_request",
+        "rf_list_my_capabilities",
+        "rf_query_policy",
+        "rf_request_approval",
+    ]
 }
 
 /// Describes a tool call result as MCP content.
@@ -256,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_list_tools_has_all_tools() {
-        let tools = list_tools();
+        let tools = list_tools_filtered(&[]);
         let tools_arr = tools["tools"].as_array().unwrap();
         let names: Vec<&str> = tools_arr
             .iter()
@@ -273,6 +305,55 @@ mod tests {
         assert!(names.contains(&"rf_file_transfer"));
         assert!(names.contains(&"rf_http_request"));
         assert_eq!(names.len(), 10);
+    }
+
+    #[test]
+    fn test_list_tools_filtered_empty_means_all() {
+        let all = list_tools_filtered(&[]);
+        let filtered = list_tools_filtered(&[]);
+        assert_eq!(
+            all["tools"].as_array().unwrap().len(),
+            filtered["tools"].as_array().unwrap().len()
+        );
+    }
+
+    #[test]
+    fn test_list_tools_filtered_subset() {
+        let allowed = vec!["rf_exec".to_string(), "rf_file_read".to_string()];
+        let filtered = list_tools_filtered(&allowed);
+        let tools_arr = filtered["tools"].as_array().unwrap();
+        assert_eq!(tools_arr.len(), 2);
+        let names: Vec<&str> = tools_arr
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert!(names.contains(&"rf_exec"));
+        assert!(names.contains(&"rf_file_read"));
+        assert!(!names.contains(&"rf_file_write"));
+        assert!(!names.contains(&"rf_http_request"));
+    }
+
+    #[test]
+    fn test_list_tools_filtered_unknown_name_ignored() {
+        let allowed = vec!["rf_exec".to_string(), "rf_nonexistent".to_string()];
+        let filtered = list_tools_filtered(&allowed);
+        let tools_arr = filtered["tools"].as_array().unwrap();
+        // Only rf_exec matches; rf_nonexistent is silently ignored
+        assert_eq!(tools_arr.len(), 1);
+        assert_eq!(tools_arr[0]["name"], "rf_exec");
+    }
+
+    #[test]
+    fn test_list_tools_filtered_no_matches_returns_empty() {
+        let allowed = vec!["nonexistent".to_string()];
+        let filtered = list_tools_filtered(&allowed);
+        let tools_arr = filtered["tools"].as_array().unwrap();
+        assert_eq!(tools_arr.len(), 0);
+    }
+
+    #[test]
+    fn test_all_tool_names_count() {
+        assert_eq!(all_tool_names().len(), 10);
     }
 
     #[test]

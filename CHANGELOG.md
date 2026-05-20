@@ -5,6 +5,22 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] — 2026-05-21
+
+### Added
+
+- **Policy-gated MCP tool endpoints (RBAC `allowed_tools`)** — `CallerProfile` now accepts an optional `allowed_tools: Vec<String>` field. When set, `tools/list` returns only the permitted subset, and `tools/call` rejects any tool not in the list with a structured error. Empty list (default) preserves existing behaviour — all tools available. `tool_list_capabilities` now reports `caller`, `allowed_tools`, and `tool_restriction_active` so AI agents can discover their effective permissions. New `list_tools_filtered(allowed: &[String])` + `all_tool_names()` helpers in `tools.rs`. 11 new tests covering filtered listing, call rejection, call allowance, and capabilities reporting.
+
+### Changed
+
+- **Version**: Bumped to 0.14.0 across all crates and deploy manifests
+- **Total tests**: 1,279 (up from 1,268) — +11 rf-mcp-server (RBAC tool gating)
+- **rf-mcp-server LOC**: ~3,400+ (up from ~3,300)
+
+### Fixed
+
+- Dependabot ignore rule added for `sysinfo >= 0.39` (requires rustc 1.95; MSRV is 1.88)
+
 ## [0.13.0] — 2026-05-20
 
 ### Added

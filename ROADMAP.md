@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.13.0 (Alpha) — Released 2026-05-20
+**Version:** 0.14.0 (Alpha) — Released 2026-05-21
 
-**Stats:** 13 crates, ~62,819 LOC, 1,268 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~63,229 LOC, 1,279 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -121,7 +121,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.13.0 — all planned features implemented and tested.
+**Current:** Alpha v0.14.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -186,7 +186,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 #### MCP + AI Agent Integration
 - [x] MCP tool: `rf_http_request` — AI agents call private APIs through RavenFabric with full policy enforcement
 - [x] Structured responses — JSON body returned to AI agent with status code, headers, parsed body
-- [ ] Policy-gated endpoints — different AI agents get different API access based on their RBAC profile
+- [x] Policy-gated endpoints — different AI agents get different API access based on their RBAC profile
 - [x] Rate limiting per destination — prevent AI agent loops from overwhelming upstream services
 
 ---

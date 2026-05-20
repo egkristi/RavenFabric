@@ -32,11 +32,11 @@ Cargo workspace with 13 crates:
 | `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~390 LOC, 7 tests) |
 | `rf-agent` | Agent binary (connects to relay or listens directly, executes RPC, reconnect with backoff, single-threaded mode) | **Done** (~530 LOC) |
 | `rf-cli` | CLI client `rf` (exec, dev, status, policy, cp, proxy, completions, direct connect) | **Done** (~2,000 LOC) |
-| `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,300 LOC, 50 tests) |
+| `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,400 LOC, 61 tests) |
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~62,819 LOC, 1,268 tests, 0 clippy warnings.**
+**Total: ~63,229 LOC, 1,279 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

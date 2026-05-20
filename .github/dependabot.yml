@@ -11,6 +11,11 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "deps"
+    ignore:
+      # sysinfo >= 0.39 requires rustc 1.95; our MSRV is 1.88. Pin at 0.38.x
+      # until MSRV is raised. Tracked in issue #99.
+      - dependency-name: "sysinfo"
+        versions: [">=0.39"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

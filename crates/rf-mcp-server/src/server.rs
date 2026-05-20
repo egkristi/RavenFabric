@@ -95,6 +95,13 @@ pub struct CallerProfile {
     pub token: String,
     /// Path to the policy file for this caller.
     pub policy: PathBuf,
+    /// Explicit list of MCP tool names this caller may invoke.
+    ///
+    /// An empty list means **all tools are allowed** (no tool restriction).
+    /// When non-empty, only the listed tools appear in `tools/list` and any
+    /// call to an unlisted tool is rejected before execution.
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
 }
 
 impl CallersConfig {
@@ -128,6 +135,11 @@ pub struct McpServer {
     alert_webhook: Option<String>,
     /// RBAC caller profiles (token → policy mapping).
     caller_profiles: Vec<CallerProfile>,
+    /// Tools the authenticated caller is allowed to invoke (empty = all tools).
+    /// Set during `initialize` from the matching `CallerProfile.allowed_tools`.
+    caller_allowed_tools: Arc<tokio::sync::Mutex<Vec<String>>>,
+    /// Human-readable name of the authenticated caller (for audit logs).
+    caller_name: Arc<tokio::sync::Mutex<Option<String>>>,
     /// Short-lived Curve25519 session identity key (generated per session).
     session_key: StaticKey,
     /// Regex patterns for commands that require human approval before execution.
@@ -264,6 +276,8 @@ impl McpServer {
             anomaly_tracker,
             alert_webhook,
             caller_profiles,
+            caller_allowed_tools: Arc::new(tokio::sync::Mutex::new(Vec::new())),
+            caller_name: Arc::new(tokio::sync::Mutex::new(None)),
             session_key,
             approval_required_patterns,
             require_approval,
@@ -391,7 +405,7 @@ impl McpServer {
         }
 
         match request.method.as_str() {
-            "tools/list" => self.handle_tools_list(id),
+            "tools/list" => self.handle_tools_list(id).await,
             "tools/call" => self.handle_tools_call(id, &request.params).await,
             "resources/list" => self.handle_resources_list(id),
             "prompts/list" => self.handle_prompts_list(id),
@@ -469,10 +483,10 @@ impl McpServer {
         )
     }
 
-    /// Handle MCP `tools/list` — return available tools.
-    #[allow(clippy::unused_self)]
-    fn handle_tools_list(&self, id: Option<Value>) -> JsonRpcResponse {
-        JsonRpcResponse::success(id, tools::list_tools())
+    /// Handle MCP `tools/list` — return available tools filtered by caller's RBAC profile.
+    async fn handle_tools_list(&self, id: Option<Value>) -> JsonRpcResponse {
+        let allowed = self.caller_allowed_tools.lock().await;
+        JsonRpcResponse::success(id, tools::list_tools_filtered(&allowed))
     }
 
     /// Handle MCP `tools/call` — dispatch to the appropriate tool handler.
@@ -480,6 +494,33 @@ impl McpServer {
         let Some(tool_name) = params.get("name").and_then(|n| n.as_str()) else {
             return JsonRpcResponse::invalid_params(id, "missing 'name' in params");
         };
+
+        // Enforce tool-level RBAC: if the caller has an allowed_tools list, only
+        // tools on that list may be invoked — regardless of what the caller asks for.
+        {
+            let allowed = self.caller_allowed_tools.lock().await;
+            if !allowed.is_empty() && !allowed.iter().any(|a| a == tool_name) {
+                let caller = self
+                    .caller_name
+                    .lock()
+                    .await
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string());
+                warn!(
+                    caller = %caller,
+                    tool = %tool_name,
+                    "tool call rejected — not in caller's allowed_tools list"
+                );
+                return JsonRpcResponse::error(
+                    id,
+                    INTERNAL_ERROR,
+                    format!(
+                        "Tool '{tool_name}' is not available to caller '{caller}'. \
+                         Use tools/list to see the tools available to your identity."
+                    ),
+                );
+            }
+        }
 
         let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
 
@@ -931,11 +972,32 @@ impl McpServer {
     /// List capabilities allowed by the current policy.
     async fn tool_list_capabilities(&self) -> Result<Value, String> {
         let policy = self.policy.read().await;
+        let allowed_tools = self.caller_allowed_tools.lock().await;
+        let caller = self
+            .caller_name
+            .lock()
+            .await
+            .clone()
+            .unwrap_or_else(|| "default".to_string());
+
+        // Build the effective tool list: either the RBAC-restricted set or all tools
+        let effective_tools: Vec<&str> = if allowed_tools.is_empty() {
+            tools::all_tool_names()
+        } else {
+            allowed_tools
+                .iter()
+                .map(String::as_str)
+                .collect()
+        };
+
         let info = json!({
             "max_output_bytes": policy.max_output_bytes,
             "timeout_seconds": policy.timeout_seconds,
             "session_id": self.session_id,
             "session_public_key": self.session_key.public_hex(),
+            "caller": caller,
+            "allowed_tools": effective_tools,
+            "tool_restriction_active": !allowed_tools.is_empty(),
             "note": "Use rf_query_policy to check specific commands. All operations are deny-by-default."
         });
         Ok(tools::text_content(
@@ -1192,6 +1254,7 @@ impl McpServer {
                     session_id = %self.session_id,
                     caller = %profile.name,
                     policy = %profile.policy.display(),
+                    allowed_tools = ?profile.allowed_tools,
                     "authenticated via caller profile (RBAC)"
                 );
                 // Load the caller-specific policy
@@ -1208,6 +1271,9 @@ impl McpServer {
                         );
                     }
                 }
+                // Apply tool restriction and record caller identity
+                self.caller_allowed_tools.lock().await.clone_from(&profile.allowed_tools);
+                *self.caller_name.lock().await = Some(profile.name.clone());
                 return true;
             }
         }
@@ -1222,6 +1288,7 @@ impl McpServer {
                     session_id = %self.session_id,
                     caller = %profile.name,
                     policy = %profile.policy.display(),
+                    allowed_tools = ?profile.allowed_tools,
                     "applying caller profile policy (RBAC)"
                 );
                 match RpcPolicy::load(&profile.policy) {
@@ -1237,6 +1304,9 @@ impl McpServer {
                         );
                     }
                 }
+                // Apply tool restriction and record caller identity
+                self.caller_allowed_tools.lock().await.clone_from(&profile.allowed_tools);
+                *self.caller_name.lock().await = Some(profile.name.clone());
                 return;
             }
         }
@@ -2026,6 +2096,7 @@ mod tests {
             name: "restricted-agent".into(),
             token: "restricted-token-abc".into(),
             policy: restricted.path().to_path_buf(),
+            allowed_tools: vec![],
         }];
 
         // No default api_token — only caller profiles
@@ -2077,6 +2148,7 @@ mod tests {
             name: "agent-one".into(),
             token: "valid-token".into(),
             policy: policy.path().to_path_buf(),
+            allowed_tools: vec![],
         }];
 
         let server = McpServer::new(
@@ -2168,11 +2240,13 @@ policy = "/etc/rf/dev-policy.yaml"
                 name: "ci-agent".into(),
                 token: "ci-token".into(),
                 policy: ci_policy.path().to_path_buf(),
+                allowed_tools: vec![],
             },
             CallerProfile {
                 name: "monitor-agent".into(),
                 token: "monitor-token".into(),
                 policy: monitor_policy.path().to_path_buf(),
+                allowed_tools: vec![],
             },
         ];
 
@@ -2261,6 +2335,7 @@ policy = "/etc/rf/dev-policy.yaml"
             name: "known-agent".into(),
             token: "known-token".into(),
             policy: permissive_policy.path().to_path_buf(),
+            allowed_tools: vec![],
         }];
 
         let server = McpServer::new(
@@ -2846,4 +2921,258 @@ policy = "/etc/rf/dev-policy.yaml"
             response.error
         );
     }
+
+    // --- Policy-gated endpoints (RBAC tool restriction) tests ---
+
+    fn create_caller_profile_with_tools(
+        allowed_tools: Vec<String>,
+        policy_path: &std::path::Path,
+    ) -> CallerProfile {
+        CallerProfile {
+            name: "restricted-bot".to_string(),
+            token: "test-profile-token".to_string(),
+            policy: policy_path.to_path_buf(),
+            allowed_tools,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_tools_list_unrestricted_shows_all() {
+        let policy_file = create_test_policy();
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            Vec::new(),
+            &[],
+            false,
+        )
+        .unwrap();
+
+        // No caller profiles — all tools visible
+        let request = crate::protocol::JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "tools/list".into(),
+            params: json!({}),
+        };
+        let response = server.handle_request(&request).await;
+        assert!(response.error.is_none());
+        let tools = response.result.unwrap()["tools"].as_array().unwrap().len();
+        assert_eq!(tools, 10, "unrestricted session should see all 10 tools");
+    }
+
+    #[tokio::test]
+    async fn test_tools_list_restricted_by_caller_profile() {
+        let policy_file = create_test_policy();
+        let allowed = vec![
+            "rf_exec".to_string(),
+            "rf_query_policy".to_string(),
+            "rf_list_my_capabilities".to_string(),
+        ];
+        let profile = create_caller_profile_with_tools(allowed.clone(), policy_file.path());
+
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            vec![profile],
+            &[],
+            false,
+        )
+        .unwrap();
+
+        // Authenticate as the restricted caller
+        server.authenticate_via_profile("test-profile-token").await;
+        *server.authenticated.lock().await = true;
+
+        let request = crate::protocol::JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "tools/list".into(),
+            params: json!({}),
+        };
+        let response = server.handle_request(&request).await;
+        assert!(response.error.is_none());
+        let tools_arr = response.result.unwrap()["tools"].as_array().unwrap().clone();
+        assert_eq!(
+            tools_arr.len(),
+            3,
+            "restricted caller should see exactly 3 tools"
+        );
+        let names: Vec<&str> = tools_arr
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert!(names.contains(&"rf_exec"));
+        assert!(names.contains(&"rf_query_policy"));
+        assert!(names.contains(&"rf_list_my_capabilities"));
+        assert!(!names.contains(&"rf_file_write"));
+        assert!(!names.contains(&"rf_http_request"));
+    }
+
+    #[tokio::test]
+    async fn test_tool_call_rejected_if_not_in_allowed_list() {
+        let policy_file = create_test_policy();
+        // Caller is only allowed rf_query_policy — rf_exec is off-limits
+        let allowed = vec!["rf_query_policy".to_string()];
+        let profile = create_caller_profile_with_tools(allowed, policy_file.path());
+
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            vec![profile],
+            &[],
+            false,
+        )
+        .unwrap();
+
+        // Authenticate
+        server.authenticate_via_profile("test-profile-token").await;
+        *server.authenticated.lock().await = true;
+
+        // Try to call rf_exec — should be rejected at the RBAC gate
+        let request = crate::protocol::JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(99)),
+            method: "tools/call".into(),
+            params: json!({
+                "name": "rf_exec",
+                "arguments": { "command": "echo hello" }
+            }),
+        };
+        let response = server.handle_request(&request).await;
+        assert!(
+            response.error.is_some(),
+            "disallowed tool call should return an error"
+        );
+        let msg = response.error.unwrap().message;
+        assert!(
+            msg.contains("not available to caller"),
+            "error should mention RBAC: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_tool_call_allowed_if_in_allowed_list() {
+        let policy_file = create_test_policy();
+        // Caller is allowed rf_query_policy
+        let allowed = vec!["rf_query_policy".to_string(), "rf_exec".to_string()];
+        let profile = create_caller_profile_with_tools(allowed, policy_file.path());
+
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            vec![profile],
+            &[],
+            false,
+        )
+        .unwrap();
+
+        server.authenticate_via_profile("test-profile-token").await;
+        *server.authenticated.lock().await = true;
+
+        // rf_query_policy IS in the allowed list — should dispatch
+        let request = crate::protocol::JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "tools/call".into(),
+            params: json!({
+                "name": "rf_query_policy",
+                "arguments": { "command": "echo hello" }
+            }),
+        };
+        let response = server.handle_request(&request).await;
+        assert!(
+            response.error.is_none(),
+            "allowed tool should not return a JSON-RPC error: {:?}",
+            response.error
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_my_capabilities_shows_allowed_tools() {
+        let policy_file = create_test_policy();
+        let allowed = vec!["rf_file_read".to_string(), "rf_list_my_capabilities".to_string()];
+        let profile = create_caller_profile_with_tools(allowed.clone(), policy_file.path());
+
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            vec![profile],
+            &[],
+            false,
+        )
+        .unwrap();
+
+        server.authenticate_via_profile("test-profile-token").await;
+
+        let result = server.tool_list_capabilities().await.unwrap();
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(parsed["tool_restriction_active"], true);
+        let tools_in_caps: Vec<&str> = parsed["allowed_tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t.as_str().unwrap())
+            .collect();
+        assert_eq!(tools_in_caps.len(), 2);
+        assert!(tools_in_caps.contains(&"rf_file_read"));
+        assert!(tools_in_caps.contains(&"rf_list_my_capabilities"));
+    }
+
+    #[tokio::test]
+    async fn test_caller_name_recorded_in_capabilities() {
+        let policy_file = create_test_policy();
+        let profile = CallerProfile {
+            name: "analytics-agent".to_string(),
+            token: "analytics-token".to_string(),
+            policy: policy_file.path().to_path_buf(),
+            allowed_tools: vec![],
+        };
+
+        let server = McpServer::new(
+            Some(policy_file.path()),
+            None,
+            "test-caller",
+            None,
+            None,
+            None,
+            vec![profile],
+            &[],
+            false,
+        )
+        .unwrap();
+
+        server.authenticate_via_profile("analytics-token").await;
+
+        let result = server.tool_list_capabilities().await.unwrap();
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(parsed["caller"], "analytics-agent");
+        assert_eq!(
+            parsed["tool_restriction_active"], false,
+            "empty allowed_tools means no restriction"
+        );
+    }
 }
+

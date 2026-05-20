@@ -2008,7 +2008,7 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "rf-agent"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2032,7 +2032,7 @@ dependencies = [
 
 [[package]]
 name = "rf-audit"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "chrono",
  "regex",
@@ -2046,7 +2046,7 @@ dependencies = [
 
 [[package]]
 name = "rf-bootstrap"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "chrono",
  "hex",
@@ -2062,7 +2062,7 @@ dependencies = [
 
 [[package]]
 name = "rf-cli"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2089,7 +2089,7 @@ dependencies = [
 
 [[package]]
 name = "rf-crypto"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "chacha20poly1305",
  "criterion",
@@ -2107,7 +2107,7 @@ dependencies = [
 
 [[package]]
 name = "rf-executor"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "base64",
  "chrono",
@@ -2156,7 +2156,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-client"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2166,7 +2166,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-server"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -2193,7 +2193,7 @@ dependencies = [
 
 [[package]]
 name = "rf-policy"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "regex",
  "rf-audit",
@@ -2207,7 +2207,7 @@ dependencies = [
 
 [[package]]
 name = "rf-relay"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2226,7 +2226,7 @@ dependencies = [
 
 [[package]]
 name = "rf-rpc"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "criterion",
  "futures-util",
@@ -2249,7 +2249,7 @@ dependencies = [
 
 [[package]]
 name = "rf-transport"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "async-trait",
  "chacha20poly1305",
