@@ -3281,7 +3281,7 @@ spec:
                 let decompressed = zstd::decode_all(data.as_slice()).unwrap();
                 assert_eq!(decompressed.as_slice(), content);
             }
-            other => panic!("expected FileChunk, got {:?}", other),
+            other => panic!("expected FileChunk, got {other:?}"),
         }
     }
 }
