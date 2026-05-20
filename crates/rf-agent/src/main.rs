@@ -880,7 +880,10 @@ where
         if let Some(parent) = p.parent() {
             if parent.exists() {
                 match std::fs::canonicalize(parent) {
-                    Ok(c) => c.join(p.file_name().unwrap_or_default()).to_string_lossy().into_owned(),
+                    Ok(c) => c
+                        .join(p.file_name().unwrap_or_default())
+                        .to_string_lossy()
+                        .into_owned(),
                     Err(_) => path.to_string(),
                 }
             } else {
@@ -927,7 +930,9 @@ where
         let response = Response {
             id: request_id.to_string(),
             result: RpcResult::Error {
-                message: format!("file too large: {total_size} bytes exceeds limit of {size_limit}"),
+                message: format!(
+                    "file too large: {total_size} bytes exceeds limit of {size_limit}"
+                ),
             },
         };
         let data = codec::encode(&response)?;
@@ -977,18 +982,29 @@ where
         let mut received: u64 = 0;
 
         while received < total_size {
-            let chunk = chan.recv().await.map_err(|e| anyhow::anyhow!("recv: {e}"))?;
+            let chunk = chan
+                .recv()
+                .await
+                .map_err(|e| anyhow::anyhow!("recv: {e}"))?;
             if chunk.is_empty() {
-                return Err(anyhow::anyhow!("connection closed before transfer complete"));
+                return Err(anyhow::anyhow!(
+                    "connection closed before transfer complete"
+                ));
             }
             received += chunk.len() as u64;
             if received > total_size {
-                return Err(anyhow::anyhow!("client sent more bytes than declared total_size"));
+                return Err(anyhow::anyhow!(
+                    "client sent more bytes than declared total_size"
+                ));
             }
             hasher.update(&chunk);
-            file.write_all(&chunk).await.map_err(|e| anyhow::anyhow!("write: {e}"))?;
+            file.write_all(&chunk)
+                .await
+                .map_err(|e| anyhow::anyhow!("write: {e}"))?;
         }
-        file.flush().await.map_err(|e| anyhow::anyhow!("flush: {e}"))?;
+        file.flush()
+            .await
+            .map_err(|e| anyhow::anyhow!("flush: {e}"))?;
         drop(file);
 
         // Verify checksum
@@ -1019,7 +1035,8 @@ where
             .map_err(|e| anyhow::anyhow!("rename: {e}"))?;
 
         Ok((received, checksum.is_none() || checksum_ok))
-    }.await;
+    }
+    .await;
 
     // Clean up temp file on error
     if result.is_err() {
@@ -1171,7 +1188,8 @@ where
     let mut offset = 0;
     while offset < file_data.len() {
         let end = (offset + CHUNK).min(file_data.len());
-        chan.send(&file_data[offset..end]).await
+        chan.send(&file_data[offset..end])
+            .await
             .map_err(|e| anyhow::anyhow!("send: {e}"))?;
         offset = end;
     }

@@ -1386,7 +1386,10 @@ async fn cp_command(
             let ch = chan.lock().await;
             // 1. Send FilePushStream negotiation request
             let request = Request {
-                id: format!("cp-push-{}", hex::encode(&local_data[..4.min(local_data.len())])),
+                id: format!(
+                    "cp-push-{}",
+                    hex::encode(&local_data[..4.min(local_data.len())])
+                ),
                 action: Action::FilePushStream {
                     path: effective_remote.clone(),
                     total_size: total as u64,
@@ -1427,10 +1430,17 @@ async fn cp_command(
             drop(ch);
             let done_resp: Response = codec::decode(&done_bytes)?;
             match done_resp.result {
-                RpcResult::FileStreamDone { bytes_transferred, checksum_verified } => {
+                RpcResult::FileStreamDone {
+                    bytes_transferred,
+                    checksum_verified,
+                } => {
                     eprintln!(
                         "\r{local_str} → {effective_remote}: 100% ({bytes_transferred} bytes{})",
-                        if checksum_verified { ", checksum verified" } else { "" }
+                        if checksum_verified {
+                            ", checksum verified"
+                        } else {
+                            ""
+                        }
                     );
                 }
                 RpcResult::Error { message } => {
@@ -1460,7 +1470,10 @@ async fn cp_command(
         let resp_bytes = ch.recv().await?;
         let resp: Response = codec::decode(&resp_bytes)?;
         let (total_size, expected_checksum) = match resp.result {
-            RpcResult::FileStreamReady { total_size, checksum } => (total_size, checksum),
+            RpcResult::FileStreamReady {
+                total_size,
+                checksum,
+            } => (total_size, checksum),
             RpcResult::Denied { reason, rule } => {
                 anyhow::bail!("denied: {reason} (rule: {rule})");
             }
@@ -1493,7 +1506,6 @@ async fn cp_command(
         // 5. Write to local file
         tokio::fs::write(dest, &file_data).await?;
         eprintln!("\r{source} → {dest}: 100% ({total_size} bytes, checksum verified)");
-
     } else {
         anyhow::bail!(
             "invalid copy syntax. Use: rf cp <local> <agent>:/path  or  rf cp <agent>:/path <local>"

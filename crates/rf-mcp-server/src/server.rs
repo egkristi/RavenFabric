@@ -984,10 +984,7 @@ impl McpServer {
         let effective_tools: Vec<&str> = if allowed_tools.is_empty() {
             tools::all_tool_names()
         } else {
-            allowed_tools
-                .iter()
-                .map(String::as_str)
-                .collect()
+            allowed_tools.iter().map(String::as_str).collect()
         };
 
         let info = json!({
@@ -1272,7 +1269,10 @@ impl McpServer {
                     }
                 }
                 // Apply tool restriction and record caller identity
-                self.caller_allowed_tools.lock().await.clone_from(&profile.allowed_tools);
+                self.caller_allowed_tools
+                    .lock()
+                    .await
+                    .clone_from(&profile.allowed_tools);
                 *self.caller_name.lock().await = Some(profile.name.clone());
                 return true;
             }
@@ -1305,7 +1305,10 @@ impl McpServer {
                     }
                 }
                 // Apply tool restriction and record caller identity
-                self.caller_allowed_tools.lock().await.clone_from(&profile.allowed_tools);
+                self.caller_allowed_tools
+                    .lock()
+                    .await
+                    .clone_from(&profile.allowed_tools);
                 *self.caller_name.lock().await = Some(profile.name.clone());
                 return;
             }
@@ -3000,7 +3003,10 @@ policy = "/etc/rf/dev-policy.yaml"
         };
         let response = server.handle_request(&request).await;
         assert!(response.error.is_none());
-        let tools_arr = response.result.unwrap()["tools"].as_array().unwrap().clone();
+        let tools_arr = response.result.unwrap()["tools"]
+            .as_array()
+            .unwrap()
+            .clone();
         assert_eq!(
             tools_arr.len(),
             3,
@@ -3107,7 +3113,10 @@ policy = "/etc/rf/dev-policy.yaml"
     #[tokio::test]
     async fn test_list_my_capabilities_shows_allowed_tools() {
         let policy_file = create_test_policy();
-        let allowed = vec!["rf_file_read".to_string(), "rf_list_my_capabilities".to_string()];
+        let allowed = vec![
+            "rf_file_read".to_string(),
+            "rf_list_my_capabilities".to_string(),
+        ];
         let profile = create_caller_profile_with_tools(allowed.clone(), policy_file.path());
 
         let server = McpServer::new(
@@ -3175,4 +3184,3 @@ policy = "/etc/rf/dev-policy.yaml"
         );
     }
 }
-
