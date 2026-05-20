@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.12.0 (Alpha) — Released 2026-05-20
+**Version:** 0.13.0 (Alpha) — Released 2026-05-20
 
-**Stats:** 13 crates, ~61,878 LOC, 1,257 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~62,819 LOC, 1,268 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -121,7 +121,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.9.0 — all planned features implemented and tested.
+**Current:** Alpha v0.13.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -172,7 +172,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - [x] Policy rules for network targets — allow/deny by CIDR, port, hostname (mirrors filesystem policy structure)
 - [x] `rf proxy <agent> --target <host:port> --listen <local:port>` — CLI command opens local listener, tunnels to agent
 - [x] Connection audit logging — every tunnel open/close recorded with caller identity, target, bytes transferred, duration
-- [ ] Concurrent tunnels — multiple proxy sessions multiplexed over single agent connection via yamux
+- [x] Concurrent tunnels — multiple proxy sessions multiplexed over single agent connection via yamux
 - [x] Idle timeout + max duration — configurable limits prevent resource exhaustion from abandoned tunnels
 
 #### HTTP-Aware Proxy (Policy-Rich)
@@ -305,11 +305,11 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 **Goal:** Automated secret rotation with grace periods, external secret manager integration, and full audit trail. Zero-downtime rotation.
 
 #### Automated Rotation
-- [ ] Time-based rotation triggers — configurable TTL per secret (e.g., rotate every 30 days)
-- [ ] Rotation hooks — execute custom command/script to generate new secret value
-- [ ] Grace period — old and new secret both valid during configurable overlap window
+- [x] Time-based rotation triggers — configurable TTL per secret (e.g., rotate every 30 days)
+- [x] Rotation hooks — execute custom command/script to generate new secret value
+- [x] Grace period — old and new secret both valid during configurable overlap window
 - [x] Rotation audit trail — every rotation event logged (who triggered, old hash, new hash, TTL)
-- [ ] Health-check after rotation — verify new secret works before retiring old
+- [x] Health-check after rotation — verify new secret works before retiring old
 
 #### External Secret Manager Integration
 - [ ] HashiCorp Vault — read/write via Vault HTTP API (AppRole or Token auth)

@@ -5,7 +5,23 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.12.0] — 2026-05-20
+## [0.13.0] — 2026-05-20
+
+### Added
+
+- **Concurrent proxy tunnels (dedicated-connection model)** — `rf-cli` `proxy` command now opens a dedicated agent connection per incoming local TCP connection, enabling truly concurrent tunnels without head-of-line blocking. Each local connection spawns a task that: dials the relay, performs Noise XX handshake, sends `Action::ProxyOpen { target, idle_timeout_secs, max_duration_secs }`, waits for `RpcResult::ProxyReady`, then enters raw bidirectional forwarding mode using two concurrent tasks (`tcp_r → chan.send` / `chan.recv → tcp_w`). HTTP-aware mode also upgraded: each HTTP request creates its own dedicated agent connection. `Action::ProxyOpen` and `RpcResult::ProxyReady` added to `rf-rpc::types`. Agent intercepts `ProxyOpen` before the executor, establishes a raw forwarding loop with `run_proxy_tunnel`, and audits open/close with bytes transferred.
+- **Secret rotation TTL/hooks** — `rf-crypto::secrets::RotationConfig` struct: configurable `ttl: Duration`, `hook: Option<String>` (shell command whose stdout becomes new secret value), `grace_period: Duration` (old value remains valid during overlap window), `health_check: Option<String>` (must exit 0 before old value is retired). New `SecretStore` methods: `seal_with_rotation()`, `rotate()`, `needs_rotation()`, `unseal_with_grace()`, `set_rotation_config()`, `rotation_config()`. Grace-period fallback integrated into `resolve_template()` so in-flight template expansions survive zero-downtime rotation. `RotationConfig::is_expired()`, `in_grace_period()`, `ttl_remaining_secs()` helpers. 8 new tests.
+- **`Action::RotateSecret` RPC action** — manually trigger rotation for a named secret. If the secret has a rotation hook, the hook is run and its stdout is sealed as the new value. Optional health-check command (`RF_NEW_SECRET` env var) must exit 0 before the rotation is committed. Responds with `RpcResult::Rotated { name, new_value_hash, ttl_secs, grace_period_secs }`. Full audit trail.
+- **`Action::SetSecretRotation` RPC action** — attach or replace the rotation policy for an existing sealed secret without re-sealing the value. Responds with `RpcResult::RotationConfigured { name, ttl_secs }`. Full audit trail.
+
+### Changed
+
+- **Version**: Bumped to 0.13.0 across all crates and deploy manifests
+- **Total tests**: 1,268 (up from 1,257) — +8 rf-crypto (rotation), +2 rf-executor (rotation handlers), +1 rf-rpc (ProxyOpen roundtrip)
+- **LOC**: ~62,819 (up from ~61,878)
+- ROADMAP items marked complete: Concurrent tunnels, Secret rotation TTL/hooks, Rotation hooks, Grace period, Health-check after rotation
+
+
 
 ### Added
 

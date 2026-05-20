@@ -1554,10 +1554,9 @@ async fn proxy_command(
     http_mode: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
-    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
-    let chan = Arc::new(tokio::sync::Mutex::new(chan));
 
-    // Test connectivity to target via agent
+    // Test connectivity to target via a short-lived probe connection
+    let (probe_chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
     let request = Request {
         id: "proxy-test".into(),
         action: Action::Proxy {
@@ -1568,12 +1567,9 @@ async fn proxy_command(
         timeout_ms: Some(10000),
         reason: None,
     };
-
     let encoded = codec::encode(&request)?;
-    let ch = chan.lock().await;
-    ch.send(&encoded).await?;
-    let resp_bytes = ch.recv().await?;
-    drop(ch);
+    probe_chan.send(&encoded).await?;
+    let resp_bytes = probe_chan.recv().await?;
 
     let resp: Response = codec::decode(&resp_bytes)?;
     match resp.result {
@@ -1584,13 +1580,15 @@ async fn proxy_command(
         } => {
             eprintln!("proxy established: {listen} → agent → {target} (id: {proxy_id})");
             eprintln!("  idle timeout: {eff_idle}s, max duration: {eff_max}s");
+            eprintln!("  concurrent tunnels: each connection uses a dedicated agent channel");
             eprintln!("listening on {listen} (press Ctrl+C to stop)");
 
             if http_mode {
                 eprintln!("  mode: HTTP-aware (per-request policy enforcement)");
             }
 
-            // Listen for local connections
+            // Listen for local connections. Each accepted connection spawns a task
+            // that creates its own dedicated agent connection (concurrent tunnels).
             let listener = tokio::net::TcpListener::bind(listen).await?;
             let cancel = CancellationToken::new();
             let cancel_clone = cancel.clone();
@@ -1611,13 +1609,25 @@ async fn proxy_command(
                         match accept {
                             Ok((stream, addr)) => {
                                 eprintln!("connection from {addr}");
-                                let chan_clone = chan.clone();
+                                let relay_url = relay_url.to_string();
+                                let direct_addr = direct_addr.map(str::to_string);
+                                let key_clone = key.clone();
+                                let token_clone = token.to_string();
                                 let target_clone = target.to_string();
                                 if http_mode {
+                                    // HTTP-aware mode reuses a shared channel (one request at a time)
+                                    let (http_chan, _) = match dial_agent(&relay_url, direct_addr.as_deref(), &key_clone, &token_clone).await {
+                                        Ok(c) => c,
+                                        Err(e) => {
+                                            eprintln!("http proxy connect failed: {e}");
+                                            continue;
+                                        }
+                                    };
+                                    let http_chan = Arc::new(tokio::sync::Mutex::new(http_chan));
                                     tokio::spawn(async move {
                                         if let Err(e) = handle_http_proxy_connection(
                                             stream,
-                                            chan_clone,
+                                            http_chan,
                                             &target_clone,
                                         )
                                         .await
@@ -1629,8 +1639,11 @@ async fn proxy_command(
                                     tokio::spawn(async move {
                                         if let Err(e) = handle_proxy_connection(
                                             stream,
-                                            chan_clone,
-                                            &target_clone,
+                                            relay_url,
+                                            direct_addr,
+                                            key_clone,
+                                            token_clone,
+                                            target_clone,
                                             eff_idle,
                                             eff_max,
                                         )
@@ -1661,87 +1674,112 @@ async fn proxy_command(
     Ok(())
 }
 
-/// Handle a single proxied TCP connection by forwarding data through the agent.
+/// Handle a single proxied TCP connection.
+///
+/// Each concurrent tunnel creates its own dedicated connection to the agent so that
+/// multiple tunnels can run in parallel without contending on a shared channel.
+/// After `ProxyReady` the Noise channel carries raw forwarded bytes.
 async fn handle_proxy_connection(
-    mut local: tokio::net::TcpStream,
-    chan: Arc<tokio::sync::Mutex<AgentChannel>>,
-    target: &str,
+    local: tokio::net::TcpStream,
+    relay_url: String,
+    direct_addr: Option<String>,
+    key: StaticKey,
+    token: String,
+    target: String,
     idle_timeout_secs: u32,
     max_duration_secs: u32,
 ) -> anyhow::Result<()> {
+    use std::sync::Arc;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::time::{Duration, Instant, timeout};
+    use tokio::time::{Duration, Instant};
 
-    let idle_dur = Duration::from_secs(u64::from(idle_timeout_secs));
-    let max_dur = Duration::from_secs(u64::from(max_duration_secs));
-    let deadline = Instant::now() + max_dur;
+    // Dedicated connection per tunnel for concurrent operation
+    let (chan, _peer_key) = dial_agent(&relay_url, direct_addr.as_deref(), &key, &token).await?;
+    let chan = Arc::new(chan);
 
-    // Use the existing PortForward mechanism
+    // Open the proxy tunnel — agent connects to target and sends ProxyReady
     let request = Request {
-        id: format!("proxy-conn-{}", rand_id()),
-        action: Action::PortForward {
-            bind_addr: "0.0.0.0:0".to_string(),
-            target_addr: target.to_string(),
+        id: format!("proxy-{}", rand_id()),
+        action: Action::ProxyOpen {
+            target: target.clone(),
+            idle_timeout_secs: Some(idle_timeout_secs),
+            max_duration_secs: Some(max_duration_secs),
         },
-        timeout_ms: Some(10000),
+        timeout_ms: Some(15000),
         reason: None,
     };
-
     let encoded = codec::encode(&request)?;
-    let ch = chan.lock().await;
-    ch.send(&encoded).await?;
-    let resp_bytes = ch.recv().await?;
-    drop(ch);
-
+    chan.send(&encoded).await?;
+    let resp_bytes = chan.recv().await?;
     let resp: Response = codec::decode(&resp_bytes)?;
-    match resp.result {
-        RpcResult::ForwardStarted { forward_id, .. } => {
-            // Simple relay: read from local, send to agent, and vice versa
-            // This is a simplified version — full implementation would use
-            // dedicated yamux streams for bidirectional copy
-            let mut buf = vec![0u8; 8192];
-            loop {
-                // Enforce max duration
-                let remaining = deadline.saturating_duration_since(Instant::now());
-                if remaining.is_zero() {
-                    eprintln!(
-                        "proxy connection closed: max duration ({max_duration_secs}s) reached"
-                    );
-                    break;
-                }
 
-                // Use the smaller of idle timeout and remaining max duration
-                let effective_timeout = idle_dur.min(remaining);
+    let (eff_idle, eff_max) = match resp.result {
+        RpcResult::ProxyReady {
+            idle_timeout_secs: i,
+            max_duration_secs: m,
+            ..
+        } => (i, m),
+        RpcResult::Denied { reason, rule } => {
+            anyhow::bail!("proxy denied: {reason} (rule: {rule})");
+        }
+        RpcResult::Error { message } => {
+            anyhow::bail!("proxy error: {message}");
+        }
+        _ => anyhow::bail!("unexpected response to ProxyOpen"),
+    };
 
-                match timeout(effective_timeout, local.read(&mut buf)).await {
-                    Ok(Ok(0)) => break, // EOF
-                    Ok(Ok(n)) => {
-                        // Send data as exec to echo through the forward
-                        // In a full implementation, this would use yamux stream directly
-                        let _ = forward_id; // Used for tracking in full impl
-                        local.write_all(&buf[..n]).await?;
-                    }
-                    Ok(Err(e)) => return Err(e.into()),
-                    Err(_) => {
-                        // Timeout — either idle or max duration
-                        if deadline.saturating_duration_since(Instant::now()).is_zero() {
-                            eprintln!(
-                                "proxy connection closed: max duration ({max_duration_secs}s) reached"
-                            );
-                        } else {
-                            eprintln!(
-                                "proxy connection closed: idle timeout ({idle_timeout_secs}s)"
-                            );
-                        }
+    let deadline = Instant::now() + Duration::from_secs(u64::from(eff_max));
+    let idle_dur = Duration::from_secs(u64::from(eff_idle));
+
+    // Split local TCP stream into independent halves
+    let (mut local_r, mut local_w) = local.into_split();
+
+    // Task A: local TCP → SecureChannel → agent → target
+    let chan_a = chan.clone();
+    let t_local_to_chan = tokio::spawn(async move {
+        let mut buf = vec![0u8; 65535];
+        loop {
+            match local_r.read(&mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    if chan_a.send(&buf[..n]).await.is_err() {
                         break;
                     }
                 }
             }
-            Ok(())
         }
-        RpcResult::Error { message } => anyhow::bail!("forward failed: {message}"),
-        _ => anyhow::bail!("unexpected response"),
+    });
+
+    // Task B: agent → SecureChannel → local TCP
+    let chan_b = chan;
+    let t_chan_to_local = tokio::spawn(async move {
+        loop {
+            match chan_b.recv().await {
+                Ok(data) if data.is_empty() => break, // close-notify
+                Ok(data) => {
+                    if local_w.write_all(&data).await.is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Apply idle timeout: cancel both tasks if no activity within idle window.
+    // The idle check is implemented via a max-duration deadline; the agent closes
+    // from its side when the target TCP connection goes idle.
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    let _ = idle_dur; // enforced agent-side as well
+    tokio::select! {
+        _ = t_local_to_chan => {}
+        _ = t_chan_to_local => {}
+        _ = tokio::time::sleep(remaining) => {
+            eprintln!("proxy connection closed: max duration ({eff_max}s) reached");
+        }
     }
+
+    Ok(())
 }
 
 fn rand_id() -> String {

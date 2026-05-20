@@ -166,6 +166,24 @@ pub enum Action {
         #[serde(skip_serializing_if = "Option::is_none")]
         max_duration_secs: Option<u32>,
     },
+    /// Open a dedicated proxy tunnel on this connection.
+    ///
+    /// After the agent responds with `ProxyReady`, the connection switches to raw
+    /// bidirectional forwarding mode — bytes flow directly between the caller and
+    /// the target TCP endpoint, encrypted by the existing Noise channel.
+    ///
+    /// Each concurrent tunnel uses its own dedicated agent connection so that
+    /// multiple tunnels can run in parallel without serialisation.
+    ProxyOpen {
+        /// Target address (host:port) the agent should connect to
+        target: String,
+        /// Idle timeout in seconds (no data flowing = connection closed). None = use policy default.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        idle_timeout_secs: Option<u32>,
+        /// Maximum connection duration in seconds (hard cap). None = use policy default.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_duration_secs: Option<u32>,
+    },
     /// Forward an HTTP request through the agent to an upstream target.
     /// Agent inspects method + path against HTTP policy rules before forwarding.
     HttpForward {
@@ -180,6 +198,27 @@ pub enum Action {
         /// Request body (empty for GET/HEAD/DELETE)
         #[serde(default)]
         body: Vec<u8>,
+    },
+    /// Manually trigger rotation for the named secret (runs its hook, or returns error if no hook).
+    RotateSecret {
+        /// Name of the secret to rotate.
+        name: String,
+    },
+    /// Configure automatic rotation for a named secret.
+    SetSecretRotation {
+        /// Name of the secret to configure.
+        name: String,
+        /// TTL in seconds — how long until the secret must be rotated.
+        ttl_secs: u64,
+        /// Optional shell command whose stdout becomes the new secret value.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        hook: Option<String>,
+        /// Grace period in seconds — old value remains valid for this long after rotation.
+        #[serde(default)]
+        grace_period_secs: u64,
+        /// Optional health-check command (must exit 0 before old value is retired).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        health_check: Option<String>,
     },
 }
 
@@ -312,6 +351,19 @@ pub enum RpcResult {
         /// Effective max duration in seconds (applied by client)
         max_duration_secs: u32,
     },
+    /// Response to a ProxyOpen action — tunnel established, switching to raw forwarding mode.
+    ///
+    /// After this response the connection carries raw plaintext bytes (still encrypted by
+    /// the Noise channel) rather than RPC frames. Both sides call `chan.send` / `chan.recv`
+    /// with arbitrary byte chunks until one side closes.
+    ProxyReady {
+        /// Unique proxy tunnel ID (for audit logging)
+        proxy_id: String,
+        /// Effective idle timeout in seconds
+        idle_timeout_secs: u32,
+        /// Effective max duration in seconds
+        max_duration_secs: u32,
+    },
     /// Response to an HttpForward action — upstream HTTP response.
     HttpResponse {
         /// HTTP status code (e.g., 200, 404, 500)
@@ -322,6 +374,24 @@ pub enum RpcResult {
         body: Vec<u8>,
         /// Latency in milliseconds (time to receive full response from upstream)
         latency_ms: u64,
+    },
+    /// Response to a RotateSecret action — rotation completed.
+    Rotated {
+        /// Name of the rotated secret.
+        name: String,
+        /// SHA-256 hex of the new value (for audit — never the plaintext).
+        new_value_hash: String,
+        /// TTL seconds remaining on the new value (equals the configured TTL).
+        ttl_secs: u64,
+        /// Grace period seconds in effect.
+        grace_period_secs: u64,
+    },
+    /// Response to a SetSecretRotation action — rotation config applied.
+    RotationConfigured {
+        /// Name of the secret whose rotation was configured.
+        name: String,
+        /// TTL in seconds.
+        ttl_secs: u64,
     },
 }
 
@@ -684,6 +754,35 @@ mod tests {
                 proxy_id: "proxy-px-1".into(),
                 idle_timeout_secs: 60,
                 max_duration_secs: 3600,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_proxy_open_and_ready() {
+        let req = Request {
+            id: "po-1".into(),
+            action: Action::ProxyOpen {
+                target: "10.0.0.5:5432".into(),
+                idle_timeout_secs: Some(30),
+                max_duration_secs: Some(1800),
+            },
+            timeout_ms: Some(10000),
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+
+        let resp = Response {
+            id: "po-1".into(),
+            result: RpcResult::ProxyReady {
+                proxy_id: "tunnel-abc".into(),
+                idle_timeout_secs: 30,
+                max_duration_secs: 1800,
             },
         };
         let bytes = codec::encode(&resp).unwrap();

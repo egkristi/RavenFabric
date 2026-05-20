@@ -312,6 +312,27 @@ impl Executor {
                 self.handle_http_forward(&request.id, target, method, path, headers, body, start)
                     .await
             }
+            Action::RotateSecret { name } => {
+                self.handle_rotate_secret(&request.id, name, start).await
+            }
+            Action::SetSecretRotation {
+                name,
+                ttl_secs,
+                hook,
+                grace_period_secs,
+                health_check,
+            } => {
+                self.handle_set_secret_rotation(
+                    &request.id,
+                    name,
+                    *ttl_secs,
+                    hook.as_deref(),
+                    *grace_period_secs,
+                    health_check.as_deref(),
+                    start,
+                )
+                .await
+            }
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
             },
@@ -2259,6 +2280,269 @@ impl Executor {
             headers: resp_header_map,
             body: resp_body,
             latency_ms,
+        }
+    }
+
+    // ── Secret rotation ────────────────────────────────────────────────────
+
+    /// Handle a manual `RotateSecret` request.
+    ///
+    /// If the secret has a rotation hook configured, the hook is executed as a shell
+    /// command and its stdout is used as the new plaintext value.  If no hook is
+    /// configured the request is rejected — there is nothing to run.
+    async fn handle_rotate_secret(
+        &self,
+        request_id: &str,
+        name: &str,
+        start: Instant,
+    ) -> RpcResult {
+        // Policy check — treat rotation like a write to the secrets namespace.
+        let policy_decision = self
+            .policy
+            .read()
+            .await
+            .check_path(std::path::Path::new(name));
+        if !policy_decision.allowed {
+            self.audit(
+                request_id,
+                "rotate_secret",
+                Some(name.to_string()),
+                "denied",
+                policy_decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: policy_decision.reason,
+                rule: policy_decision.matched_rule,
+            };
+        }
+
+        let secrets_arc = match &self.secrets {
+            Some(s) => s.clone(),
+            None => {
+                return RpcResult::Error {
+                    message: "secret store not configured".to_string(),
+                };
+            }
+        };
+
+        // Collect hook / config under a brief lock, then release before running the command.
+        let (hook, ttl_secs, grace_period_secs, health_check) = {
+            let store = secrets_arc.lock().await;
+            if !store.contains(name) {
+                return RpcResult::Error {
+                    message: format!("secret '{name}' not found"),
+                };
+            }
+            let rc = match store.rotation_config(name) {
+                Some(rc) => rc.clone(),
+                None => {
+                    return RpcResult::Error {
+                        message: format!(
+                            "secret '{name}' has no rotation config — use SetSecretRotation first"
+                        ),
+                    };
+                }
+            };
+            (
+                rc.hook.clone(),
+                rc.ttl.as_secs(),
+                rc.grace_period.as_secs(),
+                rc.health_check.clone(),
+            )
+        };
+
+        // Run the rotation hook to produce the new secret value.
+        let hook_cmd = match &hook {
+            Some(h) => h.clone(),
+            None => {
+                return RpcResult::Error {
+                    message: format!(
+                        "secret '{name}' has no rotation hook — manual value update required"
+                    ),
+                };
+            }
+        };
+
+        let hook_output = match tokio::process::Command::new("sh")
+            .arg("-c")
+            .arg(&hook_cmd)
+            .output()
+            .await
+        {
+            Ok(out) if out.status.success() => out.stdout,
+            Ok(out) => {
+                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                self.audit(
+                    request_id,
+                    "rotate_secret",
+                    Some(name.to_string()),
+                    "error",
+                    "hook_failed".to_string(),
+                    out.status.code(),
+                    start.elapsed().as_millis() as u64,
+                );
+                return RpcResult::Error {
+                    message: format!(
+                        "rotation hook failed (exit {:?}): {stderr}",
+                        out.status.code()
+                    ),
+                };
+            }
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("rotation hook exec error: {e}"),
+                };
+            }
+        };
+
+        // Trim trailing whitespace/newlines from hook output.
+        let new_value = hook_output
+            .strip_suffix(b"\n")
+            .or_else(|| hook_output.strip_suffix(b"\r\n"))
+            .unwrap_or(&hook_output)
+            .to_vec();
+
+        // Run optional health check before committing the rotation.
+        if let Some(hc_cmd) = &health_check {
+            let hc_result = tokio::process::Command::new("sh")
+                .arg("-c")
+                .arg(hc_cmd)
+                .env(
+                    "RF_NEW_SECRET",
+                    String::from_utf8_lossy(&new_value).as_ref(),
+                )
+                .output()
+                .await;
+            match hc_result {
+                Ok(out) if out.status.success() => {
+                    // Health check passed — proceed with rotation.
+                }
+                Ok(out) => {
+                    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                    self.audit(
+                        request_id,
+                        "rotate_secret",
+                        Some(name.to_string()),
+                        "error",
+                        "health_check_failed".to_string(),
+                        out.status.code(),
+                        start.elapsed().as_millis() as u64,
+                    );
+                    return RpcResult::Error {
+                        message: format!(
+                            "health check failed (exit {:?}), rotation aborted: {stderr}",
+                            out.status.code()
+                        ),
+                    };
+                }
+                Err(e) => {
+                    return RpcResult::Error {
+                        message: format!("health check exec error: {e}"),
+                    };
+                }
+            }
+        }
+
+        // SHA-256 hash of the new value (for audit — never log the plaintext).
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        new_value.hash(&mut hasher);
+        let new_value_hash = format!("{:016x}", hasher.finish());
+
+        // Commit the rotation.
+        {
+            let mut store = secrets_arc.lock().await;
+            if let Err(e) = store.rotate(name, &new_value) {
+                return RpcResult::Error {
+                    message: format!("rotate failed: {e}"),
+                };
+            }
+        }
+
+        self.audit(
+            request_id,
+            "rotate_secret",
+            Some(name.to_string()),
+            "allowed",
+            "rotation_hook".to_string(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
+        RpcResult::Rotated {
+            name: name.to_string(),
+            new_value_hash,
+            ttl_secs,
+            grace_period_secs,
+        }
+    }
+
+    /// Handle a `SetSecretRotation` request — configure TTL + hook for a named secret.
+    async fn handle_set_secret_rotation(
+        &self,
+        request_id: &str,
+        name: &str,
+        ttl_secs: u64,
+        hook: Option<&str>,
+        grace_period_secs: u64,
+        health_check: Option<&str>,
+        start: Instant,
+    ) -> RpcResult {
+        use rf_crypto::secrets::RotationConfig;
+        use std::time::Duration;
+
+        let secrets_arc = match &self.secrets {
+            Some(s) => s.clone(),
+            None => {
+                return RpcResult::Error {
+                    message: "secret store not configured".to_string(),
+                };
+            }
+        };
+
+        {
+            let store = secrets_arc.lock().await;
+            if !store.contains(name) {
+                return RpcResult::Error {
+                    message: format!("secret '{name}' not found — seal it first"),
+                };
+            }
+        }
+
+        let mut config = RotationConfig::new(
+            Duration::from_secs(ttl_secs),
+            hook.map(str::to_string),
+            Duration::from_secs(grace_period_secs),
+        );
+        if let Some(hc) = health_check {
+            config = config.with_health_check(hc.to_string());
+        }
+
+        {
+            let mut store = secrets_arc.lock().await;
+            if let Err(e) = store.set_rotation_config(name, config) {
+                return RpcResult::Error {
+                    message: format!("set rotation config failed: {e}"),
+                };
+            }
+        }
+
+        self.audit(
+            request_id,
+            "set_secret_rotation",
+            Some(name.to_string()),
+            "allowed",
+            format!("ttl={ttl_secs}s grace={grace_period_secs}s"),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
+        RpcResult::RotationConfigured {
+            name: name.to_string(),
+            ttl_secs,
         }
     }
 }

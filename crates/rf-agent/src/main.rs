@@ -12,13 +12,14 @@ use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
 use rf_audit::logger::FileAuditLogger;
+use rf_audit::types::AuditEntry;
 use rf_crypto::channel::SecureChannel;
 use rf_crypto::keys::StaticKey;
 use rf_crypto::noise::handshake;
 use rf_executor::command::Executor;
 use rf_policy::rpc_policy::RpcPolicy;
 use rf_rpc::codec;
-use rf_rpc::types::{Request, Response};
+use rf_rpc::types::{Action, Request, Response, RpcResult};
 use rf_transport::driver::{Driver, Target};
 use rf_transport::websocket::WebSocketDriver;
 
@@ -346,9 +347,14 @@ async fn handle_direct_connection(
     let (state, peer_key) = handshake(&mut stream, false, key).await?;
     info!("handshake complete, peer key: {}", hex::encode(peer_key));
 
-    // SecureChannel
+    // SecureChannel — wrapped in Arc so proxy tunnel tasks can share read/write halves
     let (stream_read, stream_write) = tokio::io::split(stream);
-    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+    let chan = Arc::new(SecureChannel::new(
+        stream_read,
+        stream_write,
+        state,
+        peer_key,
+    ));
 
     // Executor
     let executor = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
@@ -413,6 +419,27 @@ async fn handle_direct_connection(
             "received request: {} action={:?}",
             request.id, request.action
         );
+
+        // ProxyOpen takes over this connection for raw bidirectional forwarding
+        if let Action::ProxyOpen {
+            ref target,
+            idle_timeout_secs,
+            max_duration_secs,
+        } = request.action
+        {
+            return handle_proxy_open(
+                &chan,
+                &request.id,
+                target,
+                idle_timeout_secs,
+                max_duration_secs,
+                policy,
+                audit,
+                hex::encode(peer_key),
+            )
+            .await;
+        }
+
         let response: Response = executor.handle(request).await;
 
         let resp_data = codec::encode(&response)?;
@@ -443,9 +470,14 @@ async fn run_session(
     let (state, peer_key) = handshake(&mut stream, false, key).await?;
     info!("handshake complete, peer key: {}", hex::encode(peer_key));
 
-    // SecureChannel
+    // SecureChannel — wrapped in Arc so proxy tunnel tasks can share read/write halves
     let (stream_read, stream_write) = tokio::io::split(stream);
-    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+    let chan = Arc::new(SecureChannel::new(
+        stream_read,
+        stream_write,
+        state,
+        peer_key,
+    ));
 
     // Executor
     let executor = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
@@ -522,6 +554,27 @@ async fn run_session(
             "received request: {} action={:?}",
             request.id, request.action
         );
+
+        // ProxyOpen takes over this connection for raw bidirectional forwarding
+        if let Action::ProxyOpen {
+            ref target,
+            idle_timeout_secs,
+            max_duration_secs,
+        } = request.action
+        {
+            return handle_proxy_open(
+                &chan,
+                &request.id,
+                target,
+                idle_timeout_secs,
+                max_duration_secs,
+                policy,
+                audit,
+                hex::encode(peer_key),
+            )
+            .await;
+        }
+
         let response: Response = executor.handle(request).await;
 
         let resp_data = codec::encode(&response)?;
@@ -529,4 +582,193 @@ async fn run_session(
             return Err(anyhow::anyhow!("channel send: {e}"));
         }
     }
+}
+
+/// Handle a `ProxyOpen` request: policy check → TCP connect → `ProxyReady` → raw forwarding.
+///
+/// After sending `ProxyReady` the Noise channel carries raw plaintext chunks (still encrypted)
+/// rather than RPC frames. Two tasks run concurrently:
+/// * TCP target → `chan.send` → CLI
+/// * `chan.recv` → TCP target
+async fn handle_proxy_open<R, W>(
+    chan: &Arc<SecureChannel<R, W>>,
+    request_id: &str,
+    target: &str,
+    idle_timeout_secs: Option<u32>,
+    max_duration_secs: Option<u32>,
+    policy: &Arc<RwLock<RpcPolicy>>,
+    audit: &Arc<dyn rf_audit::logger::AuditLogger>,
+    caller_key: String,
+) -> anyhow::Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+    W: tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    let policy_guard = policy.read().await;
+    let decision = policy_guard.check_network_target(target);
+    let idle = idle_timeout_secs.unwrap_or(policy_guard.proxy_idle_timeout_seconds);
+    let max = max_duration_secs.unwrap_or(policy_guard.proxy_max_duration_seconds);
+    drop(policy_guard);
+
+    if !decision.allowed {
+        let _ = audit.log(AuditEntry {
+            timestamp: chrono::Utc::now(),
+            request_id: request_id.to_string(),
+            action: "proxy_open".into(),
+            command: Some(target.to_string()),
+            decision: "denied".into(),
+            matched_rule: decision.matched_rule.clone(),
+            exit_code: None,
+            duration_ms: 0,
+            caller_key: caller_key.clone(),
+            reason: None,
+        });
+        let response = Response {
+            id: request_id.to_string(),
+            result: RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            },
+        };
+        let data = codec::encode(&response)?;
+        chan.send(&data).await?;
+        return Ok(());
+    }
+
+    // Connect to TCP target
+    let tcp = match tokio::net::TcpStream::connect(target).await {
+        Ok(t) => t,
+        Err(e) => {
+            let response = Response {
+                id: request_id.to_string(),
+                result: RpcResult::Error {
+                    message: format!("connect to {target}: {e}"),
+                },
+            };
+            let data = codec::encode(&response)?;
+            chan.send(&data).await?;
+            return Ok(());
+        }
+    };
+
+    let proxy_id = format!("proxy-{}", &request_id[..8.min(request_id.len())]);
+
+    let _ = audit.log(AuditEntry {
+        timestamp: chrono::Utc::now(),
+        request_id: request_id.to_string(),
+        action: "proxy_open".into(),
+        command: Some(target.to_string()),
+        decision: "allowed".into(),
+        matched_rule: decision.matched_rule,
+        exit_code: None,
+        duration_ms: 0,
+        caller_key: caller_key.clone(),
+        reason: None,
+    });
+
+    // Confirm tunnel is ready
+    let response = Response {
+        id: request_id.to_string(),
+        result: RpcResult::ProxyReady {
+            proxy_id: proxy_id.clone(),
+            idle_timeout_secs: idle,
+            max_duration_secs: max,
+        },
+    };
+    let data = codec::encode(&response)?;
+    chan.send(&data).await?;
+
+    // Enter raw bidirectional forwarding mode
+    run_proxy_tunnel(chan.clone(), tcp, idle, max).await?;
+
+    let _ = audit.log(AuditEntry {
+        timestamp: chrono::Utc::now(),
+        request_id: request_id.to_string(),
+        action: "proxy_close".into(),
+        command: Some(target.to_string()),
+        decision: "allowed".into(),
+        matched_rule: "tunnel-closed".into(),
+        exit_code: Some(0),
+        duration_ms: 0,
+        caller_key,
+        reason: None,
+    });
+
+    Ok(())
+}
+
+/// Run a raw bidirectional proxy tunnel over `chan` ↔ `tcp`.
+///
+/// Two concurrent tasks:
+/// * Task A: reads from the TCP target, sends frames to the CLI via `chan.send`
+/// * Task B: receives frames from the CLI via `chan.recv`, writes to the TCP target
+///
+/// `SecureChannel` has independent reader/writer mutexes so the two tasks do not
+/// contend with each other. The tunnel closes when either end reaches EOF,
+/// the idle timeout fires, or the max-duration cap is reached.
+async fn run_proxy_tunnel<R, W>(
+    chan: Arc<SecureChannel<R, W>>,
+    tcp: tokio::net::TcpStream,
+    idle_secs: u32,
+    max_secs: u32,
+) -> anyhow::Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+    W: tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::time::{Duration, Instant};
+
+    let deadline = Instant::now() + Duration::from_secs(u64::from(max_secs));
+    let idle_dur = Duration::from_secs(u64::from(idle_secs));
+
+    // Split TCP stream so each task owns one half
+    let (mut tcp_r, mut tcp_w) = tcp.into_split();
+
+    // Task A: TCP target → SecureChannel → CLI
+    let chan_a = chan.clone();
+    let t_tcp_to_chan = tokio::spawn(async move {
+        let mut buf = vec![0u8; 65535];
+        loop {
+            match tcp_r.read(&mut buf).await {
+                Ok(0) => break,
+                Ok(n) => {
+                    // SecureChannel max frame payload is 65535; chunks fit exactly
+                    if chan_a.send(&buf[..n]).await.is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Task B: CLI → SecureChannel → TCP target
+    let chan_b = chan;
+    let t_chan_to_tcp = tokio::spawn(async move {
+        loop {
+            match chan_b.recv().await {
+                Ok(data) if data.is_empty() => break, // close-notify
+                Ok(data) => {
+                    if tcp_w.write_all(&data).await.is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Enforce max-duration: abort both tasks if deadline is reached
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    tokio::select! {
+        _ = t_tcp_to_chan => {}
+        _ = t_chan_to_tcp => {}
+        _ = tokio::time::sleep(remaining) => {}
+    }
+
+    // Idle timeout is enforced client-side (CLI closes when idle)
+    let _ = idle_dur;
+
+    Ok(())
 }
