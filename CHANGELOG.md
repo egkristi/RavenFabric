@@ -5,6 +5,21 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] — 2026-05-20
+
+### Added
+
+- **Elasticsearch/OpenSearch audit destination** — new `ElasticsearchAuditLogger` in `rf-audit::elasticsearch`. Indexes each `AuditEntry` into an Elasticsearch or OpenSearch cluster via the Bulk API (`POST /_bulk`). Uses NDJSON format: each event is two lines (action metadata + document body). Auth options: `ElasticAuth::None`, `ElasticAuth::Basic { username, password }` (HTTP Basic with inline Base64 encoder), and `ElasticAuth::ApiKey(key)` (`Authorization: ApiKey <key>` header). Configurable index name (default: `"ravenfabric"`), batch size (default: 1), and HTTPS default port (9243 for Elastic Cloud, 9200 for HTTP). Batch queue with `Drop` flush. 11 new tests.
+- **Datadog log forwarding audit destination** — new `DatadogAuditLogger` in `rf-audit::datadog`. Forwards each `AuditEntry` to the Datadog Logs Intake API (`POST /api/v2/logs`). Authenticates via `DD-API-KEY` header. Log entries include `ddsource` (`"ravenfabric"`), `ddtags` (`service:ravenfabric` + custom tags), `hostname`, `service`, and `message` (JSON-serialized `AuditEntry`). Configurable site (`datadoghq.com`, `datadoghq.eu`, `us3.datadoghq.com`, etc.), service name, hostname, custom tags, and batch size (default: 10). Batch queue with `Drop` flush. 8 new tests.
+- **Buffered audit collector with deduplication** — new `BufferedAuditCollector<L>` in `rf-audit::collector`. Generic wrapper around any `AuditLogger` adding: bounded in-memory ring buffer (configurable capacity, default 4,096); background flush thread draining buffer at configurable interval (default 5s); sliding-window deduplication by `request_id` (default window: 1,024 entries); age-based retention (default: 24h, entries older than `max_age` are silently discarded before forwarding). When buffer is full, oldest entry is evicted with a `warn` log. `flush_and_stop()` drains all buffered events and joins the background thread. `CollectorConfig` builder with `with_flush_interval()`, `with_dedup_window()`, and `with_max_age()`. 6 new tests.
+
+### Changed
+
+- **Version**: Bumped to 0.12.0 across all crates and deploy manifests
+- **Total tests**: 1,257 (up from 1,232) — +25 rf-audit (11 elasticsearch + 8 datadog + 6 collector)
+- **LOC**: ~61,878 (up from ~60,548)
+- `rf-audit::lib` now exports `collector`, `datadog`, and `elasticsearch` modules
+
 ## [0.11.0] — 2026-05-20
 
 ### Added

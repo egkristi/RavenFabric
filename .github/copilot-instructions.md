@@ -25,7 +25,7 @@ Cargo workspace with 13 crates:
 | `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management, PQ hybrid KEM, no_std frame_codec | **Done** (~1,800 LOC, 42 tests) |
 | `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | **Done** (~21,900 LOC, 542 tests) |
 | `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~6,500 LOC, 117 tests) |
-| `rf-audit` | Structured JSON-lines audit logging (every action logged), real-time alert rules with deduplication, alert webhook destinations, Syslog RFC 5424, CEF format | **Done** (~1,100 LOC, 46 tests) |
+| `rf-audit` | Structured JSON-lines audit logging (every action logged), real-time alert rules with deduplication, alert webhook destinations, Syslog RFC 5424, CEF format, LEEF, OCSF, Splunk HEC, Elasticsearch, Datadog, buffered collector | **Done** (~2,415 LOC, 71 tests) |
 | `rf-policy` | YAML policy loading, command/path/network/HTTP/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection, header injection/stripping | **Done** (~5,500 LOC, 140 tests) |
 | `rf-executor` | Command execution + streaming under policy control with timeout and output limiting, desired-state convergence, event triggers, result parsing, grains | **Done** (~10,700 LOC, 173 tests) |
 | `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~430 LOC, 19 tests) |
@@ -36,7 +36,7 @@ Cargo workspace with 13 crates:
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~60,543 LOC, 1,232 tests, 0 clippy warnings.**
+**Total: ~61,878 LOC, 1,257 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
@@ -223,13 +223,15 @@ The repository is **private** by default. Every push must follow this exact sequ
    ```bash
    gh repo edit egkristi/RavenFabric --visibility public --accept-visibility-change-consequences
    ```
-2. **Push**:
+2. **Push commit and version tag** (every version bump commit MUST be tagged to trigger the release pipeline):
    ```bash
    git add -A && git commit -m "<message>" && git push
+   git tag -a vX.Y.Z <commit-sha> -m "Release vX.Y.Z — <short description>"
+   git push origin vX.Y.Z
    ```
-3. **Wait for ALL GitHub Actions pipelines to complete successfully** (Check, Test, Clippy, Format, MSRV, Cross-compile, Coverage, CodeQL, and any triggered release/docker workflows). Monitor with:
+3. **Wait for ALL GitHub Actions pipelines to complete successfully** (Check, Test, Clippy, Format, MSRV, Cross-compile, Coverage, CodeQL, Release, Docker, and any other triggered workflows). Monitor with:
    ```bash
-   gh run list --branch main --limit 5
+   gh run list --branch main --limit 8
    ```
 4. **If any pipeline fails**: Diagnose and fix immediately. Create a GitHub Issue for each distinct problem. Push the fix (repo is still public).
 5. **Make repo private** only after all pipelines are green:
@@ -238,6 +240,8 @@ The repository is **private** by default. Every push must follow this exact sequ
    ```
 
 **Important:** Do not leave the repo public longer than necessary. Make it private again as soon as all pipelines finish. Never push without completing this full cycle.
+
+**Critical:** Every version bump commit **must** be followed by a `git tag` + `git push origin vX.Y.Z`. Without the tag, the Release workflow does not run, and no binaries are published to GitHub Releases or `RavenFabric-Published`.
 
 ## GitHub Actions Minutes
 

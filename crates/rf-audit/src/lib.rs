@@ -1,6 +1,9 @@
 pub mod alert;
 pub mod cef;
+pub mod collector;
 pub mod compliance;
+pub mod datadog;
+pub mod elasticsearch;
 pub mod leef;
 pub mod logger;
 pub mod ocsf;

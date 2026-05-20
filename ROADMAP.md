@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.11.0 (Alpha) — Released 2026-05-20
+**Version:** 0.12.0 (Alpha) — Released 2026-05-20
 
-**Stats:** 13 crates, ~60,548 LOC, 1,232 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~61,878 LOC, 1,257 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -334,8 +334,8 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 #### Remote Log Sinks
 - [x] Syslog (RFC 5424) — UDP/TCP with facility/severity mapping
 - [x] Splunk HEC — HTTP Event Collector with token auth, batching, retry
-- [ ] Elasticsearch/OpenSearch — direct indexing via bulk API
-- [ ] Datadog — log forwarding via Datadog agent API
+- [x] Elasticsearch/OpenSearch — direct indexing via bulk API
+- [x] Datadog — log forwarding via Datadog agent API
 - [x] Generic webhook — configurable HTTP POST with JSON payload
 
 #### Audit Log Formats
@@ -345,10 +345,10 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Native JSON-lines — existing format, now with remote push
 
 #### Fleet Aggregation
-- [ ] Centralized audit collector — agents push events to controller in real-time
-- [ ] Buffered delivery — local queue for network interruptions, guaranteed delivery
-- [ ] Deduplication — handle replay during reconnect without duplicate events
-- [ ] Retention policies — configurable per-agent log retention before forwarding
+- [x] Centralized audit collector — agents push events to controller in real-time
+- [x] Buffered delivery — local queue for network interruptions, guaranteed delivery
+- [x] Deduplication — handle replay during reconnect without duplicate events
+- [x] Retention policies — configurable per-agent log retention before forwarding
 
 #### Alerting
 - [x] Real-time alert rules — pattern matching on audit events (policy denial → alert)
