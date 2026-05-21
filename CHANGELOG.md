@@ -5,22 +5,16 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.0] — 2026-05-22
+## [0.17.0] — 2026-05-21
 
 ### Added
 
 - **Fleet-wide secret push** — New `SealSecret` RPC action pushes a plaintext secret value over the Noise-encrypted channel and seals it on the agent. Supports zero-downtime rotation via `grace_period_secs`: when > 0 and the secret already exists, the old value remains valid during roll-over. Returns `SecretSealed { name, value_hash, rotated }` — the value itself is never written to audit logs.
 - **Secret enumeration** — New `ListSecrets` RPC action returns the sorted names of all secrets currently held in the agent's secret store (`SecretsList { names }`). Values are never returned.
 - **`rf secret` CLI commands** — `rf secret push --token <tok> --name <name> --value <val> [--grace-period <secs>]` seals a secret on a remote agent. `rf secret list --token <tok>` lists secret names. Both commands use the existing Noise-authenticated channel.
-- **Version**: Bumped to 0.17.0 across all crates and deploy manifests
-- **Total tests**: 1,316 (up from 1,306) — +5 rf-executor (SealSecret/ListSecrets handlers), +5 rf-rpc (roundtrip tests for new action/result types)
-- **LOC**: ~65,914 (up from ~65,377)
-
-
-### Added
-
 - **External secret backends** — `rf-executor::secret_backends` provides pluggable secret manager integrations: HashiCorp Vault (AppRole and Token auth, KV v1/v2), AWS Secrets Manager (SigV4 signing, optional session token), Azure Key Vault (client credentials OAuth2), GCP Secret Manager (pre-obtained access token, base64-decoded payload), and a Generic HTTP backend (configurable URL template, JSON path extraction, custom headers). `SecretBackend` trait (`fetch`, `write`, `backend_type`) is `async`, `Send + Sync`, and dyn-compatible via `async-trait`. `SecretBackendRegistry` stores named backends. `build_backend()` factory from JSON config. Background sync task for periodic secret refresh (source-of-truth pull mode). New RPC actions: `ConfigureSecretBackend` and `FetchFromBackend`. New RPC results: `SecretBackendConfigured` and `SecretFetched`. 25 new tests.
 - **CI test timeout** — `.github/workflows/ci.yml` Test job now has `timeout-minutes: 45` to prevent indefinite hangs.
+- **Comprehensive documentation guides** — 9 new how-to guides covering all major features: Secret Management, File Transfer, Port Forwarding, Desired-State Convergence, Fleet Orchestration, Mesh VPN & DTN, SIEM Integration, Anomaly Detection, Post-Quantum Keys. Updated `SUMMARY.md` navigation and `reference/cli.md` with `rf secret push/list` and `rf cp` command references.
 
 ### Fixed
 
@@ -29,10 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Version**: Bumped to 0.16.0 across all crates and deploy manifests
-- **Total tests**: 1,306 (up from 1,283) — +25 rf-executor (secret backends), +4 rf-rpc (new action/result types)
-- **LOC**: ~65,377 (up from ~63,769)
-- ROADMAP items marked complete: Vault, AWS, Azure, GCP, Generic HTTP secret backends; sync mode; CI timeout
+- **Version**: Bumped to 0.17.0 across all crates and deploy manifests
+- **Total tests**: 1,316 (up from 1,283) — +5 rf-executor (SealSecret/ListSecrets handlers), +5 rf-rpc (new action/result types), +25 rf-executor (secret backends), +4 rf-rpc (ConfigureSecretBackend/FetchFromBackend roundtrips)
+- **LOC**: ~65,914 (up from ~63,769)
+- ROADMAP items marked complete: SealSecret/ListSecrets, rf secret CLI, Vault/AWS/Azure/GCP/Generic HTTP secret backends, sync mode, CI timeout
 
 ## [0.15.0] — 2026-05-21
 

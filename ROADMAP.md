@@ -40,7 +40,7 @@
 
 ## Current Status
 
-**Version:** 0.16.0 (Alpha) — Released 2026-05-21
+**Version:** 0.17.0 (Alpha) — Released 2026-05-21
 
 **Stats:** 13 crates, ~65,914 LOC, 1,316 tests, 0 clippy warnings, 0 known vulnerabilities.
 
@@ -50,6 +50,9 @@
 - Port forwarding: local (-L), remote (-R), SOCKS5 (-D)
 - Multi-agent orchestration with playbooks and rollback
 - Mesh VPN with MagicDNS and sealed secrets
+- Fleet-wide secret push (`rf secret push`) with zero-downtime rotation via grace period
+- Secret enumeration (`rf secret list`) — names only, plaintext never returned
+- External secret backends: HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, GCP Secret Manager, Generic HTTP
 - 46+ transport drivers (WebSocket, QUIC, WireGuard, LoRa, BLE, Tor, satellite, etc.)
 - Delay-tolerant networking (store-carry-forward, custody transfer)
 - MCP server for AI agent integration (Claude, Cursor, Aider)
