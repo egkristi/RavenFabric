@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.18.0 (Alpha) — Released 2026-05-21
+**Version:** 0.19.0 (Alpha) — Released 2026-05-22
 
-**Stats:** 13 crates, ~66,857 LOC, 1,328 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 14 crates, ~67,887 LOC, 1,343 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -124,7 +124,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.18.0 — all planned features implemented and tested.
+**Current:** Alpha v0.19.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -222,24 +222,24 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - Short-lived tokens preferred — default TTL 24h for API tokens; long-lived tokens require explicit policy approval
 
 #### Ingress Component (`rf-ingress`)
-- [ ] HTTP ingress server — TLS-terminating public endpoint (axum/hyper), accepts inbound HTTPS requests
-- [ ] Agent routing table — map incoming requests to connected agents by subdomain, path prefix, or header (`X-RF-Agent`)
-- [ ] Caller authentication — API key, mTLS, OAuth token validation at the edge before routing
-- [ ] Rate limiting per caller — sliding window throttle at ingress to prevent abuse
-- [ ] Ingress audit logging — external caller identity, source IP, target agent, timing, response status
-- [ ] Health check passthrough — configurable health endpoints that don't require full auth (for load balancers)
+- [x] HTTP ingress server — TLS-terminating public endpoint (axum/hyper), accepts inbound HTTPS requests
+- [x] Agent routing table — map incoming requests to connected agents by subdomain, path prefix, or header (`X-RF-Agent`)
+- [x] Caller authentication — API key validation at the edge before routing
+- [x] Rate limiting per caller — sliding window throttle at ingress to prevent abuse
+- [ ] Ingress audit logging — external caller identity, source IP, target agent, timing, response status (structured)
+- [x] Health check passthrough — `/health` endpoint bypasses auth (for load balancers)
 
 #### Agent-Side Reverse Proxy Handler
-- [ ] `ReverseProxy` RPC action — agent receives HTTP request metadata + body over yamux stream
-- [ ] Policy enforcement — same HTTP-aware rules as forward proxy (method + path pattern allow/deny)
-- [ ] Agent-level audit logging — full request details (method, path, headers, caller, policy decision, latency)
-- [ ] Upstream connection — agent connects to local service, forwards request, streams response back
-- [ ] Response size limits — configurable max response body to prevent data exfiltration
-- [ ] Timeout enforcement — per-request timeout kills slow upstream connections
+- [x] `ReverseProxy` RPC action — agent receives HTTP request metadata + body over RPC channel
+- [x] Policy enforcement — HTTP-aware rules (method + path pattern allow/deny via `check_http_request`)
+- [x] Agent-level audit logging — full request details (method, path, caller, policy decision, latency)
+- [x] Upstream connection — agent connects to local service, forwards request, returns response
+- [x] Response size limits — configurable max response body to prevent data exfiltration
+- [x] Timeout enforcement — per-request timeout kills slow upstream connections
 
 #### Routing & Registration
-- [ ] Agent self-registration — agent declares "I serve requests for target X" on connect
-- [ ] Dynamic routing updates — agents can register/deregister endpoints without ingress restart
+- [x] Agent self-registration — `IngressRegister` RPC action registers agent with upstream URL, subdomain, path prefix
+- [x] Dynamic routing updates — agents can register/deregister without ingress restart
 - [ ] Multi-agent load balancing — multiple agents serving same endpoint, round-robin or least-connections
 - [ ] Sticky sessions — optional session affinity by caller identity or cookie
 

@@ -2337,6 +2337,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "rf-ingress"
+version = "0.18.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "clap",
+ "reqwest",
+ "rf-audit",
+ "rf-crypto",
+ "rf-rpc",
+ "rf-transport",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.11.0",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "rf-integration-tests"
 version = "0.0.0"
 dependencies = [

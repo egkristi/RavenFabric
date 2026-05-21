@@ -3,11 +3,11 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.18.0)** — Foundation complete. 13 crates, ~66,857 LOC, 1,328 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.19.0)** — Foundation complete. 14 crates, ~67,887 LOC, 1,343 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
-[![Version](https://img.shields.io/badge/version-0.18.0-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.19.0-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
 
 **Language:** Rust | **License:** AGPL-3.0-or-later (core) + Commercial (enterprise)
 
@@ -489,7 +489,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~66,857 LOC | 1,328 tests | 0 clippy warnings**
+**~67,887 LOC | 1,343 tests | 0 clippy warnings**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
@@ -879,6 +879,7 @@ NOT observable: command content, file content, agent identity, traffic type
 | `rf-agent` | Runs on target systems. Connects outbound, serves RPC under policy |
 | `rf-relay` | Stateless encrypted broker. Pairs agents and clients. Geo-distributed |
 | `rf-mcp-server` | MCP server for AI agents (Claude, Cursor, Aider). Policy-enforced tool execution |
+| `rf-ingress` | HTTP ingress gateway. Routes external HTTP requests to registered agent upstreams via reverse proxy |
 
 ### Core Crates (Workspace)
 
@@ -896,6 +897,7 @@ NOT observable: command content, file content, agent identity, traffic type
 | `rf-agent` | Agent binary (connects outbound, serves RPC under policy) | Done (~530 LOC) |
 | `rf-cli` | `rf` CLI binary (exec, status, shell, forward, playbook, policy, cp, proxy, completions) | Done (~2,000 LOC) |
 | `rf-mcp-server` | MCP server binary for AI agent integration (Claude, Cursor, Aider), RBAC `allowed_tools` per caller | Done (~3,400 LOC, 61 tests) |
+| `rf-ingress` | HTTP ingress gateway: axum server, routing table, API key auth, rate limiting, reverse proxy | Done (~580 LOC, 11 tests) |
 | `rf-integration-tests` | End-to-end integration tests (relay pipeline + MCP server E2E) | Done (~2,050 LOC, 50 tests) |
 | `sdks/python` | Python MCP client SDK — pip-installable, async + sync API, LangChain + CrewAI + OpenAI + Anthropic + AutoGen integrations | Done (41 tests) |
 | `sdks/typescript` | TypeScript MCP client SDK — npm package, fully typed async API | Done (12 tests) |

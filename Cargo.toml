@@ -13,11 +13,12 @@ members = [
     "crates/rf-cli",
     "crates/rf-mcp-server",
     "crates/rf-mcp-client",
+    "crates/rf-ingress",
     "crates/rf-integration-tests",
 ]
 
 [workspace.package]
-version = "0.18.0"
+version = "0.19.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/egkristi/RavenFabric"
@@ -113,6 +114,9 @@ httparse = "1"
 
 # HTTP client (for secret backends — Vault, AWS, Azure, GCP)
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+# HTTP server
+axum = { version = "0.8" }
 
 # Temp files (for tests)
 tempfile = "3"

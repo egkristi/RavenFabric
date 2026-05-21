@@ -354,6 +354,51 @@ pub enum Action {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mode: Option<u32>,
     },
+    /// Register this agent with an ingress server as a handler for HTTP requests.
+    ///
+    /// The agent sends this action to the ingress server after connecting.
+    /// The ingress server stores the routing rule and will send `ReverseProxy` actions
+    /// when matching HTTP requests arrive from external callers.
+    IngressRegister {
+        /// Agent identifier (used in audit logs and load-balancing decisions).
+        agent_id: String,
+        /// Upstream URL on the agent host (e.g. "http://127.0.0.1:8080").
+        upstream_url: String,
+        /// Optional subdomain that triggers routing to this agent (e.g. "api").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        subdomain: Option<String>,
+        /// Optional path prefix that triggers routing to this agent (e.g. "/api/v1").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        path_prefix: Option<String>,
+    },
+    /// Forward an HTTP request through the agent to a local upstream service.
+    ///
+    /// Sent by the ingress server to a registered agent when a matching external
+    /// HTTP request arrives.  The agent applies its HTTP policy, connects to the
+    /// upstream, and returns a `ReverseProxyResponse`.
+    ReverseProxy {
+        /// HTTP method (e.g. "GET", "POST").
+        method: String,
+        /// Request path (e.g. "/api/users").
+        path: String,
+        /// Query string (without leading `?`), if present.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        query: Option<String>,
+        /// Request headers as key-value pairs.
+        #[serde(default)]
+        headers: Vec<(String, String)>,
+        /// Request body (raw bytes).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        body: Option<Vec<u8>>,
+        /// Full upstream URL (e.g. "http://127.0.0.1:8080").
+        upstream_url: String,
+        /// Per-request timeout in milliseconds (overrides agent policy default).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+        /// Maximum response body size in bytes.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_response_bytes: Option<u64>,
+    },
 }
 
 fn default_block_size() -> u32 {
@@ -635,6 +680,26 @@ pub enum RpcResult {
         total_blocks: u32,
         /// True if the final SHA-256 was checked and matched.
         checksum_verified: bool,
+    },
+    /// Response to an `IngressRegister` action — registration confirmed.
+    IngressRegistered {
+        /// Agent ID as echoed back by the ingress server.
+        agent_id: String,
+        /// Upstream URL that was registered.
+        upstream_url: String,
+    },
+    /// Response to a `ReverseProxy` action — HTTP response from the upstream service.
+    ReverseProxyResponse {
+        /// HTTP status code (e.g. 200, 404).
+        status: u16,
+        /// Response headers as key-value pairs.
+        #[serde(default)]
+        headers: Vec<(String, String)>,
+        /// Response body (raw bytes).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        body: Option<Vec<u8>>,
+        /// Round-trip latency from agent to upstream in milliseconds.
+        latency_ms: u64,
     },
 }
 
@@ -1290,6 +1355,79 @@ mod tests {
                 blocks_changed: 1,
                 total_blocks: 3,
                 checksum_verified: true,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_ingress_register_action() {
+        let req = Request {
+            id: "ir-1".into(),
+            action: Action::IngressRegister {
+                agent_id: "web-01".into(),
+                upstream_url: "http://127.0.0.1:8080".into(),
+                subdomain: Some("api".into()),
+                path_prefix: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_reverse_proxy_action() {
+        let req = Request {
+            id: "rp-1".into(),
+            action: Action::ReverseProxy {
+                method: "POST".into(),
+                path: "/api/users".into(),
+                query: Some("page=1".into()),
+                headers: vec![
+                    ("content-type".into(), "application/json".into()),
+                    ("authorization".into(), "Bearer token123".into()),
+                ],
+                body: Some(b"{\"name\":\"Alice\"}".to_vec()),
+                upstream_url: "http://127.0.0.1:8080".into(),
+                timeout_ms: Some(5000),
+                max_response_bytes: Some(1048576),
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_ingress_registered_result() {
+        let resp = Response {
+            id: "ir-1".into(),
+            result: RpcResult::IngressRegistered {
+                agent_id: "web-01".into(),
+                upstream_url: "http://127.0.0.1:8080".into(),
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_reverse_proxy_response_result() {
+        let resp = Response {
+            id: "rp-1".into(),
+            result: RpcResult::ReverseProxyResponse {
+                status: 200,
+                headers: vec![("content-type".into(), "application/json".into())],
+                body: Some(b"{\"ok\":true}".to_vec()),
+                latency_ms: 12,
             },
         };
         let bytes = codec::encode(&resp).unwrap();

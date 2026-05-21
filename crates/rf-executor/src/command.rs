@@ -397,6 +397,46 @@ impl Executor {
                 )
                 .await
             }
+            Action::IngressRegister {
+                agent_id,
+                upstream_url,
+                subdomain,
+                path_prefix,
+            } => {
+                self.handle_ingress_register(
+                    &request.id,
+                    agent_id,
+                    upstream_url,
+                    subdomain.as_deref(),
+                    path_prefix.as_deref(),
+                    start,
+                )
+                .await
+            }
+            Action::ReverseProxy {
+                method,
+                path,
+                query,
+                headers,
+                body,
+                upstream_url,
+                timeout_ms,
+                max_response_bytes,
+            } => {
+                self.handle_reverse_proxy(
+                    &request.id,
+                    method,
+                    path,
+                    query.as_deref(),
+                    headers,
+                    body.as_deref(),
+                    upstream_url,
+                    *timeout_ms,
+                    *max_response_bytes,
+                    start,
+                )
+                .await
+            }
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
             },
@@ -2270,6 +2310,183 @@ impl Executor {
             blocks_changed,
             total_blocks: total_blocks as u32,
             checksum_verified,
+        }
+    }
+
+    /// Handle an `IngressRegister` action: the ingress server confirms registration.
+    ///
+    /// On the agent side this is a no-op that returns `IngressRegistered` — the real
+    /// routing state is maintained inside the ingress server process, not the executor.
+    /// This handler exists so the action flows through the normal policy/audit pipeline.
+    async fn handle_ingress_register(
+        &self,
+        request_id: &str,
+        agent_id: &str,
+        upstream_url: &str,
+        subdomain: Option<&str>,
+        path_prefix: Option<&str>,
+        start: Instant,
+    ) -> RpcResult {
+        self.audit(
+            request_id,
+            "ingress_register",
+            Some(format!("agent={agent_id} upstream={upstream_url}")),
+            "allowed",
+            String::new(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+        let _ = subdomain;
+        let _ = path_prefix;
+        RpcResult::IngressRegistered {
+            agent_id: agent_id.to_string(),
+            upstream_url: upstream_url.to_string(),
+        }
+    }
+
+    /// Forward an HTTP request from the ingress server to a local upstream service.
+    ///
+    /// Security: applies HTTP method+path policy before connecting.
+    /// Enforces response-size and timeout limits.
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_reverse_proxy(
+        &self,
+        request_id: &str,
+        method: &str,
+        path: &str,
+        query: Option<&str>,
+        headers: &[(String, String)],
+        body: Option<&[u8]>,
+        upstream_url: &str,
+        timeout_ms: Option<u64>,
+        max_response_bytes: Option<u64>,
+        start: Instant,
+    ) -> RpcResult {
+        let policy = self.policy.read().await;
+
+        // HTTP method + path policy check
+        let http_decision = policy.check_http_request(method, path);
+        if !http_decision.allowed {
+            self.audit(
+                request_id,
+                "reverse_proxy",
+                Some(format!("{method} {path}")),
+                "denied",
+                http_decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: http_decision.reason,
+                rule: http_decision.matched_rule,
+            };
+        }
+
+        let effective_timeout_ms =
+            timeout_ms.unwrap_or(policy.proxy_idle_timeout_seconds as u64 * 1000);
+        let effective_max_bytes = max_response_bytes
+            .unwrap_or(policy.max_output_bytes)
+            .min(policy.max_output_bytes);
+        drop(policy);
+
+        // Build the full upstream URL with path and query
+        let full_url = if let Some(q) = query {
+            format!("{upstream_url}{path}?{q}")
+        } else {
+            format!("{upstream_url}{path}")
+        };
+
+        let upstream_start = Instant::now();
+
+        // Build reqwest request
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(effective_timeout_ms))
+            .build()
+            .unwrap_or_default();
+
+        let method_val = match reqwest::Method::from_bytes(method.as_bytes()) {
+            Ok(m) => m,
+            Err(_) => {
+                return RpcResult::Error {
+                    message: format!("invalid HTTP method: {method}"),
+                };
+            }
+        };
+
+        let mut req_builder = client.request(method_val, &full_url);
+        for (k, v) in headers {
+            req_builder = req_builder.header(k.as_str(), v.as_str());
+        }
+        if let Some(b) = body {
+            req_builder = req_builder.body(b.to_vec());
+        }
+
+        let resp = match req_builder.send().await {
+            Ok(r) => r,
+            Err(e) => {
+                self.audit(
+                    request_id,
+                    "reverse_proxy",
+                    Some(format!("{method} {path}")),
+                    "error",
+                    String::new(),
+                    None,
+                    start.elapsed().as_millis() as u64,
+                );
+                return RpcResult::Error {
+                    message: format!("upstream request failed: {e}"),
+                };
+            }
+        };
+
+        let status = resp.status().as_u16();
+        let resp_headers: Vec<(String, String)> = resp
+            .headers()
+            .iter()
+            .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string()))
+            .collect();
+
+        let body_bytes = match resp.bytes().await {
+            Ok(b) => b,
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("reading upstream response body: {e}"),
+                };
+            }
+        };
+
+        // Enforce response size limit
+        if body_bytes.len() as u64 > effective_max_bytes {
+            return RpcResult::Error {
+                message: format!(
+                    "response body {} bytes exceeds limit {}",
+                    body_bytes.len(),
+                    effective_max_bytes
+                ),
+            };
+        }
+
+        let latency_ms = upstream_start.elapsed().as_millis() as u64;
+
+        self.audit(
+            request_id,
+            "reverse_proxy",
+            Some(format!("{method} {path} -> {status}")),
+            "allowed",
+            String::new(),
+            None,
+            start.elapsed().as_millis() as u64,
+        );
+
+        RpcResult::ReverseProxyResponse {
+            status,
+            headers: resp_headers,
+            body: if body_bytes.is_empty() {
+                None
+            } else {
+                Some(body_bytes.to_vec())
+            },
+            latency_ms,
         }
     }
 

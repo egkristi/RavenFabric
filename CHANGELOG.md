@@ -5,7 +5,39 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.18.0] — 2026-05-21
+## [0.19.0] — 2026-05-22
+
+### Added
+
+- **rf-ingress HTTP gateway** — New `rf-ingress` binary (14th crate in the
+  workspace). Accepts inbound HTTP requests, authenticates them via `X-RF-Key`
+  API key header, applies per-IP sliding-window rate limiting (configurable RPM),
+  resolves the target agent from a live routing table, and reverse-proxies the
+  request to the registered local upstream URL. Routing supports subdomain
+  matching, path-prefix matching, and single-agent catch-all mode. All forwarded
+  requests strip hop-by-hop headers. A `/health` endpoint bypasses authentication.
+  New crate modules: `server`, `router`, `auth`, `rate_limit`.
+- **ReverseProxy RPC action** — New `Action::ReverseProxy` and
+  `RpcResult::ReverseProxyResponse` wire types in rf-rpc. Enables the ingress
+  server to forward HTTP requests to agent-local upstreams via the authenticated
+  RPC channel. The rf-executor `handle_reverse_proxy` handler applies HTTP
+  method+path policy checks, enforces configurable timeout and response-size
+  limits, and emits structured audit log entries for every forwarded request.
+- **IngressRegister RPC action** — New `Action::IngressRegister` and
+  `RpcResult::IngressRegistered` wire types for the agent-to-ingress registration
+  handshake. Flows through the normal policy/audit pipeline.
+- **reqwest now unconditional in rf-executor** — Previously gated behind the
+  `secret-backends` feature; now always available to support `ReverseProxy`.
+
+### Changed
+
+- **Version**: Bumped to 0.19.0 across all crates and deploy manifests
+- **Total tests**: 1,343 (up from 1,328) — +4 rf-rpc roundtrips, +11 rf-ingress
+  (router, auth, rate_limit, server unit tests)
+- **LOC**: ~67,887 (up from ~66,857)
+- ROADMAP items marked complete: rf-ingress HTTP gateway, ReverseProxy RPC,
+  IngressRegister RPC
+
 
 ### Added
 

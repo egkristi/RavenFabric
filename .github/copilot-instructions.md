@@ -18,13 +18,13 @@ and structured audit logging are non-negotiable foundations.
 
 ## Architecture
 
-Cargo workspace with 13 crates:
+Cargo workspace with 14 crates:
 
 | Crate | Purpose | Status |
 |---|---|---|
 | `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management, PQ hybrid KEM, no_std frame_codec | **Done** (~1,800 LOC, 50 tests) |
 | `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | **Done** (~21,900 LOC, 542 tests) |
-| `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~6,500 LOC, 118 tests) |
+| `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~6,500 LOC, 122 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged), real-time alert rules with deduplication, alert webhook destinations, Syslog RFC 5424, CEF format, LEEF, OCSF, Splunk HEC, Elasticsearch, Datadog, buffered collector | **Done** (~2,415 LOC, 71 tests) |
 | `rf-policy` | YAML policy loading, command/path/network/HTTP/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection, header injection/stripping | **Done** (~5,500 LOC, 140 tests) |
 | `rf-executor` | Command execution + streaming under policy control with timeout and output limiting, desired-state convergence, event triggers, result parsing, grains | **Done** (~10,700 LOC, 175 tests) |
@@ -34,9 +34,10 @@ Cargo workspace with 13 crates:
 | `rf-cli` | CLI client `rf` (exec, dev, status, policy, cp, proxy, completions, direct connect) | **Done** (~2,000 LOC) |
 | `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,400 LOC, 61 tests) |
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
+| `rf-ingress` | HTTP ingress gateway (axum), reverse-proxy routing table, API key auth, per-IP rate limiting | **Done** (~580 LOC, 11 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~66,857 LOC, 1,328 tests, 0 clippy warnings.**
+**Total: ~67,887 LOC, 1,343 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
@@ -57,6 +58,7 @@ rf-agent   (depends on rf-crypto, rf-transport, rf-rpc, rf-executor, rf-policy, 
 rf-cli     (depends on rf-crypto, rf-transport, rf-rpc)
 rf-mcp-server (depends on rf-executor, rf-policy, rf-audit)
 rf-mcp-client (no internal deps — standalone SDK)
+rf-ingress (depends on rf-crypto, rf-transport, rf-rpc, rf-audit)
 ```
 
 ## Platform Targets

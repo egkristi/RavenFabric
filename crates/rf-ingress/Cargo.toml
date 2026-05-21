@@ -1,0 +1,39 @@
+[package]
+name = "rf-ingress"
+description = "RavenFabric — HTTP ingress gateway with reverse-proxy and agent routing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+categories = ["command-line-utilities", "network-programming"]
+keywords = ["security", "reverse-proxy", "mesh-networking", "ingress", "zero-trust"]
+
+[[bin]]
+name = "rf-ingress"
+path = "src/main.rs"
+
+[dependencies]
+rf-crypto = { path = "../rf-crypto", version = "0.19.0" }
+rf-transport = { path = "../rf-transport", version = "0.19.0" }
+rf-rpc = { path = "../rf-rpc", version = "0.19.0" }
+rf-audit = { path = "../rf-audit", version = "0.19.0" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+axum = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+clap = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

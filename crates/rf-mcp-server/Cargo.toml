@@ -15,11 +15,11 @@ minimal = []
 http-sse = ["dep:axum", "dep:tokio-stream", "dep:futures-util"]
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "0.18.0" }
-rf-policy = { path = "../rf-policy", version = "0.18.0" }
-rf-audit = { path = "../rf-audit", version = "0.18.0" }
-rf-executor = { path = "../rf-executor", version = "0.18.0" }
-rf-rpc = { path = "../rf-rpc", version = "0.18.0" }
+rf-crypto = { path = "../rf-crypto", version = "0.19.0" }
+rf-policy = { path = "../rf-policy", version = "0.19.0" }
+rf-audit = { path = "../rf-audit", version = "0.19.0" }
+rf-executor = { path = "../rf-executor", version = "0.19.0" }
+rf-rpc = { path = "../rf-rpc", version = "0.19.0" }
 
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -35,7 +35,7 @@ sha2 = { workspace = true }
 regex = { workspace = true }
 
 # HTTP+SSE transport (optional)
-axum = { version = "0.8", optional = true }
+axum = { workspace = true, optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 futures-util = { version = "0.3", optional = true }
 
