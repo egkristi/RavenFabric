@@ -1350,6 +1350,7 @@ fn policy_command(action: PolicyAction) -> anyhow::Result<()> {
 
 /// Copy files between local and remote agent.
 /// Source/dest format: "agent:/remote/path" for remote, or plain path for local.
+#[allow(clippy::too_many_arguments)]
 async fn cp_command(
     relay_url: &str,
     direct_addr: Option<&str>,
@@ -2209,7 +2210,10 @@ async fn delta_push(
 
     // Step 1: query remote checksums
     let query_req = Request {
-        id: format!("delta-query-{}", hex::encode(&local_data[..4.min(local_data.len())])),
+        id: format!(
+            "delta-query-{}",
+            hex::encode(&local_data[..4.min(local_data.len())])
+        ),
         action: Action::FileDeltaQuery {
             path: remote_path.to_string(),
             block_size,
@@ -2307,7 +2311,10 @@ async fn delta_push(
 
     // Step 3: send patch
     let patch_req = Request {
-        id: format!("delta-patch-{}", hex::encode(&local_data[..4.min(local_data.len())])),
+        id: format!(
+            "delta-patch-{}",
+            hex::encode(&local_data[..4.min(local_data.len())])
+        ),
         action: Action::FileDeltaPatch {
             path: remote_path.to_string(),
             block_size,

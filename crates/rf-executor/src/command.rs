@@ -2175,8 +2175,10 @@ impl Executor {
         let existing: Vec<u8> = tokio::fs::read(path).await.unwrap_or_default();
 
         // Build patch lookup: offset → new data
-        let patch_map: std::collections::HashMap<u64, &[u8]> =
-            patches.iter().map(|p| (p.offset, p.data.as_slice())).collect();
+        let patch_map: std::collections::HashMap<u64, &[u8]> = patches
+            .iter()
+            .map(|p| (p.offset, p.data.as_slice()))
+            .collect();
 
         // Compute number of blocks needed for the new total_size
         let total_blocks = total_size.div_ceil(bs as u64) as usize;
@@ -2192,7 +2194,7 @@ impl Executor {
                 let take = this_block_size.min(patch_data.len());
                 new_file.extend_from_slice(&patch_data[..take]);
                 if take < this_block_size {
-                    new_file.extend(std::iter::repeat(0u8).take(this_block_size - take));
+                    new_file.extend(std::iter::repeat_n(0u8, this_block_size - take));
                 }
             } else {
                 // Copy unchanged block from existing file
@@ -2202,10 +2204,10 @@ impl Executor {
                     new_file.extend_from_slice(&existing[src_start..src_end]);
                     let copied = src_end - src_start;
                     if copied < this_block_size {
-                        new_file.extend(std::iter::repeat(0u8).take(this_block_size - copied));
+                        new_file.extend(std::iter::repeat_n(0u8, this_block_size - copied));
                     }
                 } else {
-                    new_file.extend(std::iter::repeat(0u8).take(this_block_size));
+                    new_file.extend(std::iter::repeat_n(0u8, this_block_size));
                 }
             }
         }
