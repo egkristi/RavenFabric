@@ -798,8 +798,23 @@
                 </div>
                 <div class="card">
                     <div class="card-icon">&#x1F517;</div>
-                    <h3>Secure API Proxy</h3>
-                    <p>Proxy HTTP and TCP traffic through RavenFabric agents to private services &mdash; no VPN, no exposed ports, no firewall changes. Policy controls which hosts, ports, HTTP methods, and path patterns are reachable. Every connection and every HTTP request is audited with method, path, status code, latency, and caller identity. Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding.</p>
+                    <h3>Secure API Proxy &amp; Tunnels</h3>
+                    <p>Proxy HTTP and TCP traffic through RavenFabric agents to private services &mdash; no VPN, no exposed ports, no firewall changes. Policy controls which hosts, ports, HTTP methods, and path patterns are reachable. Every connection and every HTTP request is audited. Includes local port forwarding, remote port forwarding, and SOCKS5 dynamic proxy. Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F511;</div>
+                    <h3>Secret Management &amp; Fleet Distribution</h3>
+                    <p>Sealed secret store on each agent. Push secrets to any agent or entire fleet over the encrypted channel &mdash; the value is encrypted at rest and never logged in plaintext. Zero-downtime rotation: the old secret remains valid for a configurable grace period while the new value propagates. Pull from enterprise backends without storing credentials in policy files: HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, GCP Secret Manager, and generic HTTP endpoints. Key material is zeroed from memory on release.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F4CA;</div>
+                    <h3>SIEM Integration &amp; Real-Time Alerting</h3>
+                    <p>Forward audit events in real time to Splunk HEC, Elasticsearch, Datadog, or any syslog target (RFC&nbsp;5424). Export in the format your security team already uses: CEF, LEEF, OCSF, or native structured JSON-lines. Define alert rules that fire on policy denials, anomaly scores, session events, or custom patterns. Route alerts to Slack, PagerDuty, OpsGenie, or a generic webhook. Buffered delivery with deduplication ensures no events are dropped during network interruptions.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F4E6;</div>
+                    <h3>Bulk File Transfer</h3>
+                    <p>Transfer single files or recursive directory trees between any two points in the mesh: <code>rf cp</code> over the encrypted channel. Automatic compression, chunked transfer, progress reporting, and SHA-256 integrity verification on arrival. Obeys the same path policies as all other operations &mdash; transfer attempts outside allowed paths are blocked and logged.</p>
                 </div>
             </div>
         </div>
@@ -934,7 +949,7 @@
     ├──▶ <span class="safe">Air-gapped systems</span> (serial, radio, DTN)
     └──▶ <span class="safe">Mobile devices</span> (Android, iOS)
 
-<span class="dim">20+ transport drivers. Works through NAT, firewalls, proxies.
+<span class="dim">30+ transport drivers. Works through NAT, firewalls, proxies.
 Zero inbound ports required. Single static binary on target.</span></pre>
             </div>
 
@@ -952,7 +967,12 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 <div class="card">
                     <div class="card-icon">&#x1F310;</div>
                     <h3>Network Agnostic</h3>
-                    <p>WebSocket, QUIC, WireGuard, Tor, serial port, Bluetooth, LoRa, satellite. If bytes can move, RavenFabric works. 20+ transport drivers, automatic failover.</p>
+                    <p>WebSocket, QUIC, WireGuard, Tor, serial port, Bluetooth, LoRa, satellite, acoustic channel, amateur radio (AX.25), mixnet, delay-tolerant mesh. If bytes can move, RavenFabric works. 30+ transport drivers, automatic failover. Agents detect transport interference and migrate paths without dropping the session.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#x1F4E1;</div>
+                    <h3>Delay-Tolerant &amp; Mesh Networking</h3>
+                    <p>Store-carry-forward DTN for intermittently connected systems: agents queue operations while offline and sync opportunistically when a path becomes available. Mesh VPN with MagicDNS for direct peer-to-peer connectivity across NAT without a central relay. Operations and audit data propagate through the mesh &mdash; no node is a monitoring blind spot regardless of topology.</p>
                 </div>
             </div>
         </div>
@@ -1134,6 +1154,46 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                             <td class="no">&mdash;</td>
                             <td class="rf-col yes">&#x2713;</td>
                         </tr>
+                        <tr>
+                            <td>Fleet secret management (push, rotation, ext. backends)</td>
+                            <td class="no">&mdash;</td>
+                            <td class="partial">Partial</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>SIEM forwarding (Splunk, Elastic, Datadog, Syslog, CEF&hellip;)</td>
+                            <td class="no">&mdash;</td>
+                            <td class="partial">Partial</td>
+                            <td class="no">&mdash;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Post-quantum key exchange</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>Delay-tolerant / mesh networking</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
+                        <tr>
+                            <td>File transfer with integrity verification</td>
+                            <td class="no">&mdash;</td>
+                            <td class="yes">&#x2713;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="no">&mdash;</td>
+                            <td class="rf-col yes">&#x2713;</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -1158,7 +1218,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 <h4>Technical Moat</h4>
                 <div class="diff-row">
                     <span class="label">Crypto</span>
-                    <span class="good">Noise XX mutual authentication (same protocol family as WireGuard). No TLS. No certificates. No PKI. End-to-end encryption on every connection. Key material protected at rest and zeroed from memory on release.</span>
+                    <span class="good">Mutual authentication with no TLS, no certificates, and no PKI. End-to-end encryption on every connection. Key material protected at rest and zeroed from memory on release. Optional post-quantum hybrid key exchange for forward secrecy against quantum-capable adversaries &mdash; drops in without changing the API or the deployment model.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label">Transport</span>
@@ -1425,7 +1485,7 @@ Zero inbound ports required. Single static binary on target.</span></pre>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 120px;">What&rsquo;s Done</span>
-                    <span class="good">63,769 LOC Rust codebase. 1,283 tests. 13 crates. Cross-platform binaries. MCP server. Policy engine. Audit system. Encryption layer. 20+ transport drivers. Secure API proxy. CI/CD. Documentation. Website.</span>
+                    <span class="good">65,914 LOC Rust codebase. 1,316 tests. 13 modules. Cross-platform static binaries (Linux, macOS, Windows, Android, iOS, OpenWrt). MCP server (stdio + HTTP+SSE). Policy engine. Audit system with SIEM export. End-to-end encryption with post-quantum hardening. 30+ transport drivers including LoRa, BLE, Tor, satellite, AX.25. Delay-tolerant mesh networking. Secure API proxy (TCP + HTTP-aware). Port forwarding + SOCKS5. Fleet orchestration with playbooks and rollback. Desired-state convergence. Session recording. Interactive shell. Bulk file transfer. Secret management with fleet-wide push, rotation, and external backend support (Vault, AWS, Azure, GCP). SIEM integration (Splunk, Elasticsearch, Datadog, Syslog, CEF, LEEF, OCSF). Alert rules (Slack, PagerDuty, OpsGenie). WASM plugin system. Multi-tenancy. Web UI dashboard. REST API. Kubernetes operator. Behavioral anomaly detection. Prompt injection defense. CI/CD. Documentation. Website.</span>
                 </div>
                 <div class="diff-row">
                     <span class="label" style="min-width: 120px;">What&rsquo;s Next</span>
