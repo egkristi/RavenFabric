@@ -235,6 +235,97 @@ rf policy compose "safe-dev-mode,production-ai-guardrails"
 
 ---
 
+## `rf secret`
+
+Manage secrets distributed to agents. Secrets are encrypted in transit and at rest; the controller never stores plaintext values.
+
+### `rf secret push`
+
+Push a secret to one or more agents.
+
+```bash
+# Push to a single named agent
+rf secret push --token <TOKEN> --name DB_PASSWORD --value "env:DB_PASSWORD"
+
+# Push to all agents (fleet-wide)
+rf secret push --token <TOKEN> --name API_KEY --value "s3cr3t" --selector "*"
+
+# Zero-downtime rotation: deliver new value but keep old valid for 5 minutes
+rf secret push --token <TOKEN> --name SIGNING_KEY --value "new-key" \
+  --grace-period 300
+```
+
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--token <TOKEN>` | `-t` | Meet token | Required |
+| `--name <NAME>` | `-n` | Secret name | Required |
+| `--value <VALUE>` | `-v` | Secret value (`env:VAR` to read from env) | Required |
+| `--selector <SEL>` | `-s` | Agent selector (`*` = all, `role=web` = by label) | Current agent |
+| `--grace-period <SECS>` | `-g` | Keep old version valid for N seconds after push | 0 |
+| `--ttl <SECS>` | — | Secret expires after N seconds on the agent | Never |
+
+### `rf secret list`
+
+List secret names and content hashes on the agent. Plaintext values are never returned.
+
+```bash
+rf secret list --token <TOKEN>
+```
+
+Output:
+```
+NAME           HASH (SHA-256)       AGE
+DB_PASSWORD    a3f1b2c4...          2d 4h
+API_KEY        e9d8c7b6...          12h
+SIGNING_KEY    f0e1d2c3...          5m (grace period active, old: 7f3a...)
+```
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--token <TOKEN>` | `-t` | Meet token |
+
+---
+
+## `rf cp`
+
+Copy files between the local machine and a remote agent, or between two remote agents.
+
+### Syntax
+
+```
+rf cp [OPTIONS] <SOURCE> <DEST>
+```
+
+Remote paths use the syntax `<agent-id>:<path>`, e.g. `web-01:/var/www/html/`.
+
+```bash
+# Upload local file to agent
+rf cp --token <TOKEN> ./myapp-2.1 web-01:/opt/app/myapp
+
+# Download from agent
+rf cp --token <TOKEN> web-01:/var/log/app.log ./logs/app.log
+
+# Recursive directory upload
+rf cp --token <TOKEN> -r ./config/ web-01:/etc/myapp/
+
+# Remote-to-remote copy (both ends are remote agents)
+rf cp --token <TOKEN> src-agent:/data/ dst-agent:/backup/
+```
+
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--token <TOKEN>` | `-t` | Meet token | Required |
+| `--recursive` | `-r` | Copy directory trees | — |
+| `--no-compress` | — | Disable zstd compression | Auto (by file extension) |
+| `--chunk-size <BYTES>` | — | Transfer chunk size | 65536 |
+| `--overwrite` | — | Overwrite existing destination files | Refuse if exists |
+| `--dry-run` | — | Show what would be transferred without transferring | — |
+| `--verify` | — | Re-read file after transfer to verify integrity | Enabled by default |
+
+Integrity verification is performed automatically. A SHA-256 hash of the transferred content is computed end-to-end; if the destination hash does not match the source, the transfer is aborted and the partial destination file is removed.
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |
