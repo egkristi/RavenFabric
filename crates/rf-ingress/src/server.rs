@@ -193,7 +193,7 @@ async fn proxy_handler(
     let method = req.method().to_string();
     let query = req.uri().query().map(|q| q.to_string());
 
-    let entry = match state.routing_table.resolve(&host, &path).await {
+    let entry = match state.routing_table.resolve_with_affinity(&host, &path, Some(&caller_key)).await {
         Some(e) => e,
         None => {
             warn!("no agent registered for host={host} path={path}");

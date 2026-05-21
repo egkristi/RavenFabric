@@ -5,6 +5,41 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] — 2026-05-28
+
+### Added
+
+- **Multi-agent load balancing** — `rf-ingress` routing table now supports multiple
+  agents registered under the same route (subdomain + path prefix combination).
+  Requests are distributed round-robin across all healthy candidates.
+- **Sticky sessions** — Optional session affinity by caller identity (hashed API
+  key or `"anonymous"`). Affinity is maintained for 1 hour (TTL refreshed on
+  each hit) and evicted automatically when the pinned agent deregisters.
+- **Version pinning** — New `PinVersion` / `UnpinVersion` RPC actions allow a
+  controller to pin a specific agent to a version and prevent auto-updates.
+- **Update windows** — New `SetUpdateWindow` RPC action configures a daily
+  maintenance window in `"HH:MM-HH:MM"` format (24h, midnight-crossing supported).
+  `UpdateAgent` enforces the window — updates outside it are rejected with an
+  audit entry.
+- **`GetVersionInfo` RPC action** — Returns current version, pinned version (if
+  any), and configured update window for an individual agent. Enables per-agent
+  fleet version visibility from the controller.
+- **Fleet coordination roundtrip tests** — 7 new msgpack roundtrip tests for all
+  new `Action` and `RpcResult` variants.
+- **Ingress load-balancer tests** — 4 new tests: round-robin distribution,
+  sticky session affinity, per-caller isolation, deregister evicts sticky pins.
+
+### Changed
+
+- `RoutingTable::resolve()` now delegates to the new
+  `resolve_with_affinity(host, path, caller_identity)` method. Backward-compatible.
+- `handle_update_agent` checks version pin and update window before downloading
+  the new binary, returning `UpdateFailed` with an audit entry if blocked.
+
+### Total
+
+~69,055 LOC, 1,368 tests across 14 crates.
+
 ## [0.20.0] — 2026-05-23
 
 ### Added

@@ -423,6 +423,25 @@ pub enum Action {
         #[serde(default)]
         allow_downgrade: bool,
     },
+    /// Pin this agent to a specific version — future `UpdateAgent` requests
+    /// for a different version are rejected until the pin is cleared.
+    PinVersion {
+        /// Semver string of the version to pin this agent to.
+        version: String,
+    },
+    /// Clear any active version pin, resuming normal auto-update behaviour.
+    UnpinVersion,
+    /// Query this agent's current version, pin status, and update window.
+    GetVersionInfo,
+    /// Set or clear the maintenance window for auto-updates.
+    ///
+    /// Format: `"HH:MM-HH:MM"` (24-hour daily window, e.g. `"02:00-04:00"`).
+    /// `None` means updates are allowed at any time.
+    SetUpdateWindow {
+        /// Daily time window, or `None` to allow updates at any time.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        window: Option<String>,
+    },
 }
 
 fn default_block_size() -> u32 {
@@ -747,6 +766,32 @@ pub enum RpcResult {
     UpdateFailed {
         /// Human-readable failure reason.
         reason: String,
+    },
+    /// Version info for this agent (response to `GetVersionInfo`).
+    VersionInfo {
+        /// Agent identifier.
+        agent_id: String,
+        /// Semver string of the currently-running binary.
+        current_version: String,
+        /// Version pin, if set.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pinned_version: Option<String>,
+        /// Maintenance window string, if configured.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        update_window: Option<String>,
+    },
+    /// Version pin has been set.
+    VersionPinned {
+        /// The version that is now pinned.
+        version: String,
+    },
+    /// Version pin has been cleared.
+    VersionUnpinned,
+    /// Update window has been configured (or cleared).
+    UpdateWindowSet {
+        /// New window value, or `None` if cleared.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        window: Option<String>,
     },
 }
 
@@ -1563,6 +1608,96 @@ mod tests {
             result: RpcResult::UpdateFailed {
                 reason: "SHA-256 mismatch".into(),
             },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_pin_version_action() {
+        let req = Request {
+            id: "pv-1".into(),
+            action: Action::PinVersion { version: "0.20.0".into() },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_unpin_version_action() {
+        let req = Request {
+            id: "pv-2".into(),
+            action: Action::UnpinVersion,
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_get_version_info_action() {
+        let req = Request {
+            id: "vi-1".into(),
+            action: Action::GetVersionInfo,
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_set_update_window_action() {
+        let req = Request {
+            id: "uw-1".into(),
+            action: Action::SetUpdateWindow { window: Some("02:00-04:00".into()) },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_version_info_result() {
+        let resp = Response {
+            id: "vi-1".into(),
+            result: RpcResult::VersionInfo {
+                agent_id: "web-01".into(),
+                current_version: "0.20.0".into(),
+                pinned_version: Some("0.20.0".into()),
+                update_window: Some("02:00-04:00".into()),
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_version_pinned_result() {
+        let resp = Response {
+            id: "pv-1".into(),
+            result: RpcResult::VersionPinned { version: "0.20.0".into() },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_update_window_set_result() {
+        let resp = Response {
+            id: "uw-1".into(),
+            result: RpcResult::UpdateWindowSet { window: Some("02:00-04:00".into()) },
         };
         let bytes = codec::encode(&resp).unwrap();
         let decoded: Response = codec::decode(&bytes).unwrap();

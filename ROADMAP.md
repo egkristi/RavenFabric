@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.20.0 (Alpha) — Released 2026-05-23
+**Version:** 0.21.0 (Alpha) — Released 2026-05-23
 
-**Stats:** 14 crates, ~68,459 LOC, 1,357 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 14 crates, ~69,055 LOC, 1,368 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -124,7 +124,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.20.0 — all planned features implemented and tested.
+**Current:** Alpha v0.21.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -240,8 +240,8 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 #### Routing & Registration
 - [x] Agent self-registration — `IngressRegister` RPC action registers agent with upstream URL, subdomain, path prefix
 - [x] Dynamic routing updates — agents can register/deregister without ingress restart
-- [ ] Multi-agent load balancing — multiple agents serving same endpoint, round-robin or least-connections
-- [ ] Sticky sessions — optional session affinity by caller identity or cookie
+- [x] Multi-agent load balancing — multiple agents serving same endpoint, round-robin or least-connections
+- [x] Sticky sessions — optional session affinity by caller identity or cookie
 
 ---
 
@@ -293,12 +293,12 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [ ] Staged rollout — canary (1 agent) → percentage (10%) → fleet (100%)
 - [ ] Health-check gates — proceed to next stage only if all updated agents pass health check
 - [ ] Rollout pause/abort — controller can halt rollout mid-flight
-- [ ] Version pinning — specific agents can be pinned to a version (skip auto-update)
-- [ ] Update windows — only apply updates during configured maintenance windows
+- [x] Version pinning — specific agents can be pinned to a version (skip auto-update)
+- [x] Update windows — only apply updates during configured maintenance windows
 
 #### Audit & Observability
 - [x] Update audit log — version transitions recorded with timestamp, source, verification status
-- [ ] Fleet version dashboard — controller reports version distribution across agents
+- [x] Fleet version dashboard — `GetVersionInfo` RPC returns current version, pinned version, and update window per agent
 - [ ] Update failure alerts — webhook notification on rollback events
 
 ---
@@ -361,6 +361,16 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 ---
 
 ## Planned: v1.3 — Enterprise & Compliance
+
+### Regulatory Compliance Coverage
+
+The table below maps known regulatory requirements to existing RavenFabric capabilities.
+
+| Regulation | Requirements | Covered by | Status |
+|---|---|---|---|
+| GDPR / personopplysningsloven | Data minimization, tilgangskontroll | Path policies, output limiting | Delvis dekket |
+
+---
 
 ### Hardware Security Module Support
 

@@ -65,6 +65,12 @@ pub struct Executor {
     sysinfo_cache: Arc<Mutex<sysinfo::System>>,
     /// Per-destination HTTP request timestamps for rate limiting.
     http_dest_rate: Arc<tokio::sync::Mutex<HashMap<String, std::collections::VecDeque<Instant>>>>,
+    /// Optional version pin — `UpdateAgent` requests for a different version
+    /// are rejected while a pin is active.
+    pinned_version: Arc<RwLock<Option<String>>>,
+    /// Optional maintenance window for auto-updates (e.g. `"02:00-04:00"`).
+    /// `None` means updates are allowed at any time.
+    update_window: Arc<RwLock<Option<String>>>,
     /// Registry of external secret backends (Vault, AWS, Azure, GCP, generic HTTP).
     #[cfg(feature = "secret-backends")]
     backend_registry: Arc<tokio::sync::RwLock<crate::secret_backends::SecretBackendRegistry>>,
@@ -90,6 +96,8 @@ impl Executor {
             #[cfg(feature = "sysinfo")]
             sysinfo_cache: Arc::new(Mutex::new(sysinfo::System::new_all())),
             http_dest_rate: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            pinned_version: Arc::new(RwLock::new(None)),
+            update_window: Arc::new(RwLock::new(None)),
             #[cfg(feature = "secret-backends")]
             backend_registry: Arc::new(tokio::sync::RwLock::new(
                 crate::secret_backends::SecretBackendRegistry::new(),
@@ -449,6 +457,15 @@ impl Executor {
                 allow_downgrade,
             } => {
                 self.handle_update_agent(&request.id, version, url, sha256, *allow_downgrade, start)
+                    .await
+            }
+            Action::PinVersion { version } => {
+                self.handle_pin_version(&request.id, version, start).await
+            }
+            Action::UnpinVersion => self.handle_unpin_version(&request.id, start).await,
+            Action::GetVersionInfo => self.handle_get_version_info(&request.id, start).await,
+            Action::SetUpdateWindow { window } => {
+                self.handle_set_update_window(&request.id, window.as_deref(), start)
                     .await
             }
             _ => RpcResult::Error {
@@ -3393,6 +3410,8 @@ impl Executor {
     /// Downloads the binary at `url`, verifies SHA-256, backs up the running
     /// binary, atomically installs the new one, and exec()-s it. On failure
     /// the backup is restored and `UpdateFailed` is returned.
+    ///
+    /// Checks the version pin and update window before downloading.
     async fn handle_update_agent(
         &self,
         request_id: &str,
@@ -3403,6 +3422,57 @@ impl Executor {
         start: Instant,
     ) -> RpcResult {
         use crate::updater;
+
+        // Check version pin.
+        {
+            let pin = self.pinned_version.read().await;
+            if let Some(pinned) = pin.as_deref() {
+                if pinned != version {
+                    let reason = format!(
+                        "agent is pinned to version {pinned}, refusing update to {version}"
+                    );
+                    tracing::warn!("{reason}");
+                    let _ = self.audit.log(AuditEntry {
+                        timestamp: chrono::Utc::now(),
+                        request_id: request_id.to_string(),
+                        action: "update-agent".to_string(),
+                        command: Some(format!("update to {version}")),
+                        decision: "deny".to_string(),
+                        matched_rule: "version-pinned".to_string(),
+                        exit_code: Some(1),
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        caller_key: self.caller_key.clone(),
+                        reason: Some(reason.clone()),
+                    });
+                    return RpcResult::UpdateFailed { reason };
+                }
+            }
+        }
+
+        // Check update window.
+        {
+            let window = self.update_window.read().await;
+            if let Some(w) = window.as_deref() {
+                if !is_within_update_window(w) {
+                    let reason =
+                        format!("current time is outside update window \"{w}\"");
+                    tracing::warn!("{reason}");
+                    let _ = self.audit.log(AuditEntry {
+                        timestamp: chrono::Utc::now(),
+                        request_id: request_id.to_string(),
+                        action: "update-agent".to_string(),
+                        command: Some(format!("update to {version}")),
+                        decision: "deny".to_string(),
+                        matched_rule: "outside-update-window".to_string(),
+                        exit_code: Some(1),
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        caller_key: self.caller_key.clone(),
+                        reason: Some(reason.clone()),
+                    });
+                    return RpcResult::UpdateFailed { reason };
+                }
+            }
+        }
 
         let binary_path = match std::env::current_exe() {
             Ok(p) => p,
@@ -3463,6 +3533,145 @@ impl Executor {
             version: version.to_string(),
             restarting: true,
         }
+    }
+
+    /// Pin this agent to a specific version.
+    ///
+    /// Future `UpdateAgent` requests for any other version are rejected
+    /// while the pin is active.
+    async fn handle_pin_version(
+        &self,
+        request_id: &str,
+        version: &str,
+        start: Instant,
+    ) -> RpcResult {
+        {
+            let mut pin = self.pinned_version.write().await;
+            *pin = Some(version.to_string());
+        }
+        self.audit(
+            request_id,
+            "pin-version",
+            Some(version.to_string()),
+            "allowed",
+            "built-in".into(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+        RpcResult::VersionPinned {
+            version: version.to_string(),
+        }
+    }
+
+    /// Clear the active version pin, resuming normal auto-update behaviour.
+    async fn handle_unpin_version(&self, request_id: &str, start: Instant) -> RpcResult {
+        {
+            let mut pin = self.pinned_version.write().await;
+            *pin = None;
+        }
+        self.audit(
+            request_id,
+            "unpin-version",
+            None,
+            "allowed",
+            "built-in".into(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+        RpcResult::VersionUnpinned
+    }
+
+    /// Report this agent's current version, pin, and update window.
+    async fn handle_get_version_info(&self, request_id: &str, start: Instant) -> RpcResult {
+        let pinned_version = self.pinned_version.read().await.clone();
+        let update_window = self.update_window.read().await.clone();
+        self.audit(
+            request_id,
+            "get-version-info",
+            None,
+            "allowed",
+            "built-in".into(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+        RpcResult::VersionInfo {
+            agent_id: self.agent_id.clone(),
+            current_version: env!("CARGO_PKG_VERSION").to_string(),
+            pinned_version,
+            update_window,
+        }
+    }
+
+    /// Set or clear the maintenance window for auto-updates.
+    ///
+    /// `window` format: `"HH:MM-HH:MM"` (24-hour daily window).
+    /// Pass `None` to allow updates at any time.
+    async fn handle_set_update_window(
+        &self,
+        request_id: &str,
+        window: Option<&str>,
+        start: Instant,
+    ) -> RpcResult {
+        let window_clone = window.map(str::to_string);
+        {
+            let mut w = self.update_window.write().await;
+            *w = window_clone.clone();
+        }
+        self.audit(
+            request_id,
+            "set-update-window",
+            window.map(str::to_string),
+            "allowed",
+            "built-in".into(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+        RpcResult::UpdateWindowSet { window: window_clone }
+    }
+}
+
+/// Check whether the current local time falls within a daily update window.
+///
+/// Window format: `"HH:MM-HH:MM"` (24-hour, e.g. `"02:00-04:00"`).
+/// Windows that wrap midnight are supported (e.g. `"22:00-02:00"`).
+/// An unparseable window string is treated as permissive (returns `true`).
+fn is_within_update_window(window: &str) -> bool {
+    use chrono::Timelike;
+    let now = chrono::Local::now();
+    let now_mins = now.hour() * 60 + now.minute();
+
+    let parts: Vec<&str> = window.splitn(2, '-').collect();
+    if parts.len() != 2 {
+        return true; // Unparseable — allow.
+    }
+
+    let parse_hhmm = |s: &str| -> Option<u32> {
+        let p: Vec<&str> = s.trim().splitn(2, ':').collect();
+        if p.len() != 2 {
+            return None;
+        }
+        let h: u32 = p[0].parse().ok()?;
+        let m: u32 = p[1].parse().ok()?;
+        if h > 23 || m > 59 {
+            return None;
+        }
+        Some(h * 60 + m)
+    };
+
+    let start_mins = match parse_hhmm(parts[0]) {
+        Some(t) => t,
+        None => return true, // Invalid format — allow.
+    };
+    let end_mins = match parse_hhmm(parts[1]) {
+        Some(t) => t,
+        None => return true, // Invalid format — allow.
+    };
+
+    if start_mins <= end_mins {
+        now_mins >= start_mins && now_mins < end_mins
+    } else {
+        // Window wraps midnight (e.g. 22:00–02:00).
+        now_mins >= start_mins || now_mins < end_mins
     }
 }
 
