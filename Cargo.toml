@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.15.0"
+version = "0.16.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/egkristi/RavenFabric"
@@ -110,6 +110,9 @@ criterion = { version = "0.8", features = ["html_reports"] }
 
 # HTTP parsing
 httparse = "1"
+
+# HTTP client (for secret backends — Vault, AWS, Azure, GCP)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 
 # Temp files (for tests)
 tempfile = "3"

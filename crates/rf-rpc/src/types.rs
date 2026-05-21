@@ -263,6 +263,32 @@ pub enum Action {
         #[serde(skip_serializing_if = "Option::is_none")]
         health_check: Option<String>,
     },
+    /// Register an external secret backend on the agent (Vault, AWS, Azure, GCP, or generic HTTP).
+    ///
+    /// The `config` field is a JSON object whose schema depends on `backend_type`.
+    /// See `rf-executor::secret_backends::build_backend` for the expected shapes.
+    ConfigureSecretBackend {
+        /// Unique name for this backend instance (e.g. `prod-vault`).
+        name: String,
+        /// Backend type: `vault`, `aws-secrets-manager`, `azure-key-vault`,
+        /// `gcp-secret-manager`, or `generic-http`.
+        backend_type: String,
+        /// Backend-specific JSON configuration (credentials, endpoint, etc.).
+        config: String,
+        /// Optional periodic sync interval in seconds (0 = on-demand only).
+        #[serde(default)]
+        sync_interval_secs: u64,
+        /// Paths to prefetch on each sync tick (empty = on-demand only).
+        #[serde(default)]
+        sync_paths: Vec<String>,
+    },
+    /// Fetch a secret from a configured external backend.
+    FetchFromBackend {
+        /// Name of the registered backend to query.
+        backend: String,
+        /// Secret path within the backend (backend-specific syntax).
+        path: String,
+    },
 }
 
 /// Identifies which output stream a chunk belongs to.
@@ -461,6 +487,24 @@ pub enum RpcResult {
         bytes_transferred: u64,
         /// True if the SHA-256 checksum was verified successfully (uploads with checksum only)
         checksum_verified: bool,
+    },
+    /// Response to a `ConfigureSecretBackend` action — backend registered.
+    SecretBackendConfigured {
+        /// Name of the registered backend.
+        name: String,
+        /// Backend type identifier.
+        backend_type: String,
+    },
+    /// Response to a `FetchFromBackend` action — secret retrieved.
+    SecretFetched {
+        /// The backend name queried.
+        backend: String,
+        /// The path that was queried.
+        path: String,
+        /// The secret value.
+        ///
+        /// **Sensitive** — callers should handle this as a secret and avoid logging.
+        value: String,
     },
 }
 

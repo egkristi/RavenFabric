@@ -65,6 +65,9 @@ pub struct Executor {
     sysinfo_cache: Arc<Mutex<sysinfo::System>>,
     /// Per-destination HTTP request timestamps for rate limiting.
     http_dest_rate: Arc<tokio::sync::Mutex<HashMap<String, std::collections::VecDeque<Instant>>>>,
+    /// Registry of external secret backends (Vault, AWS, Azure, GCP, generic HTTP).
+    #[cfg(feature = "secret-backends")]
+    backend_registry: Arc<tokio::sync::RwLock<crate::secret_backends::SecretBackendRegistry>>,
 }
 
 impl Executor {
@@ -87,6 +90,10 @@ impl Executor {
             #[cfg(feature = "sysinfo")]
             sysinfo_cache: Arc::new(Mutex::new(sysinfo::System::new_all())),
             http_dest_rate: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            #[cfg(feature = "secret-backends")]
+            backend_registry: Arc::new(tokio::sync::RwLock::new(
+                crate::secret_backends::SecretBackendRegistry::new(),
+            )),
         }
     }
 
@@ -332,6 +339,30 @@ impl Executor {
                     start,
                 )
                 .await
+            }
+            #[cfg(feature = "secret-backends")]
+            Action::ConfigureSecretBackend {
+                name,
+                backend_type,
+                config,
+                sync_interval_secs,
+                sync_paths,
+            } => {
+                self.handle_configure_secret_backend(
+                    &request.id,
+                    name,
+                    backend_type,
+                    config,
+                    *sync_interval_secs,
+                    sync_paths,
+                    start,
+                )
+                .await
+            }
+            #[cfg(feature = "secret-backends")]
+            Action::FetchFromBackend { backend, path } => {
+                self.handle_fetch_from_backend(&request.id, backend, path, start)
+                    .await
             }
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
@@ -2555,6 +2586,134 @@ fn find_header_end(buf: &[u8]) -> Option<usize> {
         }
     }
     None
+}
+
+// ── External secret backend handlers ─────────────────────────────────────────
+
+#[cfg(feature = "secret-backends")]
+impl Executor {
+    /// Register an external secret backend and optionally start a background sync task.
+    async fn handle_configure_secret_backend(
+        &self,
+        request_id: &str,
+        name: &str,
+        backend_type: &str,
+        config_json: &str,
+        sync_interval_secs: u64,
+        sync_paths: &[String],
+        start: Instant,
+    ) -> RpcResult {
+        use crate::secret_backends::{RegisteredBackend, build_backend};
+        use std::time::Duration;
+
+        // Policy check — treat backend registration as a write to the secrets namespace.
+        let policy_guard = self.policy.read().await;
+        let decision = policy_guard.check_path(std::path::Path::new("secrets"));
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "configure_secret_backend",
+                Some(format!("{backend_type}:{name}")),
+                "deny",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        drop(policy_guard);
+
+        let backend = match build_backend(backend_type, config_json) {
+            Ok(b) => b,
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("failed to build backend '{backend_type}': {e}"),
+                };
+            }
+        };
+
+        let sync_paths_vec = sync_paths.to_vec();
+        let rb = RegisteredBackend {
+            backend,
+            sync_interval: Duration::from_secs(sync_interval_secs),
+            sync_paths: sync_paths_vec,
+        };
+
+        {
+            let mut registry = self.backend_registry.write().await;
+            registry.register(name.to_string(), rb);
+        }
+
+        self.audit(
+            request_id,
+            "configure_secret_backend",
+            Some(format!("{backend_type}:{name}")),
+            "allow",
+            String::new(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
+        RpcResult::SecretBackendConfigured {
+            name: name.to_string(),
+            backend_type: backend_type.to_string(),
+        }
+    }
+
+    /// Fetch a secret value from a registered external backend.
+    async fn handle_fetch_from_backend(
+        &self,
+        request_id: &str,
+        backend_name: &str,
+        path: &str,
+        start: Instant,
+    ) -> RpcResult {
+        // Policy check — treat as a read from the secrets namespace.
+        let policy_guard = self.policy.read().await;
+        let decision = policy_guard.check_path(std::path::Path::new("secrets"));
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "fetch_from_backend",
+                Some(format!("{backend_name}:{path}")),
+                "deny",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        drop(policy_guard);
+
+        let registry = self.backend_registry.read().await;
+        match registry.fetch(backend_name, path).await {
+            Ok(value) => {
+                self.audit(
+                    request_id,
+                    "fetch_from_backend",
+                    Some(format!("{backend_name}:{path}")),
+                    "allow",
+                    String::new(),
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
+                RpcResult::SecretFetched {
+                    backend: backend_name.to_string(),
+                    path: path.to_string(),
+                    value,
+                }
+            }
+            Err(e) => RpcResult::Error {
+                message: format!("backend '{backend_name}' fetch '{path}' failed: {e}"),
+            },
+        }
+    }
 }
 
 #[cfg(test)]

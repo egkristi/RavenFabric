@@ -166,13 +166,25 @@ impl<L: AuditLogger + Send + Sync + 'static> BufferedAuditCollector<L> {
     fn worker_loop(state: Arc<(Mutex<State>, Condvar)>, inner: Arc<L>, config: CollectorConfig) {
         let (lock, cvar) = &*state;
         loop {
-            // Wait for flush_interval or a stop signal.
-            let (mut s, _) = cvar
-                .wait_timeout(
-                    lock.lock().unwrap_or_else(|p| p.into_inner()),
-                    config.flush_interval,
-                )
-                .unwrap_or_else(|p| p.into_inner());
+            // Acquire the mutex and check stop BEFORE waiting. This prevents a
+            // "notify before wait" race where Drop signals stop before the worker has
+            // entered cvar.wait_timeout, causing the notification to be missed and
+            // w.join() to block for the full flush_interval.
+            //
+            // If stop is already set, skip the wait but still drain the buffer so that
+            // flush_and_stop() produces a complete final flush.
+            let mut s = {
+                let guard = lock.lock().unwrap_or_else(|p| p.into_inner());
+                if guard.stop {
+                    guard // already stopped — drain buffer without waiting
+                } else {
+                    // Wait atomically releases the mutex; the notification is never
+                    // missed once we are inside wait_timeout.
+                    cvar.wait_timeout(guard, config.flush_interval)
+                        .unwrap_or_else(|p| p.into_inner())
+                        .0
+                }
+            };
 
             let should_stop = s.stop;
 

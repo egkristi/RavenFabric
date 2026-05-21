@@ -49,6 +49,9 @@ pub struct DatadogConfig {
     pub tags: String,
     /// Maximum events to accumulate before flushing.
     pub batch_size: usize,
+    /// Optional full URL override (bypasses the site-based URL construction).
+    /// Useful for testing or custom ingestion endpoints.
+    pub intake_url_override: Option<String>,
 }
 
 impl DatadogConfig {
@@ -61,6 +64,7 @@ impl DatadogConfig {
             hostname: "ravenfabric-agent".into(),
             tags: String::new(),
             batch_size: 10,
+            intake_url_override: None,
         }
     }
 
@@ -94,8 +98,18 @@ impl DatadogConfig {
         self
     }
 
+    /// Set a full URL override, bypassing the site-based URL construction.
+    /// Primarily for testing with local listeners or custom ingestion endpoints.
+    pub fn with_intake_url(mut self, url: impl Into<String>) -> Self {
+        self.intake_url_override = Some(url.into());
+        self
+    }
+
     /// Build the intake endpoint URL for the configured site.
     pub fn intake_url(&self) -> String {
+        if let Some(ref url) = self.intake_url_override {
+            return url.clone();
+        }
         format!("https://http-intake.logs.{}/api/v2/logs", self.site)
     }
 }
@@ -342,7 +356,10 @@ mod tests {
     #[test]
     fn test_log_no_server_is_silent() {
         // Port 19997 should be closed; should not panic or error.
-        let config = DatadogConfig::new("dd-key").with_site("127.0.0.1:19997");
+        // Use with_intake_url so the URL parses to a real IP:port instead of
+        // going through the "https://http-intake.logs.{site}" template which
+        // would produce an unresolvable hostname.
+        let config = DatadogConfig::new("dd-key").with_intake_url("http://127.0.0.1:19997");
         let logger = DatadogAuditLogger::new(config);
         assert!(logger.log(sample_entry()).is_ok());
     }
@@ -384,7 +401,7 @@ mod tests {
         // We test via DatadogConfig with a custom site that points to our listener.
         let port_str = addr.port().to_string();
         let config = DatadogConfig::new("test-api-key")
-            .with_site(format!("127.0.0.1:{port_str}"))
+            .with_intake_url(format!("http://127.0.0.1:{port_str}"))
             .with_batch_size(3);
         let _ = url; // suppress unused warning
 

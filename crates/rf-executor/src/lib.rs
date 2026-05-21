@@ -11,4 +11,6 @@ pub mod plugin;
 pub mod pty;
 pub mod result_parser;
 pub mod scrape;
+#[cfg(feature = "secret-backends")]
+pub mod secret_backends;
 pub mod streaming;

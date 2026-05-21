@@ -5,6 +5,25 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] — 2026-05-21
+
+### Added
+
+- **External secret backends** — `rf-executor::secret_backends` provides pluggable secret manager integrations: HashiCorp Vault (AppRole and Token auth, KV v1/v2), AWS Secrets Manager (SigV4 signing, optional session token), Azure Key Vault (client credentials OAuth2), GCP Secret Manager (pre-obtained access token, base64-decoded payload), and a Generic HTTP backend (configurable URL template, JSON path extraction, custom headers). `SecretBackend` trait (`fetch`, `write`, `backend_type`) is `async`, `Send + Sync`, and dyn-compatible via `async-trait`. `SecretBackendRegistry` stores named backends. `build_backend()` factory from JSON config. Background sync task for periodic secret refresh (source-of-truth pull mode). New RPC actions: `ConfigureSecretBackend` and `FetchFromBackend`. New RPC results: `SecretBackendConfigured` and `SecretFetched`. 25 new tests.
+- **CI test timeout** — `.github/workflows/ci.yml` Test job now has `timeout-minutes: 45` to prevent indefinite hangs.
+
+### Fixed
+
+- **`BufferedAuditCollector` worker race condition** — Fixed a "notify before wait" race where `Drop` could send `notify_all()` before the worker thread entered `cvar.wait_timeout`, causing `w.join()` to block for the full `flush_interval` (up to 60s in tests). Worker now checks the stop flag before waiting; if already set, it drains the buffer and exits immediately. Both `Drop` (best-effort) and `flush_and_stop()` (explicit drain) work correctly.
+- **`DatadogAuditLogger` test deadlock** — Added `with_intake_url()` override to `DatadogConfig` bypassing the `https://http-intake.logs.{site}/api/v2/logs` URL template. Tests that used `with_site("127.0.0.1:port")` would produce an unresolvable hostname (`http-intake.logs.127.0.0.1`), causing `TcpStream::connect_timeout` to fail silently and a test listener thread to block on `listener.accept()` indefinitely.
+
+### Changed
+
+- **Version**: Bumped to 0.16.0 across all crates and deploy manifests
+- **Total tests**: 1,306 (up from 1,283) — +25 rf-executor (secret backends), +4 rf-rpc (new action/result types)
+- **LOC**: ~65,377 (up from ~63,769)
+- ROADMAP items marked complete: Vault, AWS, Azure, GCP, Generic HTTP secret backends; sync mode; CI timeout
+
 ## [0.15.0] — 2026-05-21
 
 ### Added

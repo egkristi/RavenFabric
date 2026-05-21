@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.15.0 (Alpha) — Released 2026-05-21
+**Version:** 0.16.0 (Alpha) — Released 2026-05-21
 
-**Stats:** 13 crates, ~63,769 LOC, 1,283 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~65,377 LOC, 1,306 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -121,7 +121,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.15.0 — all planned features implemented and tested.
+**Current:** Alpha v0.16.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -312,12 +312,12 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Health-check after rotation — verify new secret works before retiring old
 
 #### External Secret Manager Integration
-- [ ] HashiCorp Vault — read/write via Vault HTTP API (AppRole or Token auth)
-- [ ] AWS Secrets Manager — fetch/rotate via AWS SDK (IAM role-based auth)
-- [ ] Azure Key Vault — managed identity or service principal authentication
-- [ ] GCP Secret Manager — workload identity federation
-- [ ] Generic HTTP backend — configurable URL + auth headers for custom backends
-- [ ] Sync mode — external manager is source of truth; agent pulls on schedule
+- [x] HashiCorp Vault — read/write via Vault HTTP API (AppRole or Token auth)
+- [x] AWS Secrets Manager — fetch/rotate via AWS SDK (IAM role-based auth)
+- [x] Azure Key Vault — managed identity or service principal authentication
+- [x] GCP Secret Manager — workload identity federation
+- [x] Generic HTTP backend — configurable URL + auth headers for custom backends
+- [x] Sync mode — external manager is source of truth; agent pulls on schedule
 
 #### Secret Distribution
 - [ ] Fleet-wide secret push — update across all agents with grace period
