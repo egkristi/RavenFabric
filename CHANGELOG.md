@@ -5,7 +5,17 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.16.0] — 2026-05-21
+## [0.17.0] — 2026-05-22
+
+### Added
+
+- **Fleet-wide secret push** — New `SealSecret` RPC action pushes a plaintext secret value over the Noise-encrypted channel and seals it on the agent. Supports zero-downtime rotation via `grace_period_secs`: when > 0 and the secret already exists, the old value remains valid during roll-over. Returns `SecretSealed { name, value_hash, rotated }` — the value itself is never written to audit logs.
+- **Secret enumeration** — New `ListSecrets` RPC action returns the sorted names of all secrets currently held in the agent's secret store (`SecretsList { names }`). Values are never returned.
+- **`rf secret` CLI commands** — `rf secret push --token <tok> --name <name> --value <val> [--grace-period <secs>]` seals a secret on a remote agent. `rf secret list --token <tok>` lists secret names. Both commands use the existing Noise-authenticated channel.
+- **Version**: Bumped to 0.17.0 across all crates and deploy manifests
+- **Total tests**: 1,316 (up from 1,306) — +5 rf-executor (SealSecret/ListSecrets handlers), +5 rf-rpc (roundtrip tests for new action/result types)
+- **LOC**: ~65,914 (up from ~65,377)
+
 
 ### Added
 

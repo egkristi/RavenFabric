@@ -171,6 +171,11 @@ enum Commands {
         #[arg(long)]
         http: bool,
     },
+    /// Manage secrets on a remote agent
+    Secret {
+        #[command(subcommand)]
+        action: SecretAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -196,6 +201,37 @@ enum PolicyAction {
     Compose {
         /// Template names to compose (comma-separated)
         templates: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum SecretAction {
+    /// Seal (push) a secret value onto a remote agent
+    Push {
+        /// Meet token (shared secret for relay pairing)
+        #[arg(short, long)]
+        token: String,
+
+        /// Name of the secret to store
+        #[arg(short, long)]
+        name: String,
+
+        /// Plaintext value to seal (transmitted over the encrypted Noise channel)
+        #[arg(long)]
+        value: String,
+
+        /// Grace period in seconds for zero-downtime rotation (default: 0)
+        ///
+        /// When > 0, the old value stays valid for this many seconds so
+        /// in-flight operations can complete before the old value expires.
+        #[arg(long, default_value = "0")]
+        grace_period: u64,
+    },
+    /// List secret names on a remote agent (values are never returned)
+    List {
+        /// Meet token (shared secret for relay pairing)
+        #[arg(short, long)]
+        token: String,
     },
 }
 
@@ -315,6 +351,9 @@ async fn main() -> anyhow::Result<()> {
                 http,
             )
             .await?;
+        }
+        Commands::Secret { action } => {
+            secret_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, action).await?;
         }
     }
 
@@ -1524,6 +1563,98 @@ async fn cp_command(
     let _ = ch.send(&encoded).await;
     drop(ch);
 
+    Ok(())
+}
+
+/// Push or list secrets on a remote agent.
+async fn secret_command(
+    relay_url: &str,
+    direct_addr: Option<&str>,
+    key_path: &std::path::Path,
+    action: SecretAction,
+) -> anyhow::Result<()> {
+    match action {
+        SecretAction::Push {
+            token,
+            name,
+            value,
+            grace_period,
+        } => {
+            let key = StaticKey::load_or_generate(key_path)?;
+            let (ch, _peer_key) = dial_agent(relay_url, direct_addr, &key, &token).await?;
+            let req = Request {
+                id: uuid::Uuid::new_v4().to_string(),
+                action: Action::SealSecret {
+                    name: name.clone(),
+                    value,
+                    grace_period_secs: grace_period,
+                },
+                timeout_ms: Some(30_000),
+                reason: None,
+            };
+            let encoded = codec::encode(&req)?;
+            ch.send(&encoded).await?;
+            let raw = ch.recv().await?;
+            let resp: Response = codec::decode(&raw)?;
+            match resp.result {
+                RpcResult::SecretSealed {
+                    name: sealed_name,
+                    value_hash,
+                    rotated,
+                } => {
+                    if rotated {
+                        println!("Secret '{sealed_name}' rotated (hash: {value_hash})");
+                    } else {
+                        println!("Secret '{sealed_name}' sealed (hash: {value_hash})");
+                    }
+                }
+                RpcResult::Denied { reason, .. } => {
+                    anyhow::bail!("denied by agent policy: {reason}");
+                }
+                RpcResult::Error { message } => {
+                    anyhow::bail!("agent error: {message}");
+                }
+                other => {
+                    anyhow::bail!("unexpected response: {other:?}");
+                }
+            }
+        }
+        SecretAction::List { token } => {
+            let key = StaticKey::load_or_generate(key_path)?;
+            let (ch, _peer_key) = dial_agent(relay_url, direct_addr, &key, &token).await?;
+            let req = Request {
+                id: uuid::Uuid::new_v4().to_string(),
+                action: Action::ListSecrets,
+                timeout_ms: Some(30_000),
+                reason: None,
+            };
+            let encoded = codec::encode(&req)?;
+            ch.send(&encoded).await?;
+            let raw = ch.recv().await?;
+            let resp: Response = codec::decode(&raw)?;
+            match resp.result {
+                RpcResult::SecretsList { names } => {
+                    if names.is_empty() {
+                        println!("No secrets stored on agent.");
+                    } else {
+                        println!("Secrets ({}):", names.len());
+                        for n in &names {
+                            println!("  {n}");
+                        }
+                    }
+                }
+                RpcResult::Denied { reason, .. } => {
+                    anyhow::bail!("denied by agent policy: {reason}");
+                }
+                RpcResult::Error { message } => {
+                    anyhow::bail!("agent error: {message}");
+                }
+                other => {
+                    anyhow::bail!("unexpected response: {other:?}");
+                }
+            }
+        }
+    }
     Ok(())
 }
 

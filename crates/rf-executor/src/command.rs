@@ -364,6 +364,15 @@ impl Executor {
                 self.handle_fetch_from_backend(&request.id, backend, path, start)
                     .await
             }
+            Action::SealSecret {
+                name,
+                value,
+                grace_period_secs,
+            } => {
+                self.handle_seal_secret(&request.id, name, value, *grace_period_secs, start)
+                    .await
+            }
+            Action::ListSecrets => self.handle_list_secrets(&request.id, start).await,
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
             },
@@ -2714,6 +2723,109 @@ impl Executor {
             },
         }
     }
+
+    /// Seal (push) a secret value on the agent.
+    ///
+    /// If the secret already exists and `grace_period_secs > 0` the old value is archived
+    /// into a grace window so in-flight operations can finish before the old value expires.
+    async fn handle_seal_secret(
+        &self,
+        request_id: &str,
+        name: &str,
+        value: &str,
+        grace_period_secs: u64,
+        start: Instant,
+    ) -> RpcResult {
+        let secrets_arc = match &self.secrets {
+            Some(s) => s.clone(),
+            None => {
+                return RpcResult::Error {
+                    message: "secret store not configured".to_string(),
+                };
+            }
+        };
+
+        let plaintext = value.as_bytes();
+
+        // Compute a hash for the audit trail (never log the plaintext).
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        plaintext.hash(&mut hasher);
+        let value_hash = format!("{:016x}", hasher.finish());
+
+        let mut store = secrets_arc.lock().await;
+        let already_exists = store.contains(name);
+
+        let result = if already_exists && grace_period_secs > 0 {
+            // Rotate with grace period: old value stays valid for `grace_period_secs` seconds.
+            let grace = std::time::Duration::from_secs(grace_period_secs);
+            // Attach a temporary rotation config if none exists yet.
+            if store.rotation_config(name).is_none() {
+                let rc = rf_crypto::secrets::RotationConfig::new(
+                    std::time::Duration::from_secs(86400), // TTL doesn't matter here
+                    None,
+                    grace,
+                );
+                let _ = store.set_rotation_config(name, rc);
+            }
+            store.rotate(name, plaintext)
+        } else {
+            store.seal(name, plaintext)
+        };
+        drop(store);
+
+        match result {
+            Ok(()) => {
+                self.audit(
+                    request_id,
+                    "seal_secret",
+                    Some(name.to_string()),
+                    "allowed",
+                    if already_exists { "rotated" } else { "new" }.to_string(),
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
+                RpcResult::SecretSealed {
+                    name: name.to_string(),
+                    value_hash,
+                    rotated: already_exists,
+                }
+            }
+            Err(e) => RpcResult::Error {
+                message: format!("seal_secret '{name}' failed: {e}"),
+            },
+        }
+    }
+
+    /// List names of all secrets in the store. Never returns values.
+    async fn handle_list_secrets(&self, request_id: &str, start: Instant) -> RpcResult {
+        let secrets_arc = match &self.secrets {
+            Some(s) => s.clone(),
+            None => {
+                return RpcResult::Error {
+                    message: "secret store not configured".to_string(),
+                };
+            }
+        };
+
+        let store = secrets_arc.lock().await;
+        let mut names: Vec<String> = store.list().into_iter().map(String::from).collect();
+        names.sort();
+        drop(store);
+
+        self.audit(
+            request_id,
+            "list_secrets",
+            None,
+            "allowed",
+            String::new(),
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
+        RpcResult::SecretsList { names }
+    }
 }
 
 #[cfg(test)]
@@ -3726,5 +3838,182 @@ spec:
             }
             other => panic!("expected FileChunk, got {other:?}"),
         }
+    }
+
+    /// Helper: make an executor with an empty in-memory secret store and an allow-all policy.
+    fn make_executor_with_secrets(audit: Arc<dyn AuditLogger>) -> Executor {
+        let yaml = r#"
+spec:
+  commands:
+    allow:
+      - pattern: ".*"
+  filesystem:
+    allow:
+      - path: /
+  resources:
+    maxOutputBytes: 1048576
+    timeoutSeconds: 30
+"#;
+        let policy = Arc::new(RwLock::new(RpcPolicy::from_yaml(yaml).unwrap()));
+        let store = Arc::new(tokio::sync::Mutex::new(SecretStore::new([0u8; 32])));
+        Executor::new(policy, audit, "test-caller-key".into()).with_secrets(store)
+    }
+
+    #[tokio::test]
+    async fn test_seal_new_secret() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor_with_secrets(audit.clone());
+
+        let req = Request {
+            id: "seal-1".into(),
+            action: Action::SealSecret {
+                name: "api_key".into(),
+                value: "super-secret".into(),
+                grace_period_secs: 0,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        match resp.result {
+            RpcResult::SecretSealed {
+                name,
+                rotated,
+                value_hash,
+            } => {
+                assert_eq!(name, "api_key");
+                assert!(!rotated, "should not be marked as rotated for new secret");
+                assert!(!value_hash.is_empty());
+            }
+            other => panic!("expected SecretSealed, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_seal_existing_secret_with_grace() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor_with_secrets(audit.clone());
+
+        // First — seal the initial value.
+        let req1 = Request {
+            id: "seal-2a".into(),
+            action: Action::SealSecret {
+                name: "db_pass".into(),
+                value: "old-value".into(),
+                grace_period_secs: 0,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp1 = exec.handle(req1).await;
+        assert!(
+            matches!(resp1.result, RpcResult::SecretSealed { rotated: false, .. }),
+            "first seal should not be a rotation"
+        );
+
+        // Second — rotate with grace period.
+        let req2 = Request {
+            id: "seal-2b".into(),
+            action: Action::SealSecret {
+                name: "db_pass".into(),
+                value: "new-value".into(),
+                grace_period_secs: 60,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp2 = exec.handle(req2).await;
+        match resp2.result {
+            RpcResult::SecretSealed { name, rotated, .. } => {
+                assert_eq!(name, "db_pass");
+                assert!(rotated, "second seal should be flagged as rotation");
+            }
+            other => panic!("expected SecretSealed, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_list_secrets() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor_with_secrets(audit.clone());
+
+        // Seal a couple of secrets.
+        for (name, value) in [("alpha", "v1"), ("gamma", "v2"), ("beta", "v3")] {
+            let req = Request {
+                id: format!("seal-{name}"),
+                action: Action::SealSecret {
+                    name: name.to_string(),
+                    value: value.to_string(),
+                    grace_period_secs: 0,
+                },
+                timeout_ms: None,
+                reason: None,
+            };
+            exec.handle(req).await;
+        }
+
+        let list_req = Request {
+            id: "list-1".into(),
+            action: Action::ListSecrets,
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(list_req).await;
+        match resp.result {
+            RpcResult::SecretsList { names } => {
+                // Should be sorted.
+                assert_eq!(names, vec!["alpha", "beta", "gamma"]);
+            }
+            other => panic!("expected SecretsList, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_seal_secret_no_store_returns_error() {
+        // Use standard executor without a secret store.
+        // The executor uses deny-by-default policy, so the request will be
+        // either Denied (policy blocks the path) or Error (no store). Both are
+        // valid non-success outcomes.
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "seal-no-store".into(),
+            action: Action::SealSecret {
+                name: "key".into(),
+                value: "val".into(),
+                grace_period_secs: 0,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        assert!(
+            matches!(
+                resp.result,
+                RpcResult::Error { .. } | RpcResult::Denied { .. }
+            ),
+            "should return Error or Denied when secret store is not accessible: {:?}",
+            resp.result,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_secrets_no_store_returns_error() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone());
+
+        let req = Request {
+            id: "list-no-store".into(),
+            action: Action::ListSecrets,
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        assert!(
+            matches!(resp.result, RpcResult::Error { .. }),
+            "should return Error when no secret store is configured: {:?}",
+            resp.result,
+        );
     }
 }

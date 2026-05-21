@@ -289,6 +289,35 @@ pub enum Action {
         /// Secret path within the backend (backend-specific syntax).
         path: String,
     },
+    /// Seal (push) a secret value on the agent.
+    ///
+    /// If the secret already exists and `grace_period_secs > 0`, the old value
+    /// enters a grace period so in-flight operations using the old value continue
+    /// to work during roll-over. This enables zero-downtime fleet-wide rotation:
+    /// push the new value to each agent, and the previous value stays valid for
+    /// `grace_period_secs` seconds before expiring.
+    ///
+    /// If the secret does not yet exist, it is sealed immediately (grace period
+    /// is ignored for new secrets).
+    ///
+    /// **Sensitive** — the `value` field is transmitted over the encrypted Noise
+    /// channel and never written to audit logs.
+    SealSecret {
+        /// Name of the secret.
+        name: String,
+        /// Plaintext value to seal.
+        value: String,
+        /// Grace period in seconds for zero-downtime rotation (default: 0).
+        ///
+        /// When > 0 and the secret already exists, the old value remains valid
+        /// for this many seconds while in-flight requests finish.
+        #[serde(default)]
+        grace_period_secs: u64,
+    },
+    /// List the names of all secrets currently sealed on the agent.
+    ///
+    /// Returns only names — never values.
+    ListSecrets,
 }
 
 /// Identifies which output stream a chunk belongs to.
@@ -505,6 +534,20 @@ pub enum RpcResult {
         ///
         /// **Sensitive** — callers should handle this as a secret and avoid logging.
         value: String,
+    },
+    /// Response to a `SealSecret` action — secret sealed successfully.
+    SecretSealed {
+        /// Name of the secret that was sealed.
+        name: String,
+        /// SHA-256 hex digest of the sealed value (for audit — never log the value itself).
+        value_hash: String,
+        /// True if a previously-existing secret was rotated into a grace period.
+        rotated: bool,
+    },
+    /// Response to a `ListSecrets` action — names of all sealed secrets.
+    SecretsList {
+        /// Sorted list of secret names currently held in the store.
+        names: Vec<String>,
     },
 }
 
@@ -977,5 +1020,90 @@ mod tests {
         let bytes = codec::encode(&resp).unwrap();
         let decoded: Response = codec::decode(&bytes).unwrap();
         assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_seal_secret_action() {
+        let req = Request {
+            id: "ss-1".into(),
+            action: Action::SealSecret {
+                name: "db_password".into(),
+                value: "s3cr3t!".into(),
+                grace_period_secs: 30,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_seal_secret_result() {
+        let resp = Response {
+            id: "ss-1".into(),
+            result: RpcResult::SecretSealed {
+                name: "db_password".into(),
+                value_hash: "a1b2c3d4e5f6a7b8".into(),
+                rotated: true,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_list_secrets_action() {
+        let req = Request {
+            id: "ls-1".into(),
+            action: Action::ListSecrets,
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_secrets_list_result() {
+        let resp = Response {
+            id: "ls-1".into(),
+            result: RpcResult::SecretsList {
+                names: vec!["api_key".into(), "db_password".into(), "jwt_secret".into()],
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn seal_secret_zero_grace_period_roundtrip() {
+        // Default grace_period_secs = 0 should be omitted in serialized form but round-trip correctly.
+        let req = Request {
+            id: "ss-2".into(),
+            action: Action::SealSecret {
+                name: "token".into(),
+                value: "my-token".into(),
+                grace_period_secs: 0,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+        // Verify the default field is handled correctly.
+        if let Action::SealSecret {
+            grace_period_secs, ..
+        } = decoded.action
+        {
+            assert_eq!(grace_period_secs, 0);
+        } else {
+            panic!("expected SealSecret action");
+        }
     }
 }

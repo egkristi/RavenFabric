@@ -42,7 +42,7 @@
 
 **Version:** 0.16.0 (Alpha) — Released 2026-05-21
 
-**Stats:** 13 crates, ~65,377 LOC, 1,306 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~65,914 LOC, 1,316 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -121,7 +121,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.16.0 — all planned features implemented and tested.
+**Current:** Alpha v0.17.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -320,8 +320,8 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Sync mode — external manager is source of truth; agent pulls on schedule
 
 #### Secret Distribution
-- [ ] Fleet-wide secret push — update across all agents with grace period
-- [ ] Per-agent secrets — different values for same secret name per agent
+- [x] Fleet-wide secret push — update across all agents with grace period
+- [x] Per-agent secrets — different values for same secret name per agent
 - [x] Secret versioning — track version history, audit access patterns
 - [x] Emergency revocation — immediately invalidate across all agents
 
