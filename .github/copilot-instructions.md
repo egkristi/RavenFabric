@@ -264,6 +264,11 @@ When bumping version:
 3. Update `deploy/helm/ravenfabric/Chart.yaml` (`version` + `appVersion`)
 4. Add a dated section header in `CHANGELOG.md` (e.g. `## [0.2.0] — 2026-05-08`)
 5. Commit with `chore: bump version to X.Y.Z`
+6. **Push an annotated tag** — the Release workflow only fires on tag pushes; without it no binaries are published:
+   ```bash
+   git tag -a vX.Y.Z <commit-sha> -m "Release vX.Y.Z — <short description>"
+   git push origin vX.Y.Z
+   ```
 
 **Always bump at least patch on every commit that changes code or fixes bugs.** Consider minor bump when new features land.
 
