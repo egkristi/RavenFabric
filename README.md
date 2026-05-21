@@ -3,11 +3,11 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.19.0)** — Foundation complete. 14 crates, ~67,887 LOC, 1,343 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.20.0)** — Foundation complete. 14 crates, ~68,459 LOC, 1,357 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
-[![Version](https://img.shields.io/badge/version-0.19.0-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.20.0-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
 
 **Language:** Rust | **License:** AGPL-3.0-or-later (core) + Commercial (enterprise)
 
@@ -489,7 +489,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~67,887 LOC | 1,343 tests | 0 clippy warnings**
+**~68,459 LOC | 1,357 tests | 0 clippy warnings**
 
 What works today:
 - Noise XX mutual authentication handshake with wire magic/version validation (full)

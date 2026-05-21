@@ -16,7 +16,14 @@ use axum::{
     response::{IntoResponse, Response},
     routing::any,
 };
+use chrono::Utc;
+use rf_audit::{
+    logger::{AuditLogger, FileAuditLogger, NullAuditLogger},
+    types::AuditEntry,
+};
+use sha2::{Digest, Sha256};
 use tracing::{error, info, warn};
+use uuid::Uuid;
 
 use crate::{auth::ApiKeyStore, rate_limit::RateLimiter, router::RoutingTable};
 
@@ -28,6 +35,8 @@ pub struct IngressState {
     pub rate_limiter: Arc<RateLimiter>,
     /// HTTP client for forwarding requests to local upstream services.
     pub http_client: reqwest::Client,
+    /// Audit logger — records every request decision (deny and allow).
+    pub audit: Arc<dyn AuditLogger>,
 }
 
 /// Configuration for the ingress server.
@@ -44,6 +53,9 @@ pub struct IngressConfig {
     pub upstream_timeout_ms: u64,
     /// Maximum upstream response body size.
     pub max_response_bytes: u64,
+    /// Optional path for the structured JSON-lines audit log.
+    /// If `None`, audit entries are discarded (no-op logger).
+    pub audit_path: Option<String>,
 }
 
 impl Default for IngressConfig {
@@ -54,6 +66,7 @@ impl Default for IngressConfig {
             rate_limit_rpm: 300,
             upstream_timeout_ms: 30_000,
             max_response_bytes: 10 * 1024 * 1024, // 10 MiB
+            audit_path: None,
         }
     }
 }
@@ -64,11 +77,18 @@ pub async fn run_ingress(config: IngressConfig, routing_table: RoutingTable) -> 
         .timeout(std::time::Duration::from_millis(config.upstream_timeout_ms))
         .build()?;
 
+    let audit: Arc<dyn AuditLogger> = if let Some(ref path) = config.audit_path {
+        Arc::new(FileAuditLogger::new(path.into())?)
+    } else {
+        Arc::new(NullAuditLogger)
+    };
+
     let state = IngressState {
         routing_table,
         api_keys: Arc::new(ApiKeyStore::new(config.api_keys.iter())),
         rate_limiter: Arc::new(RateLimiter::new(60, config.rate_limit_rpm)),
         http_client,
+        audit,
     };
 
     let app = Router::new()
@@ -93,6 +113,12 @@ async fn health_handler() -> impl IntoResponse {
     (StatusCode::OK, "ok")
 }
 
+/// Returns the SHA-256 hex digest of `data`.
+fn sha256_hex(data: &[u8]) -> String {
+    let hash = Sha256::digest(data);
+    hash.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 /// Catch-all reverse proxy handler.
 async fn proxy_handler(
     State(state): State<IngressState>,
@@ -101,24 +127,59 @@ async fn proxy_handler(
 ) -> Response {
     let start = Instant::now();
     let remote_ip = remote_addr.ip();
+    let request_id = Uuid::new_v4().to_string();
+
+    // Extract caller identity before consuming `req` — used in every audit entry.
+    let raw_key = req
+        .headers()
+        .get("x-rf-key")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let caller_key = if raw_key.is_empty() {
+        "anonymous".to_string()
+    } else {
+        format!("sha256:{}", sha256_hex(raw_key.as_bytes()))
+    };
 
     // --- Rate limiting ---
     if !state.rate_limiter.check_and_record(remote_ip) {
         warn!("rate limit exceeded for {remote_ip}");
+        if let Err(e) = state.audit.log(AuditEntry {
+            timestamp: Utc::now(),
+            request_id: request_id.clone(),
+            action: "proxy".to_string(),
+            command: None,
+            decision: "deny".to_string(),
+            matched_rule: "rate-limit-exceeded".to_string(),
+            exit_code: None,
+            duration_ms: start.elapsed().as_millis() as u64,
+            caller_key: caller_key.clone(),
+            reason: Some(format!("source_ip={remote_ip}")),
+        }) {
+            warn!("audit write failed: {e}");
+        }
         return (StatusCode::TOO_MANY_REQUESTS, "rate limit exceeded").into_response();
     }
 
     // --- API key authentication ---
-    if !state.api_keys.is_open() {
-        let key = req
-            .headers()
-            .get("x-rf-key")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("");
-        if !state.api_keys.is_valid(key) {
-            warn!("unauthenticated request from {remote_ip}");
-            return (StatusCode::UNAUTHORIZED, "invalid or missing X-RF-Key").into_response();
+    if !state.api_keys.is_open() && !state.api_keys.is_valid(&raw_key) {
+        warn!("unauthenticated request from {remote_ip}");
+        if let Err(e) = state.audit.log(AuditEntry {
+            timestamp: Utc::now(),
+            request_id: request_id.clone(),
+            action: "proxy".to_string(),
+            command: None,
+            decision: "deny".to_string(),
+            matched_rule: "auth-failed".to_string(),
+            exit_code: None,
+            duration_ms: start.elapsed().as_millis() as u64,
+            caller_key: caller_key.clone(),
+            reason: Some(format!("source_ip={remote_ip}")),
+        }) {
+            warn!("audit write failed: {e}");
         }
+        return (StatusCode::UNAUTHORIZED, "invalid or missing X-RF-Key").into_response();
     }
 
     // --- Routing ---
@@ -136,6 +197,20 @@ async fn proxy_handler(
         Some(e) => e,
         None => {
             warn!("no agent registered for host={host} path={path}");
+            if let Err(e) = state.audit.log(AuditEntry {
+                timestamp: Utc::now(),
+                request_id: request_id.clone(),
+                action: "proxy".to_string(),
+                command: Some(format!("{method} {path}")),
+                decision: "deny".to_string(),
+                matched_rule: "no-route".to_string(),
+                exit_code: None,
+                duration_ms: start.elapsed().as_millis() as u64,
+                caller_key: caller_key.clone(),
+                reason: Some(format!("host={host}")),
+            }) {
+                warn!("audit write failed: {e}");
+            }
             return (StatusCode::BAD_GATEWAY, "no upstream agent found").into_response();
         }
     };
@@ -214,7 +289,7 @@ async fn proxy_handler(
         }
     };
 
-    let latency_ms = start.elapsed().as_millis();
+    let latency_ms = start.elapsed().as_millis() as u64;
     info!(
         "proxy {} {} -> {} {} ({} bytes, {}ms) agent={}",
         method,
@@ -225,6 +300,21 @@ async fn proxy_handler(
         latency_ms,
         entry.agent_id,
     );
+
+    if let Err(e) = state.audit.log(AuditEntry {
+        timestamp: Utc::now(),
+        request_id,
+        action: "proxy".to_string(),
+        command: Some(format!("{method} {path}")),
+        decision: "allow".to_string(),
+        matched_rule: entry.agent_id.clone(),
+        exit_code: Some(status.as_u16() as i32),
+        duration_ms: latency_ms,
+        caller_key,
+        reason: None,
+    }) {
+        warn!("audit write failed: {e}");
+    }
 
     (status, resp_headers, body).into_response()
 }
@@ -247,6 +337,23 @@ fn is_hop_by_hop(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sha256_hex_known_value() {
+        // SHA-256 of empty bytes is a well-known constant
+        assert_eq!(
+            sha256_hex(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
+    fn sha256_hex_hello() {
+        assert_eq!(
+            sha256_hex(b"hello"),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
 
     #[test]
     fn hop_by_hop_detected() {

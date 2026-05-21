@@ -5,6 +5,29 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] — 2026-05-23
+
+### Added
+
+- **Ingress audit logging** — `rf-ingress` now emits structured JSON-lines audit
+  entries for every proxy request (rate-limit deny, auth deny, no-route deny, and
+  success). Configurable via `IngressConfig::audit_path`; defaults to no-op when
+  not set.
+- **Agent auto-update mechanism** — New `rf-executor::updater` module implements
+  HTTPS-only binary download with SHA-256 integrity verification, atomic binary
+  swap (`.new` → target), backup/rollback (`.bak`), and process restart via
+  `exec()` on Unix or spawn+exit on Windows.
+- **`CheckUpdate` and `UpdateAgent` RPC actions** — New wire-protocol actions
+  allow a controller to trigger update checks and push a new agent binary version.
+  Responses: `UpdateAvailable`, `UpdateNotAvailable`, `UpdateApplied`,
+  `UpdateFailed`. Optional `ed25519_sig` field for future signature verification.
+- **Update audit entries** — Every `check-update` and `update-agent` RPC action
+  produces a structured audit entry recording decision, version, URL, and outcome.
+
+### Changed
+
+- Total: ~68,459 LOC, 1,357 tests across 14 crates.
+
 ## [0.19.0] — 2026-05-22
 
 ### Added

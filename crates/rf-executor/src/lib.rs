@@ -14,3 +14,4 @@ pub mod scrape;
 #[cfg(feature = "secret-backends")]
 pub mod secret_backends;
 pub mod streaming;
+pub mod updater;

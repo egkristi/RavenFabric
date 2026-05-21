@@ -437,6 +437,20 @@ impl Executor {
                 )
                 .await
             }
+            Action::CheckUpdate { current_version } => {
+                self.handle_check_update(&request.id, current_version, start)
+                    .await
+            }
+            Action::UpdateAgent {
+                version,
+                url,
+                sha256,
+                ed25519_sig: _,
+                allow_downgrade,
+            } => {
+                self.handle_update_agent(&request.id, version, url, sha256, *allow_downgrade, start)
+                    .await
+            }
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
             },
@@ -3342,6 +3356,113 @@ impl Executor {
         );
 
         RpcResult::SecretsList { names }
+    }
+}
+
+impl Executor {
+    /// Handle a `CheckUpdate` RPC action.
+    ///
+    /// No update server is configured by default — returns `UpdateNotAvailable`
+    /// and records an audit entry. A real deployment would query a configured
+    /// artifact URL and compare semver before responding.
+    async fn handle_check_update(
+        &self,
+        request_id: &str,
+        current_version: &str,
+        start: Instant,
+    ) -> RpcResult {
+        if let Err(e) = self.audit.log(AuditEntry {
+            timestamp: chrono::Utc::now(),
+            request_id: request_id.to_string(),
+            action: "check-update".to_string(),
+            command: None,
+            decision: "allow".to_string(),
+            matched_rule: "check-update".to_string(),
+            exit_code: Some(0),
+            duration_ms: start.elapsed().as_millis() as u64,
+            caller_key: self.caller_key.clone(),
+            reason: Some(format!("current_version={current_version}")),
+        }) {
+            tracing::warn!("audit write failed: {e}");
+        }
+        RpcResult::UpdateNotAvailable
+    }
+
+    /// Handle an `UpdateAgent` RPC action.
+    ///
+    /// Downloads the binary at `url`, verifies SHA-256, backs up the running
+    /// binary, atomically installs the new one, and exec()-s it. On failure
+    /// the backup is restored and `UpdateFailed` is returned.
+    async fn handle_update_agent(
+        &self,
+        request_id: &str,
+        version: &str,
+        url: &str,
+        sha256: &str,
+        allow_downgrade: bool,
+        start: Instant,
+    ) -> RpcResult {
+        use crate::updater;
+
+        let binary_path = match std::env::current_exe() {
+            Ok(p) => p,
+            Err(e) => {
+                let reason = format!("cannot determine binary path: {e}");
+                tracing::warn!("{reason}");
+                return RpcResult::UpdateFailed { reason };
+            }
+        };
+
+        tracing::info!("applying update to version {version} from {url}");
+
+        let bak_path = match updater::download_and_install(url, sha256, &binary_path).await {
+            Ok(bak) => bak,
+            Err(e) => {
+                let reason = format!("download/install failed: {e}");
+                tracing::warn!("{reason}");
+                let _ = self.audit.log(AuditEntry {
+                    timestamp: chrono::Utc::now(),
+                    request_id: request_id.to_string(),
+                    action: "update-agent".to_string(),
+                    command: Some(format!("update to {version}")),
+                    decision: "deny".to_string(),
+                    matched_rule: "update-failed".to_string(),
+                    exit_code: Some(1),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    caller_key: self.caller_key.clone(),
+                    reason: Some(reason.clone()),
+                });
+                return RpcResult::UpdateFailed { reason };
+            }
+        };
+
+        let _ = self.audit.log(AuditEntry {
+            timestamp: chrono::Utc::now(),
+            request_id: request_id.to_string(),
+            action: "update-agent".to_string(),
+            command: Some(format!("update to {version}")),
+            decision: "allow".to_string(),
+            matched_rule: "update-applied".to_string(),
+            exit_code: Some(0),
+            duration_ms: start.elapsed().as_millis() as u64,
+            caller_key: self.caller_key.clone(),
+            reason: Some(format!("url={url} allow_downgrade={allow_downgrade}")),
+        });
+
+        // exec() the new binary — does not return on Unix.
+        if let Err(e) = updater::restart_process(&binary_path) {
+            tracing::warn!("exec failed, rolling back: {e}");
+            let _ = updater::rollback(&binary_path, &bak_path).await;
+            return RpcResult::UpdateFailed {
+                reason: format!("exec failed: {e}"),
+            };
+        }
+
+        // Reached on Windows after spawning the new process.
+        RpcResult::UpdateApplied {
+            version: version.to_string(),
+            restarting: true,
+        }
     }
 }
 

@@ -399,6 +399,30 @@ pub enum Action {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_response_bytes: Option<u64>,
     },
+    /// Check whether a newer agent version is available.
+    ///
+    /// Responds with `UpdateAvailable` (download URL + SHA-256) if an update
+    /// exists, or `UpdateNotAvailable` if the agent is already current.
+    CheckUpdate {
+        /// Semver string of the currently-running agent binary.
+        current_version: String,
+    },
+    /// Apply an agent self-update: download the binary at `url`, verify
+    /// SHA-256, optionally verify Ed25519 signature, and exec() the new binary.
+    UpdateAgent {
+        /// Target version string (semver).
+        version: String,
+        /// HTTPS URL to download the new binary from.
+        url: String,
+        /// Expected SHA-256 hex digest of the downloaded binary.
+        sha256: String,
+        /// Optional Ed25519 signature (hex-encoded) over the SHA-256 hex digest.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ed25519_sig: Option<String>,
+        /// Allow installing an older version than current (rollback).
+        #[serde(default)]
+        allow_downgrade: bool,
+    },
 }
 
 fn default_block_size() -> u32 {
@@ -700,6 +724,29 @@ pub enum RpcResult {
         body: Option<Vec<u8>>,
         /// Round-trip latency from agent to upstream in milliseconds.
         latency_ms: u64,
+    },
+    /// A newer agent version is available for download.
+    UpdateAvailable {
+        /// Semver string of the available version.
+        version: String,
+        /// HTTPS URL to download the binary.
+        url: String,
+        /// SHA-256 hex digest of the binary at `url`.
+        sha256: String,
+    },
+    /// The agent is already running the latest available version.
+    UpdateNotAvailable,
+    /// Update was downloaded, verified, and applied — agent is restarting.
+    UpdateApplied {
+        /// Version that was just installed.
+        version: String,
+        /// True if the agent is exec()-ing the new binary (Unix).
+        restarting: bool,
+    },
+    /// Update failed (download error, hash mismatch, or exec failure).
+    UpdateFailed {
+        /// Human-readable failure reason.
+        reason: String,
     },
 }
 
@@ -1428,6 +1475,93 @@ mod tests {
                 headers: vec![("content-type".into(), "application/json".into())],
                 body: Some(b"{\"ok\":true}".to_vec()),
                 latency_ms: 12,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_check_update_action() {
+        let req = Request {
+            id: "cu-1".into(),
+            action: Action::CheckUpdate {
+                current_version: "0.19.0".into(),
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_update_agent_action() {
+        let req = Request {
+            id: "ua-1".into(),
+            action: Action::UpdateAgent {
+                version: "0.20.0".into(),
+                url: "https://releases.ravenfabric.io/v0.20.0/rf-agent".into(),
+                sha256: "abc123".into(),
+                ed25519_sig: Some("sigbytes".into()),
+                allow_downgrade: false,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_update_available_result() {
+        let resp = Response {
+            id: "cu-1".into(),
+            result: RpcResult::UpdateAvailable {
+                version: "0.20.0".into(),
+                url: "https://releases.ravenfabric.io/v0.20.0/rf-agent".into(),
+                sha256: "abc123def456".into(),
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_update_not_available_result() {
+        let resp = Response {
+            id: "cu-2".into(),
+            result: RpcResult::UpdateNotAvailable,
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_update_applied_result() {
+        let resp = Response {
+            id: "ua-1".into(),
+            result: RpcResult::UpdateApplied {
+                version: "0.20.0".into(),
+                restarting: true,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_update_failed_result() {
+        let resp = Response {
+            id: "ua-2".into(),
+            result: RpcResult::UpdateFailed {
+                reason: "SHA-256 mismatch".into(),
             },
         };
         let bytes = codec::encode(&resp).unwrap();

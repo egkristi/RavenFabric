@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.19.0 (Alpha) — Released 2026-05-22
+**Version:** 0.20.0 (Alpha) — Released 2026-05-23
 
-**Stats:** 14 crates, ~67,887 LOC, 1,343 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 14 crates, ~68,459 LOC, 1,357 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -124,7 +124,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.19.0 — all planned features implemented and tested.
+**Current:** Alpha v0.20.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -226,7 +226,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Agent routing table — map incoming requests to connected agents by subdomain, path prefix, or header (`X-RF-Agent`)
 - [x] Caller authentication — API key validation at the edge before routing
 - [x] Rate limiting per caller — sliding window throttle at ingress to prevent abuse
-- [ ] Ingress audit logging — external caller identity, source IP, target agent, timing, response status (structured)
+- [x] Ingress audit logging — external caller identity, source IP, target agent, timing, response status (structured)
 - [x] Health check passthrough — `/health` endpoint bypasses auth (for load balancers)
 
 #### Agent-Side Reverse Proxy Handler
@@ -281,13 +281,13 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 **Goal:** Agents update themselves without manual intervention. Staged rollout with health-check gates, automatic rollback on failure, and full audit trail.
 
 #### Update Mechanism
-- [ ] Version announcement — controller/relay broadcasts available version to connected agents
-- [ ] Update policy — agents check local policy before accepting update (allow/deny version ranges)
-- [ ] Binary download — agent pulls new binary from configured artifact source (HTTPS + checksum)
-- [ ] Integrity verification — SHA-256 + Ed25519 signature validation before applying
-- [ ] Atomic binary swap — download to temp, verify, rename over running binary
-- [ ] Graceful restart — drain active RPC sessions, then exec() new binary (zero-downtime on Linux)
-- [ ] Rollback on failure — if new binary fails health-check within 60s, revert to previous version
+- [x] Version announcement — controller/relay broadcasts available version to connected agents
+- [x] Update policy — agents check local policy before accepting update (allow/deny version ranges)
+- [x] Binary download — agent pulls new binary from configured artifact source (HTTPS + checksum)
+- [x] Integrity verification — SHA-256 + Ed25519 signature validation before applying
+- [x] Atomic binary swap — download to temp, verify, rename over running binary
+- [x] Graceful restart — drain active RPC sessions, then exec() new binary (zero-downtime on Linux)
+- [x] Rollback on failure — if new binary fails health-check within 60s, revert to previous version
 
 #### Fleet Coordination
 - [ ] Staged rollout — canary (1 agent) → percentage (10%) → fleet (100%)
@@ -297,7 +297,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [ ] Update windows — only apply updates during configured maintenance windows
 
 #### Audit & Observability
-- [ ] Update audit log — version transitions recorded with timestamp, source, verification status
+- [x] Update audit log — version transitions recorded with timestamp, source, verification status
 - [ ] Fleet version dashboard — controller reports version distribution across agents
 - [ ] Update failure alerts — webhook notification on rollback events
 
