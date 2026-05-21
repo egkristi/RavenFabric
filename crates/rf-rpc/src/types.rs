@@ -1618,7 +1618,9 @@ mod tests {
     fn roundtrip_pin_version_action() {
         let req = Request {
             id: "pv-1".into(),
-            action: Action::PinVersion { version: "0.20.0".into() },
+            action: Action::PinVersion {
+                version: "0.20.0".into(),
+            },
             timeout_ms: None,
             reason: None,
         };
@@ -1657,7 +1659,9 @@ mod tests {
     fn roundtrip_set_update_window_action() {
         let req = Request {
             id: "uw-1".into(),
-            action: Action::SetUpdateWindow { window: Some("02:00-04:00".into()) },
+            action: Action::SetUpdateWindow {
+                window: Some("02:00-04:00".into()),
+            },
             timeout_ms: None,
             reason: None,
         };
@@ -1686,7 +1690,9 @@ mod tests {
     fn roundtrip_version_pinned_result() {
         let resp = Response {
             id: "pv-1".into(),
-            result: RpcResult::VersionPinned { version: "0.20.0".into() },
+            result: RpcResult::VersionPinned {
+                version: "0.20.0".into(),
+            },
         };
         let bytes = codec::encode(&resp).unwrap();
         let decoded: Response = codec::decode(&bytes).unwrap();
@@ -1697,7 +1703,9 @@ mod tests {
     fn roundtrip_update_window_set_result() {
         let resp = Response {
             id: "uw-1".into(),
-            result: RpcResult::UpdateWindowSet { window: Some("02:00-04:00".into()) },
+            result: RpcResult::UpdateWindowSet {
+                window: Some("02:00-04:00".into()),
+            },
         };
         let bytes = codec::encode(&resp).unwrap();
         let decoded: Response = codec::decode(&bytes).unwrap();

@@ -3454,8 +3454,7 @@ impl Executor {
             let window = self.update_window.read().await;
             if let Some(w) = window.as_deref() {
                 if !is_within_update_window(w) {
-                    let reason =
-                        format!("current time is outside update window \"{w}\"");
+                    let reason = format!("current time is outside update window \"{w}\"");
                     tracing::warn!("{reason}");
                     let _ = self.audit.log(AuditEntry {
                         timestamp: chrono::Utc::now(),
@@ -3626,7 +3625,9 @@ impl Executor {
             Some(0),
             start.elapsed().as_millis() as u64,
         );
-        RpcResult::UpdateWindowSet { window: window_clone }
+        RpcResult::UpdateWindowSet {
+            window: window_clone,
+        }
     }
 }
 

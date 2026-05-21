@@ -188,7 +188,10 @@ impl RoutingTable {
         // Pin caller to chosen agent for future requests.
         if let Some(identity) = caller_identity {
             let mut sticky = self.sticky.lock().expect("sticky lock poisoned");
-            sticky.insert(identity.to_string(), (chosen.agent_id.clone(), Instant::now()));
+            sticky.insert(
+                identity.to_string(),
+                (chosen.agent_id.clone(), Instant::now()),
+            );
         }
 
         Some(chosen)
