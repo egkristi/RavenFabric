@@ -1213,7 +1213,7 @@
             </div>
 
             <div class="hero-badges">
-                <img src="https://img.shields.io/badge/version-0.3.0-green?style=flat-square" alt="Version">
+                <img src="https://img.shields.io/badge/version-0.17.0-green?style=flat-square" alt="Version">
                 <img src="https://img.shields.io/badge/language-Rust-orange?style=flat-square" alt="Language">
                 <img src="https://img.shields.io/badge/license-AGPLv3-blue?style=flat-square" alt="License">
                 <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest"><img src="https://img.shields.io/github/release-date/egkristi/RavenFabric-Published?style=flat-square&label=latest%20release" alt="Latest Release"></a>
@@ -1318,7 +1318,7 @@ $ rf exec local "rm -rf /"
                 <div class="what-card">
                     <div class="card-num">01</div>
                     <h3>Network-agnostic</h3>
-                    <p>One driver trait, many transports — WireGuard, QUIC, WebSocket, Tor, Reticulum, serial. Works through corporate proxies, NAT, and air-gaps. Cross-protocol upgrade in the background.</p>
+                    <p>One driver trait, 30+ transport drivers — WireGuard, QUIC, WebSocket, Tor, LoRa, BLE, AX.25, satellite, acoustic, Reticulum, serial, and more. Works through proxies, NAT, and air-gaps. Automatic failover with cross-protocol upgrade in the background. Store-carry-forward delay-tolerant mesh for intermittently connected nodes.</p>
                 </div>
                 <div class="what-card">
                     <div class="card-num">02</div>
@@ -1344,6 +1344,21 @@ $ rf exec local "rm -rf /"
                     <div class="card-num">06</div>
                     <h3>Audit everything</h3>
                     <p>Every decision — allowed or denied — written to structured JSON. Session recording for shell. Replay-grade traceability for compliance.</p>
+                </div>
+                <div class="what-card">
+                    <div class="card-num">07</div>
+                    <h3>Secret management</h3>
+                    <p>Sealed secret store on every agent. Push secrets fleet-wide over the encrypted channel — zero-downtime rotation with configurable grace periods. Pull from enterprise backends: HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, GCP Secret Manager. Secrets never written to disk in plaintext, zeroed from memory on release.</p>
+                </div>
+                <div class="what-card">
+                    <div class="card-num">08</div>
+                    <h3>File transfer</h3>
+                    <p>Transfer files and directory trees between any two points in the mesh: <code>rf cp</code> over the encrypted channel. Chunked transfer, automatic compression, real-time progress, and SHA-256 integrity verification on arrival. Same path policy as all other operations.</p>
+                </div>
+                <div class="what-card">
+                    <div class="card-num">09</div>
+                    <h3>SIEM &amp; alerting</h3>
+                    <p>Forward audit events in real time to Splunk HEC, Elasticsearch, Datadog, or syslog (RFC 5424). Export as CEF, LEEF, OCSF, or JSON-lines. Alert rules fire on denials, anomaly scores, or custom patterns — routed to Slack, PagerDuty, OpsGenie, or a webhook. Buffered delivery, no events dropped on network interruption.</p>
                 </div>
             </div>
         </div>
@@ -1413,6 +1428,18 @@ $ rf exec local "rm -rf /"
                             <td class="category">Data collection</td>
                             <td class="products"><span class="strikethrough">Telegraf · Metricbeat · OpenTelemetry Collector · Fluent Bit · node_exporter</span></td>
                         </tr>
+                        <tr>
+                            <td class="category">Secret management</td>
+                            <td class="products"><span class="strikethrough">HashiCorp Vault agent · AWS Secrets Manager SDK · Azure Key Vault · GCP Secret Manager</span></td>
+                        </tr>
+                        <tr>
+                            <td class="category">SIEM / Log forwarding</td>
+                            <td class="products"><span class="strikethrough">Splunk forwarder · Elasticsearch Logstash · Datadog agent · CEF/LEEF exporters · syslog-ng</span></td>
+                        </tr>
+                        <tr>
+                            <td class="category">AI agent gateway</td>
+                            <td class="products"><span class="strikethrough">Custom policy shims · guardrails packages · LangChain middleware</span></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -1443,6 +1470,10 @@ $ rf exec local "rm -rf /"
                         <tr><td data-label="Capability">Agent binary</td><td data-label="RavenFabric">Single static &lt;15 MB</td><td data-label="Tailscale+Ansible">Tailscale + Python + Ansible</td><td data-label="SSH+bastion">OpenSSH</td></tr>
                         <tr><td data-label="Capability">Mobile / IoT</td><td data-label="RavenFabric">Android, iOS, RPi, ESP32</td><td data-label="Tailscale+Ansible">Tailscale (mobile) + no Ansible</td><td data-label="SSH+bastion">Limited</td></tr>
                         <tr><td data-label="Capability">Relay trust</td><td data-label="RavenFabric">Zero (content-blind)</td><td data-label="Tailscale+Ansible">Coordination server sees metadata</td><td data-label="SSH+bastion">Bastion sees all traffic</td></tr>
+                        <tr><td data-label="Capability">Secret management</td><td data-label="RavenFabric">Fleet-wide push, rotation, external backends</td><td data-label="Tailscale+Ansible">Ansible Vault (no fleet push)</td><td data-label="SSH+bastion">None</td></tr>
+                        <tr><td data-label="Capability">SIEM forwarding</td><td data-label="RavenFabric">Built-in (Splunk, Elastic, Datadog, Syslog, CEF…)</td><td data-label="Tailscale+Ansible">Separate agent required</td><td data-label="SSH+bastion">None</td></tr>
+                        <tr><td data-label="Capability">Post-quantum key exchange</td><td data-label="RavenFabric">Hybrid PQ (optional hardening layer)</td><td data-label="Tailscale+Ansible">Not available</td><td data-label="SSH+bastion">Not available</td></tr>
+                        <tr><td data-label="Capability">File transfer</td><td data-label="RavenFabric">Built-in: rf cp, compressed, integrity-verified</td><td data-label="Tailscale+Ansible">scp / rsync separately</td><td data-label="SSH+bastion">scp only</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1581,7 +1612,7 @@ $ rf exec local "rm -rf /"
                 </div>
                 <div class="feature-card">
                     <h3>Is it production-ready?</h3>
-                    <p>Not yet. v0.3 is a feature-complete early release — the architecture is proven, security model sound, transport diversity implemented (WebSocket, QUIC, WireGuard, Tor, serial, LoRa), and CI-verified across 8 targets. API stabilization and external security audit remain before a production label.</p>
+                    <p>Not yet. v0.17 is a mature early release — the architecture is proven, security model sound, 30+ transport drivers implemented (WebSocket, QUIC, WireGuard, Tor, LoRa, BLE, serial, satellite, AX.25, and more), and CI-verified across Linux, macOS, Windows, and ARM targets. API stabilization and external security audit remain before a production label.</p>
                 </div>
                 <div class="feature-card">
                     <h3>Who is this for?</h3>
@@ -1867,6 +1898,56 @@ $ rf exec local "rm -rf /"
             <p style="text-align: center; margin-top: var(--space-8);">
                 <a href="https://docs.ravenfabric.io/use-cases/" style="color: var(--accent-gold); font-weight: 500;">See all use cases &rarr;</a>
             </p>
+
+            <!-- Additional examples -->
+            <div class="section-eyebrow" style="margin-top: var(--space-16);">More examples</div>
+            <div class="terminal-grid" style="margin-top: var(--space-6);">
+                <!-- Terminal 5: secret management -->
+                <div>
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <div class="terminal-dots"><span></span><span></span><span></span></div>
+                            <div class="terminal-title">fleet secrets</div>
+                        </div>
+                        <div class="terminal-body">
+<pre><span class="comment"># Push a secret to all web nodes (fleet-wide)</span>
+<span class="prompt">$</span> <span class="cmd">rf secret push</span> <span class="arg">--name</span> <span class="str">DB_PASSWORD</span> <span class="arg">--value</span> <span class="str">"$SECRET"</span> <span class="arg">--selector</span> <span class="str">role=web</span>
+<span class="ok">✓</span> <span class="out">web-01  sealed  sha256:a3f9b2...  (new)</span>
+<span class="ok">✓</span> <span class="out">web-02  sealed  sha256:a3f9b2...  (new)</span>
+<span class="ok">✓</span> <span class="out">web-03  sealed  sha256:a3f9b2...  (rotated, old valid 300s)</span>
+
+<span class="comment"># Rotate with grace period — no downtime</span>
+<span class="prompt">$</span> <span class="cmd">rf secret push</span> <span class="arg">--name</span> <span class="str">DB_PASSWORD</span> <span class="arg">--value</span> <span class="str">"$NEW"</span> <span class="arg">--grace-period</span> <span class="str">300</span>
+<span class="ok">✓</span> <span class="out">rotated on 3 agents  ·  old value valid for 300s</span>
+<span class="dim">  audited · encrypted · never logged in plaintext</span><span class="cursor"></span></pre>
+                        </div>
+                    </div>
+                    <div class="terminal-caption">fleet-wide secret push with zero-downtime rotation</div>
+                </div>
+
+                <!-- Terminal 6: file transfer -->
+                <div>
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <div class="terminal-dots"><span></span><span></span><span></span></div>
+                            <div class="terminal-title">rf cp</div>
+                        </div>
+                        <div class="terminal-body">
+<pre><span class="comment"># Copy a file to a remote agent (E2E encrypted)</span>
+<span class="prompt">$</span> <span class="cmd">rf cp</span> <span class="str">./config.tar.gz</span> <span class="arg">web-01:/etc/app/config.tar.gz</span>
+<span class="dim">&rarr; Transferring config.tar.gz to web-01 (1.2 MB)</span>
+<span class="ok">  &block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block;&block; 100%  1.2 MB  2.3 MB/s</span>
+<span class="ok">✓</span> <span class="out">sha256:4f8e9c...  verified on web-01</span>
+
+<span class="comment"># Recursive directory sync</span>
+<span class="prompt">$</span> <span class="cmd">rf cp</span> <span class="arg">-r</span> <span class="str">./certs/</span> <span class="arg">db-01:/etc/app/certs/</span>
+<span class="ok">✓</span> <span class="out">3 files (28 KB) verified on db-01</span>
+<span class="dim">  audited · policy-checked · path policy enforced</span><span class="cursor"></span></pre>
+                        </div>
+                    </div>
+                    <div class="terminal-caption">encrypted file transfer with integrity verification</div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -1931,6 +2012,41 @@ $ rf exec local "rm -rf /"
                     <li>
                         <span class="status-tag done">Done</span>
                         <span class="item-text">Reticulum, Tor, serial drivers — air-gap support</span>
+                        <span class="item-version">v0.17.0</span>
+                    </li>
+                    <li>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">Fleet-wide secret management + external backends (Vault, AWS, Azure, GCP)</span>
+                        <span class="item-version">v0.17.0</span>
+                    </li>
+                    <li>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">SIEM integration — Splunk, Elasticsearch, Datadog, Syslog, CEF, LEEF, OCSF</span>
+                        <span class="item-version">v0.17.0</span>
+                    </li>
+                    <li>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">File transfer (rf cp) — chunked, compressed, integrity-verified</span>
+                        <span class="item-version">v0.17.0</span>
+                    </li>
+                    <li>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">Post-quantum hybrid key exchange (optional hardening layer)</span>
+                        <span class="item-version">v0.17.0</span>
+                    </li>
+                    <li>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">Delay-tolerant networking (store-carry-forward DTN)</span>
+                        <span class="item-version">v0.17.0</span>
+                    </li>
+                    <li>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">WASM plugin system, multi-tenancy, RBAC</span>
+                        <span class="item-version">v0.17.0</span>
+                    </li>
+                    <li>
+                        <span class="status-tag done">Done</span>
+                        <span class="item-text">Kubernetes operator (CRDs), web dashboard, REST API</span>
                         <span class="item-version">v0.17.0</span>
                     </li>
                 </ul>
