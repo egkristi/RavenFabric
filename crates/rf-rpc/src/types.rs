@@ -318,6 +318,72 @@ pub enum Action {
     ///
     /// Returns only names — never values.
     ListSecrets,
+    /// Query the agent for block-level checksums of an existing remote file.
+    ///
+    /// The client uses this to compute which blocks differ before sending a delta patch.
+    /// If the file does not exist on the agent the response carries `file_missing: true`
+    /// and an empty block list — the caller should fall back to a full transfer.
+    ///
+    /// Block size is fixed per request; both sides must use the same value.
+    FileDeltaQuery {
+        /// Path on the agent filesystem to inspect.
+        path: String,
+        /// Block size in bytes (default 262144 = 256 KB).
+        #[serde(default = "default_block_size")]
+        block_size: u32,
+    },
+    /// Apply a delta patch to a file on the agent.
+    ///
+    /// The client sends only the blocks that changed (as identified by comparing the
+    /// checksums from `FileDeltaQuery` against the local file).  Unchanged blocks are
+    /// reconstructed from the existing remote file.
+    FileDeltaPatch {
+        /// Destination path on the agent filesystem.
+        path: String,
+        /// Block size used — must match the value in the preceding `FileDeltaQuery`.
+        #[serde(default = "default_block_size")]
+        block_size: u32,
+        /// Changed blocks.  Each patch replaces exactly one block at `offset`.
+        patches: Vec<DeltaPatch>,
+        /// Total size of the final file in bytes (needed to truncate the last block).
+        total_size: u64,
+        /// SHA-256 hex of the fully-reconstructed file (verified after assembly).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        checksum: Option<String>,
+        /// File mode (permissions) to set on the final file (Unix octal, e.g. 0o644).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mode: Option<u32>,
+    },
+}
+
+fn default_block_size() -> u32 {
+    262144
+}
+
+/// One block of a remote file described by its position and checksums.
+///
+/// Adler-32 is the fast rolling weak checksum; SHA-256 is the strong confirmation.
+/// The client skips sending a patch for any block whose Adler-32 AND SHA-256 both
+/// match the local file — matching the rsync two-stage comparison strategy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockInfo {
+    /// Byte offset of the block within the file.
+    pub offset: u64,
+    /// Actual size of this block (last block may be smaller than block_size).
+    pub size: u32,
+    /// Adler-32 weak rolling checksum of the block data.
+    pub adler32: u32,
+    /// SHA-256 hex string of the block data.
+    pub sha256_hex: String,
+}
+
+/// A single block replacement in a delta patch.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeltaPatch {
+    /// Byte offset of the block to replace.
+    pub offset: u64,
+    /// New block data (must equal `block_size` except for the final block).
+    pub data: Vec<u8>,
 }
 
 /// Identifies which output stream a chunk belongs to.
@@ -548,6 +614,27 @@ pub enum RpcResult {
     SecretsList {
         /// Sorted list of secret names currently held in the store.
         names: Vec<String>,
+    },
+    /// Response to a `FileDeltaQuery` action — block-level checksums of the remote file.
+    FileDeltaIndex {
+        /// Block checksums; empty when `file_missing` is true.
+        blocks: Vec<BlockInfo>,
+        /// Total size of the remote file in bytes.
+        total_size: u64,
+        /// True if the file does not exist on the agent (full transfer required).
+        #[serde(default)]
+        file_missing: bool,
+    },
+    /// Response to a `FileDeltaPatch` action — patch applied successfully.
+    FileDeltaApplied {
+        /// Number of bytes in changed blocks that were transferred.
+        bytes_transferred: u64,
+        /// Number of blocks that were updated by the patch.
+        blocks_changed: u32,
+        /// Total number of blocks in the file.
+        total_blocks: u32,
+        /// True if the final SHA-256 was checked and matched.
+        checksum_verified: bool,
     },
 }
 
@@ -1105,5 +1192,108 @@ mod tests {
         } else {
             panic!("expected SealSecret action");
         }
+    }
+
+    #[test]
+    fn roundtrip_file_delta_query_action() {
+        let req = Request {
+            id: "dq-1".into(),
+            action: Action::FileDeltaQuery {
+                path: "/etc/config.toml".into(),
+                block_size: 262144,
+            },
+            timeout_ms: Some(30000),
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_delta_patch_action() {
+        let req = Request {
+            id: "dp-1".into(),
+            action: Action::FileDeltaPatch {
+                path: "/etc/config.toml".into(),
+                block_size: 262144,
+                patches: vec![DeltaPatch {
+                    offset: 262144,
+                    data: vec![0u8; 512],
+                }],
+                total_size: 786432,
+                checksum: Some("abc123def456".into()),
+                mode: Some(0o644),
+            },
+            timeout_ms: Some(60000),
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_delta_index_result() {
+        let resp = Response {
+            id: "dq-1".into(),
+            result: RpcResult::FileDeltaIndex {
+                blocks: vec![
+                    BlockInfo {
+                        offset: 0,
+                        size: 262144,
+                        adler32: 0xdeadbeef,
+                        sha256_hex: "a".repeat(64),
+                    },
+                    BlockInfo {
+                        offset: 262144,
+                        size: 12345,
+                        adler32: 0x12345678,
+                        sha256_hex: "b".repeat(64),
+                    },
+                ],
+                total_size: 274489,
+                file_missing: false,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_file_delta_index_missing() {
+        let resp = Response {
+            id: "dq-2".into(),
+            result: RpcResult::FileDeltaIndex {
+                blocks: vec![],
+                total_size: 0,
+                file_missing: true,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+        if let RpcResult::FileDeltaIndex { file_missing, .. } = decoded.result {
+            assert!(file_missing);
+        } else {
+            panic!("expected FileDeltaIndex");
+        }
+    }
+
+    #[test]
+    fn roundtrip_file_delta_applied_result() {
+        let resp = Response {
+            id: "dp-1".into(),
+            result: RpcResult::FileDeltaApplied {
+                bytes_transferred: 262144,
+                blocks_changed: 1,
+                total_blocks: 3,
+                checksum_verified: true,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
     }
 }

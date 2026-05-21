@@ -142,6 +142,10 @@ enum Commands {
         /// Recursive copy (for directories)
         #[arg(short, long)]
         recursive: bool,
+
+        /// Delta sync: only transfer changed blocks (rsync-like rolling checksum)
+        #[arg(long)]
+        delta: bool,
     },
     /// Open a TCP proxy tunnel through an agent
     #[command(name = "proxy")]
@@ -318,6 +322,7 @@ async fn main() -> anyhow::Result<()> {
             dest,
             chunk_size,
             recursive,
+            delta,
         } => {
             cp_command(
                 &cli.relay,
@@ -328,6 +333,7 @@ async fn main() -> anyhow::Result<()> {
                 &dest,
                 chunk_size,
                 recursive,
+                delta,
             )
             .await?;
         }
@@ -1353,6 +1359,7 @@ async fn cp_command(
     dest: &str,
     chunk_size: u32,
     recursive: bool,
+    delta: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
@@ -1416,6 +1423,19 @@ async fn cp_command(
 
             let local_data = tokio::fs::read(local_path).await?;
             let total = local_data.len();
+
+            // Delta sync path: query remote checksums, compute diff, send only changed blocks
+            if delta {
+                delta_push(
+                    &chan,
+                    &local_data,
+                    &effective_remote,
+                    chunk_size,
+                    &local_str,
+                )
+                .await?;
+                continue;
+            }
 
             // Streaming upload: one round-trip to negotiate, then raw frames
             use sha2::{Digest, Sha256};
@@ -2172,5 +2192,155 @@ async fn push_single_file(
         RpcResult::FileStreamDone { .. } => Ok(()),
         RpcResult::Error { message } => anyhow::bail!("upload failed: {message}"),
         _ => anyhow::bail!("unexpected response after stream upload"),
+    }
+}
+
+/// Delta push: query remote block checksums, compute diff, send only changed blocks.
+///
+/// Falls back to a full `FilePushStream` transfer if the remote file does not exist.
+async fn delta_push(
+    chan: &Arc<tokio::sync::Mutex<AgentChannel>>,
+    local_data: &[u8],
+    remote_path: &str,
+    block_size: u32,
+    display_label: &str,
+) -> anyhow::Result<()> {
+    let bs = block_size.max(1024) as usize;
+
+    // Step 1: query remote checksums
+    let query_req = Request {
+        id: format!("delta-query-{}", hex::encode(&local_data[..4.min(local_data.len())])),
+        action: Action::FileDeltaQuery {
+            path: remote_path.to_string(),
+            block_size,
+        },
+        timeout_ms: Some(60000),
+        reason: None,
+    };
+    let ch = chan.lock().await;
+    ch.send(&codec::encode(&query_req)?).await?;
+    let resp_bytes = ch.recv().await?;
+    drop(ch);
+
+    let resp: Response = codec::decode(&resp_bytes)?;
+    let (remote_blocks, file_missing) = match resp.result {
+        RpcResult::FileDeltaIndex {
+            blocks,
+            file_missing,
+            ..
+        } => (blocks, file_missing),
+        RpcResult::Denied { reason, rule } => {
+            anyhow::bail!("denied: {reason} (rule: {rule})");
+        }
+        RpcResult::Error { message } => {
+            anyhow::bail!("delta query error: {message}");
+        }
+        _ => anyhow::bail!("unexpected response to FileDeltaQuery"),
+    };
+
+    // If file is missing, fall back to full stream upload
+    if file_missing {
+        eprintln!("{display_label}: remote file missing, performing full transfer");
+        return push_single_file(chan, local_data, remote_path, block_size).await;
+    }
+
+    // Step 2: compute local block checksums and find changed blocks
+    use sha2::{Digest, Sha256};
+
+    let remote_index: std::collections::HashMap<u64, &rf_rpc::types::BlockInfo> =
+        remote_blocks.iter().map(|b| (b.offset, b)).collect();
+
+    let mut patches: Vec<rf_rpc::types::DeltaPatch> = Vec::new();
+    let mut offset = 0u64;
+    let mut blocks_same = 0usize;
+    let mut blocks_changed = 0usize;
+
+    for chunk in local_data.chunks(bs) {
+        // Compute Adler-32 (inline)
+        const MOD_ADLER: u32 = 65521;
+        let mut a: u32 = 1;
+        let mut b: u32 = 0;
+        for &byte in chunk {
+            a = (a + u32::from(byte)) % MOD_ADLER;
+            b = (b + a) % MOD_ADLER;
+        }
+        let local_adler = (b << 16) | a;
+        let local_sha: String = Sha256::digest(chunk)
+            .iter()
+            .map(|x| format!("{x:02x}"))
+            .collect();
+
+        let changed = if let Some(rb) = remote_index.get(&offset) {
+            rb.adler32 != local_adler || rb.sha256_hex != local_sha
+        } else {
+            true // block doesn't exist remotely
+        };
+
+        if changed {
+            patches.push(rf_rpc::types::DeltaPatch {
+                offset,
+                data: chunk.to_vec(),
+            });
+            blocks_changed += 1;
+        } else {
+            blocks_same += 1;
+        }
+        offset += chunk.len() as u64;
+    }
+
+    eprintln!(
+        "{display_label}: delta — {blocks_same} blocks unchanged, {blocks_changed} blocks to transfer"
+    );
+
+    // If nothing changed, skip the patch entirely
+    if patches.is_empty() {
+        eprintln!("{display_label}: already up-to-date (0 bytes transferred)");
+        return Ok(());
+    }
+
+    // Compute full-file checksum for final verification
+    let full_checksum: String = Sha256::digest(local_data)
+        .iter()
+        .map(|x| format!("{x:02x}"))
+        .collect();
+    let bytes_to_transfer: u64 = patches.iter().map(|p| p.data.len() as u64).sum();
+
+    // Step 3: send patch
+    let patch_req = Request {
+        id: format!("delta-patch-{}", hex::encode(&local_data[..4.min(local_data.len())])),
+        action: Action::FileDeltaPatch {
+            path: remote_path.to_string(),
+            block_size,
+            patches,
+            total_size: local_data.len() as u64,
+            checksum: Some(full_checksum),
+            mode: None,
+        },
+        timeout_ms: Some(120000),
+        reason: None,
+    };
+    let ch = chan.lock().await;
+    ch.send(&codec::encode(&patch_req)?).await?;
+    let done_bytes = ch.recv().await?;
+    drop(ch);
+
+    let done_resp: Response = codec::decode(&done_bytes)?;
+    match done_resp.result {
+        RpcResult::FileDeltaApplied {
+            checksum_verified, ..
+        } => {
+            eprintln!(
+                "{display_label}: delta applied ({bytes_to_transfer} bytes transferred{})",
+                if checksum_verified {
+                    ", checksum verified"
+                } else {
+                    ""
+                }
+            );
+            Ok(())
+        }
+        RpcResult::Denied { reason, rule } => anyhow::bail!("denied: {reason} (rule: {rule})"),
+        RpcResult::Error { message } => anyhow::bail!("delta patch failed: {message}"),
+        _ => anyhow::bail!("unexpected response to FileDeltaPatch"),
     }
 }

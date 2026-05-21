@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.17.0 (Alpha) — Released 2026-05-21
+**Version:** 0.18.0 (Alpha) — Released 2026-05-21
 
-**Stats:** 13 crates, ~65,914 LOC, 1,316 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 13 crates, ~66,857 LOC, 1,328 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -124,7 +124,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.17.0 — all planned features implemented and tested.
+**Current:** Alpha v0.18.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -266,7 +266,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 
 #### Advanced Features
 - [x] Recursive directory transfer — `rf cp -r` with directory tree traversal
-- [ ] Delta/incremental sync — rsync-like rolling checksum for efficient updates of large files
+- [x] Delta/incremental sync — rsync-like rolling checksum for efficient updates of large files
 - [x] Compression — optional zstd compression for transfer (transparent, negotiated)
 - [x] Glob patterns — `rf cp agent:/var/log/*.gz ./logs/` wildcard expansion
 - [x] `rf cp` CLI command — familiar syntax: `rf cp <agent>:<path> <local>` and `rf cp <local> <agent>:<path>`

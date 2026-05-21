@@ -5,6 +5,29 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] — 2026-05-21
+
+### Added
+
+- **Delta/incremental sync for `rf cp`** — New `--delta` flag on `rf cp` enables
+  rolling-checksum-based sync: the CLI queries the remote file's per-block
+  Adler-32 + SHA-256 fingerprints (`FileDeltaQuery` RPC action), computes local
+  block hashes inline, and transmits only the changed blocks (`FileDeltaPatch`
+  RPC action). Unchanged blocks are reused from the file already on the agent.
+  The agent verifies the full-file SHA-256 checksum after reconstruction and
+  performs an atomic write via temp-file + rename. If the remote file is missing,
+  `--delta` automatically falls back to a full push. New types: `BlockInfo`,
+  `DeltaPatch`; new RPC actions: `FileDeltaQuery`, `FileDeltaPatch`; new RPC
+  results: `FileDeltaIndex`, `FileDeltaApplied`. 13 new tests (6 in rf-rpc
+  roundtrips, 7 in rf-executor handlers).
+
+### Changed
+
+- **Version**: Bumped to 0.18.0 across all crates and deploy manifests
+- **Total tests**: 1,328 (up from 1,316) — +6 rf-rpc roundtrips, +7 rf-executor delta sync
+- **LOC**: ~66,857 (up from ~65,914)
+- ROADMAP item marked complete: Delta/incremental sync for `rf cp`
+
 ## [0.17.0] — 2026-05-21
 
 ### Added

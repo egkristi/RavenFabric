@@ -110,7 +110,7 @@ Output includes the negotiated handshake parameters:
 
 ```
 Agent:       web-01
-Version:     0.17.0
+Version:     0.18.0
 Uptime:      4d 12h
 Transport:   quic-direct
 Handshake:   Noise_XX_25519+Kyber768_ChaChaPoly_BLAKE2s

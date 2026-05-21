@@ -373,6 +373,30 @@ impl Executor {
                     .await
             }
             Action::ListSecrets => self.handle_list_secrets(&request.id, start).await,
+            Action::FileDeltaQuery { path, block_size } => {
+                self.handle_file_delta_query(&request.id, path, *block_size, start)
+                    .await
+            }
+            Action::FileDeltaPatch {
+                path,
+                block_size,
+                patches,
+                total_size,
+                checksum,
+                mode,
+            } => {
+                self.handle_file_delta_patch(
+                    &request.id,
+                    path,
+                    *block_size,
+                    patches,
+                    *total_size,
+                    checksum,
+                    *mode,
+                    start,
+                )
+                .await
+            }
             _ => RpcResult::Error {
                 message: format!("unsupported action: {:?}", request.action),
             },
@@ -1970,6 +1994,280 @@ impl Executor {
             total_size,
             checksum,
             compressed,
+        }
+    }
+
+    /// Compute Adler-32 checksum for a block of data.
+    fn adler32(data: &[u8]) -> u32 {
+        const MOD_ADLER: u32 = 65521;
+        let mut a: u32 = 1;
+        let mut b: u32 = 0;
+        for &byte in data {
+            a = (a + u32::from(byte)) % MOD_ADLER;
+            b = (b + a) % MOD_ADLER;
+        }
+        (b << 16) | a
+    }
+
+    /// Query block-level checksums of a remote file for delta sync.
+    async fn handle_file_delta_query(
+        &self,
+        request_id: &str,
+        path: &str,
+        block_size: u32,
+        start: Instant,
+    ) -> RpcResult {
+        use rf_rpc::types::BlockInfo;
+        let file_path = std::path::Path::new(path);
+
+        // Policy check (read access)
+        let policy = self.policy.read().await;
+        let decision = policy.check_path(file_path);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "file_delta_query",
+                Some(path.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+        drop(policy);
+
+        // If file does not exist, return missing indicator so caller falls back to full push
+        let metadata = match tokio::fs::metadata(path).await {
+            Ok(m) => m,
+            Err(_) => {
+                self.audit(
+                    request_id,
+                    "file_delta_query",
+                    Some(path.to_string()),
+                    "allowed",
+                    matched_rule,
+                    Some(0),
+                    start.elapsed().as_millis() as u64,
+                );
+                return RpcResult::FileDeltaIndex {
+                    blocks: vec![],
+                    total_size: 0,
+                    file_missing: true,
+                };
+            }
+        };
+
+        let total_size = metadata.len();
+
+        // Enforce file size limit
+        {
+            let policy = self.policy.read().await;
+            if total_size > policy.max_file_size_bytes {
+                return RpcResult::Denied {
+                    reason: format!(
+                        "file size limit exceeded: {} > {} bytes",
+                        total_size, policy.max_file_size_bytes
+                    ),
+                    rule: "resources.maxFileSizeBytes".to_string(),
+                };
+            }
+        }
+
+        // Read entire file and compute per-block checksums
+        let file_data = match tokio::fs::read(path).await {
+            Ok(d) => d,
+            Err(e) => {
+                return RpcResult::Error {
+                    message: format!("read file: {e}"),
+                };
+            }
+        };
+
+        let bs = block_size.max(1) as usize;
+        let mut blocks: Vec<BlockInfo> = Vec::new();
+        let mut offset = 0u64;
+        for chunk in file_data.chunks(bs) {
+            let adler32 = Self::adler32(chunk);
+            use sha2::{Digest, Sha256};
+            let digest = Sha256::digest(chunk);
+            let sha256_hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+            blocks.push(BlockInfo {
+                offset,
+                size: chunk.len() as u32,
+                adler32,
+                sha256_hex,
+            });
+            offset += chunk.len() as u64;
+        }
+
+        self.audit(
+            request_id,
+            "file_delta_query",
+            Some(path.to_string()),
+            "allowed",
+            matched_rule,
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
+        RpcResult::FileDeltaIndex {
+            blocks,
+            total_size,
+            file_missing: false,
+        }
+    }
+
+    /// Apply a delta patch: reconstruct the file from unchanged remote blocks + new patch data.
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_file_delta_patch(
+        &self,
+        request_id: &str,
+        path: &str,
+        block_size: u32,
+        patches: &[rf_rpc::types::DeltaPatch],
+        total_size: u64,
+        checksum: &Option<String>,
+        mode: Option<u32>,
+        start: Instant,
+    ) -> RpcResult {
+        let file_path = std::path::Path::new(path);
+
+        // Policy check (write access)
+        let policy = self.policy.read().await;
+        let decision = policy.check_path(file_path);
+        if !decision.allowed {
+            self.audit(
+                request_id,
+                "file_delta_patch",
+                Some(path.to_string()),
+                "denied",
+                decision.matched_rule.clone(),
+                None,
+                start.elapsed().as_millis() as u64,
+            );
+            return RpcResult::Denied {
+                reason: decision.reason,
+                rule: decision.matched_rule,
+            };
+        }
+        let matched_rule = decision.matched_rule.clone();
+
+        // Enforce file size limit
+        if total_size > policy.max_file_size_bytes {
+            return RpcResult::Denied {
+                reason: format!(
+                    "file size limit exceeded: {} > {} bytes",
+                    total_size, policy.max_file_size_bytes
+                ),
+                rule: "resources.maxFileSizeBytes".to_string(),
+            };
+        }
+        drop(policy);
+
+        let bs = block_size.max(1) as usize;
+
+        // Read existing file (may not exist if this is a new file)
+        let existing: Vec<u8> = tokio::fs::read(path).await.unwrap_or_default();
+
+        // Build patch lookup: offset → new data
+        let patch_map: std::collections::HashMap<u64, &[u8]> =
+            patches.iter().map(|p| (p.offset, p.data.as_slice())).collect();
+
+        // Compute number of blocks needed for the new total_size
+        let total_blocks = total_size.div_ceil(bs as u64) as usize;
+        let mut new_file: Vec<u8> = Vec::with_capacity(total_size as usize);
+
+        for block_idx in 0..total_blocks {
+            let offset = (block_idx * bs) as u64;
+            let remaining = total_size - offset;
+            let this_block_size = remaining.min(bs as u64) as usize;
+
+            if let Some(patch_data) = patch_map.get(&offset) {
+                // Use patch data for this block
+                let take = this_block_size.min(patch_data.len());
+                new_file.extend_from_slice(&patch_data[..take]);
+                if take < this_block_size {
+                    new_file.extend(std::iter::repeat(0u8).take(this_block_size - take));
+                }
+            } else {
+                // Copy unchanged block from existing file
+                let src_start = offset as usize;
+                let src_end = (src_start + this_block_size).min(existing.len());
+                if src_start < existing.len() {
+                    new_file.extend_from_slice(&existing[src_start..src_end]);
+                    let copied = src_end - src_start;
+                    if copied < this_block_size {
+                        new_file.extend(std::iter::repeat(0u8).take(this_block_size - copied));
+                    }
+                } else {
+                    new_file.extend(std::iter::repeat(0u8).take(this_block_size));
+                }
+            }
+        }
+
+        // Truncate to exact total_size
+        new_file.truncate(total_size as usize);
+
+        // Verify checksum if provided
+        let checksum_verified = if let Some(expected) = checksum {
+            use sha2::{Digest, Sha256};
+            let digest = Sha256::digest(&new_file);
+            let actual: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+            if actual != *expected {
+                return RpcResult::Error {
+                    message: format!("checksum mismatch: expected {expected}, got {actual}"),
+                };
+            }
+            true
+        } else {
+            false
+        };
+
+        // Atomic write via temp file + rename
+        let temp_path = format!("{path}.rf_delta");
+        if let Err(e) = tokio::fs::write(&temp_path, &new_file).await {
+            return RpcResult::Error {
+                message: format!("write temp file: {e}"),
+            };
+        }
+        if let Err(e) = tokio::fs::rename(&temp_path, path).await {
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            return RpcResult::Error {
+                message: format!("finalize rename: {e}"),
+            };
+        }
+
+        // Set file permissions if specified
+        #[cfg(unix)]
+        if let Some(m) = mode {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(m);
+            let _ = tokio::fs::set_permissions(path, perms).await;
+        }
+
+        let bytes_transferred: u64 = patches.iter().map(|p| p.data.len() as u64).sum();
+        let blocks_changed = patches.len() as u32;
+
+        self.audit(
+            request_id,
+            "file_delta_patch",
+            Some(path.to_string()),
+            "allowed",
+            matched_rule,
+            Some(0),
+            start.elapsed().as_millis() as u64,
+        );
+
+        RpcResult::FileDeltaApplied {
+            bytes_transferred,
+            blocks_changed,
+            total_blocks: total_blocks as u32,
+            checksum_verified,
         }
     }
 
@@ -3838,6 +4136,281 @@ spec:
             }
             other => panic!("expected FileChunk, got {other:?}"),
         }
+    }
+
+    // ---- Delta sync tests -------------------------------------------------------
+
+    /// Helper: make a minimal executor allowing access to a given directory.
+    fn make_delta_executor(allow_dir: &str) -> Executor {
+        let audit = Arc::new(TestAuditLogger::new());
+        let yaml = format!(
+            "spec:\n  filesystem:\n    allow:\n      - path: {allow_dir}\n  resources:\n    maxFileSizeBytes: 10485760\n    timeoutSeconds: 30\n"
+        );
+        let policy = Arc::new(RwLock::new(RpcPolicy::from_yaml(&yaml).unwrap()));
+        Executor::new(policy, audit, "delta-test".into())
+    }
+
+    #[tokio::test]
+    async fn test_file_delta_query_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().canonicalize().unwrap();
+        let exec = make_delta_executor(canonical.to_str().unwrap());
+        let missing = canonical.join("no_such_file.bin");
+
+        let req = Request {
+            id: "dq-miss".into(),
+            action: Action::FileDeltaQuery {
+                path: missing.to_str().unwrap().into(),
+                block_size: 4096,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        match resp.result {
+            RpcResult::FileDeltaIndex {
+                file_missing,
+                blocks,
+                total_size,
+            } => {
+                assert!(file_missing, "expected file_missing=true");
+                assert!(blocks.is_empty());
+                assert_eq!(total_size, 0);
+            }
+            other => panic!("expected FileDeltaIndex, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_file_delta_query_existing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().canonicalize().unwrap();
+        let path = canonical.join("delta_query_test.bin");
+        // Write 3 blocks of 1 KB each
+        let block_size: usize = 1024;
+        let data: Vec<u8> = (0u8..=255).cycle().take(block_size * 3).collect();
+        tokio::fs::write(&path, &data).await.unwrap();
+
+        let exec = make_delta_executor(canonical.to_str().unwrap());
+
+        let req = Request {
+            id: "dq-1".into(),
+            action: Action::FileDeltaQuery {
+                path: path.to_str().unwrap().into(),
+                block_size: block_size as u32,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        match resp.result {
+            RpcResult::FileDeltaIndex {
+                blocks,
+                total_size,
+                file_missing,
+            } => {
+                assert!(!file_missing);
+                assert_eq!(total_size, (block_size * 3) as u64);
+                assert_eq!(blocks.len(), 3);
+                assert_eq!(blocks[0].offset, 0);
+                assert_eq!(blocks[1].offset, block_size as u64);
+                assert_eq!(blocks[2].offset, (block_size * 2) as u64);
+                // Each block's SHA-256 must be non-empty and 64 hex chars
+                for b in &blocks {
+                    assert_eq!(b.sha256_hex.len(), 64);
+                    assert!(b.adler32 != 0 || b.sha256_hex != "0".repeat(64));
+                }
+            }
+            other => panic!("expected FileDeltaIndex, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_file_delta_patch_new_file() {
+        // No existing file — all blocks are patches
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().canonicalize().unwrap();
+        let path = canonical.join("delta_patch_new.bin");
+        let content: Vec<u8> = (0u8..128).collect();
+
+        use sha2::{Digest, Sha256};
+        let checksum: String = Sha256::digest(&content)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+
+        let exec = make_delta_executor(canonical.to_str().unwrap());
+
+        let req = Request {
+            id: "dp-new".into(),
+            action: Action::FileDeltaPatch {
+                path: path.to_str().unwrap().into(),
+                block_size: 64,
+                patches: vec![
+                    rf_rpc::types::DeltaPatch {
+                        offset: 0,
+                        data: content[..64].to_vec(),
+                    },
+                    rf_rpc::types::DeltaPatch {
+                        offset: 64,
+                        data: content[64..].to_vec(),
+                    },
+                ],
+                total_size: content.len() as u64,
+                checksum: Some(checksum),
+                mode: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        match resp.result {
+            RpcResult::FileDeltaApplied {
+                blocks_changed,
+                total_blocks,
+                checksum_verified,
+                bytes_transferred,
+            } => {
+                assert_eq!(blocks_changed, 2);
+                assert_eq!(total_blocks, 2);
+                assert!(checksum_verified);
+                assert_eq!(bytes_transferred, content.len() as u64);
+            }
+            other => panic!("expected FileDeltaApplied, got {other:?}"),
+        }
+        let written = tokio::fs::read(&path).await.unwrap();
+        assert_eq!(written, content);
+    }
+
+    #[tokio::test]
+    async fn test_file_delta_patch_partial_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().canonicalize().unwrap();
+        let path = canonical.join("delta_patch_partial.bin");
+        let block_size: usize = 64;
+
+        // Original: 4 blocks of 64 bytes
+        let original: Vec<u8> = (0u8..=255).take(block_size * 4).collect();
+        tokio::fs::write(&path, &original).await.unwrap();
+
+        // New version: only block 1 (offset 64) changed
+        let mut updated = original.clone();
+        for byte in &mut updated[block_size..block_size * 2] {
+            *byte = byte.wrapping_add(1);
+        }
+
+        use sha2::{Digest, Sha256};
+        let checksum: String = Sha256::digest(&updated)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+
+        let exec = make_delta_executor(canonical.to_str().unwrap());
+
+        // Only send the changed block (offset 64)
+        let req = Request {
+            id: "dp-partial".into(),
+            action: Action::FileDeltaPatch {
+                path: path.to_str().unwrap().into(),
+                block_size: block_size as u32,
+                patches: vec![rf_rpc::types::DeltaPatch {
+                    offset: block_size as u64,
+                    data: updated[block_size..block_size * 2].to_vec(),
+                }],
+                total_size: updated.len() as u64,
+                checksum: Some(checksum),
+                mode: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        match resp.result {
+            RpcResult::FileDeltaApplied {
+                blocks_changed,
+                total_blocks,
+                checksum_verified,
+                bytes_transferred,
+            } => {
+                assert_eq!(blocks_changed, 1, "only 1 block changed");
+                assert_eq!(total_blocks, 4);
+                assert!(checksum_verified);
+                assert_eq!(bytes_transferred, block_size as u64);
+            }
+            other => panic!("expected FileDeltaApplied, got {other:?}"),
+        }
+        let written = tokio::fs::read(&path).await.unwrap();
+        assert_eq!(written, updated);
+    }
+
+    #[tokio::test]
+    async fn test_file_delta_patch_checksum_mismatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().canonicalize().unwrap();
+        let path = canonical.join("delta_patch_bad_cs.bin");
+        let content: Vec<u8> = vec![42u8; 128];
+
+        let exec = make_delta_executor(canonical.to_str().unwrap());
+
+        let req = Request {
+            id: "dp-badcs".into(),
+            action: Action::FileDeltaPatch {
+                path: path.to_str().unwrap().into(),
+                block_size: 64,
+                patches: vec![rf_rpc::types::DeltaPatch {
+                    offset: 0,
+                    data: content[..64].to_vec(),
+                }],
+                total_size: 64,
+                checksum: Some("0".repeat(64)), // deliberately wrong
+                mode: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        assert!(
+            matches!(resp.result, RpcResult::Error { .. }),
+            "expected error on checksum mismatch, got {:?}",
+            resp.result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_file_delta_query_denied_by_policy() {
+        let audit = Arc::new(TestAuditLogger::new());
+        // Policy only allows /tmp — query against /etc should be denied
+        let yaml = "spec:\n  filesystem:\n    allow:\n      - path: /tmp\n  resources:\n    maxFileSizeBytes: 10485760\n    timeoutSeconds: 30\n";
+        let policy = Arc::new(RwLock::new(RpcPolicy::from_yaml(yaml).unwrap()));
+        let exec = Executor::new(policy, audit, "delta-deny".into());
+
+        let req = Request {
+            id: "dq-deny".into(),
+            action: Action::FileDeltaQuery {
+                path: "/etc/shadow".into(),
+                block_size: 4096,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let resp = exec.handle(req).await;
+        assert!(
+            matches!(resp.result, RpcResult::Denied { .. }),
+            "expected Denied, got {:?}",
+            resp.result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_adler32_correctness() {
+        // Known Adler-32 values for simple inputs
+        // adler32("") = 1 (initial A=1, B=0 → (0<<16)|1 = 1)
+        assert_eq!(Executor::adler32(b""), 1);
+        // adler32("a"): 'a'=97, A=1+97=98, B=0+98=98 → (98<<16)|98 = 6422626
+        assert_eq!(Executor::adler32(b"a"), 6422626);
+        // adler32("Wikipedia") = 0x11E60398 (manually verified)
+        let result = Executor::adler32(b"Wikipedia");
+        assert_eq!(result, 0x11E6_0398);
     }
 
     /// Helper: make an executor with an empty in-memory secret store and an allow-all policy.
