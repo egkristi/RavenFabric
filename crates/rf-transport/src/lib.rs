@@ -52,3 +52,6 @@ pub mod wg_tunnel;
 pub mod wifi_direct;
 pub mod wireguard;
 pub mod yggdrasil;
+
+/// Region-aware relay endpoint selection.
+pub mod relay_select;

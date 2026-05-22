@@ -16,9 +16,10 @@ default = ["websocket", "quic"]
 websocket = ["dep:tokio-tungstenite", "dep:futures-util"]
 quic = ["dep:quinn", "dep:rustls", "dep:rcgen"]
 wireguard = []
+geoip = ["dep:maxminddb"]
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "0.22.0" }
+rf-crypto = { path = "../rf-crypto", version = "0.23.0" }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
@@ -33,6 +34,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+maxminddb = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }

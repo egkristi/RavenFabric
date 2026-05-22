@@ -2,6 +2,8 @@
 //!
 //! Exposes `run_relay()` for embedding in other binaries (e.g., `rf dev`).
 
+pub mod geoip;
+
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;

@@ -22,14 +22,14 @@ Cargo workspace with 14 crates:
 
 | Crate | Purpose | Status |
 |---|---|---|
-| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management, PQ hybrid KEM, no_std frame_codec | **Done** (~1,800 LOC, 50 tests) |
-| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | **Done** (~21,900 LOC, 542 tests) |
+| `rf-crypto` | Noise XX handshake, SecureChannel (encrypted frames), key management, PQ hybrid KEM, no_std frame_codec, HSM/PKCS#11 key provider, TPM 2.0 key sealing | **Done** (~3,547 LOC, 61 tests) |
+| `rf-transport` | Driver trait, WebSocket + QUIC + Memory + UNIX socket + Stdio backends, NAT traversal, path selection, exotic transports, LoRa, BLE, AX.25, satellite, mixnet, MASQUE, ECH | **Done** (~22,391 LOC, 557 tests) |
 | `rf-rpc` | Request/Response types, msgpack codec, RPC session, yamux multiplexing, controller API | **Done** (~6,500 LOC, 122 tests) |
 | `rf-audit` | Structured JSON-lines audit logging (every action logged), real-time alert rules with deduplication, alert webhook destinations, Syslog RFC 5424, CEF format, LEEF, OCSF, Splunk HEC, Elasticsearch, Datadog, buffered collector | **Done** (~2,415 LOC, 71 tests) |
 | `rf-policy` | YAML policy loading, command/path/network/HTTP/resource enforcement, deny-by-default, CRDT convergence, RBAC, templates, injection detection, header injection/stripping | **Done** (~5,500 LOC, 140 tests) |
 | `rf-executor` | Command execution + streaming under policy control with timeout and output limiting, desired-state convergence, event triggers, result parsing, grains | **Done** (~10,700 LOC, 175 tests) |
 | `rf-bootstrap` | OTP enrollment flow, TrustStore, relay pairing | **Done** (~430 LOC, 19 tests) |
-| `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~390 LOC, 7 tests) |
+| `rf-relay` | Stateless encrypted relay broker (binary) with per-IP rate limiting | **Done** (~672 LOC, 15 tests) |
 | `rf-agent` | Agent binary (connects to relay or listens directly, executes RPC, reconnect with backoff, single-threaded mode) | **Done** (~530 LOC) |
 | `rf-cli` | CLI client `rf` (exec, dev, status, policy, cp, proxy, completions, direct connect) | **Done** (~2,000 LOC) |
 | `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,400 LOC, 61 tests) |
@@ -37,7 +37,7 @@ Cargo workspace with 14 crates:
 | `rf-ingress` | HTTP ingress gateway (axum), reverse-proxy routing table, API key auth, per-IP rate limiting | **Done** (~580 LOC, 11 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~69,907 LOC, 1,386 tests, 0 clippy warnings.**
+**Total: ~72,138 LOC, 1,420 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

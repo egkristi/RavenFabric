@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.22.0 (Alpha) — Released 2026-05-23
+**Version:** 0.23.0 (Alpha) — Released 2026-05-23
 
-**Stats:** 14 crates, ~69,907 LOC, 1,386 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 14 crates, ~72,138 LOC, 1,420 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -124,7 +124,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.22.0 — all planned features implemented and tested.
+**Current:** Alpha v0.23.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 

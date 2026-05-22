@@ -18,7 +18,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.22.0"
+version = "0.23.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/egkristi/RavenFabric"
@@ -120,6 +120,18 @@ axum = { version = "0.8" }
 
 # Temp files (for tests)
 tempfile = "3"
+
+# HSM/PKCS#11 key provider (optional — feature = "hsm")
+cryptoki = "0.6"
+
+# TPM 2.0 key storage (optional — feature = "tpm")
+tss-esapi = "7"
+
+# X25519 software DH — used by HSM module for ephemeral keys in snow handshake
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+
+# GeoIP database reader (optional — feature = "geoip")
+maxminddb = "0.23"
 
 [profile.release]
 lto = true

@@ -22,10 +22,15 @@ tokio = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true, optional = true }
 hex = { workspace = true }
+cryptoki = { workspace = true, optional = true }
+tss-esapi = { workspace = true, optional = true }
+x25519-dalek = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
 std = ["snow", "tokio", "tracing", "serde_json"]
+hsm = ["std", "dep:cryptoki", "dep:x25519-dalek"]
+tpm = ["std", "dep:tss-esapi"]
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

@@ -12,7 +12,7 @@ categories = ["command-line-utilities", "network-programming"]
 keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
 
 [dependencies]
-rf-transport = { path = "../rf-transport", version = "0.22.0" }
+rf-transport = { path = "../rf-transport", version = "0.23.0" }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
@@ -25,6 +25,10 @@ anyhow = "1"
 hmac = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
+maxminddb = { workspace = true, optional = true }
+
+[features]
+geoip = ["dep:maxminddb"]
 
 [package.metadata.deb]
 maintainer = "Erling Kristiansen <erling@ravenfabric.io>"

@@ -5,6 +5,20 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] — 2026-05-29
+
+### Added
+
+- **HSM/PKCS#11 key provider** (`HsmKeyProvider` in `rf-crypto`, feature `hsm`) — X25519 identity key stored on hardware security module (YubiHSM2, AWS CloudHSM, SoftHSM2, etc.) with non-extractable private key; DH operations delegated to HSM via dedicated worker thread (`SyncSender` channel, fully `Send + Sync` without `unsafe`)
+- **`HsmSnowResolver` + `HsmSnowDh`** — custom snow `CryptoResolver` that uses the HSM for Noise XX static key DH and software `x25519-dalek` for ephemeral keys; FIPS mode support (hard error on HSM unavailability)
+- **Graceful fallback** — `HsmKeyProvider::open_with_fallback()` falls back to file-based `StaticKey` when HSM is unreachable (FIPS mode blocks this)
+- **TPM 2.0 key storage** (`TpmKeyStore` + `TpmAttestation` in `rf-crypto`, feature `tpm`) — seal/unseal identity key to current PCR bank, TPM2_Quote attestation with freshness nonce, measured boot PCR verification
+- **`SealedKeyBlob`** — serialisable blob (JSON/msgpack) for persisting TPM-sealed keys alongside agent configuration
+- **GeoIP database integration** (`rf-relay::geoip`, feature `geoip`) — MaxMind GeoLite2/GeoIP2 database reader, `Region` struct with coordinates, Haversine great-circle distance
+- **Region-aware relay selection** (`rf-transport::relay_select`) — `RelaySelector` with four strategies: nearest-by-geo, lowest-RTT, latency-weighted geo-distance score (`0.7×RTT + 0.3×distance`), and continental affinity (`multi_relay_affinity()`)
+- `RelayEndpoint` builder type with continent, country, coordinates, RTT, and weight metadata
+- 34 new tests across `rf-crypto` (HSM/TPM) and `rf-transport` (relay selection)
+
 ## [0.22.0] — 2026-05-28
 
 ### Added

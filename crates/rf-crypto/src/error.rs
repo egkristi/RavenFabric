@@ -29,4 +29,25 @@ pub enum CryptoError {
 
     #[error("frame too large: {size} bytes (max {max})")]
     FrameTooLarge { size: usize, max: usize },
+
+    #[error("HSM error: {0}")]
+    Hsm(String),
+
+    #[error("HSM unavailable — worker thread disconnected")]
+    HsmUnavailable,
+
+    #[error("HSM does not support X25519 key derivation; use a PKCS#11 v3.0 module")]
+    HsmX25519Unsupported,
+
+    #[error("FIPS mode violation: {0}")]
+    FipsViolation(String),
+
+    #[error("TPM error: {0}")]
+    Tpm(String),
+
+    #[error("TPM seal failed: PCR mismatch or TPM unavailable")]
+    TpmSealFailed,
+
+    #[error("TPM unseal failed: PCR state changed or tampered key")]
+    TpmUnsealFailed,
 }
