@@ -71,6 +71,8 @@ pub struct Executor {
     /// Optional maintenance window for auto-updates (e.g. `"02:00-04:00"`).
     /// `None` means updates are allowed at any time.
     update_window: Arc<RwLock<Option<String>>>,
+    /// Optional webhook URL to POST update failure / rollback alerts to.
+    alert_webhook: Arc<RwLock<Option<String>>>,
     /// Registry of external secret backends (Vault, AWS, Azure, GCP, generic HTTP).
     #[cfg(feature = "secret-backends")]
     backend_registry: Arc<tokio::sync::RwLock<crate::secret_backends::SecretBackendRegistry>>,
@@ -98,6 +100,7 @@ impl Executor {
             http_dest_rate: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             pinned_version: Arc::new(RwLock::new(None)),
             update_window: Arc::new(RwLock::new(None)),
+            alert_webhook: Arc::new(RwLock::new(None)),
             #[cfg(feature = "secret-backends")]
             backend_registry: Arc::new(tokio::sync::RwLock::new(
                 crate::secret_backends::SecretBackendRegistry::new(),
@@ -466,6 +469,13 @@ impl Executor {
             Action::GetVersionInfo => self.handle_get_version_info(&request.id, start).await,
             Action::SetUpdateWindow { window } => {
                 self.handle_set_update_window(&request.id, window.as_deref(), start)
+                    .await
+            }
+            Action::RolloutHealthCheck => {
+                self.handle_rollout_health_check(&request.id, start).await
+            }
+            Action::SetAlertWebhook { url } => {
+                self.handle_set_alert_webhook(&request.id, url.as_deref(), start)
                     .await
             }
             _ => RpcResult::Error {
@@ -3501,6 +3511,17 @@ impl Executor {
                     caller_key: self.caller_key.clone(),
                     reason: Some(reason.clone()),
                 });
+                // Fire webhook alert on download failure.
+                if let Some(hook_url) = self.alert_webhook.read().await.clone() {
+                    crate::webhook::send_update_failure(
+                        &hook_url,
+                        &self.agent_id,
+                        version,
+                        &reason,
+                        false,
+                    )
+                    .await;
+                }
                 return RpcResult::UpdateFailed { reason };
             }
         };
@@ -3522,9 +3543,19 @@ impl Executor {
         if let Err(e) = updater::restart_process(&binary_path) {
             tracing::warn!("exec failed, rolling back: {e}");
             let _ = updater::rollback(&binary_path, &bak_path).await;
-            return RpcResult::UpdateFailed {
-                reason: format!("exec failed: {e}"),
-            };
+            let reason = format!("exec failed: {e}");
+            // Fire webhook alert on rollback.
+            if let Some(hook_url) = self.alert_webhook.read().await.clone() {
+                crate::webhook::send_update_failure(
+                    &hook_url,
+                    &self.agent_id,
+                    version,
+                    &reason,
+                    true,
+                )
+                .await;
+            }
+            return RpcResult::UpdateFailed { reason };
         }
 
         // Reached on Windows after spawning the new process.
@@ -3628,6 +3659,58 @@ impl Executor {
         RpcResult::UpdateWindowSet {
             window: window_clone,
         }
+    }
+
+    /// Handle a `RolloutHealthCheck` RPC action.
+    ///
+    /// Verifies the agent is responsive and returns version + uptime.
+    async fn handle_rollout_health_check(&self, request_id: &str, start: Instant) -> RpcResult {
+        let _ = self.audit.log(AuditEntry {
+            timestamp: chrono::Utc::now(),
+            request_id: request_id.to_string(),
+            action: "rollout-health-check".to_string(),
+            command: None,
+            decision: "allow".to_string(),
+            matched_rule: "built-in".to_string(),
+            exit_code: Some(0),
+            duration_ms: start.elapsed().as_millis() as u64,
+            caller_key: self.caller_key.clone(),
+            reason: Some(format!("agent_id={}", self.agent_id)),
+        });
+        RpcResult::HealthCheckPassed {
+            agent_id: self.agent_id.clone(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            uptime_secs: self.start_time.elapsed().as_secs(),
+        }
+    }
+
+    /// Handle a `SetAlertWebhook` RPC action.
+    ///
+    /// Configures or clears the webhook URL used for update failure alerts.
+    async fn handle_set_alert_webhook(
+        &self,
+        request_id: &str,
+        url: Option<&str>,
+        start: Instant,
+    ) -> RpcResult {
+        let url_clone = url.map(|s| s.to_string());
+        {
+            let mut hook = self.alert_webhook.write().await;
+            *hook = url_clone.clone();
+        }
+        let _ = self.audit.log(AuditEntry {
+            timestamp: chrono::Utc::now(),
+            request_id: request_id.to_string(),
+            action: "set-alert-webhook".to_string(),
+            command: url_clone.as_deref().map(|u| format!("webhook={u}")),
+            decision: "allow".to_string(),
+            matched_rule: "built-in".to_string(),
+            exit_code: Some(0),
+            duration_ms: start.elapsed().as_millis() as u64,
+            caller_key: self.caller_key.clone(),
+            reason: None,
+        });
+        RpcResult::AlertWebhookSet { url: url_clone }
     }
 }
 

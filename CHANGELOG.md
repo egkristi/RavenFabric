@@ -5,6 +5,23 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] — 2026-05-28
+
+### Added
+
+- **Staged rollout coordinator** (`RolloutCoordinator` in `rf-executor`) — canary (1 agent) → percentage → fleet stages with automatic batching
+- **Health-check gates** — rollout only advances to the next stage when all updated agents pass `RolloutHealthCheck`
+- **Rollout pause/abort** — controller can halt a rollout mid-flight and resume or abandon it
+- **`RolloutHealthCheck` RPC action** — per-agent health verification post-update (uptime, version reporting)
+- **`SetAlertWebhook` RPC action** — configure a webhook URL for update failure alerts
+- **Update failure webhook alerts** — JSON POST on download failure or rollback with event, agent_id, version, reason, and timestamp
+- **`RolloutStrategy` and `RolloutStage` enums** in `rf-rpc` — serializable, msgpack roundtrip tested
+- 18 new tests (8 rollout coordinator, 2 webhook, 8 rf-rpc roundtrip)
+
+### Total
+
+~69,907 LOC, 1,386 tests across 14 crates.
+
 ## [0.21.0] — 2026-05-28
 
 ### Added

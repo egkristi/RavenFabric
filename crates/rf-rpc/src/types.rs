@@ -442,6 +442,54 @@ pub enum Action {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         window: Option<String>,
     },
+    /// Ask this agent to verify its own health after a recent update.
+    ///
+    /// Returns `HealthCheckPassed` (with version and uptime) or `HealthCheckFailed`.
+    RolloutHealthCheck,
+    /// Set or clear the webhook URL for update failure and rollback alerts.
+    ///
+    /// A JSON POST is sent to the URL whenever an update fails or a rollback
+    /// is triggered. `None` disables alerting.
+    SetAlertWebhook {
+        /// HTTPS URL to POST alert payloads to, or `None` to disable.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
+    },
+}
+
+/// Strategy controlling how an update is phased across a fleet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RolloutStrategy {
+    /// Update one agent first, observe health, then advance.
+    Canary,
+    /// Update `percent`% of agents per stage.
+    Percentage {
+        /// Fraction of fleet to update per batch (1–100).
+        percent: u8,
+    },
+    /// Update all agents simultaneously.
+    Fleet,
+}
+
+/// Current lifecycle stage of a staged rollout campaign.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RolloutStage {
+    /// No active rollout.
+    Idle,
+    /// One canary agent updated; awaiting health-check.
+    Canary,
+    /// A percentage batch updated; awaiting health-checks.
+    Percentage,
+    /// All remaining agents being updated.
+    Fleet,
+    /// Rollout finished successfully.
+    Complete,
+    /// Rollout paused by operator.
+    Paused,
+    /// Rollout aborted by operator.
+    Aborted,
+    /// Rollout stopped automatically after a health-check failure.
+    Failed,
 }
 
 fn default_block_size() -> u32 {
@@ -792,6 +840,26 @@ pub enum RpcResult {
         /// New window value, or `None` if cleared.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         window: Option<String>,
+    },
+    /// This agent is healthy (response to `RolloutHealthCheck`).
+    HealthCheckPassed {
+        /// Agent identifier.
+        agent_id: String,
+        /// Semver string of the currently-running binary.
+        version: String,
+        /// How long this agent has been running, in seconds.
+        uptime_secs: u64,
+    },
+    /// This agent failed its health check (response to `RolloutHealthCheck`).
+    HealthCheckFailed {
+        /// Human-readable failure reason.
+        reason: String,
+    },
+    /// Alert webhook URL has been configured (or cleared).
+    AlertWebhookSet {
+        /// New webhook URL, or `None` if alerting was disabled.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
     },
 }
 
@@ -1710,5 +1778,108 @@ mod tests {
         let bytes = codec::encode(&resp).unwrap();
         let decoded: Response = codec::decode(&bytes).unwrap();
         assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_rollout_health_check_action() {
+        let req = Request {
+            id: "hc-1".into(),
+            action: Action::RolloutHealthCheck,
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_set_alert_webhook_action() {
+        let req = Request {
+            id: "saw-1".into(),
+            action: Action::SetAlertWebhook {
+                url: Some("https://hooks.example.com/alerts".into()),
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let bytes = codec::encode(&req).unwrap();
+        let decoded: Request = codec::decode(&bytes).unwrap();
+        assert_eq!(req, decoded);
+    }
+
+    #[test]
+    fn roundtrip_health_check_passed_result() {
+        let resp = Response {
+            id: "hcp-1".into(),
+            result: RpcResult::HealthCheckPassed {
+                agent_id: "agent-42".into(),
+                version: "0.21.0".into(),
+                uptime_secs: 3600,
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_health_check_failed_result() {
+        let resp = Response {
+            id: "hcf-1".into(),
+            result: RpcResult::HealthCheckFailed {
+                reason: "process exited unexpectedly".into(),
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_alert_webhook_set_result() {
+        let resp = Response {
+            id: "aws-1".into(),
+            result: RpcResult::AlertWebhookSet {
+                url: Some("https://hooks.example.com/alerts".into()),
+            },
+        };
+        let bytes = codec::encode(&resp).unwrap();
+        let decoded: Response = codec::decode(&bytes).unwrap();
+        assert_eq!(resp, decoded);
+    }
+
+    #[test]
+    fn roundtrip_rollout_strategy_canary() {
+        let s = RolloutStrategy::Canary;
+        let json = serde_json::to_string(&s).unwrap();
+        let decoded: RolloutStrategy = serde_json::from_str(&json).unwrap();
+        assert_eq!(s, decoded);
+    }
+
+    #[test]
+    fn roundtrip_rollout_strategy_percentage() {
+        let s = RolloutStrategy::Percentage { percent: 25 };
+        let json = serde_json::to_string(&s).unwrap();
+        let decoded: RolloutStrategy = serde_json::from_str(&json).unwrap();
+        assert_eq!(s, decoded);
+    }
+
+    #[test]
+    fn roundtrip_rollout_stage() {
+        for stage in [
+            RolloutStage::Idle,
+            RolloutStage::Canary,
+            RolloutStage::Percentage,
+            RolloutStage::Fleet,
+            RolloutStage::Complete,
+            RolloutStage::Paused,
+            RolloutStage::Aborted,
+            RolloutStage::Failed,
+        ] {
+            let json = serde_json::to_string(&stage).unwrap();
+            let decoded: RolloutStage = serde_json::from_str(&json).unwrap();
+            assert_eq!(stage, decoded);
+        }
     }
 }

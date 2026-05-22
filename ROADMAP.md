@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.21.0 (Alpha) — Released 2026-05-23
+**Version:** 0.22.0 (Alpha) — Released 2026-05-23
 
-**Stats:** 14 crates, ~69,055 LOC, 1,368 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 14 crates, ~69,907 LOC, 1,386 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -124,7 +124,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ## Path to Beta
 
-**Current:** Alpha v0.21.0 — all planned features implemented and tested.
+**Current:** Alpha v0.22.0 — all planned features implemented and tested.
 
 **Beta means:** "Ready for external testers with stable APIs and wire protocol." It is a stability promise, not a feature milestone.
 
@@ -290,16 +290,16 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Rollback on failure — if new binary fails health-check within 60s, revert to previous version
 
 #### Fleet Coordination
-- [ ] Staged rollout — canary (1 agent) → percentage (10%) → fleet (100%)
-- [ ] Health-check gates — proceed to next stage only if all updated agents pass health check
-- [ ] Rollout pause/abort — controller can halt rollout mid-flight
+- [x] Staged rollout — canary (1 agent) → percentage (10%) → fleet (100%)
+- [x] Health-check gates — proceed to next stage only if all updated agents pass health check
+- [x] Rollout pause/abort — controller can halt rollout mid-flight
 - [x] Version pinning — specific agents can be pinned to a version (skip auto-update)
 - [x] Update windows — only apply updates during configured maintenance windows
 
 #### Audit & Observability
 - [x] Update audit log — version transitions recorded with timestamp, source, verification status
 - [x] Fleet version dashboard — `GetVersionInfo` RPC returns current version, pinned version, and update window per agent
-- [ ] Update failure alerts — webhook notification on rollback events
+- [x] Update failure alerts — webhook notification on rollback events
 
 ---
 
