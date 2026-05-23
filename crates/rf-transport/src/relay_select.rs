@@ -253,15 +253,21 @@ impl RelaySelector {
     #[cfg(feature = "geoip")]
     pub fn best_for_ip(
         &self,
-        client_ip: IpAddr,
+        client_ip: std::net::IpAddr,
         db_path: &std::path::Path,
     ) -> Option<&RelayEndpoint> {
         if let Ok(db) = maxminddb::Reader::<Vec<u8>>::open_readfile(db_path) {
-            if let Ok(city) = db.lookup::<maxminddb::geoip2::City>(client_ip) {
-                let lat = city.location.as_ref().and_then(|l| l.latitude);
-                let lon = city.location.as_ref().and_then(|l| l.longitude);
-                if let (Some(lat), Some(lon)) = (lat, lon) {
-                    return self.latency_weighted(lat, lon);
+            // maxminddb 0.27: lookup() returns LookupResult.
+            // decode() returns Result<Option<T>> — match Ok(Some(city)) to extract.
+            if let Ok(result) = db.lookup(client_ip) {
+                if result.has_data() {
+                    if let Ok(Some(city)) = result.decode::<maxminddb::geoip2::City>() {
+                        let lat = city.location.latitude;
+                        let lon = city.location.longitude;
+                        if let (Some(lat), Some(lon)) = (lat, lon) {
+                            return self.latency_weighted(lat, lon);
+                        }
+                    }
                 }
             }
         }

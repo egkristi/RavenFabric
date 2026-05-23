@@ -94,51 +94,32 @@ impl GeoIpDb {
     pub fn lookup(&self, ip: IpAddr) -> Option<Region> {
         #[cfg(feature = "geoip")]
         {
-            let record: maxminddb::geoip2::City = self.inner.lookup(ip).ok()?;
+            // maxminddb 0.27: lookup() returns LookupResult; call .decode() to get the City.
+            let result = self.inner.lookup(ip).ok()?;
+            if !result.has_data() {
+                return None;
+            }
+            // decode() returns Result<Option<T>> — flatten + ? to extract.
+            let record: maxminddb::geoip2::City =
+                result.decode::<maxminddb::geoip2::City>().ok().flatten()?;
 
-            let country_code = record
-                .country
-                .as_ref()
-                .and_then(|c| c.iso_code)
-                .unwrap_or("")
-                .to_owned();
-
-            let country_name = record
-                .country
-                .as_ref()
-                .and_then(|c| c.names.as_ref())
-                .and_then(|n| n.get("en").copied())
-                .unwrap_or("")
-                .to_owned();
+            // In maxminddb 0.27, `country`, `city`, `location`, `continent` are
+            // non-optional structs (with Default).  Names uses direct language
+            // fields (.english, .french, …) instead of a BTreeMap.
+            let country_code = record.country.iso_code.unwrap_or("").to_owned();
+            let country_name = record.country.names.english.unwrap_or("").to_owned();
 
             let subdivision_code = record
                 .subdivisions
-                .as_ref()
-                .and_then(|s| s.first())
+                .first()
                 .and_then(|s| s.iso_code)
                 .unwrap_or("")
                 .to_owned();
 
-            let city = record
-                .city
-                .as_ref()
-                .and_then(|c| c.names.as_ref())
-                .and_then(|n| n.get("en").copied())
-                .unwrap_or("")
-                .to_owned();
-
-            let (latitude, longitude) = record
-                .location
-                .as_ref()
-                .map(|l| (l.latitude.unwrap_or(0.0), l.longitude.unwrap_or(0.0)))
-                .unwrap_or((0.0, 0.0));
-
-            let continent = record
-                .continent
-                .as_ref()
-                .and_then(|c| c.code)
-                .unwrap_or("")
-                .to_owned();
+            let city = record.city.names.english.unwrap_or("").to_owned();
+            let latitude = record.location.latitude.unwrap_or(0.0);
+            let longitude = record.location.longitude.unwrap_or(0.0);
+            let continent = record.continent.code.unwrap_or("").to_owned();
 
             // Skip records with no useful geographic data.
             if country_code.is_empty() && latitude == 0.0 && longitude == 0.0 {
