@@ -255,6 +255,7 @@ mod tests {
                     agent_id: "test-agent".into(),
                     version: "0.1.0".into(),
                     uptime_seconds: 42,
+                    region: None,
                 },
             };
             write_response(stream, &resp).await.unwrap();

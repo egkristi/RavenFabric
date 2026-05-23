@@ -145,7 +145,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 
 ---
 
-## Planned: v1.1 — Secure Access Layer
+## ✓ Implemented: v1.1 — Secure Access Layer
 
 ### Secure API Proxy
 
@@ -274,7 +274,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 
 ---
 
-## Planned: v1.2 — Fleet Operations
+## ✓ Implemented: v1.2 — Fleet Operations
 
 ### Agent Auto-Update
 
@@ -360,7 +360,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 
 ---
 
-## Planned: v1.3 — Enterprise & Compliance
+## In Progress: v1.3 — Enterprise & Compliance (HSM/TPM/GeoIP done; Global Fleet in progress)
 
 ### Regulatory Compliance Coverage
 
@@ -377,21 +377,21 @@ The table below maps known regulatory requirements to existing RavenFabric capab
 **Goal:** Hardware-backed key storage for FIPS 140-2, PCI-DSS, and government environments.
 
 #### PKCS#11 Integration
-- [ ] PKCS#11 provider trait — `HsmKeyProvider` implementing `StaticKey` interface
-- [ ] Key generation in HSM — generate Curve25519 keys inside hardware module
-- [ ] Sign/verify operations — Noise XX handshake uses HSM for private key operations
-- [ ] Token/PIN management — configurable slot, PIN from env or sealed secret
-- [ ] YubiHSM2 support — tested with YubiHSM2 via yubihsm-connector
+- [x] PKCS#11 provider trait — `HsmKeyProvider` implementing `StaticKey` interface
+- [x] Key generation in HSM — generate Curve25519 keys inside hardware module
+- [x] Sign/verify operations — Noise XX handshake uses HSM for private key operations
+- [x] Token/PIN management — configurable slot, PIN from env or sealed secret
+- [x] YubiHSM2 support — tested with YubiHSM2 via yubihsm-connector
 
 #### TPM Integration
-- [ ] TPM 2.0 key storage — seal keys to PCR state (Linux tpm2-tss, Windows TBS)
-- [ ] Platform attestation — prove agent identity via TPM quote
-- [ ] Measured boot — verify agent binary integrity via PCR extension
+- [x] TPM 2.0 key storage — seal keys to PCR state (Linux tpm2-tss, Windows TBS)
+- [x] Platform attestation — prove agent identity via TPM quote
+- [x] Measured boot — verify agent binary integrity via PCR extension
 
 #### Feature Gating
-- [ ] Behind `hsm` feature flag — no compile-time or runtime cost when unused
-- [ ] Graceful fallback — if HSM unavailable, log warning and use file-based keys
-- [ ] FIPS mode — when HSM is configured, enforce FIPS-approved algorithms only
+- [x] Behind `hsm` feature flag — no compile-time or runtime cost when unused
+- [x] Graceful fallback — if HSM unavailable, log warning and use file-based keys
+- [x] FIPS mode — when HSM is configured, enforce FIPS-approved algorithms only
 
 ---
 
@@ -400,11 +400,11 @@ The table below maps known regulatory requirements to existing RavenFabric capab
 **Goal:** Lowest-latency relay selection based on geographic proximity for global deployments.
 
 #### Geo-Routing
-- [ ] GeoIP database integration — MaxMind GeoLite2 or ip2location for relay location mapping
-- [ ] Relay region tags — relays self-report region (us-east, eu-west, ap-south, etc.)
-- [ ] Nearest-relay selection — agents connect to geographically closest relay on startup
-- [ ] Multi-relay affinity — prefer regional relay but failover to global
-- [ ] Latency-weighted selection — combine geo proximity with measured RTT for optimal path
+- [x] GeoIP database integration — MaxMind GeoLite2 or ip2location for relay location mapping
+- [x] Relay region tags — relays self-report region (us-east, eu-west, ap-south, etc.)
+- [x] Nearest-relay selection — agents connect to geographically closest relay on startup
+- [x] Multi-relay affinity — prefer regional relay but failover to global
+- [x] Latency-weighted selection — combine geo proximity with measured RTT for optimal path
 
 #### Global Fleet
 - [ ] Region-aware orchestration — target agents by region (e.g., "all eu-west agents")

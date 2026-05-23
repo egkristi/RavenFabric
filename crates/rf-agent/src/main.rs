@@ -83,6 +83,9 @@ struct AgentConfig {
     audit_path: Option<String>,
     metrics_addr: Option<String>,
     listen: Option<String>,
+    /// Geographic region code (e.g. `eu-west`, `us-east`).
+    /// Used for region-aware relay selection and fleet orchestration.
+    region: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -112,6 +115,8 @@ struct ResolvedConfig {
     max_retries: u64,
     metrics_addr: Option<String>,
     listen: Option<String>,
+    /// Geographic region code (e.g. `eu-west`, `us-east`, `ap-south`).
+    region: Option<String>,
 }
 
 fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
@@ -157,6 +162,7 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
         max_retries: config.transport.max_retries.unwrap_or(0),
         metrics_addr: args.metrics_addr.clone().or(config.agent.metrics_addr),
         listen: args.listen.clone().or(config.agent.listen),
+        region: config.agent.region,
     })
 }
 
@@ -519,6 +525,7 @@ async fn run_session(
     // Executor
     let executor = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
         .with_agent_id(cfg.id.clone())
+        .with_region(cfg.region.clone())
         .with_start_time(std::time::Instant::now());
 
     // RPC loop with graceful shutdown

@@ -48,6 +48,8 @@ pub struct Executor {
     audit: Arc<dyn AuditLogger>,
     caller_key: String,
     agent_id: String,
+    /// Geographic region of this agent (from `raven.toml`).
+    region: Option<String>,
     start_time: Instant,
     /// Background jobs tracked by job ID.
     jobs: Arc<tokio::sync::Mutex<HashMap<String, JobState>>>,
@@ -89,6 +91,7 @@ impl Executor {
             audit,
             caller_key,
             agent_id: String::new(),
+            region: None,
             start_time: Instant::now(),
             jobs: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             #[cfg(unix)]
@@ -111,6 +114,12 @@ impl Executor {
     /// Set the agent ID for status reporting.
     pub fn with_agent_id(mut self, id: String) -> Self {
         self.agent_id = id;
+        self
+    }
+
+    /// Set the geographic region for status reporting.
+    pub fn with_region(mut self, region: Option<String>) -> Self {
+        self.region = region;
         self
     }
 
@@ -664,6 +673,7 @@ impl Executor {
             agent_id: self.agent_id.clone(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             uptime_seconds: self.start_time.elapsed().as_secs(),
+            region: self.region.clone(),
         }
     }
 

@@ -558,6 +558,9 @@ pub enum RpcResult {
         agent_id: String,
         version: String,
         uptime_seconds: u64,
+        /// Geographic region reported by the agent (from `raven.toml`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        region: Option<String>,
     },
     /// Incremental output chunk from a streaming execution.
     StreamChunk {
@@ -989,6 +992,7 @@ mod tests {
                 agent_id: "web-01".into(),
                 version: "0.1.0".into(),
                 uptime_seconds: 86400,
+                region: None,
             },
         };
         let bytes = codec::encode(&resp).unwrap();

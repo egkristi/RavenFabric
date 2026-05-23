@@ -273,6 +273,9 @@ pub struct AgentInfo {
     pub version: String,
     /// Labels for targeting.
     pub labels: HashMap<String, String>,
+    /// Geographic region code (e.g. `"eu-west"`, `"us-east"`, `"ap-south"`).
+    /// Set from the agent's `raven.toml` `[agent] region` field.
+    pub region: Option<String>,
 }
 
 /// Agent connection status.
@@ -359,6 +362,26 @@ impl AgentRegistry {
             .values()
             .filter(|a| labels.iter().all(|(k, v)| a.labels.get(k) == Some(v)))
             .collect()
+    }
+
+    /// List agents in a specific region.
+    ///
+    /// Matches agents whose `region` field equals `region` (case-insensitive).
+    /// Returns all agents if `region` is `None`.
+    pub fn select_by_region<'a>(&'a self, region: Option<&str>) -> Vec<&'a AgentInfo> {
+        match region {
+            None => self.agents.values().collect(),
+            Some(r) => self
+                .agents
+                .values()
+                .filter(|a| {
+                    a.region
+                        .as_deref()
+                        .map(|ar| ar.eq_ignore_ascii_case(r))
+                        .unwrap_or(false)
+                })
+                .collect(),
+        }
     }
 
     /// Remove an agent.
@@ -1135,6 +1158,7 @@ mod tests {
                 m.insert("role".into(), "web".into());
                 m
             },
+            region: None,
         };
         assert!(reg.upsert(agent));
         assert_eq!(reg.count(), 1);
@@ -1150,6 +1174,7 @@ mod tests {
             status: AgentStatus::Pending,
             version: "0.1.0".into(),
             labels: HashMap::new(),
+            region: None,
         });
 
         assert!(reg.heartbeat("agent-1", 5000));
@@ -1167,6 +1192,7 @@ mod tests {
             status: AgentStatus::Online,
             version: "0.1.0".into(),
             labels: HashMap::new(),
+            region: None,
         });
 
         let stale = reg.check_stale(15_000); // 14s since heartbeat, > 10s timeout
@@ -1188,6 +1214,7 @@ mod tests {
                 m.insert("role".into(), "web".into());
                 m
             },
+            region: None,
         });
         reg.upsert(AgentInfo {
             id: "db-01".into(),
@@ -1200,6 +1227,7 @@ mod tests {
                 m.insert("role".into(), "database".into());
                 m
             },
+            region: None,
         });
 
         let web_agents = reg.select(&{
@@ -1221,6 +1249,7 @@ mod tests {
             status: AgentStatus::Online,
             version: "0.1.0".into(),
             labels: HashMap::new(),
+            region: None,
         });
         assert!(!reg.upsert(AgentInfo {
             id: "agent-2".into(),
@@ -1229,7 +1258,62 @@ mod tests {
             status: AgentStatus::Online,
             version: "0.1.0".into(),
             labels: HashMap::new(),
+            region: None,
         }));
+    }
+
+    #[test]
+    fn test_agent_registry_select_by_region() {
+        let mut reg = AgentRegistry::new(100, 30_000);
+        reg.upsert(AgentInfo {
+            id: "eu-01".into(),
+            key_hash: "h1".into(),
+            last_heartbeat_ms: 0,
+            status: AgentStatus::Online,
+            version: "0.1.0".into(),
+            labels: HashMap::new(),
+            region: Some("eu-west".into()),
+        });
+        reg.upsert(AgentInfo {
+            id: "us-01".into(),
+            key_hash: "h2".into(),
+            last_heartbeat_ms: 0,
+            status: AgentStatus::Online,
+            version: "0.1.0".into(),
+            labels: HashMap::new(),
+            region: Some("us-east".into()),
+        });
+        reg.upsert(AgentInfo {
+            id: "no-region".into(),
+            key_hash: "h3".into(),
+            last_heartbeat_ms: 0,
+            status: AgentStatus::Online,
+            version: "0.1.0".into(),
+            labels: HashMap::new(),
+            region: None,
+        });
+
+        // Filter by eu-west
+        let eu = reg.select_by_region(Some("eu-west"));
+        assert_eq!(eu.len(), 1);
+        assert_eq!(eu[0].id, "eu-01");
+
+        // Case-insensitive match
+        let eu_upper = reg.select_by_region(Some("EU-WEST"));
+        assert_eq!(eu_upper.len(), 1);
+
+        // Filter by us-east
+        let us = reg.select_by_region(Some("us-east"));
+        assert_eq!(us.len(), 1);
+        assert_eq!(us[0].id, "us-01");
+
+        // None region returns all agents
+        let all = reg.select_by_region(None);
+        assert_eq!(all.len(), 3);
+
+        // Non-existent region returns empty
+        let none = reg.select_by_region(Some("ap-south"));
+        assert!(none.is_empty());
     }
 
     #[test]
@@ -1375,6 +1459,7 @@ mod tests {
             status: AgentStatus::Online,
             version: "0.1.0".into(),
             labels: HashMap::new(),
+            region: None,
         });
         let dispatcher = ApiDispatcher::new(reg);
         let req = ApiRequest {

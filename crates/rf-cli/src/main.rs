@@ -673,10 +673,14 @@ async fn status_command(
             agent_id,
             version,
             uptime_seconds,
+            region,
         } => {
             println!("Agent:   {agent_id}");
             println!("Version: {version}");
             println!("Uptime:  {uptime_seconds}s");
+            if let Some(r) = region {
+                println!("Region:  {r}");
+            }
             println!("Peer:    {}", hex::encode(peer_key));
             println!("Status:  connected");
         }
