@@ -21,6 +21,7 @@ use rf_policy::rpc_policy::RpcPolicy;
 use rf_rpc::codec;
 use rf_rpc::types::{Action, Request, Response, RpcResult};
 use rf_transport::driver::{Driver, Target};
+use rf_transport::relay_select::{RelayCluster, RelaySelector};
 use rf_transport::websocket::WebSocketDriver;
 
 #[derive(Parser)]
@@ -158,17 +159,41 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
         Config::default()
     };
 
+    // Build relay URL: prefer CLI arg, then try cluster selection, then config field.
+    let relay = args.relay.clone().or_else(|| {
+        let clusters: Vec<RelayCluster> = config
+            .transport
+            .relay_clusters
+            .iter()
+            .map(|c| RelayCluster {
+                region: c.region.clone(),
+                continent: c.continent.clone(),
+                country_code: c.country_code.clone(),
+                latitude: c.latitude,
+                longitude: c.longitude,
+                relays: c.relays.clone(),
+            })
+            .collect();
+        if clusters.is_empty() {
+            return None;
+        }
+        let selector = RelaySelector::from_clusters(clusters);
+        let region = config.agent.region.as_deref().unwrap_or("");
+        selector
+            .best_in_region(region, None, None)
+            .map(|ep| ep.addr.clone())
+    });
+    let relay = relay
+        .or(config.agent.relay)
+        .unwrap_or_else(|| "ws://127.0.0.1:9090".to_string());
+
     Ok(ResolvedConfig {
         id: args
             .id
             .clone()
             .or(config.agent.id)
             .unwrap_or_else(|| "agent".to_string()),
-        relay: args
-            .relay
-            .clone()
-            .or(config.agent.relay)
-            .unwrap_or_else(|| "ws://127.0.0.1:9090".to_string()),
+        relay,
         token: args
             .token
             .clone()

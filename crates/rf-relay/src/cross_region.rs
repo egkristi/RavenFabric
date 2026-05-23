@@ -39,7 +39,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{info, warn};
 
 /// Configuration governing cross-region relay forwarding.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ForwardConfig {
     /// Whether forwarding is enabled at all.  Default: `false`.
     pub allow_forwarding: bool,
@@ -47,15 +47,6 @@ pub struct ForwardConfig {
     /// An empty list means *all* targets are permitted (only relevant when
     /// `allow_forwarding` is `true`).
     pub forward_allowlist: Vec<String>,
-}
-
-impl Default for ForwardConfig {
-    fn default() -> Self {
-        Self {
-            allow_forwarding: false,
-            forward_allowlist: Vec::new(),
-        }
-    }
 }
 
 impl ForwardConfig {
