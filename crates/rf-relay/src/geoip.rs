@@ -130,12 +130,7 @@ impl GeoIpDb {
             let (latitude, longitude) = record
                 .location
                 .as_ref()
-                .map(|l| {
-                    (
-                        l.latitude.unwrap_or(0.0),
-                        l.longitude.unwrap_or(0.0),
-                    )
-                })
+                .map(|l| (l.latitude.unwrap_or(0.0), l.longitude.unwrap_or(0.0)))
                 .unwrap_or((0.0, 0.0));
 
             let continent = record
@@ -189,8 +184,7 @@ pub fn haversine_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let dphi = (lat2 - lat1).to_radians();
     let dlambda = (lon2 - lon1).to_radians();
 
-    let a = (dphi / 2.0).sin().powi(2)
-        + phi1.cos() * phi2.cos() * (dlambda / 2.0).sin().powi(2);
+    let a = (dphi / 2.0).sin().powi(2) + phi1.cos() * phi2.cos() * (dlambda / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
 
     EARTH_RADIUS_KM * c
@@ -213,7 +207,10 @@ mod tests {
     #[test]
     fn test_haversine_same_point() {
         let dist = haversine_km(48.8566, 2.3522, 48.8566, 2.3522);
-        assert!(dist < 0.001, "same point should have ~0 distance, got {dist}");
+        assert!(
+            dist < 0.001,
+            "same point should have ~0 distance, got {dist}"
+        );
     }
 
     #[test]

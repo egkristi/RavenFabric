@@ -37,8 +37,8 @@
 //! ```
 
 use std::path::PathBuf;
-use std::sync::mpsc::{self, SyncSender};
 use std::sync::Arc;
+use std::sync::mpsc::{self, SyncSender};
 
 use tracing::warn;
 
@@ -257,9 +257,9 @@ impl HsmKeyProvider {
     pub fn into_snow_resolver(self) -> HsmSnowResolver {
         match self.inner {
             ProviderInner::Hsm(handle) => HsmSnowResolver::Hsm(handle),
-            ProviderInner::File(key) => {
-                HsmSnowResolver::Software { privkey: *key.private_bytes() }
-            }
+            ProviderInner::File(key) => HsmSnowResolver::Software {
+                privkey: *key.private_bytes(),
+            },
         }
     }
 
@@ -298,9 +298,7 @@ impl CryptoResolver for HsmSnowResolver {
         }
         let dh: Box<dyn Dh> = match self {
             HsmSnowResolver::Hsm(handle) => Box::new(HsmSnowDh::new_hsm(handle.clone())),
-            HsmSnowResolver::Software { privkey } => {
-                Box::new(HsmSnowDh::new_software(*privkey))
-            }
+            HsmSnowResolver::Software { privkey } => Box::new(HsmSnowDh::new_software(*privkey)),
         };
         Some(dh)
     }
@@ -429,9 +427,7 @@ impl Dh for HsmSnowDh {
     /// Snow only uses this for serialisation, not for security operations.
     fn privkey(&self) -> &[u8] {
         match &self.mode {
-            HsmDhMode::SoftwareStatic(privkey, _) | HsmDhMode::Ephemeral { privkey, .. } => {
-                privkey
-            }
+            HsmDhMode::SoftwareStatic(privkey, _) | HsmDhMode::Ephemeral { privkey, .. } => privkey,
             HsmDhMode::HsmStatic(_) | HsmDhMode::Uninit => &self.zero,
         }
     }
@@ -465,23 +461,23 @@ impl Dh for HsmSnowDh {
 
 #[cfg(feature = "hsm")]
 mod pkcs11_impl {
+    use super::HsmConfig;
     use super::{HsmHandle, HsmOp};
     use crate::error::CryptoError;
-    use super::HsmConfig;
 
     use cryptoki::{
         context::{CInitializeArgs, Pkcs11},
         mechanism::{
-            elliptic_curve::{Ecdh1DeriveParams, EcKdfType},
             Mechanism,
+            elliptic_curve::{EcKdfType, Ecdh1DeriveParams},
         },
         object::{Attribute, AttributeType, KeyType, ObjectClass, ObjectHandle},
         session::UserType,
         types::AuthPin,
     };
 
-    use std::sync::mpsc;
     use std::sync::Arc;
+    use std::sync::mpsc;
     use tracing::warn;
 
     /// X25519 OID in DER encoding: `1.3.101.110`
@@ -518,8 +514,7 @@ mod pkcs11_impl {
             .map_err(|e| CryptoError::Hsm(format!("login failed: {e}")))?;
 
         // Find existing key pair, or generate a new one.
-        let (priv_handle, pub_bytes) =
-            find_or_generate_key(&session, &config.key_label)?;
+        let (priv_handle, pub_bytes) = find_or_generate_key(&session, &config.key_label)?;
 
         // Channel for dispatching operations to this thread.
         let (tx, rx) = mpsc::sync_channel::<HsmOp>(8);
@@ -566,10 +561,9 @@ mod pkcs11_impl {
             let pub_keys = session
                 .find_objects(&pub_search)
                 .map_err(|e| CryptoError::Hsm(format!("find public key failed: {e}")))?;
-            let pub_handle = pub_keys
-                .into_iter()
-                .next()
-                .ok_or_else(|| CryptoError::Hsm("public key not found for existing label".into()))?;
+            let pub_handle = pub_keys.into_iter().next().ok_or_else(|| {
+                CryptoError::Hsm("public key not found for existing label".into())
+            })?;
 
             let pub_attrs = session
                 .get_attributes(pub_handle, &[AttributeType::EcPoint])
@@ -584,7 +578,9 @@ mod pkcs11_impl {
                     }
                 }
             }
-            return Err(CryptoError::Hsm("unexpected EC point format in stored key".into()));
+            return Err(CryptoError::Hsm(
+                "unexpected EC point format in stored key".into(),
+            ));
         }
 
         // Generate a new X25519 key pair (non-extractable private key).
@@ -610,9 +606,7 @@ mod pkcs11_impl {
                 &pub_template,
                 &priv_template,
             )
-            .map_err(|e| {
-                CryptoError::Hsm(format!("generate X25519 key pair failed: {e}"))
-            })?;
+            .map_err(|e| CryptoError::Hsm(format!("generate X25519 key pair failed: {e}")))?;
 
         // Read back the public key bytes.
         let pub_attrs = session
@@ -628,7 +622,9 @@ mod pkcs11_impl {
                 }
             }
         }
-        Err(CryptoError::Hsm("generated key has unexpected EC point format".into()))
+        Err(CryptoError::Hsm(
+            "generated key has unexpected EC point format".into(),
+        ))
     }
 
     /// Perform ECDH1 key derivation using the HSM private key and the peer's
@@ -731,8 +727,8 @@ mod tests {
             key_label: "key".into(),
             fips_mode: false,
         };
-        let provider = HsmKeyProvider::open_with_fallback(config, &key_path)
-            .expect("fallback should succeed");
+        let provider =
+            HsmKeyProvider::open_with_fallback(config, &key_path).expect("fallback should succeed");
 
         assert!(!provider.is_hsm_backed());
         assert_ne!(provider.public_key(), [0u8; 32]);

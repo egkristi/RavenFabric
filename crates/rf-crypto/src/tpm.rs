@@ -242,6 +242,7 @@ mod tpm_impl {
     use crate::error::CryptoError;
 
     use tss_esapi::{
+        Context,
         attributes::{ObjectAttributesBuilder, SessionAttributesBuilder},
         constants::SessionType,
         handles::PcrHandle,
@@ -251,12 +252,10 @@ mod tpm_impl {
             session_handles::PolicySession,
         },
         structures::{
-            Digest, MaxBuffer, PcrSelectionListBuilder, PublicBuilder,
-            SensitiveCreate, SensitiveData,
-            SymmetricDefinitionObject,
+            Digest, MaxBuffer, PcrSelectionListBuilder, PublicBuilder, SensitiveCreate,
+            SensitiveData, SymmetricDefinitionObject,
         },
         tcti_ldr::TctiNameConf,
-        Context,
     };
 
     use std::str::FromStr;
@@ -270,8 +269,7 @@ mod tpm_impl {
             TctiNameConf::from_str("device:/dev/tpmrm0")
                 .unwrap_or_else(|_| TctiNameConf::from_str("tabrmd:").unwrap())
         };
-        Context::new(tcti)
-            .map_err(|e| CryptoError::Tpm(format!("TPM context open failed: {e}")))
+        Context::new(tcti).map_err(|e| CryptoError::Tpm(format!("TPM context open failed: {e}")))
     }
 
     /// Seal `private_key_bytes` (32 bytes) under a PCR policy.
@@ -299,8 +297,12 @@ mod tpm_impl {
         let trial_session_handle = PolicySession::try_from(trial_session)
             .map_err(|e| CryptoError::Tpm(format!("trial session cast failed: {e}")))?;
 
-        ctx.policy_pcr(trial_session_handle, &Digest::default(), pcr_selection.clone())
-            .map_err(|e| CryptoError::Tpm(format!("policy_pcr failed: {e}")))?;
+        ctx.policy_pcr(
+            trial_session_handle,
+            &Digest::default(),
+            pcr_selection.clone(),
+        )
+        .map_err(|e| CryptoError::Tpm(format!("policy_pcr failed: {e}")))?;
 
         let policy_digest = ctx
             .policy_get_digest(trial_session_handle)
@@ -371,7 +373,14 @@ mod tpm_impl {
 
         // Load the sealed object.
         let primary = ctx
-            .create_primary(Hierarchy::Owner, srk_public_template()?, None, None, None, None)
+            .create_primary(
+                Hierarchy::Owner,
+                srk_public_template()?,
+                None,
+                None,
+                None,
+                None,
+            )
             .map_err(|e| CryptoError::Tpm(format!("create_primary for unseal failed: {e}")))?;
 
         let public = tss_esapi::structures::Public::unmarshal(&blob.public_blob)
@@ -414,7 +423,14 @@ mod tpm_impl {
 
         // Create an ephemeral Attestation Key for signing the quote.
         let ak = ctx
-            .create_primary(Hierarchy::Endorsement, ak_public_template()?, None, None, None, None)
+            .create_primary(
+                Hierarchy::Endorsement,
+                ak_public_template()?,
+                None,
+                None,
+                None,
+                None,
+            )
             .map_err(|e| CryptoError::Tpm(format!("create AK failed: {e}")))?;
 
         let (attest, signature) = ctx
@@ -442,11 +458,7 @@ mod tpm_impl {
             .pcr_read(pcr_selection)
             .map_err(|e| CryptoError::Tpm(format!("pcr_read failed: {e}")))?;
 
-        let digests: Vec<Vec<u8>> = digest_list
-            .value()
-            .iter()
-            .map(|d| d.to_vec())
-            .collect();
+        let digests: Vec<Vec<u8>> = digest_list.value().iter().map(|d| d.to_vec()).collect();
 
         for (i, (idx, expected)) in expected_pcrs.iter().enumerate() {
             let actual = digests
@@ -535,10 +547,8 @@ mod tpm_impl {
             .build()
             .map_err(|e| CryptoError::Tpm(format!("AK attrs build failed: {e}")))?;
 
-        use tss_esapi::structures::{
-            EccScheme, PublicEccParametersBuilder,
-        };
         use tss_esapi::interface_types::ecc::EccCurve;
+        use tss_esapi::structures::{EccScheme, PublicEccParametersBuilder};
 
         PublicBuilder::new()
             .with_public_algorithm(PublicAlgorithm::Ecc)
@@ -601,7 +611,10 @@ mod tests {
             ..TpmConfig::default()
         };
         let result = TpmKeyStore::new(cfg);
-        assert!(result.is_err(), "expected error when TPM device not available");
+        assert!(
+            result.is_err(),
+            "expected error when TPM device not available"
+        );
     }
 
     /// Attestation nonce length validation.

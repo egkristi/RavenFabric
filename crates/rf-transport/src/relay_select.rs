@@ -151,13 +151,11 @@ impl RelaySelector {
         if self.relays.is_empty() {
             return None;
         }
-        self.relays
-            .iter()
-            .min_by(|a, b| {
-                let rtt_a = a.rtt_ms.unwrap_or(u32::MAX);
-                let rtt_b = b.rtt_ms.unwrap_or(u32::MAX);
-                rtt_a.cmp(&rtt_b)
-            })
+        self.relays.iter().min_by(|a, b| {
+            let rtt_a = a.rtt_ms.unwrap_or(u32::MAX);
+            let rtt_b = b.rtt_ms.unwrap_or(u32::MAX);
+            rtt_a.cmp(&rtt_b)
+        })
     }
 
     /// Return the geographically nearest relay to the given coordinates.
@@ -168,13 +166,11 @@ impl RelaySelector {
         if self.relays.is_empty() {
             return None;
         }
-        self.relays
-            .iter()
-            .min_by(|a, b| {
-                let da = a.distance_to(lat, lon);
-                let db = b.distance_to(lat, lon);
-                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-            })
+        self.relays.iter().min_by(|a, b| {
+            let da = a.distance_to(lat, lon);
+            let db = b.distance_to(lat, lon);
+            da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 
     /// Select the best relay using a latency-weighted geo-distance score.
@@ -192,15 +188,13 @@ impl RelaySelector {
         if self.relays.is_empty() {
             return None;
         }
-        self.relays
-            .iter()
-            .min_by(|a, b| {
-                let score_a = latency_geo_score(a, client_lat, client_lon);
-                let score_b = latency_geo_score(b, client_lat, client_lon);
-                score_a
-                    .partial_cmp(&score_b)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+        self.relays.iter().min_by(|a, b| {
+            let score_a = latency_geo_score(a, client_lat, client_lon);
+            let score_b = latency_geo_score(b, client_lat, client_lon);
+            score_a
+                .partial_cmp(&score_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 
     /// Return relays ordered by continental affinity relative to `client_continent`.
@@ -235,10 +229,7 @@ impl RelaySelector {
         adjacent.sort_by(sort_by_rtt);
         other.sort_by(sort_by_rtt);
 
-        same.into_iter()
-            .chain(adjacent)
-            .chain(other)
-            .collect()
+        same.into_iter().chain(adjacent).chain(other).collect()
     }
 
     /// Unified "best relay" selection.
@@ -247,11 +238,7 @@ impl RelaySelector {
     /// [`latency_weighted`][Self::latency_weighted]. Falls back to
     /// [`lowest_rtt`][Self::lowest_rtt] when no coordinates are supplied, and
     /// finally [`round_robin`][Self::round_robin] if no RTT data exists either.
-    pub fn best(
-        &self,
-        client_lat: Option<f64>,
-        client_lon: Option<f64>,
-    ) -> Option<&RelayEndpoint> {
+    pub fn best(&self, client_lat: Option<f64>, client_lon: Option<f64>) -> Option<&RelayEndpoint> {
         match (client_lat, client_lon) {
             (Some(lat), Some(lon)) => self.latency_weighted(lat, lon),
             _ => self.lowest_rtt().or_else(|| self.round_robin()),
@@ -264,7 +251,11 @@ impl RelaySelector {
     ///
     /// Only available when `feature = "geoip"` is enabled.
     #[cfg(feature = "geoip")]
-    pub fn best_for_ip(&self, client_ip: IpAddr, db_path: &std::path::Path) -> Option<&RelayEndpoint> {
+    pub fn best_for_ip(
+        &self,
+        client_ip: IpAddr,
+        db_path: &std::path::Path,
+    ) -> Option<&RelayEndpoint> {
         if let Ok(db) = maxminddb::Reader::<Vec<u8>>::open_readfile(db_path) {
             if let Ok(city) = db.lookup::<maxminddb::geoip2::City>(client_ip) {
                 let lat = city.location.as_ref().and_then(|l| l.latitude);
@@ -302,8 +293,7 @@ fn haversine_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let phi2 = lat2.to_radians();
     let dphi = (lat2 - lat1).to_radians();
     let dlambda = (lon2 - lon1).to_radians();
-    let a = (dphi / 2.0).sin().powi(2)
-        + phi1.cos() * phi2.cos() * (dlambda / 2.0).sin().powi(2);
+    let a = (dphi / 2.0).sin().powi(2) + phi1.cos() * phi2.cos() * (dlambda / 2.0).sin().powi(2);
     R * 2.0 * a.sqrt().atan2((1.0 - a).sqrt())
 }
 
@@ -397,8 +387,7 @@ mod tests {
 
     #[test]
     fn test_latency_weighted_geo_penalty_on_no_coords() {
-        let no_coords = RelayEndpoint::new("wss://unknown.example.com:9090")
-            .with_rtt_ms(1); // very low RTT but no coords
+        let no_coords = RelayEndpoint::new("wss://unknown.example.com:9090").with_rtt_ms(1); // very low RTT but no coords
 
         let eu = eu_relay(); // RTT=20 with coords
 
