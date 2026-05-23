@@ -1,0 +1,10 @@
+{
+  "ansible.validation.enabled": false,
+  "ansible.validation.lint.enabled": false,
+  "yaml.schemas": {
+    "https://json.schemastore.org/json-schema-draft-07": [
+      "demos/**/playbooks/*.yaml",
+      "demos/**/playbooks/*.yml"
+    ]
+  }
+}

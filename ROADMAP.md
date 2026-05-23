@@ -4,7 +4,7 @@
 
 ## Architecture (Dependency Graph)
 
-```
+```text
                     ┌─────────┐
                     │ rf-cli  │  (user-facing binary)
                     └────┬────┘

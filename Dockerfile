@@ -6,7 +6,8 @@ FROM rust:1.88-alpine AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache musl-dev gcc
+# Upgrade Alpine packages to pick up latest security patches
+RUN apk upgrade --no-cache && apk add --no-cache musl-dev gcc
 
 # Copy manifests first for dependency caching
 COPY Cargo.toml Cargo.lock ./

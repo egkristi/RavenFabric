@@ -15,10 +15,12 @@ license: AGPL-3.0-or-later
 website: https://ravenfabric.io
 source-code: https://github.com/egkristi/RavenFabric
 
-architectures:
-  - build-on: [amd64]
+platforms:
+  amd64:
+    build-on: [amd64]
     build-for: [amd64]
-  - build-on: [arm64]
+  arm64:
+    build-on: [arm64]
     build-for: [arm64]
 
 parts:
