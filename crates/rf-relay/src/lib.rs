@@ -2,7 +2,10 @@
 //!
 //! Exposes `run_relay()` for embedding in other binaries (e.g., `rf dev`).
 
+pub mod cross_region;
 pub mod geoip;
+
+use cross_region::{ForwardConfig, bridge_to_remote_relay, parse_forward_token};
 
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -107,11 +110,21 @@ pub async fn run_relay(
     run_relay_with_secret(listen_addr, cancel, None).await
 }
 
-/// Run the relay server with optional HMAC token verification.
+/// Run the relay server with optional HMAC token verification and cross-region forwarding.
 pub async fn run_relay_with_secret(
     listen_addr: &str,
     cancel: tokio_util::sync::CancellationToken,
     meet_secret: Option<String>,
+) -> anyhow::Result<()> {
+    run_relay_full(listen_addr, cancel, meet_secret, ForwardConfig::default()).await
+}
+
+/// Run the relay with full configuration including cross-region forwarding policy.
+pub async fn run_relay_full(
+    listen_addr: &str,
+    cancel: tokio_util::sync::CancellationToken,
+    meet_secret: Option<String>,
+    forward_config: ForwardConfig,
 ) -> anyhow::Result<()> {
     let state: MeetState = Arc::new(Mutex::new(HashMap::new()));
     // Rate limit: 20 connections per IP per 60 seconds
@@ -121,8 +134,19 @@ pub async fn run_relay_with_secret(
     if meet_secret.is_some() {
         info!("HMAC meet token verification enabled");
     }
+    if forward_config.allow_forwarding {
+        info!(
+            "cross-region forwarding ENABLED (allowlist: {})",
+            if forward_config.forward_allowlist.is_empty() {
+                "all targets permitted".to_string()
+            } else {
+                format!("{} allowed targets", forward_config.forward_allowlist.len())
+            }
+        );
+    }
 
     let meet_secret = Arc::new(meet_secret);
+    let forward_config = Arc::new(forward_config);
     let mut connections = tokio::task::JoinSet::new();
     let mut cleanup_interval = tokio::time::interval(std::time::Duration::from_secs(60));
 
@@ -153,6 +177,7 @@ pub async fn run_relay_with_secret(
                 let state = Arc::clone(&state);
                 let cancel = cancel.clone();
                 let meet_secret = Arc::clone(&meet_secret);
+                let forward_config = Arc::clone(&forward_config);
                 connections.spawn(async move {
                     let ws_stream = match tokio_tungstenite::accept_async(tcp_stream).await {
                         Ok(ws) => ws,
@@ -161,7 +186,7 @@ pub async fn run_relay_with_secret(
                             return;
                         }
                     };
-                    if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret).await {
+                    if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret, &forward_config).await {
                         warn!("Connection from {} ended: {}", addr, e);
                     }
                 });
@@ -179,6 +204,7 @@ async fn handle_connection(
     state: MeetState,
     cancel: tokio_util::sync::CancellationToken,
     meet_secret: &Option<String>,
+    forward_config: &ForwardConfig,
 ) -> anyhow::Result<()> {
     let (mut ws_sink, mut ws_source) = ws.split();
 
@@ -195,6 +221,22 @@ async fn handle_connection(
         return Err(anyhow::anyhow!("meet token HMAC verification failed"));
     }
 
+    // ── Cross-region forwarding check ────────────────────────────────────────
+    if let Some((target_url, inner_token)) = parse_forward_token(&meet_token) {
+        if !forward_config.is_target_allowed(target_url) {
+            warn!("cross-region forward to {} denied by policy", target_url);
+            return Err(anyhow::anyhow!(
+                "cross-region forwarding denied: target not in allowlist"
+            ));
+        }
+        // Reassemble the local WebSocket stream and hand off to bridge.
+        let reassembled = ws_sink
+            .reunite(ws_source)
+            .map_err(|_| anyhow::anyhow!("failed to reunite WebSocket streams for forwarding"))?;
+        return bridge_to_remote_relay(reassembled, target_url, inner_token, cancel).await;
+    }
+
+    // ── Normal same-relay pairing ─────────────────────────────────────────────
     info!("peer connected with meet token: {}", meet_token);
 
     let mut pending = state.lock().await;

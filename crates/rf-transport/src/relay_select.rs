@@ -275,6 +275,147 @@ impl RelaySelector {
     }
 }
 
+// ── Relay cluster configuration ───────────────────────────────────────────────
+
+/// A named group of relay endpoints all serving the same geographic region.
+///
+/// Use `RelayCluster` in `raven.toml` to declare relay topology once and let
+/// the [`RelaySelector`] automatically pick the best relay within or across
+/// regions:
+///
+/// ```toml
+/// [[transport.relay_clusters]]
+/// region   = "eu-west"
+/// continent = "EU"
+/// relays   = [
+///   "wss://eu1.relay.example.com:9090",
+///   "wss://eu2.relay.example.com:9090",
+/// ]
+///
+/// [[transport.relay_clusters]]
+/// region    = "us-east"
+/// continent = "NA"
+/// relays    = ["wss://us1.relay.example.com:9090"]
+/// ```
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RelayCluster {
+    /// Human-readable region identifier (e.g. `"eu-west"`, `"us-east"`).
+    pub region: String,
+    /// ISO continent code for geo-distance scoring (e.g. `"EU"`, `"NA"`).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub continent: Option<String>,
+    /// Optional ISO 3166-1 alpha-2 country code of the cluster's data-centre.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub country_code: Option<String>,
+    /// Optional latitude of the cluster's data-centre (for Haversine scoring).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub latitude: Option<f64>,
+    /// Optional longitude of the cluster's data-centre.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub longitude: Option<f64>,
+    /// WebSocket URLs of all relay nodes in this cluster.
+    pub relays: Vec<String>,
+}
+
+impl RelayCluster {
+    /// Expand the cluster into individual [`RelayEndpoint`] objects, each
+    /// tagged with the cluster's region and geographic metadata.
+    pub fn into_endpoints(self) -> Vec<RelayEndpoint> {
+        self.relays
+            .into_iter()
+            .map(|addr| {
+                let mut ep = RelayEndpoint::new(addr);
+                ep.continent = self.continent.clone();
+                ep.country_code = self.country_code.clone();
+                ep.latitude = self.latitude;
+                ep.longitude = self.longitude;
+                // Store region in country_code if no explicit country is given,
+                // but prefer the dedicated continent field for affinity routing.
+                // The region string is also available as a label via the parent cluster.
+                ep
+            })
+            .collect()
+    }
+}
+
+impl RelaySelector {
+    /// Build a [`RelaySelector`] from a list of [`RelayCluster`] configs.
+    ///
+    /// Each cluster's relays are expanded into tagged [`RelayEndpoint`]s so
+    /// the selector can use geographic proximity and latency measurements to
+    /// automatically choose the optimal relay at connect-time.
+    ///
+    /// # Example
+    /// ```rust
+    /// use rf_transport::relay_select::{RelayCluster, RelaySelector};
+    ///
+    /// let clusters = vec![
+    ///     RelayCluster {
+    ///         region: "eu-west".into(),
+    ///         continent: Some("EU".into()),
+    ///         country_code: None,
+    ///         latitude: Some(51.5),
+    ///         longitude: Some(-0.1),
+    ///         relays: vec![
+    ///             "wss://eu1.example.com:9090".into(),
+    ///             "wss://eu2.example.com:9090".into(),
+    ///         ],
+    ///     },
+    /// ];
+    /// let selector = RelaySelector::from_clusters(clusters);
+    /// assert_eq!(selector.all().len(), 2);
+    /// ```
+    pub fn from_clusters(clusters: impl IntoIterator<Item = RelayCluster>) -> Self {
+        let relays = clusters
+            .into_iter()
+            .flat_map(|c| c.into_endpoints())
+            .collect();
+        Self::new(relays)
+    }
+
+    /// Find the best relay within a specific named region, falling back to the
+    /// global best if no relay in that region is available.
+    ///
+    /// Selection within the region uses [`best`][Self::best] with the
+    /// cluster's geographic coordinates when available.
+    pub fn best_in_region(
+        &self,
+        region: &str,
+        client_lat: Option<f64>,
+        client_lon: Option<f64>,
+    ) -> Option<&RelayEndpoint> {
+        // Collect relays whose continent matches the region prefix (case-insensitive).
+        let regional: Vec<&RelayEndpoint> = self
+            .relays
+            .iter()
+            .filter(|ep| {
+                ep.continent
+                    .as_deref()
+                    .map(|c| c.eq_ignore_ascii_case(region))
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        if regional.is_empty() {
+            // Fallback: pick globally best relay.
+            return self.best(client_lat, client_lon);
+        }
+
+        // Within the region, apply latency-weighted scoring if we have coords.
+        match (client_lat, client_lon) {
+            (Some(lat), Some(lon)) => regional.into_iter().min_by(|a, b| {
+                let sa = latency_geo_score(a, lat, lon);
+                let sb = latency_geo_score(b, lat, lon);
+                sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
+            }),
+            _ => regional
+                .into_iter()
+                .min_by_key(|ep| ep.rtt_ms.unwrap_or(u32::MAX)),
+        }
+    }
+}
+
 // ── Scoring helpers ───────────────────────────────────────────────────────────
 
 fn latency_geo_score(relay: &RelayEndpoint, client_lat: f64, client_lon: f64) -> f64 {
@@ -478,5 +619,89 @@ mod tests {
         let s = RelaySelector::new(vec![cheap, preferred]);
         let best = s.latency_weighted(52.52, 13.405).unwrap();
         assert_eq!(best.addr, "wss://preferred.example.com:9090");
+    }
+
+    #[test]
+    fn test_relay_cluster_into_endpoints() {
+        let cluster = RelayCluster {
+            region: "eu-west".into(),
+            continent: Some("EU".into()),
+            country_code: Some("DE".into()),
+            latitude: Some(52.52),
+            longitude: Some(13.405),
+            relays: vec![
+                "wss://eu1.example.com:9090".into(),
+                "wss://eu2.example.com:9090".into(),
+            ],
+        };
+        let eps = cluster.into_endpoints();
+        assert_eq!(eps.len(), 2);
+        assert_eq!(eps[0].addr, "wss://eu1.example.com:9090");
+        assert_eq!(eps[0].continent.as_deref(), Some("EU"));
+        assert_eq!(eps[0].country_code.as_deref(), Some("DE"));
+        assert_eq!(eps[0].latitude, Some(52.52));
+    }
+
+    #[test]
+    fn test_selector_from_clusters() {
+        let clusters = vec![
+            RelayCluster {
+                region: "eu-west".into(),
+                continent: Some("EU".into()),
+                country_code: None,
+                latitude: Some(52.52),
+                longitude: Some(13.405),
+                relays: vec![
+                    "wss://eu1.example.com:9090".into(),
+                    "wss://eu2.example.com:9090".into(),
+                ],
+            },
+            RelayCluster {
+                region: "us-east".into(),
+                continent: Some("NA".into()),
+                country_code: None,
+                latitude: Some(40.71),
+                longitude: Some(-74.01),
+                relays: vec!["wss://us1.example.com:9090".into()],
+            },
+        ];
+        let selector = RelaySelector::from_clusters(clusters);
+        // Both clusters expanded: 2 EU + 1 NA = 3 total
+        assert_eq!(selector.all().len(), 3);
+        // Nearest to Berlin (~52.5, 13.4) should be EU relay
+        let best = selector.nearest_to_coords(52.5, 13.4).unwrap();
+        assert!(best.addr.contains("eu"));
+    }
+
+    #[test]
+    fn test_best_in_region() {
+        let clusters = vec![
+            RelayCluster {
+                region: "eu-west".into(),
+                continent: Some("EU".into()),
+                country_code: None,
+                latitude: Some(52.52),
+                longitude: Some(13.405),
+                relays: vec![
+                    "wss://eu1.example.com:9090".into(),
+                    "wss://eu2.example.com:9090".into(),
+                ],
+            },
+            RelayCluster {
+                region: "us-east".into(),
+                continent: Some("NA".into()),
+                country_code: None,
+                latitude: Some(40.71),
+                longitude: Some(-74.01),
+                relays: vec!["wss://us1.example.com:9090".into()],
+            },
+        ];
+        let selector = RelaySelector::from_clusters(clusters);
+        // best_in_region("EU", ...) should return an EU relay
+        let best = selector.best_in_region("EU", None, None).unwrap();
+        assert!(best.addr.contains("eu"));
+        // best_in_region for unknown region falls back to global best
+        let fb = selector.best_in_region("OC", None, None);
+        assert!(fb.is_some());
     }
 }

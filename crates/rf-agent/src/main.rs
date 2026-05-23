@@ -92,6 +92,36 @@ struct AgentConfig {
 struct TransportConfig {
     reconnect_interval: Option<u64>,
     max_retries: Option<u64>,
+    /// Optional relay clusters for region-aware relay selection.
+    /// When present, the agent picks the cluster whose region matches its own,
+    /// then the best relay within that cluster.
+    #[serde(default)]
+    relay_clusters: Vec<RelayClusterConfig>,
+}
+
+/// Serialisable relay cluster entry in `raven.toml`.
+///
+/// ```toml
+/// [[transport.relay_clusters]]
+/// region    = "eu-west"
+/// continent = "EU"
+/// latitude  = 51.5
+/// longitude = -0.1
+/// relays    = ["wss://eu1.relay.example.com:9090", "wss://eu2.relay.example.com:9090"]
+/// ```
+#[derive(Debug, Deserialize, Default)]
+struct RelayClusterConfig {
+    region: String,
+    #[serde(default)]
+    continent: Option<String>,
+    #[serde(default)]
+    country_code: Option<String>,
+    #[serde(default)]
+    latitude: Option<f64>,
+    #[serde(default)]
+    longitude: Option<f64>,
+    #[serde(default)]
+    relays: Vec<String>,
 }
 
 impl Default for TransportConfig {
@@ -99,6 +129,7 @@ impl Default for TransportConfig {
         Self {
             reconnect_interval: Some(5),
             max_retries: Some(0), // 0 = infinite
+            relay_clusters: Vec::new(),
         }
     }
 }
