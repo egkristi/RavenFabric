@@ -5,6 +5,25 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] — 2026-05-24
+
+### Added
+
+- **Region-aware orchestration** — `[agent] region = "eu-west"` in `raven.toml`; region propagates through `RpcResult::StatusInfo` wire protocol; `AgentInfo` registry stores region; `AgentRegistry::select_by_region()` for case-insensitive fleet filtering; `rf status` CLI prints `Region:` line when reported
+- **Regional relay clusters** — `RelayCluster` config type groups relays by region with continent, country, and lat/lon metadata; `RelaySelector::from_clusters()` factory; `RelaySelector::best_in_region()` picks the best relay within the same region/continent; `[[transport.relay_clusters]]` TOML config block
+- **Cross-region routing** — `FORWARD:<target_relay_url>|<inner_token>` forwarding protocol enables agents on different relays to communicate; `ForwardConfig` (deny-by-default, optional `forward_allowlist`); `run_relay_full()` with `ForwardConfig`; `bridge_to_remote_relay()` for bidirectional encrypted stream bridging without relay decrypting payload
+- **maxminddb 0.27.3 upgrade** — updated GeoIP lookups to use new `LookupResult.decode::<T>()` API
+
+### Security
+
+- Cross-region forwarding disabled by default; requires explicit `allow_forwarding = true` in relay config
+- Forwarding allowlist enforced before opening any remote relay connection
+- Inner token hashed via SHA-256 in audit log entries; relay never decrypts end-to-end Noise payload
+
+### Total
+
+~72,767 LOC, 1,432 tests across 14 crates.
+
 ## [0.23.0] — 2026-05-29
 
 ### Added

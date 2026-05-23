@@ -1,6 +1,6 @@
 name: ravenfabric
 base: core22
-version: '0.23.0'
+version: '0.24.0'
 summary: Secure remote execution and mesh networking agent
 description: |
   RavenFabric is a secure remote execution and mesh networking agent written in

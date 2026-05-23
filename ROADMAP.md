@@ -40,9 +40,9 @@
 
 ## Current Status
 
-**Version:** 0.23.0 (Alpha) — Released 2026-05-23
+**Version:** 0.24.0 (Alpha) — Released 2026-05-24
 
-**Stats:** 14 crates, ~72,138 LOC, 1,420 tests, 0 clippy warnings, 0 known vulnerabilities.
+**Stats:** 14 crates, ~72,767 LOC, 1,432 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
@@ -360,7 +360,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 
 ---
 
-## In Progress: v1.3 — Enterprise & Compliance (HSM/TPM/GeoIP done; Global Fleet in progress)
+## ✓ Implemented: v1.3 — Enterprise & Compliance
 
 ### Regulatory Compliance Coverage
 
@@ -407,9 +407,9 @@ The table below maps known regulatory requirements to existing RavenFabric capab
 - [x] Latency-weighted selection — combine geo proximity with measured RTT for optimal path
 
 #### Global Fleet
-- [ ] Region-aware orchestration — target agents by region (e.g., "all eu-west agents")
-- [ ] Regional relay clusters — multiple relays per region with load balancing
-- [ ] Cross-region routing — requests to agents in other regions route via optimal relay chain
+- [x] Region-aware orchestration — target agents by region (e.g., "all eu-west agents")
+- [x] Regional relay clusters — multiple relays per region with load balancing
+- [x] Cross-region routing — requests to agents in other regions route via optimal relay chain
 
 ---
 
