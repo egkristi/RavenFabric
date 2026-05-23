@@ -25,10 +25,12 @@ pub mod secrets;
 
 /// HSM/PKCS#11 key provider.
 /// Requires feature = "hsm".
+#[cfg(feature = "hsm")]
 pub mod hsm;
 
 /// TPM 2.0 key sealing and remote attestation.
 /// Requires feature = "tpm".
+#[cfg(feature = "tpm")]
 pub mod tpm;
 
 /// Minimal frame encryption for no_std environments.
