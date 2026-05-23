@@ -297,22 +297,21 @@ impl RelaySelector {
 /// continent = "NA"
 /// relays    = ["wss://us1.relay.example.com:9090"]
 /// ```
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RelayCluster {
     /// Human-readable region identifier (e.g. `"eu-west"`, `"us-east"`).
     pub region: String,
     /// ISO continent code for geo-distance scoring (e.g. `"EU"`, `"NA"`).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub continent: Option<String>,
     /// Optional ISO 3166-1 alpha-2 country code of the cluster's data-centre.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub country_code: Option<String>,
     /// Optional latitude of the cluster's data-centre (for Haversine scoring).
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub latitude: Option<f64>,
     /// Optional longitude of the cluster's data-centre.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[serde(default)]
     pub longitude: Option<f64>,
     /// WebSocket URLs of all relay nodes in this cluster.
     pub relays: Vec<String>,
