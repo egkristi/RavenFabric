@@ -2,7 +2,7 @@
 # Produces small static binaries (agent, relay, cli, mcp-server)
 
 # --- Build stage ---
-FROM rust:1.88-alpine AS builder
+FROM rust:1.88-alpine3.22 AS builder
 
 WORKDIR /app
 
@@ -64,7 +64,7 @@ EXPOSE 9090
 ENTRYPOINT ["/rf-relay"]
 
 # --- CLI image (alpine-based for shell access) ---
-FROM alpine:3.21 AS cli
+FROM alpine:3.22 AS cli
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/target/release/rf /usr/bin/rf
 ENTRYPOINT ["rf"]
