@@ -315,7 +315,6 @@ jobs:
   publish-crates:
     name: Publish to crates.io
     needs: [release]
-    if: ${{ secrets.CRATES_IO_TOKEN != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -325,8 +324,13 @@ jobs:
 
       - name: Publish crates (in dependency order)
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN || '' }}
         run: |
+          # Skip if token not configured (pending manual task #44)
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "CRATES_IO_TOKEN not configured — skipping crates.io publish"
+            exit 0
+          fi
           # Publish in dependency order, skip already-published versions
           for crate in rf-audit rf-crypto rf-bootstrap rf-transport rf-policy rf-rpc rf-executor rf-mcp-client rf-mcp-server rf-relay rf-agent rf-cli; do
             echo "Publishing $crate..."

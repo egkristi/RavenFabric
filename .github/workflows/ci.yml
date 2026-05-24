@@ -106,7 +106,7 @@ jobs:
         with:
           files: codecov.json
           fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN || '' }}
 
   msrv:
     name: MSRV (1.88)
