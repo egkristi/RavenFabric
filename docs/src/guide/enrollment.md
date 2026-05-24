@@ -4,7 +4,7 @@ RavenFabric uses a one-time password (OTP) enrollment flow. No certificate autho
 
 ## Enrollment Flow
 
-```
+```text
 Admin                      Agent                    TrustStore
   │                          │                          │
   │─── generate OTP ─────────┼──────────────────────►   │

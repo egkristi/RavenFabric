@@ -19,7 +19,7 @@ The `rf` binary is the user-facing CLI for RavenFabric. All commands communicate
 
 Execute a command on a remote agent.
 
-```
+```text
 rf exec --token <TOKEN> <COMMAND>
 ```
 
@@ -47,7 +47,7 @@ rf exec --token abc123 "systemctl status nginx"
 
 Open an interactive shell session via PTY on the remote agent.
 
-```
+```text
 rf shell --token <TOKEN> [OPTIONS]
 ```
 
@@ -73,7 +73,7 @@ rf shell --token abc123 --cols 120 --rows 40
 
 Port forward: listen locally, connect through the agent to a remote target.
 
-```
+```text
 rf forward --token <TOKEN> -L <LOCAL> -R <REMOTE>
 ```
 
@@ -99,7 +99,7 @@ rf forward --token abc123 -L 0.0.0.0:8080 -R internal-api:3000
 
 Execute a multi-agent orchestration playbook.
 
-```
+```text
 rf playbook <FILE> --token <TOKEN>
 ```
 
@@ -121,7 +121,7 @@ rf playbook deploy.yaml --token abc123
 
 Start a local development environment — relay + agent in a single process with a permissive policy. No authentication required.
 
-```
+```text
 rf dev [OPTIONS]
 ```
 
@@ -148,7 +148,7 @@ rf exec --relay ws://127.0.0.1:9090 --token dev "whoami"
 
 Query the status of a remote agent.
 
-```
+```text
 rf status --token <TOKEN>
 ```
 
@@ -164,7 +164,7 @@ Returns agent ID, version, and uptime.
 
 Generate shell completions.
 
-```
+```text
 rf completions <SHELL>
 ```
 
@@ -187,7 +187,7 @@ rf completions fish > ~/.config/fish/completions/rf.fish
 
 Policy template management and validation.
 
-```
+```text
 rf policy <SUBCOMMAND>
 ```
 
@@ -274,7 +274,7 @@ rf secret list --token <TOKEN>
 
 Output:
 
-```
+```text
 NAME           HASH (SHA-256)       AGE
 DB_PASSWORD    a3f1b2c4...          2d 4h
 API_KEY        e9d8c7b6...          12h
@@ -293,7 +293,7 @@ Copy files between the local machine and a remote agent, or between two remote a
 
 ### Syntax
 
-```
+```text
 rf cp [OPTIONS] <SOURCE> <DEST>
 ```
 

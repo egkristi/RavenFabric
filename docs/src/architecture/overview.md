@@ -4,7 +4,7 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 
 ## Layers
 
-```
+```text
 ┌──────────────────────────────────┐
 │        Application Layer         │  rf-cli, rf-agent, rf-relay, rf-mcp-server
 │  (binaries, user-facing tools)   │
@@ -51,7 +51,7 @@ RavenFabric is organized as a layered architecture with strict dependency bounda
 
 ## Data Flow
 
-```
+```text
 Client (rf CLI)
   │
   │ Noise XX handshake

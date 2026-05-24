@@ -6,7 +6,7 @@ state against the declaration.
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────┐
 │            Desired-State Convergence Flow             │
 ├──────────────────────────────────────────────────────┤

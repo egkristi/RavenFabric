@@ -4,7 +4,7 @@ RavenFabric's security is built on three pillars: cryptographic identity, deny-b
 
 ## Trust Model
 
-```
+```text
                ┌─────────────┐
                │  Trust Root  │
                │  (key pair)  │
@@ -24,7 +24,7 @@ Every entity has a unique Ed25519 key pair. Identity is cryptographic — there 
 
 All connections use the Noise XX handshake pattern:
 
-```
+```text
 Noise_XX_25519_ChaChaPoly_BLAKE2s
 ```
 
@@ -37,7 +37,7 @@ This provides:
 
 ### Handshake Flow
 
-```
+```text
 Initiator                          Responder
     │                                  │
     │── e ─────────────────────────►   │  (ephemeral key)

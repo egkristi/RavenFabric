@@ -99,7 +99,7 @@ rf approval wait <approval-id>
 
 You will see output like:
 
-```
+```text
 ✗ DENIED: rm -rf node_modules
   rule: commands.deny[0]
   rule pattern: "^rm -rf .*"
@@ -126,7 +126,7 @@ You will see output like:
 
 You will see output like:
 
-```
+```text
 ⏳ APPROVAL REQUIRED: git push origin main
   rule: approval.required[0]
   approvers: terminal_user
@@ -296,7 +296,7 @@ For complex tasks, structure your work explicitly:
 
 ### Simple task — run tests and fix failures
 
-```
+```text
 [Running tests to see what's failing]
 $ rf exec local "npm test" --reason "checking initial test status"
 ✓ Tests run, 3 failures in auth module
@@ -321,7 +321,7 @@ Root cause: Empty email validation was missing.
 
 ### Encountering a denial
 
-```
+```text
 [Trying to clean up old logs]
 $ rf exec local "find /var/log -name '*.log' -mtime +30 -delete" \
     --reason "removing log files older than 30 days"
@@ -339,7 +339,7 @@ Could you clarify which logs you wanted cleaned up?
 
 ### Encountering an approval requirement
 
-```
+```text
 [Pushing to origin]
 $ rf exec local "git push origin main" --reason "deploying auth fix"
 
@@ -365,7 +365,7 @@ $ rf exec local "git push origin main"
 
 ## Quick Reference Card
 
-```
+```text
 COMMAND                                     PURPOSE
 ────────────────────────────────────────────────────────────────────
 rf whoami                                   What can I do?

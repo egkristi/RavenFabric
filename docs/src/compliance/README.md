@@ -71,7 +71,7 @@ RavenFabric's security architecture is built on these non-negotiable principles:
 
 ## Architecture Security Properties
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────┐
 │                    SECURITY BOUNDARY                              │
 │                                                                    │

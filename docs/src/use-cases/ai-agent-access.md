@@ -31,7 +31,7 @@ AI agents in 2025-2026 execute terminal commands, manage infrastructure, query d
 
 The core insight: **transport is incidental.** Whether the command travels over the network to a remote server or over a Unix socket to a local process, the same policy engine, audit log, and identity verification apply.
 
-```
+```text
 AI agent (Claude Code, Cursor, operational agent, CI/CD)
     │
     ├─ Path A: rf exec (CLI)     Path B: MCP tool call (rf-mcp-server)

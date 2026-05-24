@@ -24,7 +24,7 @@ Edge fleets break the assumptions that traditional management tools rely on:
 
 ## The RavenFabric Approach
 
-```
+```text
 Operations team (anywhere)
     │  rf exec --selector "fleet=sensors" "uptime"
     │  rf playbook apply firmware-rollout.yaml

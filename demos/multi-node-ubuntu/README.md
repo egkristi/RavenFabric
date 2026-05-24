@@ -4,7 +4,7 @@ Manage multiple Ubuntu systems remotely using RavenFabric. This demo sets up thr
 
 ## Architecture
 
-```
+```text
 ┌─────────────────┐     ┌─────────────────┐
 │  rf-agent-1     │     │  rf-agent-2     │
 │  Ubuntu 24.04   │     │  Ubuntu 24.04   │
@@ -214,7 +214,7 @@ curl http://localhost:8080
 
 SSH -R equivalent: the agent listens on a port and tunnels connections back to the client. Available at the RPC protocol level (`Action::RemoteForward`).
 
-```
+```text
 remote-client → agent:9000 → [encrypted tunnel] → client:3000
 ```
 
@@ -224,7 +224,7 @@ A dedicated CLI command (`rf forward --reverse`) is planned.
 
 SSH -D equivalent: a local SOCKS5 proxy tunnels all traffic through the agent's network. Available at the RPC level (`Action::Socks5Forward`).
 
-```
+```text
 Browser (SOCKS5) → localhost:1080 → [encrypted] → agent → destination
 ```
 
@@ -591,7 +591,7 @@ rf --relay ws://127.0.0.1:9999 exec --token agent1 'hostname'
 
 ## File Structure
 
-```
+```text
 demos/multi-node-ubuntu/
 ├── setup.sh                                 # Setup and teardown script
 ├── README.md                                # This file

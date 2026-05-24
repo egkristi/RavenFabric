@@ -93,7 +93,7 @@ Once connected, Claude Code can use these tools:
 
 After setup, ask Claude Code to run:
 
-```
+```text
 Use the rf_list_my_capabilities tool to show what operations are available.
 ```
 

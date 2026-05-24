@@ -28,7 +28,7 @@ authenticated encrypted communication.
 
 ### Handshake Flow (Noise XX)
 
-```
+```text
 Initiator                                    Responder
     │                                            │
     │──── msg1: e ────────────────────────────→  │  (ephemeral key)
@@ -54,7 +54,7 @@ Initiator                                    Responder
 
 ### Frame Format
 
-```
+```text
 ┌──────────────┬───────────────────────────────────────┐
 │ Length (4B)   │ Ciphertext + MAC (16B)                │
 │ Big-endian   │ ChaCha20-Poly1305 encrypted payload   │
@@ -68,7 +68,7 @@ Initiator                                    Responder
 
 ### Connection Handshake
 
-```
+```text
 ┌──────────┬─────────┬────────────────────────────┐
 │ Magic    │ Version │ Noise XX Handshake (3 msgs) │
 │ "RVNF"  │ 0x01    │                              │
@@ -98,7 +98,7 @@ Initiator                                    Responder
 
 ### Key Lifecycle
 
-```
+```text
 Generation ──→ Storage (0600) ──→ Load ──→ Handshake ──→ Session ──→ Drop (zeroed)
      │                                                         │
      └── Atomic write (no permission window)                   └── Memory zeroed

@@ -23,7 +23,7 @@ uncontrolled crossing points created by operational necessity.
 
 ### Current approach
 
-```
+```text
 IT laptop → downloads update → copies to USB → carried to OT → plugged into OT workstation → ICS
 ```
 
@@ -40,7 +40,7 @@ systems, or refusing to update — are all worse.
 RavenFabric maintains end-to-end security across air gaps through **delay-tolerant
 cryptographic bundles** on physical media.
 
-```
+```text
 IT side:                                    OT side:
 ┌────────────┐                              ┌────────────┐
 │ Engineer   │  rf bundle create            │ rf-agent   │  watches /media/usb
@@ -75,7 +75,7 @@ Each bundle is:
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │  IT Network                                             │
 │  ┌────────────┐    rf bundle create                     │
@@ -233,7 +233,7 @@ $ rf bundle export /tmp/q2-update.rfb /media/usb/q2-update.rfb
 
 OT agent log:
 
-```
+```text
 [14:32:01] Bundle detected: /media/usb/q2-update.rfb
 [14:32:01] Signatures: 3/3 valid | TTL: ok (4h old) | Nonce: ok
 [14:32:02] Executing 1/3: scada-backup → success (12s)

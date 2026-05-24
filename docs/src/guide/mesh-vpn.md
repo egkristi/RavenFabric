@@ -86,7 +86,7 @@ drivers = [
 
 If the agent detects interference or tampering on the active transport (unexpected RST, decryption failures, abnormal latency), it automatically migrates to an alternative path without dropping the session:
 
-```
+```text
 [transport] wireguard-direct: decryption error — abandoning path
 [transport] quic-direct: connecting...
 [transport] quic-direct: session resumed (0 RPC frames lost)
@@ -102,7 +102,7 @@ DTN is designed for nodes that are offline for extended periods — remote senso
 
 ### How DTN Works
 
-```
+```text
 Controller                    DTN Network               Agent
      │                            │                        │
      │── enqueue operation ──────►│                        │
@@ -142,7 +142,7 @@ rf exec --token <TOKEN> --dtn "apt-get update && apt-get upgrade -y"
 
 Output when agent is offline:
 
-```
+```text
 Agent field-sensor-07 is currently unreachable.
 DTN queue accepted: job_id=c4d5e6f7
 Bundle will be delivered when connectivity is available.

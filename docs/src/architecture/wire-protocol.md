@@ -4,7 +4,7 @@ RavenFabric uses a custom binary wire protocol optimized for security and effici
 
 ## Frame Format
 
-```
+```text
 ┌──────────────┬─────────┬──────────────────────────────────┐
 │  Magic (4B)  │ Ver (1B)│         Payload                  │
 │  R V N F     │  0x01   │  [Noise handshake / frames]      │
@@ -19,7 +19,7 @@ Every connection starts with `RVNF` (0x52 0x56 0x4E 0x46) followed by version by
 
 After magic + version validation, the Noise XX handshake begins:
 
-```
+```text
 Noise_XX_25519_ChaChaPoly_BLAKE2s
 
 Message 1: Initiator → Responder:  e
@@ -37,7 +37,7 @@ After three messages, both sides have:
 
 After handshake, all data is encrypted:
 
-```
+```text
 ┌────────────────┬──────────────────────────────────────┐
 │ Length (4B BE) │  Ciphertext + MAC (16B)              │
 └────────────────┴──────────────────────────────────────┘
@@ -54,7 +54,7 @@ Any MAC verification failure immediately terminates the connection and triggers 
 
 Yamux multiplexing runs over the SecureChannel, enabling concurrent operations:
 
-```
+```text
 SecureChannel
   └── yamux
       ├── Stream 0: RPC request/response

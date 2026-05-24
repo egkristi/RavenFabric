@@ -63,7 +63,7 @@ server {
 
 Deploy multiple relays for latency optimization:
 
-```
+```text
 relay-eu.example.com  (Frankfurt)
 relay-us.example.com  (Virginia)
 relay-ap.example.com  (Singapore)

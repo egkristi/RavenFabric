@@ -10,7 +10,7 @@ RavenFabric is built as a Rust Cargo workspace with 13 focused crates. Each crat
 
 ## Layer Model
 
-```
+```text
 ┌─────────────────────────────────────────────────────┐
 │  Layer 6: Interface                                 │
 │  CLI · Web UI · API · Operator · SDK · MCP server   │
@@ -69,7 +69,7 @@ RavenFabric is built as a Rust Cargo workspace with 13 focused crates. Each crat
 
 ## Dependency Graph
 
-```
+```text
 rf-crypto  (no internal deps)
   ↑
 rf-transport (depends on rf-crypto)
@@ -308,7 +308,7 @@ impl OtpStore {
 
 ## Data Flow: `rf exec agent "command"`
 
-```
+```text
 1. CLI parses command, resolves agent target
 2. CLI connects to relay via WebSocket (or direct if available)
 3. Noise XX handshake (CLI = initiator, Agent = responder via relay pairing)
@@ -334,7 +334,7 @@ impl OtpStore {
 
 ## Data Flow: MCP AI Agent
 
-```
+```text
 AI Agent (Claude/Cursor/Aider)
   │
   │ JSON-RPC 2.0 (stdio or HTTP+SSE)
@@ -357,7 +357,7 @@ rf-mcp-server
 
 ## Data Flow: Relay Pairing
 
-```
+```text
 Agent                         Relay                         Client
   │                             │                             │
   │── WSS CONNECT ─────────────►│                             │
@@ -382,7 +382,7 @@ Agent                         Relay                         Client
 
 ## Wire Protocol
 
-```
+```text
 Handshake:
 ┌─────────────────┬──────────────────────────────────────┐
 │  Magic (4B)     │  "RVNF"                              │

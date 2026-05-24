@@ -7,7 +7,7 @@ Each crate has a single responsibility and minimal coupling.
 
 ## Crate Map
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                      Binaries                           │
 │  rf-agent          rf-relay          rf-cli            │
@@ -33,7 +33,7 @@ Each crate has a single responsibility and minimal coupling.
 
 ### Command Execution (happy path)
 
-```
+```text
 Client (rf-cli)
   │
   ├── Noise XX handshake → mutual auth
@@ -56,7 +56,7 @@ Client (rf-cli)
 
 ### Relay-mediated Connection
 
-```
+```text
 Agent ──WSS──→ Relay ←──WSS── Client
                  │
                  │ (meet protocol)

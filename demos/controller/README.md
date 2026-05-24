@@ -4,7 +4,7 @@ Demonstrates the RavenFabric controller's HTTP API server and embedded web dashb
 
 ## Architecture
 
-```
+```text
                  ┌───────────────────────┐
    Browser ────► │  Controller (HTTP)    │ ◄──── rf CLI
                  │  port 8080            │

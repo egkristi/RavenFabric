@@ -97,7 +97,7 @@ rf apply --token <TOKEN> desired-state.yaml
 
 Output:
 
-```
+```text
 Evaluating desired-state.yaml on web-01...
 
   packages:

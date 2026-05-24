@@ -6,7 +6,7 @@ RavenFabric supports a hybrid key exchange that combines a classical elliptic-cu
 
 A pure post-quantum handshake replaces classical crypto. A hybrid handshake runs both in parallel and derives the session key from both:
 
-```
+```text
 session_key = KDF(classical_secret || post_quantum_secret)
 ```
 
@@ -108,7 +108,7 @@ rf status --token <TOKEN> --verbose
 
 Output includes the negotiated handshake parameters:
 
-```
+```text
 Agent:       web-01
 Version:     0.25.0
 Uptime:      4d 12h

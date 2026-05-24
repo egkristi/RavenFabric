@@ -41,7 +41,7 @@ Cargo workspace with 14 crates:
 
 ## Dependency Flow
 
-```
+```text
 rf-crypto  (no internal deps)
   ↑
 rf-transport (depends on rf-crypto)
@@ -72,6 +72,7 @@ RavenFabric runs **everywhere**. The agent must compile and operate on any devic
 | **Tier 3** (planned/experimental) | WASM/WASI, OpenWrt (MIPS/ARM), ESPHome/ESP32 (via esp-idf), bare-metal ARM (no_std subset) | Minimal agent profile |
 
 **Design constraints for universal deployment:**
+
 - No libc dependency on Linux (musl static linking)
 - No hard dependency on filesystem (embedded/WASM may lack it)
 - Async runtime must support single-threaded mode (IoT, constrained devices)
@@ -81,6 +82,7 @@ RavenFabric runs **everywhere**. The agent must compile and operate on any devic
 - Feature flags for heavy dependencies: `full` (default), `minimal` (no TUN, no sysinfo, no QUIC)
 
 **Mobile considerations:**
+
 - Android: agent runs as foreground service, NDK cross-compile, no JNI in core (optional thin JNI wrapper)
 - iOS: agent as Network Extension, no background restrictions if using proper entitlements
 - Both: respect OS power management, suspend/resume reconnect cycle
@@ -222,21 +224,28 @@ cargo fmt --check        # Format check
 The repository is **private** by default. Every push must follow this exact sequence:
 
 1. **Make repo public** before pushing:
+
    ```bash
    gh repo edit egkristi/RavenFabric --visibility public --accept-visibility-change-consequences
    ```
+
 2. **Push commit and version tag** (every version bump commit MUST be tagged to trigger the release pipeline):
+
    ```bash
    git add -A && git commit -m "<message>" && git push
    git tag -a vX.Y.Z <commit-sha> -m "Release vX.Y.Z — <short description>"
    git push origin vX.Y.Z
    ```
+
 3. **Wait for ALL GitHub Actions pipelines to complete successfully** (Check, Test, Clippy, Format, MSRV, Cross-compile, Coverage, CodeQL, Release, Docker, and any other triggered workflows). Monitor with:
+
    ```bash
    gh run list --branch main --limit 8
    ```
+
 4. **If any pipeline fails**: Diagnose and fix immediately. Create a GitHub Issue for each distinct problem. Push the fix (repo is still public).
 5. **Make repo private** only after all pipelines are green:
+
    ```bash
    gh repo edit egkristi/RavenFabric --visibility private --accept-visibility-change-consequences
    ```
@@ -267,6 +276,7 @@ When bumping version:
 4. Add a dated section header in `CHANGELOG.md` (e.g. `## [0.2.0] — 2026-05-08`)
 5. Commit with `chore: bump version to X.Y.Z`
 6. **Push an annotated tag** — the Release workflow only fires on tag pushes; without it no binaries are published:
+
    ```bash
    git tag -a vX.Y.Z <commit-sha> -m "Release vX.Y.Z — <short description>"
    git push origin vX.Y.Z
@@ -304,6 +314,7 @@ Every version bump **must** update all of the following locations atomically. No
 | `.github/copilot-instructions.md` | Total LOC + test count in the crate table footer |
 
 **LOC and test counts** must be recalculated from source before every version bump:
+
 ```bash
 find crates -name "*.rs" | xargs wc -l | tail -1          # total LOC
 cargo test --workspace 2>&1 | grep "test result" | awk '{sum += $4} END {print sum}'  # total tests
@@ -366,6 +377,7 @@ The critical path to a working demo (`rf exec --token <token> "cmd"`) is **COMPL
 v0.1 foundation is done: all crates implemented, 35 tests passing, integration tests working.
 
 **Next priorities (v0.2):**
+
 1. QUIC transport driver
 2. yamux multiplexing for concurrent RPC
 3. Hot-reload policy via SIGHUP
@@ -385,7 +397,7 @@ The project landing page is at [ravenfabric.io](https://ravenfabric.io), served 
 
 ### Structure
 
-```
+```text
 website/
 ├── index.html              # Single-page landing (all CSS inlined)
 ├── _headers                # Security headers (Cloudflare Pages native support)
@@ -402,7 +414,8 @@ website/
 ### Deployment
 
 Auto-deploys on push to `main` via Cloudflare Pages (connected to GitHub repo):
-```
+
+```text
 git push origin main → Cloudflare Pages builds from repo → live at ravenfabric.io (~1-2 min)
 ```
 

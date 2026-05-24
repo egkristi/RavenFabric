@@ -29,7 +29,7 @@ rf secret push \
 
 Output:
 
-```
+```text
 ✓  web-01  sealed  sha256:a3f9b2c1...  (new)
 ```
 
@@ -46,7 +46,7 @@ rf secret push \
 
 Output:
 
-```
+```text
 ✓  web-01  sealed  sha256:a3f9b2c1...  (new)
 ✓  web-02  sealed  sha256:a3f9b2c1...  (new)
 ✓  web-03  sealed  sha256:a3f9b2c1...  (new)
@@ -80,7 +80,7 @@ rf secret push \
 
 Output:
 
-```
+```text
 ✓  web-01  sealed  sha256:d7e8f9a0...  (rotated, old valid 300s)
 ✓  web-02  sealed  sha256:d7e8f9a0...  (rotated, old valid 300s)
 ✓  web-03  sealed  sha256:d7e8f9a0...  (rotated, old valid 300s)
@@ -109,7 +109,7 @@ rf secret list --token <TOKEN>
 
 Output:
 
-```
+```text
 NAME          HASH              ROTATED AT
 DB_PASSWORD   sha256:d7e8f9a0   2026-05-21T10:30:00Z
 API_KEY       sha256:b1c2d3e4   2026-05-20T08:15:00Z

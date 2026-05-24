@@ -45,7 +45,7 @@ rf exec --relay ws://127.0.0.1:9090 --token "meet-token" "hostname"
 
 Output:
 
-```
+```text
 web-01
 ```
 

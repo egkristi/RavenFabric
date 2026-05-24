@@ -30,7 +30,7 @@ Maritime environments break conventional IT management assumptions:
 
 ## How RavenFabric Addresses This
 
-```
+```text
 Fleet operations (shore)
     │  rf exec --selector "fleet=tankers" "system_health_check"
     │  rf playbook apply security-patch-q2.yaml

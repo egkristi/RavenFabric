@@ -4,7 +4,7 @@
 
 ## Syntax
 
-```
+```text
 rf cp [OPTIONS] <SOURCE> <DEST>
 ```
 
@@ -28,7 +28,7 @@ rf cp --token <TOKEN> ./config.tar.gz web-01:/etc/app/config.tar.gz
 
 Output:
 
-```
+```text
 → Transferring config.tar.gz to web-01 (1.2 MB)
   ████████████████████ 100%  1.2 MB  2.3 MB/s
 ✓  sha256:4f8e9c2d1a3b5f7e...  verified on web-01
@@ -65,7 +65,7 @@ rf cp -r --token <TOKEN> web-01:/var/log/app/ ./logs/
 
 Output:
 
-```
+```text
 → Transferring certs/ to db-01 (3 files, 28 KB)
   ████████████████████ 100%
 ✓  3 files verified on db-01

@@ -4,7 +4,7 @@ Connect to a Linux container directly — no relay needed. The agent listens on 
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────┐
 │  rf-agent             │
 │  Ubuntu 24.04         │

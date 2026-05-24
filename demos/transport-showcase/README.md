@@ -4,7 +4,7 @@ Demonstrates RavenFabric's transport diversity — the same encrypted protocol r
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Noise XX + ChaCha20-Poly1305                │
 │                     (identical on every transport)              │

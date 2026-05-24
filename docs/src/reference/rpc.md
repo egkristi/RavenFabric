@@ -4,7 +4,7 @@ RavenFabric uses a custom RPC protocol over encrypted channels. All communicatio
 
 ## Transport Stack
 
-```
+```text
 ┌──────────────────────────────┐
 │ RPC (Request / Response)     │  ← msgpack-encoded
 ├──────────────────────────────┤

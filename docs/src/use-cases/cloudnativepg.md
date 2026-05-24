@@ -20,7 +20,7 @@
 
 ## The RavenFabric Approach
 
-```
+```text
 DBA workstation (anywhere)
     │  rf exec --token <token> "psql -c 'SELECT ...'"
     │  rf shell --token <token>

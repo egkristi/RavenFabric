@@ -7,7 +7,7 @@ All communication is encrypted and mutually authenticated.
 
 ## Connection Establishment
 
-```
+```text
 1. TCP / WebSocket connection established
 2. Magic bytes: "RVNF" (4 bytes) + version (1 byte)
 3. Noise XX handshake (3 round-trips):
@@ -22,7 +22,7 @@ All communication is encrypted and mutually authenticated.
 
 After handshake, all data is sent as encrypted frames:
 
-```
+```text
 ┌──────────────────┬────────────────────────────────┐
 │  Length (4 bytes) │  Ciphertext + MAC (16 bytes)   │
 │  big-endian u32   │  ChaCha20-Poly1305 encrypted   │
@@ -46,7 +46,7 @@ Over the encrypted channel, yamux provides stream multiplexing:
 
 Within each yamux stream, messages are msgpack-encoded:
 
-```
+```text
 Request:
   id: String (UUID)
   action: Action enum
@@ -59,7 +59,7 @@ Response:
 
 ## Noise Parameters
 
-```
+```text
 Pattern:    XX (mutual authentication, no pre-shared keys)
 DH:         25519 (Curve25519)
 Cipher:     ChaChaPoly (ChaCha20-Poly1305)

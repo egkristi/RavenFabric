@@ -52,7 +52,7 @@ rf playbook deploy.yaml --token <TOKEN>
 
 Output:
 
-```
+```text
 Running playbook: Deploy myapp v2.1
 Targets: web-01, web-02, web-03
 
@@ -117,7 +117,7 @@ rf playbook rolling-deploy.yaml --token <TOKEN>
 
 If any step fails, the playbook automatically runs the `rollback` command for all preceding steps that succeeded on that agent:
 
-```
+```text
 [web-02] Deploy binary      ✗  exit code 1 — disk full
 [web-02] Rolling back...
 [web-02] Restore binary     ✓  restored myapp-2.0
@@ -139,7 +139,7 @@ rf exec --token <TOKEN> --background "apt-get dist-upgrade -y"
 
 Output:
 
-```
+```text
 job_id: bf3a9c12
 pid: 4821
 started: 2026-05-21T10:30:00Z
@@ -179,7 +179,7 @@ rf exec --token <TOKEN> --selector "role=web,env=prod" "systemctl status nginx"
 
 Results are printed as they arrive, tagged with the agent ID:
 
-```
+```text
 [web-01]  web-01.internal
 [web-03]  web-03.internal
 [web-02]  web-02.internal

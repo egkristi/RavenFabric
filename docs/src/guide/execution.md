@@ -111,7 +111,7 @@ Execution is bounded by policy:
 
 Every execution follows this path:
 
-```
+```text
 CLI → Relay (encrypted, opaque) → Agent
                                     ├── Policy check (deny-by-default)
                                     ├── Execute (within resource limits)

@@ -6,7 +6,7 @@ Get an AI agent connected to RavenFabric in under 5 minutes.
 
 RavenFabric provides an MCP (Model Context Protocol) server that lets AI agents execute commands, read/write files, and query policies — all within a security sandbox with behavioral anomaly detection.
 
-```
+```text
 AI Agent (Claude, Cursor, Aider)
     ↓ MCP (stdio or HTTP+SSE)
 rf-mcp-server

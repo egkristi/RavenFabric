@@ -110,7 +110,7 @@ cef_device_version = "0.25.0"
 
 CEF output example:
 
-```
+```text
 CEF:0|RavenFabric|RavenFabric Agent|0.25.0|exec|Command Execution|5|
   src=10.0.1.5 suser=f7a3c912 msg=systemctl status nginx
   outcome=allow durationMs=105

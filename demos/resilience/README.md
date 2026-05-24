@@ -4,7 +4,7 @@ Demonstrates RavenFabric's resilience capabilities: agent reconnection with expo
 
 ## Architecture
 
-```
+```text
                     ┌─────────────┐
                     │  rf-relay   │ ←── restart, partition
                     │  (port 9094)│

@@ -21,14 +21,14 @@ It runs on servers, desktops, laptops, Raspberry Pis, Android phones, iPhones, r
 
 It is not a task runner with security added. It is a **security-first policy engine** that also executes tasks:
 
-```
+```text
 ❌ Other tools:  powerful execution → bolt on security controls
 ✅ RavenFabric:  airtight policy → execution within its bounds only
 ```
 
 ### The Full Spectrum
 
-```
+```text
 NETWORK ACCESS ◄──────────────────────────────────────────────────────────────► DECLARATIVE STATE
 
 VPN tunnel → port-forward → shell → fire-and-forget → task → playbook → desired-state
@@ -63,7 +63,7 @@ All modes: same policy engine. Same audit log. Same E2E encryption. Same data pi
 
 ## Security Architecture
 
-```
+```text
 Orchestrator (CLI / API / Operator)
   │
   ▼
@@ -88,7 +88,7 @@ Agent (target system — final authority)
 
 All communication uses **Noise XX** (same cryptographic core as WireGuard):
 
-```
+```text
 Noise_XX_25519_ChaChaPoly_BLAKE2s
 ```
 
@@ -245,7 +245,7 @@ All transports: **Noise XX on top, always.** Relay sees only ciphertext.
 
 RavenFabric implements a full NAT traversal stack (inspired by ICE, libp2p DCUtR, and Tailscale DERP):
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  1. Try direct (host candidates, IPv6, LAN)                     │
 │  2. STUN: discover reflexive address (server-reflexive candidates)│
@@ -267,7 +267,7 @@ RavenFabric implements a full NAT traversal stack (inspired by ICE, libp2p DCUtR
 
 Inspired by libp2p's DCUtR (Direct Connection Upgrade through Relay):
 
-```
+```text
 1. Agent connects to relay (immediate, always works)
 2. Client connects to relay, paired with agent
 3. Noise XX handshake through relay (E2E, relay sees nothing)
@@ -351,7 +351,7 @@ All discovery methods produce the same output: a signed peer record containing t
 
 The full lifecycle — from identity genesis through session establishment to graceful teardown — is documented in [CONNECTIVITY.md](CONNECTIVITY.md). It covers 13 phases:
 
-```
+```text
 Identity → Enrollment → Discovery → Rendezvous → NAT Assessment →
 Path Selection → Tunnel Establishment → Broker Decision →
 Crypto Handshake → Session → Path Upgrade → Health Monitoring → Teardown
@@ -377,7 +377,7 @@ Failover is automatic: if the active path degrades, a secondary path is promoted
 
 If tampering or interference is detected on any connection, the agent **autonomously adapts**:
 
-```
+```text
 Detection triggers:
   • Noise MAC verification failure (modified ciphertext)
   • Unexpected bytes outside framing (injection attempt)
@@ -483,7 +483,7 @@ relays    = ["wss://us1.relay.example.com:9090"]
 
 Inspired by NASA's Bundle Protocol (RFC 9171) and NNCP, RavenFabric treats disconnection as normal:
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │  STORE-CARRY-FORWARD                                                 │
 │                                                                      │
@@ -512,7 +512,7 @@ The policy engine considers transport characteristics when making decisions. Sen
 
 Identity in RavenFabric is independent of network position (inspired by Reticulum and SPIFFE):
 
-```
+```text
 Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 ```
 
@@ -656,7 +656,7 @@ AI agents (Claude Code, Cursor, Aider, Devin, custom GPT agents) need system acc
 
 RavenFabric sits between the AI agent and the system, enforcing policy on every action:
 
-```
+```text
 AI Agent (Claude Code, Cursor, Aider, custom)
     │
     │ MCP / stdio / RPC
@@ -818,7 +818,7 @@ Grains support label-matching (`matches_labels()`) for selective targeting in pl
 
 ## Bootstrap: OTP Identity Enrollment
 
-```
+```text
 1. Generate OTP token (programmatic or admin API)
    → Token: rf-otp-a3f9b2c1d4e5f6...
 
@@ -844,7 +844,7 @@ The relay is deliberately dumb. It only copies bytes. It sees nothing.
 
 **What relay sees:**
 
-```
+```text
 Frame:
 ┌──────────────┬──────────────────────────────────────┐
 │  Length (4B) │  Noise ciphertext + 16B MAC          │
@@ -888,7 +888,7 @@ NOT observable: command content, file content, agent identity, traffic type
 
 ### Layer Model
 
-```
+```text
 ┌─────────────────────────────────────────────────────┐
 │  Layer 6: Interface                                 │
 │  CLI · Web UI · API · Operator · SDK               │
@@ -1284,7 +1284,7 @@ rf --connect ws://127.0.0.1:9999 status --token unused
 
 ### Project Structure
 
-```
+```text
 RavenFabric/
 ├── Cargo.toml              # Workspace root
 ├── crates/

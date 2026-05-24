@@ -83,7 +83,7 @@ RavenFabric's trust model:
 
 RavenFabric operates as a **device-resident agent** with a gateway (relay) for connectivity:
 
-```
+```text
 Subject ──→ rf-cli (PEP client)
                 │
                 │ Noise XX encrypted

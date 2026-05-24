@@ -5,7 +5,7 @@ from a heterogeneous fleet — all through encrypted channels with a read-only p
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │  Your Machine                                           │
 │  ┌─────────────────────────────────────────────────┐    │

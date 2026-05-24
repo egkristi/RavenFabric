@@ -4,7 +4,7 @@ Deploy a CloudNativePG PostgreSQL cluster with a RavenFabric agent for remote da
 
 ## Architecture
 
-```
+```text
                     ┌─── Kubernetes (Rancher Desktop) ───────────────┐
                     │  namespace: ravenfabric                        │
                     │                                                │

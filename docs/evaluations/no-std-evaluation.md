@@ -73,7 +73,7 @@ with the following approach:
 
 ## Proposed Architecture
 
-```
+```text
 rf-crypto (feature = "std", default)
 ├── keys.rs       — File I/O for key storage
 ├── channel.rs    — Tokio async SecureChannel

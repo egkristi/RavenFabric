@@ -8,7 +8,7 @@ multiple implementation alternatives, ordered by priority.
 
 ## Value Chain Overview
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────┐
 │  Phase 0: IDENTITY GENESIS                                       │
 │  Who is the node? How do we know it's authentic?                 │
@@ -96,7 +96,7 @@ Identity is the foundation. Everything else builds on this.
 
 ### Identity Forms
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  Static Identity (long-lived)                                   │
 │  ├── Agent identity key   (Curve25519, 5+ year lifetime)        │
@@ -115,7 +115,7 @@ Identity is the foundation. Everything else builds on this.
 
 ### Filesystem Layout
 
-```
+```text
 /etc/ravenfabric/
 ├── identity/
 │   ├── agent.key         (0600, mlock'd, zeroed-on-drop)
@@ -151,7 +151,7 @@ How a completely new node joins the fabric.
 
 ### Bootstrap Flow
 
-```
+```text
 ┌──────────┐                    ┌──────────┐                    ┌──────────┐
 │  Admin   │                    │  Broker  │                    │  Agent   │
 └────┬─────┘                    └────┬─────┘                    └────┬─────┘
@@ -207,7 +207,7 @@ When a node needs to communicate, how does it find out who's out there?
 
 ### Hybrid Discovery (recommended)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  PRIORITY 1: Cached known peers                                 │
 │              (fastest, no round-trip)                            │
@@ -439,7 +439,7 @@ Actually opening a packet-carrying channel.
 
 ### UDP Hole Punching Sequence
 
-```
+```text
 ┌──────────┐                ┌──────────┐                ┌──────────┐
 │  Peer A  │                │  Broker  │                │  Peer B  │
 │ (NAT)    │                │ (public) │                │ (NAT)    │
@@ -476,7 +476,7 @@ When and how the broker (rf-relay) is used.
 
 ### Broker Roles
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  RavenFabric Broker (rf-relay)                                  │
 │                                                                 │
@@ -509,7 +509,7 @@ When and how the broker (rf-relay) is used.
 
 ### Broker Threat Model
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  ASSUMPTION: BROKER IS POTENTIALLY COMPROMISED                  │
 │                                                                 │
@@ -553,7 +553,7 @@ Mutual authentication + key establishment, completely independent of transport.
 
 ### Noise XX Pattern (primary)
 
-```
+```text
 Pattern: Noise_XX_25519_ChaChaPoly_BLAKE2s
 
   -> e                        (initiator ephemeral)
@@ -571,7 +571,7 @@ Properties:
 
 ### Hybrid Post-Quantum (v0.6 design)
 
-```
+```text
 Pattern: Noise_XXhfs_25519+ML-KEM-768_ChaChaPoly_BLAKE2s
 
   -> e, e1                        (e = X25519, e1 = ML-KEM encaps)
@@ -598,7 +598,7 @@ After handshake: how the channel is structured.
 
 ### Stream Allocation
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  One Noise XX session carries many yamux streams:               │
 │                                                                 │
@@ -620,7 +620,7 @@ After handshake: how the channel is structured.
 
 ### Wire Protocol
 
-```
+```text
 Outer frame (transport-independent):
 ┌──────────┬──────────┬──────────────────────────────────┐
 │ Magic    │ Length   │ Noise ciphertext + 16B MAC       │
@@ -645,7 +645,7 @@ An established session can switch underlying transport without losing data.
 
 ### Cross-Protocol Upgrade (unique to RavenFabric)
 
-```
+```text
 TIMELINE:
 ═══════════════════════════════════════════════════════════════════
 
@@ -704,7 +704,7 @@ Continuous monitoring of path health.
 
 ### Failover Logic
 
-```
+```text
 ACTIVE PATH HEALTH CHECK (every 5s)
          │
          ▼
@@ -731,7 +731,7 @@ Clean shutdown is as important as clean startup.
 
 ### Teardown Sequence
 
-```
+```text
 1. Stop accepting new RPC requests on session
 2. Wait for in-flight requests to complete (with timeout)
 3. Flush audit log to durable storage
@@ -757,7 +757,7 @@ Clean shutdown is as important as clean startup.
 
 ## End-to-End Example
 
-```
+```text
 ═══════════════════════════════════════════════════════════════════
   rf exec prod-server-1 "systemctl status nginx"
 ═══════════════════════════════════════════════════════════════════

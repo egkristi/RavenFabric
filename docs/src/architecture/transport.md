@@ -80,7 +80,7 @@ UNIX domain sockets solve all of these: filesystem permissions control access, `
 
 When `rf exec local` is invoked, the CLI automatically selects the fastest available local transport:
 
-```
+```text
 vsock (if in VM) > unix socket > named pipe (Windows) > loopback TCP
 ```
 

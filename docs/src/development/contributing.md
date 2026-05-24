@@ -26,7 +26,7 @@
 
 ## Commit Conventions
 
-```
+```text
 feat: add QUIC transport driver #5
 fix: prevent symlink traversal in path policy
 refactor: extract codec into separate module

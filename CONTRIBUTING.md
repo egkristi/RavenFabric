@@ -37,7 +37,7 @@ cargo test --all
 
 Use conventional commits:
 
-```
+```text
 feat: add QUIC transport driver #5
 fix: handle reconnect timeout correctly closes #8
 refactor: extract frame codec into module
@@ -60,7 +60,7 @@ perf: reduce handshake allocations
 
 ## Project Structure
 
-```
+```text
 RavenFabric/
 ├── Cargo.toml           # Workspace root
 ├── crates/

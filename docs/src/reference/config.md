@@ -39,7 +39,7 @@ max_retries = 0
 
 All config values can be overridden via CLI flags:
 
-```
+```text
 rf-agent [OPTIONS]
 
 OPTIONS:
@@ -57,7 +57,7 @@ OPTIONS:
 
 The relay binary accepts CLI arguments (no config file):
 
-```
+```text
 rf-relay [OPTIONS]
 
 OPTIONS:

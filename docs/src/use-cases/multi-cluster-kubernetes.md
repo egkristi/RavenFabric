@@ -29,7 +29,7 @@ Traditional approaches:
 
 ## How RavenFabric Addresses This
 
-```
+```text
 Operator workstation
     │  rf exec --selector "env=prod" "kubectl get nodes"
     │  rf shell prod-eu-agent

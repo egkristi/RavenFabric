@@ -29,7 +29,7 @@ python3 -m http.server 8000
 
 Pushes to `main` automatically deploy via `.github/workflows/deploy.yml`:
 
-```
+```text
 git push origin main
   ↓
 GitHub Actions: build (validate HTML, upload artifact)
@@ -41,7 +41,7 @@ Live at https://ravenfabric.io within ~1-2 minutes
 
 ## Structure
 
-```
+```text
 .
 ├── index.html              # Single-page landing
 ├── CNAME                   # Custom domain for GitHub Pages

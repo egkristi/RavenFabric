@@ -20,7 +20,7 @@ The following are considered stable and will not change without a major version 
 
 ## Connection Sequence (Stable)
 
-```
+```text
 Client                          Server
   │                               │
   ├──── "RVNF" + 0x01 ──────────►│  Wire magic + version

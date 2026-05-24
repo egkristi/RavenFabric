@@ -94,7 +94,7 @@ When connected, Aider's AI can use:
 
 Once configured, you can ask Aider to execute validated commands:
 
-```
+```text
 > Run the test suite using rf_exec
 
 Aider will call rf_exec with the appropriate test command,

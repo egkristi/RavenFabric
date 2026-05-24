@@ -78,7 +78,7 @@ When the anomaly score exceeds `score_threshold_auto`, the agent automatically r
 
 When the score exceeds `score_threshold_block`, the session is terminated:
 
-```
+```text
 Session f7a3..c912 terminated — anomaly score 0.97 exceeded block threshold
 Audit entry: seq=5214, event=ANOMALY_SESSION_BLOCK
 ```
@@ -126,7 +126,7 @@ rf anomaly baseline --token <TOKEN> --caller <CALLER_FINGERPRINT>
 
 Output:
 
-```
+```text
 Baseline for caller f7a3..c912 (ai-deploy-bot)
   Observation window: 2026-05-14 – 2026-05-21
   Total events in baseline: 3,420

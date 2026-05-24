@@ -4,7 +4,7 @@ Verify that RavenFabric's static musl binaries work on every major Linux distrib
 
 ## Architecture
 
-```
+```text
 ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
 │  Ubuntu   │ │  Debian  │ │  Fedora  │ │  Rocky   │ │ Manjaro  │
 │  24.04    │ │  12      │ │  41      │ │  9       │ │  (Arch)  │

@@ -31,7 +31,7 @@ MSPs face multiplied complexity as client count grows:
 
 ## How RavenFabric Addresses This
 
-```
+```text
 MSP technician
     │  rf exec --target acme-web-01 "kubectl get pods"
     │  rf shell acme-db-primary
@@ -65,7 +65,7 @@ Per-client agents (in client's own infrastructure)
 
 Each client owns their agent identity keys. The MSP operates the relay but cannot decrypt client traffic (Noise XX end-to-end). Technician access is controlled by capability tokens that the client can revoke.
 
-```
+```text
 MSP Relay
 ├── Tenant: acme-corp (agents encrypted to acme's keys)
 ├── Tenant: beta-industries (agents encrypted to beta's keys)

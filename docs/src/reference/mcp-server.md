@@ -6,7 +6,7 @@
 
 The MCP server translates JSON-RPC 2.0 tool calls from AI agents into RavenFabric operations, enforcing deny-by-default policy on every action.
 
-```
+```text
 AI Agent (Claude, Cursor, Aider)
     ↓ JSON-RPC 2.0 (stdio or HTTP+SSE)
 rf-mcp-server

@@ -4,7 +4,7 @@ End-to-end demonstration of RavenFabric's MCP (Model Context Protocol) server en
 
 ## Architecture
 
-```
+```text
 ┌───────────────────┐     stdio/SSE      ┌──────────────────────┐
 │  AI Agent (Claude, │ ◄───────────────► │  rf-mcp-server       │
 │  GPT, custom LLM)  │    MCP protocol    │  (policy + approval) │
