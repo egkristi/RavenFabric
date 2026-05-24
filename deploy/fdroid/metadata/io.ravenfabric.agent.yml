@@ -43,7 +43,6 @@ Builds:
   - versionName: 0.15.0
     versionCode: 4
     commit: v0.5.0
-    subdir: .
     sudo:
       - apt-get update
       - apt-get install -y cargo rustc
@@ -54,5 +53,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 0.25.0
+CurrentVersion: 0.25.1
 CurrentVersionCode: 4

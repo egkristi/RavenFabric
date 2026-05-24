@@ -1,7 +1,7 @@
 {
   "ansible.validation.enabled": false,
   "ansible.validation.lint.enabled": false,
-  "yaml.schemaStore.enable": true,
+  "yaml.schemaStore.enable": false,
   "yaml.schemas": {
     "https://json.schemastore.org/github-workflow.json": [
       ".github/workflows/*.yml",
@@ -13,6 +13,12 @@
     "https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json": [
       "docker-compose.yml",
       "docker-compose*.yml"
+    ],
+    "https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.30.0-standalone-strict/all.json": [
+      "demos/kubernetes-cnpg/manifests/*.yaml",
+      "demos/kubernetes-cnpg/manifests/*.yml",
+      "deploy/helm/**/*.yaml",
+      "deploy/helm/**/*.yml"
     ]
   }
 }
