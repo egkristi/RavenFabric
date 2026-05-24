@@ -516,7 +516,7 @@ These MUST hold at all times. Violations are bugs:
 ```toml
 # Root Cargo.toml (key settings)
 [workspace.package]
-version = "0.24.0"
+version = "0.25.0"
 edition = "2024"
 rust-version = "1.88"
 license = "AGPL-3.0-or-later"

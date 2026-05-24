@@ -83,17 +83,18 @@ jobs:
         with:
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
-      - name: Install TPM2 system libraries
-        run: sudo apt-get update -qq && sudo apt-get install -y libtss2-dev
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
       - name: Generate coverage
         run: |
-          cargo llvm-cov --all-features --workspace \
+          # Run coverage without hsm/tpm features: LLVM instrumentation crashes
+          # when both proc-macro-heavy optional crates are active simultaneously.
+          # The hsm and tpm code paths are exercised by the regular Test job.
+          cargo llvm-cov --workspace \
             --ignore-filename-regex "(crates/rf-cli/|crates/rf-agent/|crates/rf-relay/)" \
             --codecov --output-path codecov.json 2>&1 | tee coverage-output.txt
           # Also produce summary for the log
-          cargo llvm-cov --all-features --workspace \
+          cargo llvm-cov --workspace \
             --ignore-filename-regex "(crates/rf-cli/|crates/rf-agent/|crates/rf-relay/)" \
             --summary-only 2>&1 | tee coverage-summary.txt
           COVERAGE=$(grep -oP 'TOTAL.*?(\d+\.\d+)%' coverage-summary.txt | grep -oP '\d+\.\d+' | tail -1)

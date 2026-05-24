@@ -3,11 +3,11 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.24.0)** — Foundation complete. 14 crates, ~72,767 LOC, 1,432 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.25.0)** — Foundation complete. 14 crates, ~72,767 LOC, 1,432 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
-[![Version](https://img.shields.io/badge/version-0.24.0-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.25.0-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
 
 **Language:** Rust | **License:** AGPL-3.0-or-later (core) + Commercial (enterprise)
 
@@ -430,6 +430,36 @@ Connection health metrics are first-class data that propagates through the **sam
 | Exponential backoff + jitter | Standard (1s → 60s max) |
 | Network-aware | Wait for OS network event (mobile, lid-close) |
 | Scheduled | Air-gap rendezvous windows |
+
+### Global Fleet: Region-Aware Relay Selection
+
+RavenFabric agents automatically select the nearest relay cluster using geographic scoring, avoiding the need for manual relay URL management in multi-region deployments.
+
+**Relay cluster configuration** in `raven.toml`:
+
+```toml
+[agent]
+region = "eu-west"
+
+[[transport.relay_clusters]]
+region    = "eu-west"
+continent = "EU"
+latitude  = 51.5
+longitude = -0.1
+relays    = ["wss://eu1.relay.example.com:9090", "wss://eu2.relay.example.com:9090"]
+
+[[transport.relay_clusters]]
+region    = "us-east"
+continent = "NA"
+latitude  = 40.7
+longitude = -74.0
+relays    = ["wss://us1.relay.example.com:9090"]
+```
+
+- **Automatic selection** — the agent scores clusters by continent + Haversine distance and RTT, picks the best relay at startup.
+- **Cross-region forwarding** — relay brokers can forward to peer regions using the `FORWARD:<url>|<inner_token>` protocol. The relay never decrypts the Noise payload.
+- **Deny-by-default forwarding** — `ForwardConfig { allow_forwarding: false }` by default. Enable explicitly with an optional allowlist.
+- **Region-aware orchestration** — set `[agent] region = "eu-west"` and the controller's `AgentRegistry::select_by_region()` filters fleet commands by region.
 
 ### Transport Philosophy
 

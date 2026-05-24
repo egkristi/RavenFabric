@@ -19,7 +19,7 @@ wireguard = []
 geoip = ["dep:maxminddb"]
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "0.24.0" }
+rf-crypto = { path = "../rf-crypto", version = "0.25.0" }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }

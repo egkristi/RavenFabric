@@ -5,6 +5,26 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] — 2026-05-24
+
+### Fixed
+
+- `RelayCluster` in `rf-transport` used `#[cfg_attr(feature = "serde", ...)]` but `serde` is an unconditional dependency — removed invalid cfg_attr, derive directly.
+- `ForwardConfig` manual `impl Default` replaced with `#[derive(Default)]` (clippy `derivable_impls`).
+- `relay_clusters` / `RelayClusterConfig` fields in `rf-agent` were deserialized but never read — wired into `load_config()` for region-aware relay selection at startup.
+- CI Coverage job: added `libtss2-dev` apt package so `tss-esapi-sys` builds with `--all-features`.
+- CI Cross-compile job: switched to `cargo install cross --locked` (crates.io) to avoid GitHub git auth failures.
+- Snap manifest deprecated `architectures:` key → migrated to `platforms:` for `base: core24`.
+- WinGet manifest `$schema` pointed to `defaultLocale.1.6.0` but file is `ManifestType: singleton` — fixed to `singleton.1.6.0`.
+- `rf-crypto` no_std: `pub mod hsm` / `pub mod tpm` gated with `#[cfg(feature)]` to fix 20-error no_std build failure.
+- Dockerfile: added `apk upgrade --no-cache` to clear Alpine CVEs.
+- ROADMAP.md: added `text` language specifier to fenced code block (MD040).
+- Added `.vscode/settings.json` to suppress false-positive schema warnings on RavenFabric playbook YAML files.
+
+### Added
+
+- README: Global Fleet section — relay cluster config, cross-region forwarding protocol (`FORWARD:<url>|<inner>`), deny-by-default `ForwardConfig`, region-aware orchestration.
+
 ## [0.24.0] — 2026-05-24
 
 ### Added
