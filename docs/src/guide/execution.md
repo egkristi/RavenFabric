@@ -19,6 +19,7 @@ rf exec --token abc123 "hostname"
 ```
 
 The flow:
+
 1. CLI connects to relay and pairs with agent via meet token
 2. Noise XX handshake establishes E2E encrypted channel
 3. `Execute` action sent with command string
@@ -38,6 +39,7 @@ Internally uses `StreamExecute` action. Output arrives as `StreamChunk` messages
 ## Background Execution
 
 Via the RPC `BackgroundExec` action, commands run detached:
+
 - Agent returns a `job_id` and `pid` immediately
 - Use `JobQuery` to check status
 - Use `JobWait` to block until completion
@@ -49,6 +51,7 @@ rf shell --token abc123 --cols 120 --rows 40
 ```
 
 Opens a full PTY on the agent:
+
 - Terminal enters raw mode (local echo disabled)
 - Bidirectional stdin/stdout via `ShellInput`/`ShellOutput` messages
 - Window resize propagated via `ShellResize`

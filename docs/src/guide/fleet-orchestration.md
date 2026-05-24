@@ -51,6 +51,7 @@ rf playbook deploy.yaml --token <TOKEN>
 ```
 
 Output:
+
 ```
 Running playbook: Deploy myapp v2.1
 Targets: web-01, web-02, web-03
@@ -137,6 +138,7 @@ rf exec --token <TOKEN> --background "apt-get dist-upgrade -y"
 ```
 
 Output:
+
 ```
 job_id: bf3a9c12
 pid: 4821

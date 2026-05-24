@@ -28,6 +28,7 @@ rf secret push \
 ```
 
 Output:
+
 ```
 ✓  web-01  sealed  sha256:a3f9b2c1...  (new)
 ```
@@ -44,6 +45,7 @@ rf secret push \
 ```
 
 Output:
+
 ```
 ✓  web-01  sealed  sha256:a3f9b2c1...  (new)
 ✓  web-02  sealed  sha256:a3f9b2c1...  (new)
@@ -77,6 +79,7 @@ rf secret push \
 ```
 
 Output:
+
 ```
 ✓  web-01  sealed  sha256:d7e8f9a0...  (rotated, old valid 300s)
 ✓  web-02  sealed  sha256:d7e8f9a0...  (rotated, old valid 300s)
@@ -84,11 +87,13 @@ Output:
 ```
 
 During the grace period:
+
 - Both old and new values are valid
 - Applications can restart against the new value without a hard cutover
 - After the grace period expires, the old value is purged automatically
 
 **Recommended rotation workflow:**
+
 1. Push new value with `--grace-period 300`
 2. Restart your application pods/services to pick up the new value
 3. Wait for grace period to expire
@@ -103,6 +108,7 @@ rf secret list --token <TOKEN>
 ```
 
 Output:
+
 ```
 NAME          HASH              ROTATED AT
 DB_PASSWORD   sha256:d7e8f9a0   2026-05-21T10:30:00Z

@@ -111,16 +111,20 @@ subject to your policy rules.
 ## Troubleshooting
 
 **Server not found:**
+
 - Ensure `rf-mcp-server` is in your PATH
 - Build: `cargo build --release -p rf-mcp-server && cargo install --path crates/rf-mcp-server`
 
 **Authentication errors:**
+
 - Check `RF_API_TOKEN` is exported in the shell where Aider runs
 - Token must match between env var and what the MCP client sends
 
 **Commands blocked unexpectedly:**
+
 - Verify regex patterns in your policy (anchored with `^`)
 - Test with: `rf-mcp-server --policy ./policy.yaml` then send a manual JSON-RPC request
 
 **Rate limiting:**
+
 - Default: 60 calls/minute. Increase with `--rate-limit 120` for heavy workloads

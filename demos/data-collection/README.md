@@ -79,6 +79,7 @@ The demo uses a **read-only data collection policy** — the strictest useful po
 monitoring and compliance use cases:
 
 **Allowed:**
+
 - System info: `hostname`, `uname`, `uptime`, `date`, `whoami`, `id`
 - Resource data: `free`, `df`, `ps`, `top`, `/proc/*` reads
 - Log reads: `tail`, `head`, `grep`, `wc`, `find` on `/var/log`
@@ -86,6 +87,7 @@ monitoring and compliance use cases:
 - Network info: `ip addr`, `ip route`, `ss`, `netstat`
 
 **Denied (explicit denylist + deny-by-default):**
+
 - Destructive: `rm`, `shutdown`, `reboot`, `mkfs`, `dd`
 - Downloads: `curl`, `wget`
 - Package management: `apt`, `pip`
@@ -95,6 +97,7 @@ monitoring and compliance use cases:
 - Firewall: `iptables`
 
 **Filesystem restrictions:**
+
 - Allowed paths: `/proc`, `/sys`, `/etc`, `/var/log`, `/opt/app`
 - Denied paths: `/etc/shadow`, `/etc/gshadow`, `/root`
 

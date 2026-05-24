@@ -78,15 +78,19 @@ rf --relay ws://127.0.0.1:9092 exec --token fedora 'cat /etc/os-release | head -
 ## What This Proves
 
 ### 1. Static binary universality
+
 The same `rf-agent` binary runs on Ubuntu, Debian, Fedora, Rocky, Manjaro (Arch-based), openSUSE, Alpine, Amazon Linux, and Void Linux without modification. No shared libraries, no runtime dependencies.
 
 ### 2. musl-on-glibc compatibility
+
 The agent is compiled with musl for static linking. It runs on both glibc-based distros (Ubuntu, Fedora, etc.) and musl-native distros (Alpine) without issues.
 
 ### 3. Package manager independence
+
 RavenFabric doesn't need apt, dnf, pacman, or any package manager to install. A single `curl` + `chmod +x` is sufficient on any Linux distribution.
 
 ### 4. Distro-agnostic operation
+
 Commands execute identically regardless of the underlying distribution. The policy engine, audit logging, and Noise XX encryption work the same everywhere.
 
 ## Commands
@@ -215,6 +219,7 @@ Demonstrates deny-by-default policy enforcement across different distributions. 
 ```
 
 Denied command categories per distro:
+
 - **Ubuntu**: `apt install`, `curl`, `rm -rf`
 - **Alpine**: `apk add`, `wget`, `rm -rf`
 - **All distros**: `shutdown`, `chmod`, `dnf` (where applicable)
@@ -231,23 +236,28 @@ RELAY_PORT=9099 ./setup.sh
 ## Container Naming
 
 All containers use the `rf-` prefix:
+
 - Relay: `rf-relay-ubuntu`
 - Agents: `rf-ubuntu`, `rf-debian`, `rf-fedora`, `rf-rocky`, `rf-manjaro`, `rf-opensuse`, `rf-alpine`, `rf-amazon`, `rf-void`
 
 ## Troubleshooting
 
 ### Agent not responding after setup
+
 Agents reconnect with exponential backoff. Wait ~5 seconds between commands to the same agent.
 
 ### Image pull fails
+
 Some images may not be available for your architecture (e.g., Void Linux on ARM64). The setup script skips unavailable images gracefully.
 
 ### Check agent logs
+
 ```bash
 docker exec rf-fedora cat /var/log/rf-agent.log
 ```
 
 ### Restart a specific agent
+
 ```bash
 RELAY_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' rf-relay-ubuntu)
 docker exec rf-fedora bash -c 'pkill rf-agent'

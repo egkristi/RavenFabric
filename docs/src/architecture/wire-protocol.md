@@ -28,6 +28,7 @@ Message 3: Initiator → Responder:  s, se
 ```
 
 After three messages, both sides have:
+
 - Verified each other's static public key (mutual authentication)
 - Established shared symmetric keys (forward secrecy)
 - The initiator's identity is hidden until message 3 (identity protection)

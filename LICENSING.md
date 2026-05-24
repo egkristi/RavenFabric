@@ -11,6 +11,7 @@ The RavenFabric core is licensed under the
 [GNU Affero General Public License v3.0](LICENSES/AGPLv3.txt) (AGPLv3).
 
 This covers:
+
 - Transport layer (all drivers: WebSocket, QUIC, WireGuard, Reticulum, ...)
 - Noise XX end-to-end encryption
 - RPC executor and RPCPolicy engine
@@ -19,6 +20,7 @@ This covers:
 - Bootstrap and relay
 
 **AGPLv3 in plain English:**
+
 - Free to use, modify, and distribute
 - If you modify and run it as a service (SaaS), you must publish your modifications
 - If you distribute it as part of a product, that product must also be AGPLv3
@@ -35,6 +37,7 @@ A commercial license is required if you:
 3. Offer RavenFabric as a **hosted/managed service** without releasing modifications
 
 A commercial license grants:
+
 - Usage rights without AGPLv3 obligations
 - Access to enterprise-only features (see below)
 - Priority support and SLA options
@@ -90,6 +93,7 @@ Contributors to RavenFabric must sign a Contributor License Agreement (CLA).
 This allows us to offer the commercial license while accepting community contributions.
 
 The CLA grants us the right to:
+
 - Include your contribution in the AGPLv3 release
 - Include your contribution in commercial releases
 

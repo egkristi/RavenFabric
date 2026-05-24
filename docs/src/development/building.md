@@ -15,6 +15,7 @@ cargo build --release
 ```
 
 Binaries are in `target/release/`:
+
 - `rf` — CLI client
 - `rf-agent` — Agent daemon
 - `rf-relay` — Relay broker

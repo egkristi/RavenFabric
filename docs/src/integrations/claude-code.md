@@ -110,16 +110,20 @@ You should see a JSON response listing policy limits and session info.
 ## Troubleshooting
 
 **"Authentication required" error:**
+
 - Ensure `--api-token` matches what Claude Code sends in the initialize request
 - Check that `RF_API_TOKEN` env variable is set if using env-based auth
 
 **"Rate limited" error:**
+
 - Increase `--rate-limit` or wait for the window to reset (1 minute)
 
 **Command denied:**
+
 - Use `rf_query_policy` to check why a command is blocked
 - Update your policy YAML to allow the pattern
 
 **Server not found:**
+
 - Verify `rf-mcp-server` is in your PATH: `which rf-mcp-server`
 - Build with: `cargo build --release -p rf-mcp-server`

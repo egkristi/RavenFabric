@@ -78,6 +78,7 @@ rf-agent --generate-key /etc/ravenfabric/agent.key
 ```
 
 Key files are:
+
 - 64 bytes (32-byte private + 32-byte public, hex-encoded)
 - Permission-protected (0600)
 - Private key zeroed from memory on process exit

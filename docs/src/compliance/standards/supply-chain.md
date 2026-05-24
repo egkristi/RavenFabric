@@ -28,6 +28,7 @@
 ### Target: SLSA Level 3 (Hardened Build)
 
 Remaining work for Level 3:
+
 - [ ] Sigstore signing of all release artifacts
 - [ ] in-toto attestation generation in CI
 - [ ] Provenance published to Rekor transparency log

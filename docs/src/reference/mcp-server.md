@@ -253,6 +253,7 @@ Each MCP session generates a short-lived Curve25519 keypair. The public key is i
 ```
 
 This provides:
+
 - Cryptographic session correlation in audit trails
 - Proof of session identity for external verification
 - Keys are ephemeral and zeroed from memory on session end

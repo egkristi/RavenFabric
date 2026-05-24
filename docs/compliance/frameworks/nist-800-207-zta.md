@@ -32,6 +32,7 @@
 **NIST Definition:** The component responsible for the ultimate decision to grant access to a resource.
 
 **RavenFabric Implementation:**
+
 - `rf-policy` crate (`RpcPolicy` struct)
 - Loads YAML policy files defining allow/deny rules for commands, filesystem paths, and resource limits
 - Decision output: `Decision { allowed: bool, reason: String, matched_rule: String }`
@@ -43,6 +44,7 @@
 **NIST Definition:** The component responsible for establishing and/or shutting down the communication path between subject and resource.
 
 **RavenFabric Implementation:**
+
 - The agent binary (`rf-agent`) acts as PA — it loads policy, instantiates the executor, and controls the RPC session lifecycle
 - SIGHUP handler enables policy hot-reload (atomic swap via RwLock)
 - Meet-token authentication at relay controls initial session establishment
@@ -53,6 +55,7 @@
 **NIST Definition:** The system responsible for enabling, monitoring, and eventually terminating connections between a subject and an enterprise resource.
 
 **RavenFabric Implementation:**
+
 - **Network PEP:** Relay broker (`rf-relay`) enforces rate limiting (20 conn/IP/min), validates meet tokens (HMAC-SHA256), and pairs only authenticated sessions
 - **Execution PEP:** Executor (`rf-executor`) enforces policy before every command, applies timeout limits, caps output size, and kills runaway processes
 - **Transport PEP:** SecureChannel validates wire magic (`RVNF`), version byte, and completes Noise XX before any RPC
@@ -96,6 +99,7 @@ Subject ──→ rf-cli (PEP client)
 ```
 
 This maps to NIST's "Agent/Gateway" model where:
+
 - The relay acts as a network gateway (routes but cannot inspect)
 - The agent acts as both PE and PEP (final authority on access decisions)
 - The CLI acts as subject/requester
@@ -107,6 +111,7 @@ Not currently applicable — RavenFabric does not use a reverse proxy model.
 ### 4.5 Device Application Sandboxing
 
 Partially applicable:
+
 - Commands execute via `/bin/sh -c` with policy-controlled strings
 - Output is bounded (max 10 MB default)
 - Execution time is bounded (300s default)

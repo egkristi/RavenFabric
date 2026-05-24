@@ -56,6 +56,7 @@ IT side:                                    OT side:
 ```
 
 Each bundle is:
+
 - **Encrypted** to the target agent's public key (only that device can decrypt)
 - **Signed** by the operator's identity key (+ optional co-signatures)
 - **TTL-bounded** with automatic expiry
@@ -231,6 +232,7 @@ $ rf bundle export /tmp/q2-update.rfb /media/usb/q2-update.rfb
 ```
 
 OT agent log:
+
 ```
 [14:32:01] Bundle detected: /media/usb/q2-update.rfb
 [14:32:01] Signatures: 3/3 valid | TTL: ok (4h old) | Nonce: ok

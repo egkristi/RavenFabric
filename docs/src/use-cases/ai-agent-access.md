@@ -159,7 +159,7 @@ spec:
 Instead of writing policy from scratch, use a template:
 
 ```bash
-$ rf policy validate --template coding-assistant
+rf policy validate --template coding-assistant
 ```
 
 Available templates: `coding-assistant`, `production-read-only`, `security-investigator`, `ci-cd-agent`, `database-query-agent`. Templates compose with deny-wins conflict resolution.

@@ -19,6 +19,7 @@ Each Kubernetes cluster requires its own access plumbing:
 - New cluster onboarding takes days of setup
 
 Traditional approaches:
+
 - **Multiple kubeconfigs** — doesn't scale past ~10 clusters
 - **Rancher/Tanzu/Anthos** — vendor lock-in, costly, struggle with edge
 - **Argo CD/Flux** — declarative state only, no ad-hoc troubleshooting

@@ -55,6 +55,7 @@ cargo bench
 ```
 
 Key metrics to track:
+
 - Noise XX handshake latency
 - SecureChannel throughput (frames/sec)
 - Policy evaluation time per command

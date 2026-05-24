@@ -155,6 +155,7 @@ You will see output like:
 4. After approval is granted, retry the original command with the approval ID.
 
 **Security guarantees you must understand:**
+
 - **Command hash binding**: The approval is SHA-256 bound to the exact command. You cannot request approval for one command and then execute a different one — the server will reject it.
 - **One-time-use**: Each approval can be used exactly once. Do not attempt to reuse an approval ID.
 - **TTL expiration**: Approvals expire after 30 minutes. If you wait too long, request a new one.
@@ -163,6 +164,7 @@ You will see output like:
 ### When you need to know what you can do
 
 Run `rf whoami` at the start of work. This shows:
+
 - Your identity name and role
 - How long your session is valid
 - Summary of what you can do (commands allowed, paths accessible, etc.)

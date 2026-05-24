@@ -141,6 +141,7 @@ rf exec --token <TOKEN> --dtn "apt-get update && apt-get upgrade -y"
 ```
 
 Output when agent is offline:
+
 ```
 Agent field-sensor-07 is currently unreachable.
 DTN queue accepted: job_id=c4d5e6f7

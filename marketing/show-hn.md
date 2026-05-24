@@ -30,8 +30,9 @@ rf exec --token dev "rm -rf /"
 ```
 
 **Links:**
-- Website: https://ravenfabric.io
-- GitHub: https://github.com/egkristi/RavenFabric
+
+- Website: <https://ravenfabric.io>
+- GitHub: <https://github.com/egkristi/RavenFabric>
 - MCP integration docs: see repo README
 
 Built because existing tools (Ansible, Salt, Tailscale) weren't designed for a world where AI agents need to execute commands on your infrastructure with cryptographic guarantees and audit trails.

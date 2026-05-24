@@ -87,6 +87,7 @@ pub struct Response {
 ## Encoding
 
 All messages use **msgpack** (via `rmp-serde`):
+
 - Compact binary encoding (smaller than JSON)
 - Schema-flexible (fields can be added without breaking)
 - Length-delimited frames: `[4 bytes BE length][msgpack payload]`
@@ -94,6 +95,7 @@ All messages use **msgpack** (via `rmp-serde`):
 ## Multiplexing
 
 **yamux** provides multiplexed streams over a single SecureChannel:
+
 - Multiple concurrent RPC requests without head-of-line blocking
 - Stream-level flow control
 - Lightweight — minimal overhead per stream
@@ -101,6 +103,7 @@ All messages use **msgpack** (via `rmp-serde`):
 ## Streaming Protocol
 
 For `StreamExecute`, the response is a sequence of messages:
+
 1. Multiple `StreamChunk` results (stdout/stderr as they arrive)
 2. Final `StreamEnd` with exit code
 
@@ -124,6 +127,7 @@ pub struct DtnBundle {
 ```
 
 Bundles support:
+
 - Priority ordering (Critical > High > Normal > Low > Bulk)
 - TTL expiration (except Critical which never expires)
 - Content-addressed integrity verification

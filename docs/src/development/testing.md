@@ -79,6 +79,7 @@ fn test_output_limit_enforced() {
 ### Integration Tests
 
 The `rf-integration-tests` crate runs full E2E flows:
+
 - Client → Relay → Agent → Policy → Execute → Response
 - Policy denial verification
 

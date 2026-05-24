@@ -101,6 +101,7 @@ Noise_XX_25519_ChaChaPoly_BLAKE2s
 ## Execution Modes
 
 ### Single command
+
 ```bash
 # Fire and forget (no output needed)
 rf exec prod-server-1 "touch /workspace/.heartbeat"
@@ -110,6 +111,7 @@ rf exec prod-server-1 "git -C /workspace pull --rebase origin main"
 ```
 
 ### Playbook (multi-agent orchestration with rollback)
+
 ```yaml
 # playbook.yaml — loaded by `rf playbook plan.yaml --token <token>`
 command: "systemctl restart nginx"
@@ -125,6 +127,7 @@ timeout_secs: 60
 ```
 
 ### Desired State (declarative convergence + drift detection)
+
 ```yaml
 apiVersion: ravenfabric.io/v1alpha1
 kind: DesiredState
@@ -167,6 +170,7 @@ spec:
 ## Policy (Security First)
 
 ### RPCPolicy — commands, filesystem, network, HTTP, resources
+
 ```yaml
 spec:
   commands:
@@ -278,6 +282,7 @@ Key insight: **never wait for optimal path**. Use relay immediately, upgrade in 
 ### Background Transport Upgrade
 
 Unlike Tailscale (DERP→WireGuard only), RavenFabric can upgrade **across protocol families**:
+
 1. Connect via fastest available (often relay/WebSocket)
 2. Race all higher-priority transports in background
 3. When faster transport succeeds → offer upgrade via channel
@@ -294,6 +299,7 @@ Unlike Tailscale (DERP→WireGuard only), RavenFabric can upgrade **across proto
 ### Network Environment Probing
 
 Transport-agnostic network probing (inspired by Tailscale's netcheck but probes ALL drivers):
+
 - NAT type detection (open, full cone, restricted, port restricted, symmetric)
 - IPv4/IPv6 availability and preference
 - UDP reachability (per-port)
@@ -409,6 +415,7 @@ Connection health metrics are first-class data that propagates through the **sam
 | Mesh neighbor table | Mesh nodes | Gossiped periodically |
 
 **DTN-specific monitoring:**
+
 - Metrics are bundled as DTN payloads with custody transfer — guaranteed delivery even over days
 - Priority: tamper alerts > health metrics > throughput stats
 - Offline agents accumulate metrics locally, flush on next contact window
@@ -492,6 +499,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 **~72,767 LOC | 1,432 tests | 0 clippy warnings**
 
 What works today:
+
 - Noise XX mutual authentication handshake with wire magic/version validation (full)
 - Secure channel with encrypted frames using `StatelessTransportState` for concurrent send/recv (full)
 - Static key management with zeroing-on-drop, cross-platform (full)
@@ -590,6 +598,7 @@ What works today:
 - Single-threaded async runtime (`rt-single-thread` feature) for constrained IoT devices
 
 Working end-to-end flows:
+
 - `rf exec --token <token> "command"` → relay → agent → execute → respond
 - `rf --connect ws://host:port exec --token unused "command"` → agent (direct, no relay)
 - `rf shell --token <token>` → relay → agent → PTY → interactive terminal
@@ -607,6 +616,7 @@ RavenFabric is purpose-built to be the **security layer between AI agents and pr
 ### The Problem
 
 AI agents (Claude Code, Cursor, Aider, Devin, custom GPT agents) need system access to be useful. But giving an AI agent unrestricted shell access is dangerous:
+
 - No guardrails on destructive commands (`rm -rf /`, `DROP DATABASE`, credential exfiltration)
 - No audit trail of what the AI did and why
 - No blast radius control (one rogue loop can destroy everything)
@@ -671,6 +681,7 @@ AI Agent (Claude Code, Cursor, Aider, custom)
 Three ready-to-use templates ship by default:
 
 **Safe Dev Mode** — AI can develop freely within project boundaries:
+
 ```yaml
 # AI can: read/write project files, run tests, use git, install deps
 # AI cannot: touch system files, access credentials, modify network, sudo
@@ -686,6 +697,7 @@ spec:
 ```
 
 **Production AI Guardrails** — read-only production access with approval for mutations:
+
 ```yaml
 # AI can: query logs, metrics, status — observe everything
 # AI cannot: modify anything without human approval
@@ -699,6 +711,7 @@ spec:
 ```
 
 **Read-Only Infrastructure AI** — zero mutation surface for investigation:
+
 ```yaml
 # AI can: read logs, query metrics, check status
 # AI cannot: write, modify, or execute anything that changes state
@@ -800,6 +813,7 @@ Grains support label-matching (`matches_labels()`) for selective targeting in pl
 The relay is deliberately dumb. It only copies bytes. It sees nothing.
 
 **What relay sees:**
+
 ```
 Frame:
 ┌──────────────┬──────────────────────────────────────┐
@@ -968,6 +982,7 @@ RavenFabric is designed to run **anywhere**. The agent targets every platform th
 | **Tier 3** (experimental) | WASM/WASI, OpenWrt (MIPS/ARM), ESP32, bare-metal ARM | Minimal agent profile — WASM/no_std targets compile |
 
 **Design constraints:**
+
 - Single static binary — no runtime dependencies, no interpreters, no JVM
 - < 10 MB idle memory (runs on Raspberry Pi Zero, Android background service)
 - < 15 MB binary stripped (deployable over constrained links)
@@ -977,10 +992,12 @@ RavenFabric is designed to run **anywhere**. The agent targets every platform th
 - Async runtime supports single-threaded mode for constrained environments
 
 **Mobile:**
+
 - **Android** — agent as foreground service, NDK cross-compile, respects Doze/battery optimization
 - **iOS** — agent as Network Extension, proper entitlements for background connectivity
 
 **Embedded/IoT:**
+
 - No filesystem required (can operate from memory-only config)
 - Reticulum/LoRa/BLE transports for devices without IP networking
 - Schedule-aware connectivity (wake → connect → sync → sleep)

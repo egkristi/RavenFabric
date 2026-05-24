@@ -96,6 +96,7 @@ rf apply --token <TOKEN> desired-state.yaml
 ```
 
 Output:
+
 ```
 Evaluating desired-state.yaml on web-01...
 
@@ -145,6 +146,7 @@ packages:
 ```
 
 Supported package backends:
+
 - `apt` (Debian, Ubuntu)
 - `yum` / `dnf` (RHEL, CentOS, Fedora, Amazon Linux)
 - `apk` (Alpine)
@@ -221,6 +223,7 @@ Settings are applied via `sysctl -w` and persisted to `/etc/sysctl.d/ravenfabric
 ## Drift Detection and Alerting
 
 When drift is detected, the agent can:
+
 1. Log a structured drift event to the audit trail
 2. Send an alert to a webhook
 3. Expose the drift status via the health endpoint

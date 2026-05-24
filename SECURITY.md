@@ -17,7 +17,7 @@ If you discover a security vulnerability in RavenFabric, please report it respon
 Instead, use one of the following methods:
 
 1. **GitHub Private Vulnerability Reporting**: Go to the [Security Advisories](https://github.com/egkristi/RavenFabric/security/advisories) page and click "Report a vulnerability".
-2. **Email**: Contact the maintainer directly at erling@rognsund.no.
+2. **Email**: Contact the maintainer directly at <erling@rognsund.no>.
 
 ### What to include
 

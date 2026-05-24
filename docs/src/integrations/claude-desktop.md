@@ -133,18 +133,22 @@ Once configured, Claude Desktop can use these MCP tools:
 ## Troubleshooting
 
 **No hammer icon in chat:**
+
 - Restart Claude Desktop completely (Cmd+Q, reopen)
 - Check JSON syntax in config file: `cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | jq .`
 - Verify `rf-mcp-server` is in PATH: `which rf-mcp-server`
 
 **"Authentication required" error:**
+
 - Ensure the `apiToken` is sent during initialization
 - Claude Desktop passes MCP server args as configured — check spelling
 
 **Commands blocked:**
+
 - Use `rf_query_policy` tool to test specific commands
 - Update policy YAML to match your regex patterns (anchored with `^`)
 
 **Server crashes on start:**
+
 - Check policy YAML syntax: `rf-mcp-server --policy ./policy.yaml` manually
 - Review stderr output for error messages

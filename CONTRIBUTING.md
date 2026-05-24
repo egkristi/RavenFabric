@@ -30,8 +30,8 @@ cargo clippy --all-targets -- -D warnings -A clippy::unwrap_used
 cargo test --all
 ```
 
-5. Commit with a conventional message
-6. Open a Pull Request
+1. Commit with a conventional message
+2. Open a Pull Request
 
 ## Commit Messages
 

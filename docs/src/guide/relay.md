@@ -42,6 +42,7 @@ WantedBy=multi-user.target
 The relay uses WebSocket, so configure your reverse proxy accordingly:
 
 **Nginx:**
+
 ```nginx
 server {
     listen 443 ssl;

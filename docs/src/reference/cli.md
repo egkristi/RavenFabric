@@ -273,6 +273,7 @@ rf secret list --token <TOKEN>
 ```
 
 Output:
+
 ```
 NAME           HASH (SHA-256)       AGE
 DB_PASSWORD    a3f1b2c4...          2d 4h

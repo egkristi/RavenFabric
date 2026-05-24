@@ -7,6 +7,7 @@ Common issues and their solutions.
 **Symptom:** Agent starts but never establishes a connection to the relay.
 
 **Check relay is reachable:**
+
 ```bash
 # Test WebSocket connectivity
 curl -i -N \
@@ -18,11 +19,13 @@ curl -i -N \
 ```
 
 **Check agent logs:**
+
 ```bash
 RUST_LOG=debug rf-agent --config /etc/ravenfabric/raven.toml
 ```
 
 **Common causes:**
+
 - Firewall blocking outbound WebSocket (port 443 or 9090)
 - Incorrect relay URL in config (must include `/meet` path)
 - Relay not running or not yet accepting connections
@@ -37,18 +40,21 @@ RUST_LOG=debug rf-agent --config /etc/ravenfabric/raven.toml
 **Symptom:** `rf exec` returns "denied by policy" error.
 
 **Check what the policy allows:**
+
 ```bash
 # View the active policy
 cat /etc/ravenfabric/policy.yaml
 ```
 
 **Test a pattern match:**
+
 ```bash
 # The command must match an allow pattern AND not match any deny pattern
 echo "your-command-here" | grep -P '^systemctl status .*$'
 ```
 
 **Common causes:**
+
 - Command doesn't match any `allow` pattern (deny-by-default)
 - Command matches a `deny` pattern (deny always wins)
 - Regex anchoring — missing `^` or `$` in the pattern
@@ -70,12 +76,14 @@ spec:
 **Symptom:** Connection established but Noise handshake fails.
 
 **Common causes:**
+
 - Corrupted or wrong key file
 - Key file permissions too open (must be 0600)
 - Client and agent using different protocol versions
 - Relay or MITM tampering with handshake bytes
 
 **Diagnostic:**
+
 ```bash
 # Check key file permissions
 ls -la /etc/ravenfabric/agent.key
@@ -92,12 +100,14 @@ rf-agent --generate-key /etc/ravenfabric/agent.key.new
 **Symptom:** Agent connects, then disconnects repeatedly (visible in logs as reconnect loop).
 
 **Common causes:**
+
 - Relay overloaded (rate limiting)
 - Network instability (packet loss, MTU issues)
 - Proxy/load balancer dropping idle WebSocket connections
 - Meet token expired or invalid
 
 **Fix for proxy timeout:**
+
 ```nginx
 # Increase WebSocket timeout in nginx
 proxy_read_timeout 86400;
@@ -105,6 +115,7 @@ proxy_send_timeout 86400;
 ```
 
 **Fix for rate limiting:**
+
 ```bash
 # Check if your IP is being rate-limited
 journalctl -u rf-relay | grep "rate_limit"
@@ -117,6 +128,7 @@ journalctl -u rf-relay | grep "rate_limit"
 **Symptom:** Command starts but returns timeout error before completing.
 
 **Check timeout settings:**
+
 ```yaml
 # In policy.yaml
 spec:
@@ -125,6 +137,7 @@ spec:
 ```
 
 **Common causes:**
+
 - Command genuinely takes too long (increase timeout)
 - Command is interactive (waiting for stdin) — not supported
 - Network interruption during execution
@@ -136,6 +149,7 @@ spec:
 **Symptom:** No entries appearing in audit log file.
 
 **Check:**
+
 ```bash
 # Verify path exists and is writable
 ls -la /var/log/ravenfabric/
@@ -146,6 +160,7 @@ df -h /var/log/ravenfabric/
 ```
 
 **Common causes:**
+
 - Directory doesn't exist
 - Permission denied (service user can't write)
 - Disk full
@@ -160,6 +175,7 @@ df -h /var/log/ravenfabric/
 **Cause:** Output exceeded `maxOutputBytes` limit in policy.
 
 **Fix:** Increase the limit:
+
 ```yaml
 spec:
   resources:
@@ -167,6 +183,7 @@ spec:
 ```
 
 Or pipe to limit output on the agent side:
+
 ```bash
 rf exec my-agent "journalctl -u app --since '1 hour ago' | tail -1000"
 ```
@@ -178,10 +195,12 @@ rf exec my-agent "journalctl -u app --since '1 hour ago' | tail -1000"
 **Symptom:** `rf dev` doesn't work.
 
 **Common causes:**
+
 - Port 9090 already in use (another relay or service)
 - Missing policy file at default path
 
 **Fix:**
+
 ```bash
 # Check what's using port 9090
 lsof -i :9090
@@ -214,5 +233,5 @@ RUST_LOG=warn rf-agent --config /etc/ravenfabric/raven.toml
 If the issue persists:
 
 1. Reproduce with `RUST_LOG=debug` and capture full output
-2. Report issues via email to security@ravenfabric.io
+2. Report issues via email to <security@ravenfabric.io>
 3. Include: OS, version, config (redact secrets), debug log output

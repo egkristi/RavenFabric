@@ -115,6 +115,7 @@ Implemented codecs and framers for hostile network traversal:
 ## Overlay Networks (Planned)
 
 Transport driver enum variants are defined for:
+
 - Reticulum Network Stack
 - Yggdrasil (self-configuring IPv6 mesh)
 - I2P (garlic routing)
@@ -126,6 +127,7 @@ These are scaffolded as enum variants but do not yet implement protocol integrat
 ## Connection Management
 
 The `ConnectionRunner` orchestrates:
+
 - **Happy Eyeballs** (RFC 8305) — parallel connection attempts with staggered starts
 - **Automatic reconnection** — exponential backoff with jitter
 - **Multipath scheduling** — 5 algorithms (RoundRobin, LowestLatency, LatencyWeighted, Redundant, BandwidthWeighted)
@@ -136,6 +138,7 @@ The `ConnectionRunner` orchestrates:
 ## NAT Traversal
 
 ICE-style connectivity establishment:
+
 - **STUN client** — real UDP binding requests (RFC 5389/8489)
 - **STUN server** — XOR-MAPPED-ADDRESS responses for self-hosted infrastructure
 - **TURN relay** — UDP allocations with permissions and capacity limits
@@ -146,6 +149,7 @@ ICE-style connectivity establishment:
 ## Peer Discovery
 
 Multiple discovery mechanisms for finding agents without central registries:
+
 - **mDNS/DNS-SD** — LAN discovery via UDP broadcast
 - **DHT (Kademlia-style)** — 256 k-buckets with XOR distance routing
 - **Gossip (SWIM/HyParView)** — UDP health propagation

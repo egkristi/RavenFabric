@@ -29,6 +29,7 @@ Noise_XX_25519_ChaChaPoly_BLAKE2s
 ```
 
 This provides:
+
 - **Mutual authentication** — both sides prove their identity
 - **Forward secrecy** — ephemeral keys per session
 - **Identity hiding** — static keys encrypted during handshake

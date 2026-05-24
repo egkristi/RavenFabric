@@ -56,6 +56,7 @@ The following RPC types have stable msgpack serialization. Fields may be added (
 ## Backward Compatibility Commitment
 
 Starting with v0.3.0:
+
 - Wire protocol format will not change without a version byte increment
 - New RPC `Action` variants may be added (enums are `#[non_exhaustive]`)
 - New fields with `#[serde(default)]` may be added to Request/Response
@@ -65,6 +66,7 @@ Starting with v0.3.0:
 ## Breaking Change Policy
 
 A wire protocol breaking change requires:
+
 1. Major version bump (e.g., 1.0 → 2.0) OR version byte increment
 2. Documented migration path
 3. At least one release with dual-version support (speak both old and new)

@@ -42,6 +42,7 @@ Initiator                                    Responder
 ```
 
 **Properties achieved:**
+
 - Mutual authentication (both sides prove identity)
 - Forward secrecy (ephemeral keys per session)
 - Identity hiding (static keys encrypted in transit)

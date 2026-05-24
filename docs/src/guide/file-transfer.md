@@ -27,6 +27,7 @@ rf cp --token <TOKEN> ./config.tar.gz web-01:/etc/app/config.tar.gz
 ```
 
 Output:
+
 ```
 → Transferring config.tar.gz to web-01 (1.2 MB)
   ████████████████████ 100%  1.2 MB  2.3 MB/s
@@ -63,6 +64,7 @@ rf cp -r --token <TOKEN> web-01:/var/log/app/ ./logs/
 ```
 
 Output:
+
 ```
 → Transferring certs/ to db-01 (3 files, 28 KB)
   ████████████████████ 100%

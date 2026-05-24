@@ -96,6 +96,7 @@ rf --relay ws://127.0.0.1:9091 exec --token agent1 'hostname'
 ### 01 — Standard Remote Execution
 
 Basic command execution over an encrypted channel. Every command goes through:
+
 1. Noise XX handshake (mutual authentication)
 2. Policy check (deny-by-default)
 3. Execution with timeout and output limits
@@ -160,6 +161,7 @@ Platform: Unix only (PTY allocation requires Unix).
 Execute across multiple agents using YAML playbooks with rollout strategies.
 
 **Parallel update** (`scenarios/playbooks/parallel-update.yaml`):
+
 ```yaml
 command: "apt-get update -qq && echo 'Updated' $(hostname)"
 target:
@@ -170,6 +172,7 @@ timeout_secs: 60
 ```
 
 **Canary deploy with rollback** (`scenarios/playbooks/canary-deploy.yaml`):
+
 ```yaml
 command: "echo 'v2.0' > /opt/app/version.txt"
 target:
@@ -293,6 +296,7 @@ Full deny-by-default demonstration. Applies a restrictive policy that only allow
 ```
 
 Denied command categories:
+
 - **Destructive**: `rm -rf`, `mkfs`, `dd`
 - **Network**: `curl`, `wget`
 - **System control**: `shutdown`, `reboot`
@@ -318,6 +322,7 @@ docker exec rf-agent-2 wc -l < /var/log/rf-audit.jsonl
 ```
 
 Audit entry fields:
+
 - **timestamp**: ISO 8601 when the action occurred
 - **command**: the command string that was executed (or attempted)
 - **decision**: `allowed` or `denied`
@@ -348,6 +353,7 @@ curl http://localhost:8080
 ```
 
 Forwarding types:
+
 - **Local** (`-L`): `localhost:8080 → agent:8000` (SSH -L equivalent)
 - **Reverse** (`--reverse`): `agent:9000 → localhost:3000` (SSH -R equivalent)
 - **SOCKS5** (`--socks5`): `localhost:1080 → agent → destination` (SSH -D equivalent)
@@ -375,6 +381,7 @@ rf dev --bind 0.0.0.0 --port 8080
 ```
 
 Dev mode features:
+
 - **Instant**: < 1 second startup, zero configuration
 - **Ephemeral**: In-memory keys, no files written to disk
 - **Permissive**: All commands allowed (development only)
@@ -401,6 +408,7 @@ rf --relay ws://127.0.0.1:9091 playbook --token agent1 \
 ```
 
 Playbook YAML format:
+
 ```yaml
 command: "echo 'Deploying v2.0' && mkdir -p /opt/app && echo v2.0 > /opt/app/version.txt"
 target:
@@ -414,6 +422,7 @@ timeout_secs: 30
 ```
 
 Strategies:
+
 - **parallel**: All agents simultaneously
 - **sequential**: One at a time, stop on failure
 - **rolling**: Batches (e.g. 25% at a time)
@@ -431,6 +440,7 @@ Human-in-the-loop approval gate for AI-controlled agents. AI agents connect via 
 ```
 
 Approval workflow:
+
 1. AI calls `rf_request_approval(command, reason)` → gets `approval_id`
 2. Operator sees the request (stderr / webhook / Slack)
 3. Operator calls `approve(id)` or `deny(id)`
@@ -438,18 +448,21 @@ Approval workflow:
 5. AI passes `approval_id` to `rf_exec(command, approval_id)` — only executes if approved
 
 Enforcement guarantees:
+
 - **Command hash binding**: Each approval is SHA-256 bound to the exact command — the AI cannot substitute a different command after approval
 - **One-time-use**: Each approval can be consumed exactly once — reuse returns DENIED
 - **TTL expiration**: Approvals expire after 30 minutes — stale approvals return DENIED
 - **Pattern-based**: Operator configures which commands require approval via `--approval-pattern` regex
 
 MCP tools involved:
+
 - **`rf_request_approval`**: Submit operation + command + reason for review
 - **`rf_check_approval`**: Poll approval status (`PENDING` / `APPROVED` / `DENIED`)
 - **`rf_exec`**: Execute command, optionally with `approval_id` for approval-required commands
 - **`rf_query_policy`**: Dry-run policy check before requesting approval
 
 Defense in depth:
+
 - **Policy engine**: Deny-by-default (first gate)
 - **Human approval**: Operator gate for high-risk ops with hash verification (second gate)
 - **Rate limiting**: 60 requests/min per session
@@ -545,6 +558,7 @@ The relay never decrypts payload — it's a dumb pipe.
 ## Troubleshooting
 
 ### Agent not responding
+
 ```bash
 docker exec rf-agent-1 cat /var/log/rf-agent.log
 
@@ -559,9 +573,11 @@ docker exec -d rf-agent-1 bash -c "RUST_LOG=info rf-agent \
 ```
 
 ### Consecutive commands failing
+
 After each exec, the agent session closes and reconnects with exponential backoff. Wait ~5 seconds between commands to the same agent.
 
 ### Custom relay port
+
 ```bash
 RELAY_PORT=9999 ./setup.sh
 rf --relay ws://127.0.0.1:9999 exec --token agent1 'hostname'

@@ -124,14 +124,17 @@ Once configured, Cursor's AI can use:
 ## Troubleshooting
 
 **MCP server not starting:**
+
 - Check `rf-mcp-server` is in PATH: `which rf-mcp-server`
 - Check Cursor's Output panel for MCP errors
 - Try running the command manually to see error output
 
 **"Command denied" for expected operations:**
+
 - Check policy patterns match your commands exactly (regex)
 - Use `rf_query_policy` to test specific commands
 
 **Rate limiting too aggressive:**
+
 - Increase `--rate-limit` value or `RF_RATE_LIMIT` env var
 - Default is 60 calls per minute

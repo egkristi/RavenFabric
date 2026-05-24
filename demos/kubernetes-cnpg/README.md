@@ -244,28 +244,36 @@ RELAY_HOST=192.168.1.100 ./setup.sh
 ## Troubleshooting
 
 ### rf-agent pod is CrashLoopBackOff
+
 Check the agent logs:
+
 ```bash
 kubectl logs -n ravenfabric -l app=rf-agent -c rf-agent
 ```
+
 Common causes: relay not reachable (wrong host IP), binary download failed (check init container logs).
 
 ### CNPG cluster pods not starting
+
 ```bash
 kubectl describe cluster pg-cluster -n ravenfabric
 kubectl get events -n ravenfabric --sort-by='.lastTimestamp'
 ```
 
 ### Init container failing to download binary
+
 ```bash
 kubectl logs -n ravenfabric -l app=rf-agent -c download-rf-agent
 ```
 
 ### Relay not reachable from k8s
+
 Check the detected host IP and verify connectivity:
+
 ```bash
 kubectl run --rm -it test-curl --image=curlimages/curl --restart=Never -n ravenfabric -- curl -v ws://HOST_IP:9093
 ```
 
 ### Agent not responding after command
+
 The agent reconnects with exponential backoff. Wait ~6 seconds between commands.

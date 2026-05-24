@@ -25,7 +25,7 @@ I've been building RavenFabric — a secure remote execution and mesh networking
 2. Single static musl binary vs. separate crates on crates.io — chose monorepo for now
 3. Policy as YAML regex patterns — simple but effective. Should I add OPA/Rego?
 
-GitHub: https://github.com/egkristi/RavenFabric
+GitHub: <https://github.com/egkristi/RavenFabric>
 
 ---
 
@@ -38,6 +38,7 @@ GitHub: https://github.com/egkristi/RavenFabric
 After years of managing Ansible playbooks and Tailscale ACLs separately, I built RavenFabric — a single static binary that handles both secure connectivity AND command execution with built-in policy enforcement.
 
 **What it replaces:**
+
 - Tailscale/Headscale (secure connectivity) — Noise XX mutual auth, encrypted relay
 - Ansible/Salt (remote execution) — command execution with policy checks
 - ACL management — YAML deny-by-default policy (if it's not explicitly allowed, it's denied)
@@ -56,13 +57,14 @@ rf exec --target web-01 "systemctl status nginx"
 ```
 
 **Key features for self-hosters:**
+
 - Single binary, zero runtime deps (static musl on Linux)
 - Relay is stateless — easy to scale/replace
 - Every action audit-logged (JSON-lines, append-only)
 - AI agent support via MCP (let Claude manage your infra safely)
 - < 10MB memory idle, < 15MB binary
 
-GitHub: https://github.com/egkristi/RavenFabric
+GitHub: <https://github.com/egkristi/RavenFabric>
 
 ---
 
@@ -82,6 +84,7 @@ RavenFabric solves this with:
 4. **MCP integration** — Native support for AI agent protocols (Claude, Cursor, Aider connect directly).
 
 **Example policy:**
+
 ```yaml
 spec:
   commands:
@@ -98,4 +101,4 @@ Single static binary, deploys in seconds, works on Linux/macOS/Windows/ARM.
 
 Anyone else dealing with "how do I let AI tools touch production safely"?
 
-GitHub: https://github.com/egkristi/RavenFabric
+GitHub: <https://github.com/egkristi/RavenFabric>

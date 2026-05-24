@@ -45,6 +45,7 @@
 **Stats:** 14 crates, ~72,767 LOC, 1,432 tests, 0 clippy warnings, 0 known vulnerabilities.
 
 **What works today:**
+
 - Full E2E encrypted remote execution (`rf exec agent "cmd"`)
 - Interactive shell with session recording (`rf shell agent`)
 - Port forwarding: local (-L), remote (-R), SOCKS5 (-D)
@@ -154,6 +155,7 @@ LangChain, CrewAI, AutoGen integrations. MCP client SDKs: Rust (15 tests), Pytho
 Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a single, policy-controlled, audited mechanism.
 
 **Security-first defaults (non-negotiable):**
+
 - All API access requires authentication by default — no anonymous access, no opt-in auth
 - API tokens mandatory — cryptographically random, minimum 256-bit entropy, constant-time comparison
 - RBAC enforced on every request — caller identity mapped to role, role mapped to permitted operations
@@ -171,6 +173,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - Brute-force protection — exponential backoff after repeated auth failures per source IP
 
 #### TCP Tunnel (Foundation)
+
 - [x] `Proxy` RPC action — agent opens TCP connection to target host:port, bridges bytes over yamux stream
 - [x] Policy rules for network targets — allow/deny by CIDR, port, hostname (mirrors filesystem policy structure)
 - [x] `rf proxy <agent> --target <host:port> --listen <local:port>` — CLI command opens local listener, tunnels to agent
@@ -179,6 +182,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - [x] Idle timeout + max duration — configurable limits prevent resource exhaustion from abandoned tunnels
 
 #### HTTP-Aware Proxy (Policy-Rich)
+
 - [x] HTTP request inspection — agent parses method, path, headers before forwarding to upstream
 - [x] HTTP policy rules — allow/deny by method + path pattern (e.g., allow `GET /api/**`, deny `DELETE /**`)
 - [x] Header injection/stripping — policy can require/forbid specific headers (auth tokens, X-Forwarded-For)
@@ -187,6 +191,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 - [x] `rf proxy <agent> --target http://localhost:8080 --http --listen :3000` — HTTP-aware mode
 
 #### MCP + AI Agent Integration
+
 - [x] MCP tool: `rf_http_request` — AI agents call private APIs through RavenFabric with full policy enforcement
 - [x] Structured responses — JSON body returned to AI agent with status code, headers, parsed body
 - [x] Policy-gated endpoints — different AI agents get different API access based on their RBAC profile
@@ -201,6 +206,7 @@ Replaces Tailscale Funnel, Cloudflare Tunnel, and SSH port-forwarding with a sin
 Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default policy, per-request audit, and zero third-party dependency.
 
 **Security-first defaults (non-negotiable):**
+
 - Authentication required on every request — no unauthenticated access to any proxied service
 - Multiple auth methods supported — API tokens (default), mTLS client certificates, OAuth2/OIDC bearer tokens
 - API tokens: cryptographically random (256-bit), constant-time validation, automatic expiration
@@ -222,6 +228,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - Short-lived tokens preferred — default TTL 24h for API tokens; long-lived tokens require explicit policy approval
 
 #### Ingress Component (`rf-ingress`)
+
 - [x] HTTP ingress server — TLS-terminating public endpoint (axum/hyper), accepts inbound HTTPS requests
 - [x] Agent routing table — map incoming requests to connected agents by subdomain, path prefix, or header (`X-RF-Agent`)
 - [x] Caller authentication — API key validation at the edge before routing
@@ -230,6 +237,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Health check passthrough — `/health` endpoint bypasses auth (for load balancers)
 
 #### Agent-Side Reverse Proxy Handler
+
 - [x] `ReverseProxy` RPC action — agent receives HTTP request metadata + body over RPC channel
 - [x] Policy enforcement — HTTP-aware rules (method + path pattern allow/deny via `check_http_request`)
 - [x] Agent-level audit logging — full request details (method, path, caller, policy decision, latency)
@@ -238,6 +246,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Timeout enforcement — per-request timeout kills slow upstream connections
 
 #### Routing & Registration
+
 - [x] Agent self-registration — `IngressRegister` RPC action registers agent with upstream URL, subdomain, path prefix
 - [x] Dynamic routing updates — agents can register/deregister without ingress restart
 - [x] Multi-agent load balancing — multiple agents serving same endpoint, round-robin or least-connections
@@ -250,6 +259,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 **Goal:** Native streaming file transfer replacing scp, rsync, and Ansible's `copy` module. Efficient over the existing encrypted channel with full policy enforcement, progress reporting, and audit logging.
 
 #### Core Transfer Engine
+
 - [x] `FilePush` RPC action — chunked upload from client to agent (configurable chunk size, default 256KB)
 - [x] `FilePull` RPC action — chunked download from agent to client
 - [x] Streaming over yamux — chunks flow over a dedicated mux stream, no base64 encoding overhead
@@ -259,12 +269,14 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Resumable transfers — track byte offset, resume interrupted transfers without restarting
 
 #### Policy & Security
+
 - [x] Path policy enforcement — same allow/deny rules as existing `Read`/`Write` actions
 - [x] Size limits — per-transfer max file size configurable in policy (prevent disk exhaustion)
 - [x] Audit logging — source path, destination path, file size, checksum, duration, caller identity
 - [x] Bandwidth throttling — optional rate limit per transfer (prevent saturating network)
 
 #### Advanced Features
+
 - [x] Recursive directory transfer — `rf cp -r` with directory tree traversal
 - [x] Delta/incremental sync — rsync-like rolling checksum for efficient updates of large files
 - [x] Compression — optional zstd compression for transfer (transparent, negotiated)
@@ -281,6 +293,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 **Goal:** Agents update themselves without manual intervention. Staged rollout with health-check gates, automatic rollback on failure, and full audit trail.
 
 #### Update Mechanism
+
 - [x] Version announcement — controller/relay broadcasts available version to connected agents
 - [x] Update policy — agents check local policy before accepting update (allow/deny version ranges)
 - [x] Binary download — agent pulls new binary from configured artifact source (HTTPS + checksum)
@@ -290,6 +303,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Rollback on failure — if new binary fails health-check within 60s, revert to previous version
 
 #### Fleet Coordination
+
 - [x] Staged rollout — canary (1 agent) → percentage (10%) → fleet (100%)
 - [x] Health-check gates — proceed to next stage only if all updated agents pass health check
 - [x] Rollout pause/abort — controller can halt rollout mid-flight
@@ -297,6 +311,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Update windows — only apply updates during configured maintenance windows
 
 #### Audit & Observability
+
 - [x] Update audit log — version transitions recorded with timestamp, source, verification status
 - [x] Fleet version dashboard — `GetVersionInfo` RPC returns current version, pinned version, and update window per agent
 - [x] Update failure alerts — webhook notification on rollback events
@@ -308,6 +323,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 **Goal:** Automated secret rotation with grace periods, external secret manager integration, and full audit trail. Zero-downtime rotation.
 
 #### Automated Rotation
+
 - [x] Time-based rotation triggers — configurable TTL per secret (e.g., rotate every 30 days)
 - [x] Rotation hooks — execute custom command/script to generate new secret value
 - [x] Grace period — old and new secret both valid during configurable overlap window
@@ -315,6 +331,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Health-check after rotation — verify new secret works before retiring old
 
 #### External Secret Manager Integration
+
 - [x] HashiCorp Vault — read/write via Vault HTTP API (AppRole or Token auth)
 - [x] AWS Secrets Manager — fetch/rotate via AWS SDK (IAM role-based auth)
 - [x] Azure Key Vault — managed identity or service principal authentication
@@ -323,6 +340,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Sync mode — external manager is source of truth; agent pulls on schedule
 
 #### Secret Distribution
+
 - [x] Fleet-wide secret push — update across all agents with grace period
 - [x] Per-agent secrets — different values for same secret name per agent
 - [x] Secret versioning — track version history, audit access patterns
@@ -335,6 +353,7 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 **Goal:** Push audit logs and telemetry to external systems in real-time. Enterprise SOC integration.
 
 #### Remote Log Sinks
+
 - [x] Syslog (RFC 5424) — UDP/TCP with facility/severity mapping
 - [x] Splunk HEC — HTTP Event Collector with token auth, batching, retry
 - [x] Elasticsearch/OpenSearch — direct indexing via bulk API
@@ -342,18 +361,21 @@ Replaces: ngrok, Cloudflare Tunnel, Tailscale Funnel — with deny-by-default po
 - [x] Generic webhook — configurable HTTP POST with JSON payload
 
 #### Audit Log Formats
+
 - [x] CEF (Common Event Format) — standard SIEM format
 - [x] LEEF (Log Event Extended Format) — IBM QRadar compatible
 - [x] OCSF (Open Cybersecurity Schema Framework) — modern security event schema
 - [x] Native JSON-lines — existing format, now with remote push
 
 #### Fleet Aggregation
+
 - [x] Centralized audit collector — agents push events to controller in real-time
 - [x] Buffered delivery — local queue for network interruptions, guaranteed delivery
 - [x] Deduplication — handle replay during reconnect without duplicate events
 - [x] Retention policies — configurable per-agent log retention before forwarding
 
 #### Alerting
+
 - [x] Real-time alert rules — pattern matching on audit events (policy denial → alert)
 - [x] Alert destinations — Slack, PagerDuty, OpsGenie, generic webhook
 - [x] Alert deduplication — suppress repeated alerts within configurable window
@@ -377,6 +399,7 @@ The table below maps known regulatory requirements to existing RavenFabric capab
 **Goal:** Hardware-backed key storage for FIPS 140-2, PCI-DSS, and government environments.
 
 #### PKCS#11 Integration
+
 - [x] PKCS#11 provider trait — `HsmKeyProvider` implementing `StaticKey` interface
 - [x] Key generation in HSM — generate Curve25519 keys inside hardware module
 - [x] Sign/verify operations — Noise XX handshake uses HSM for private key operations
@@ -384,11 +407,13 @@ The table below maps known regulatory requirements to existing RavenFabric capab
 - [x] YubiHSM2 support — tested with YubiHSM2 via yubihsm-connector
 
 #### TPM Integration
+
 - [x] TPM 2.0 key storage — seal keys to PCR state (Linux tpm2-tss, Windows TBS)
 - [x] Platform attestation — prove agent identity via TPM quote
 - [x] Measured boot — verify agent binary integrity via PCR extension
 
 #### Feature Gating
+
 - [x] Behind `hsm` feature flag — no compile-time or runtime cost when unused
 - [x] Graceful fallback — if HSM unavailable, log warning and use file-based keys
 - [x] FIPS mode — when HSM is configured, enforce FIPS-approved algorithms only
@@ -400,6 +425,7 @@ The table below maps known regulatory requirements to existing RavenFabric capab
 **Goal:** Lowest-latency relay selection based on geographic proximity for global deployments.
 
 #### Geo-Routing
+
 - [x] GeoIP database integration — MaxMind GeoLite2 or ip2location for relay location mapping
 - [x] Relay region tags — relays self-report region (us-east, eu-west, ap-south, etc.)
 - [x] Nearest-relay selection — agents connect to geographically closest relay on startup
@@ -407,6 +433,7 @@ The table below maps known regulatory requirements to existing RavenFabric capab
 - [x] Latency-weighted selection — combine geo proximity with measured RTT for optimal path
 
 #### Global Fleet
+
 - [x] Region-aware orchestration — target agents by region (e.g., "all eu-west agents")
 - [x] Regional relay clusters — multiple relays per region with load balancing
 - [x] Cross-region routing — requests to agents in other regions route via optimal relay chain
@@ -435,6 +462,7 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 **Completed:** Landing page, blog (3 posts + RSS), demos page (13 scenarios with animated SVGs), newsletter signup, security headers, JSON-LD, OG cards, self-hosted fonts, accessibility skip-link.
 
 **Pending (requires human):**
+
 - [ ] Google Search Console setup + sitemap submission (#38)
 - [ ] Submit to Hacker News, Lobsters, Reddit, kode24.no (#40)
 - [ ] Live demo sandbox (`rf-demo.ravenfabric.io`) (#42)

@@ -104,6 +104,7 @@ rf proxy --token <TOKEN> --listen 127.0.0.1:8888 --target https://api.internal
 ```
 
 Every HTTP request through the proxy is:
+
 1. Checked against method/path policy
 2. Audited with method, path, status code, latency, and caller identity
 3. Optional header injection/stripping (e.g., add auth headers, strip sensitive headers)

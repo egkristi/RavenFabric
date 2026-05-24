@@ -146,7 +146,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ROADMAP items marked complete: rf-ingress HTTP gateway, ReverseProxy RPC,
   IngressRegister RPC
 
-
 ### Added
 
 - **Delta/incremental sync for `rf cp`** — New `--delta` flag on `rf cp` enables
@@ -236,8 +235,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Total tests**: 1,268 (up from 1,257) — +8 rf-crypto (rotation), +2 rf-executor (rotation handlers), +1 rf-rpc (ProxyOpen roundtrip)
 - **LOC**: ~62,819 (up from ~61,878)
 - ROADMAP items marked complete: Concurrent tunnels, Secret rotation TTL/hooks, Rotation hooks, Grace period, Health-check after rotation
-
-
 
 ### Added
 
@@ -335,11 +332,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] — 2026-05-20
 
 ### Added
+
 - **Header injection/stripping policy** — `http.headers.require` and `http.headers.forbid` lists in policy YAML. Required headers must be present on every HTTP request; forbidden headers must not appear. Enforced by `check_http_headers()` in rf-policy, called from `handle_http_forward()` in rf-executor before connecting to the upstream. Case-insensitive header name matching. 6 new tests in rf-policy.
 - **Real-time alert rules** — `AlertRule` and `AlertEngine` in new `rf-audit::alert` module. Rules match audit entries by pattern (regex applied to `action`, `decision`, and `command`). Matching rules emit `tracing::warn!` structured alerts. Alert deduplication: same rule+action pair suppressed within a configurable window (`dedup_window_secs`). 9 new tests in rf-audit.
 - **Glob pattern expansion for `rf cp`** — `rf cp "/var/log/*.gz" agent:/backup/` expands glob patterns locally before uploading. Multiple matched files are pushed individually; destination directory is derived per-file. Powered by the `glob` crate. Invalid patterns and zero-match globs return a clear error.
 
 ### Changed
+
 - **Version**: Bumped to 0.5.0 across all crates and deploy manifests
 - **Total tests**: 1,164 (up from 1,149)
 - **rf-audit**: +9 tests (23 total); added `glob` dependency to workspace
@@ -347,16 +346,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] — 2026-05-16
 
 ### Added
+
 - **MCP tool: `rf_http_request`** — AI agents can call private APIs through RavenFabric with full policy enforcement. Supports GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS. Structured JSON response with `status_code`, `headers`, `body` (auto-parsed as JSON when `Content-Type: application/json`), and `latency_ms`. Method validated against allowlist. 4 new tests in rf-mcp-server.
 - **File transfer size limits** — `maxFileSizeBytes` field in policy `resources` section (default 100 MB). Enforced on both `FilePush` (checked per chunk: `offset + chunk_size`) and `FilePull` (checked against file metadata before reading). Returns `RpcResult::Denied` with `rule: resources.maxFileSizeBytes` when exceeded. 2 new tests in rf-executor, 2 new tests in rf-policy.
 
 ### Changed
+
 - **Version**: Bumped to 0.4.0 across all crates and deploy manifests
 - **Total tests**: 1,149 (up from 1,141)
 
 ## [0.3.0] — 2026-05-14
 
 ### Added
+
 - **HTTP-aware proxy mode** — `rf proxy --http` enables per-request HTTP policy enforcement. Agent parses method, path, headers via `httparse` before forwarding to upstream. New `HttpForward` RPC action and `HttpResponse` result type. HTTP policy rules in YAML (`http.allow`/`http.deny` by method + path regex). Request/response body size limits (`maxRequestBodyBytes`/`maxResponseBodyBytes`). Per-request audit logging with method, path, status code, latency. Header injection detection prevents CRLF attacks. 10 new tests.
 - **Proxy idle timeout + max duration** — Configurable per-connection limits prevent resource exhaustion from abandoned tunnels. Policy defaults (`proxyIdleTimeoutSeconds: 300`, `proxyMaxDurationSeconds: 3600`) with per-request override via `--idle-timeout` and `--max-duration` CLI flags. Effective values returned in `ProxyConnected` response. 2 new tests.
 - **Network policy rules for proxy targets** — `check_network_target()` enforces CIDR/hostname/port allow/deny rules on TCP proxy connections. Immutable deny blocks link-local/metadata addresses (169.254.0.0/16, fe80::/10). IPv4, IPv6 (bracket notation), port ranges, hostname globs (`*.internal.com`), deny-by-default. 14 new tests.
@@ -369,31 +371,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **v0.3.0 features shipped** — QUIC, WireGuard direct, STUN hole-punching, interactive shell, port-forwarding, playbooks, full mesh VPN, MagicDNS, sealed secrets, Reticulum, Tor, serial drivers — all confirmed code-complete and tested
 
 ### Fixed
+
 - **install.sh**: Fixed "unbound variable" error when piped to bash (`curl | bash`). The EXIT trap referenced a local variable (`tmpdir`) that was out of scope after `main()` returned. Moved to global cleanup function
 - **Release workflow**: Added `rf-mcp-server` build step and packaging — previously only rf-agent, rf-relay, and rf (CLI) were included in release artifacts
 
 ### Changed
+
 - **Version**: Bumped to 0.3.0 across all crates, deploy manifests, SDKs, and documentation
 
 ## [Unreleased]
 
 ### Changed
+
 - **website**: Migrated hosting from GitHub Pages to Cloudflare Pages (builds directly from GitHub). Security headers (`_headers`) now served natively. HSTS preload active. Removed `website/CNAME` and `.github/workflows/pages.yml`
 
 ### Added
+
 - **Security audit tests**: 17 new integration tests covering key zeroization, OTP replay prevention, policy bypass, wire protocol rejection, and codec stability (`security_audit.rs`)
 - **Wire protocol stability doc**: Formal stability guarantees for wire format, handshake sequence, and RPC serialization (`docs/src/reference/wire-protocol-stability.md`)
 - **API stability markers**: `#[non_exhaustive]` on core public enums (`CryptoError`, `RpcError`, `PolicyError`, `Action`, `RpcResult`) — prevents downstream breakage when new variants are added
 
 ### Security
+
 - **wasmtime**: Upgraded from v29 to v36.0.9, resolving all 16 security advisories (GHSA-q8hx-mm92-4wbg, GHSA-4w5q-m7x3-bxgf, GHSA-v39r-r8gw-p945, GHSA-5wvc-xrjx-h2xq, GHSA-5jmc-43q8-x28q, GHSA-7mpv-9xg9-5jx4, GHSA-75hq-h9g9-4gjr, GHSA-5wgq-hcmq-3rf7, GHSA-5j3r-j6x2-23x2, GHSA-cx96-5vf6-8x3f, GHSA-34ch-7c68-q6x6, GHSA-rj3g-829c-8jpc, GHSA-pp24-53gm-jr4j, GHSA-4x44-w425-m2p3, GHSA-jcr4-92f4-r3jm, GHSA-w2mj-m73j-q22c). v36.0.9 is optimal: MSRV-compatible (requires Rust 1.86, project uses 1.88) and covers all backported fix ranges
 
 ### Fixed
+
 - **deps**: Migrated rf-executor, rf-policy, rf-rpc from `sha2 = "0.10"` to workspace `sha2 = "0.11"` — eliminates direct dependency version mismatch (#99)
 - **code quality**: Replaced 2 production `unwrap()` calls in rf-transport (overlay.rs, quic.rs) with `expect()` + justification
 - **docs**: Fixed inaccurate test counts in README (rf-transport 551→542, rf-rpc 120→112, rf-mcp-client 15→14) and copilot-instructions
 
 ### Changed
+
 - **ci**: Replaced `cargo-tarpaulin` with `cargo-llvm-cov` for more accurate coverage measurement
 - **deps**: Bumped `criterion` from 0.5.1 to 0.8.2
 - **deps**: Bumped `toml` from 0.8.23 to 1.1.2
@@ -406,6 +415,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **security**: Updated SECURITY.md supported versions (0.3.x is now supported, 0.2.x deprecated)
 
 ### Added
+
 - **Direct connection mode**: Agent `--listen` flag starts a WebSocket server for point-to-point connections (like sshd). CLI `--connect` flag dials the agent directly, bypassing the relay. Same Noise XX encryption, policy enforcement, and audit logging as relay mode
 - **Demos**: Direct connection demo (`demos/direct-connection/`) — 4 scenarios: direct exec, system info, policy denial, audit trail
 - **Demos**: MCP/AI Agent demo (`demos/mcp-agent/`) — 6 scenarios: policy discovery, command execution, policy denial, human approval, audit trail, file operations
@@ -413,32 +423,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Demos**: Controller/Web UI demo (`demos/controller/`) — 5 scenarios: agent list, health check, remote execution via HTTP API, fleet dashboard, policy view (3 Docker containers)
 
 ### Changed
+
 - **Docs**: README demos section expanded from 6 to 9 demos with subsections for each
 - **Docs**: ROADMAP demo consolidation items resolved — multi-distro-linux and kubernetes-cnpg scenarios confirmed to contain environment-specific content (not duplicates)
 
 ## [0.2.0] — 2026-05-10
 
 ### Added
+
 - **Web UI**: HTTP server for the embedded dashboard — binds `TcpListener`, serves dashboard HTML at `/`, routes `/api/*` through `ApiDispatcher`, bearer token auth, security headers (X-Frame-Options, X-Content-Type-Options, Cache-Control), request size limiting (1 MB), 6 tests
 - **WASM Plugins**: Plugin execution runtime via `wasmtime` behind `wasm-plugins` feature flag — `WasmRuntime` loads and executes WASM modules with fuel metering, memory isolation, and the `alloc/process/result_len` host interface. Stub runtime without feature returns clear error. 2 new tests
 - **SPIFFE Identity**: Full workload identity implementation — `SpiffeIdentity::new()`, `parse()`, `validate()`, `path_matches()` with wildcard support, `TrustBundle` with domain verification, `SpiffeError` type, 8 new tests
 - **Controller**: HTTP server serves controller API endpoints (agent list, health check) over the network — previously in-memory only
 
 ### Changed
+
 - **Versions**: All packaging manifests, SDKs, website, demos, and docs updated to v0.2.0
 - **Stats**: 13 crates, ~53,900 LOC, 1,094 tests, 0 clippy warnings
 
 ## [0.1.6] — 2026-05-10
 
 ### Added
+
 - **CI**: Binary size gate — new CI job builds release binaries and fails if any exceed 15 MB, enforcing the deployment size constraint documented in the architecture
 
 ### Changed
+
 - **Versions**: All packaging manifests, SDKs, website, demos, and docs updated from v0.1.5 to v0.1.6
 
 ## [0.1.5] — 2026-05-10
 
 ### Added
+
 - **Security**: Policy enforcement for all RPC handlers — shell open, port forwarding (local/remote/SOCKS5), health check (command probes), and log tail now go through deny-by-default policy checks
 - **Security**: Audit logging for all RPC actions — every handler (metrics, status, read, write, list, signal, background exec, shell open/input/close, port forward start/close, remote forward, SOCKS5 forward, health check, tail log) now produces a structured audit entry with request ID, action, decision, matched rule, and duration
 - **Security**: Policy check for `signal` action — `kill -<signal> <pid>` is now checked against command policy before execution
@@ -475,6 +491,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI**: `--stream` and `--background` execution flags for streaming and fire-and-forget modes
 
 ### Fixed
+
 - **Agent/Relay/CLI**: `RUST_LOG` environment variable now correctly controls log filtering — `RUST_LOG=warn` properly suppresses INFO/DEBUG lines (#95)
 - **CLI**: Added `close_notify()` after `exec` and `status` commands — agent now detects session end and reconnects cleanly instead of hanging indefinitely
 - **K8s Demo**: Deployment uses `strategy: Recreate` with `terminationGracePeriodSeconds: 3` and SIGTERM→SIGINT trap to prevent dual-pod relay pairing race condition
@@ -486,6 +503,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.4] — 2026-05-08
 
 ### Added
+
 - **Packaging**: macOS `.pkg` installer build script (`deploy/macos/build-pkg.sh`) — universal binary support, launchd integration, pre/post install scripts
 - **Packaging**: openSUSE OBS spec file (`deploy/obs/ravenfabric.spec`) — RPM packaging for zypper/OBS, systemd integration, dedicated user/group
 - **Packaging**: F-Droid metadata (`deploy/fdroid/`) — full app listing with descriptions, changelog, build recipe for aarch64 Android
@@ -493,6 +511,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Homebrew**: Fixed formula to use pre-built binaries from `RavenFabric-Published` with real SHA256 hashes
 
 ### Fixed
+
 - **Website**: Removed all links to private `egkristi/RavenFabric` repo from public website
 - **Website**: Hero CTA changed from "View on GitHub" to "Download Latest Release" (→ RavenFabric-Published)
 - **Website**: Badges now use static shields.io (version, language, license) + Latest Release from Published repo
@@ -515,6 +534,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.3] — 2026-05-08
 
 ### Added
+
 - **Transport**: I2P driver (`i2p.rs`) — SAM bridge protocol v3.1 (TCP 7656), stream connect/accept, destination validation, session management (15 tests)
 - **Transport**: Veilid driver (`veilid.rs`) — JSON-RPC API transport via Veilid daemon, DHT route-based addressing, app_call protocol, route validation (15 tests)
 - **Transport**: Reticulum Network Stack driver (`reticulum.rs`) — shared instance TCP, 2-byte framed protocol, hex destination hash validation, FNV-1a hashing (18 tests)
@@ -530,6 +550,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Created GitHub issue #92 tracking Actions 0-step workflow failures (suspected exhausted minutes)
 
 ### Fixed
+
 - **CI**: Fixed branch protection MSRV check name from "MSRV (1.85)" to "MSRV (1.88)" to match actual Rust MSRV
 - **Docs**: Updated LOC counts to match actual codebase (~50,000 total, rf-transport ~21,900)
 - **Docs**: Updated test counts to match actual test suite (1,037 Rust tests, rf-transport 542, rf-mcp-client 15)
@@ -539,6 +560,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.2] — 2026-05-08
 
 ### Added
+
 - **Transport**: Tor hidden service driver (`tor.rs`) — full SOCKS5 CONNECT via local Tor proxy, .onion validation, 8 tests
 - **Transport**: Yggdrasil overlay driver (`yggdrasil.rs`) — TCP over Yggdrasil IPv6 mesh (200::/7), listen support, 7 tests
 - **Packaging**: Snap package manifest (`deploy/snap/snapcraft.yaml`) — daemon support, strict confinement, amd64+arm64
@@ -548,6 +570,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Automated crates.io publish job in release workflow (dependency-ordered, skip-on-error)
 
 ### Fixed
+
 - **CI**: Fixed `cargo fmt` check failure — expanded struct initializations in `named_pipe.rs` to multi-line format
 - **Docker**: Fixed `latest` tag not being applied to container images (tag-triggered workflows don't match `is_default_branch`)
 - **Packaging**: Updated `flake.nix` version from 0.1.0 to 0.1.2
@@ -555,11 +578,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docs**: Updated install URLs from raw GitHub to `get.ravenfabric.io` across README, ROADMAP, install docs, and deploy script
 
 ### Changed
+
 - **Release**: Release pipeline now produces all 8 platform binaries (verified: linux-amd64, linux-arm64, linux-amd64-musl, linux-arm64-musl, linux-armv7-musl, darwin-arm64, darwin-amd64, windows-amd64)
 
 ## [0.1.1] — 2026-05-08
 
 ### Changed
+
 - **Docs**: README.md — comprehensive accuracy audit removing fabricated YAML formats (reduced 1,449 → 1,099 lines, 24% reduction), fixed policy/security/transport/bootstrap/grains sections to match actual codebase, consolidated redundant comparison sections, corrected license badge to AGPL-3.0-or-later
 - **Docs**: README.md — updated LOC counts to match actual codebase (~43,800 total, rf-rpc ~5,900, rf-agent ~380)
 - **Docs**: ROADMAP.md — cleaned up stale closed-issue references in Distribution & Packaging section, replaced `#N` refs with descriptive status text
@@ -569,9 +594,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docs**: ai-agent-skill.md — fixed `rf tunnel` → `rf forward` and `rf shell` syntax
 
 ### Fixed
+
 - **Tests**: MCP E2E integration tests — fixed race condition where parallel tests shared same temp directory, causing intermittent "missing field `spec`" YAML parse failures in CI
 
 ### Added
+
 - **Crypto**: Noise XX handshake (Noise_XX_25519_ChaChaPoly_BLAKE2s) with wire protocol
 - **Crypto**: SecureChannel with concurrent read/write via split Mutex pattern
 - **Crypto**: StaticKey management (generate, load, save, zeroed on drop)

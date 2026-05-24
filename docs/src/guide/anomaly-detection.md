@@ -125,6 +125,7 @@ rf anomaly baseline --token <TOKEN> --caller <CALLER_FINGERPRINT>
 ```
 
 Output:
+
 ```
 Baseline for caller f7a3..c912 (ai-deploy-bot)
   Observation window: 2026-05-14 – 2026-05-21
@@ -162,12 +163,14 @@ command_novelty.enabled = false     # deploy bots run known commands only
 For AI agent sessions, RavenFabric applies additional heuristics to detect prompt injection attempts — adversarial instructions hidden in documents or tool outputs that try to manipulate the AI into issuing unauthorized commands.
 
 Detection signals:
+
 - Base64-encoded payloads in command arguments
 - Unicode homoglyphs in command strings
 - `eval`, `exec`, `base64 -d |` patterns in commands from AI sessions
 - Sudden change in command category after a file-read or web-fetch operation
 
 When an injection signal is detected:
+
 1. The session's anomaly score is incremented
 2. A `PROMPT_INJECTION_SIGNAL` event is written to the audit log
 3. If the score exceeds the containment threshold, capabilities are reduced
