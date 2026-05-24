@@ -315,6 +315,7 @@ jobs:
   publish-crates:
     name: Publish to crates.io
     needs: [release]
+    if: ${{ secrets.CRATES_IO_TOKEN != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
