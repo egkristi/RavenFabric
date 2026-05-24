@@ -299,8 +299,13 @@ jobs:
 
       - name: Push to homebrew-tap
         env:
-          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN || '' }}
         run: |
+          # Skip if token not configured (pending manual task #91)
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN not configured — skipping homebrew-tap push"
+            exit 0
+          fi
           git clone https://x-access-token:${TAP_TOKEN}@github.com/egkristi/homebrew-tap.git homebrew-tap
           cd homebrew-tap
           mkdir -p Formula
@@ -377,8 +382,13 @@ jobs:
 
       - name: Create release on RavenFabric-Published
         env:
-          GH_TOKEN: ${{ secrets.PUBLISH_BIN_TAP_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLISH_BIN_TAP_TOKEN || '' }}
         run: |
+          # Skip if token not configured (pending manual task #91)
+          if [ -z "$GH_TOKEN" ]; then
+            echo "PUBLISH_BIN_TAP_TOKEN not configured — skipping binary publish"
+            exit 0
+          fi
           VERSION="${{ steps.version.outputs.tag }}"
           gh release create "v${VERSION}" \
             --repo egkristi/RavenFabric-Published \
