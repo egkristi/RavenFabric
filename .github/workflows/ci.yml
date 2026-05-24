@@ -83,6 +83,8 @@ jobs:
         with:
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
+      - name: Install TPM2 system libraries
+        run: sudo apt-get update -qq && sudo apt-get install -y libtss2-dev
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
       - name: Generate coverage
@@ -139,7 +141,7 @@ jobs:
         with:
           key: ${{ matrix.target }}
       - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        run: cargo install cross --locked
       - name: Cross-check
         run: cross check --target ${{ matrix.target }} -p rf-crypto -p rf-transport -p rf-rpc -p rf-audit -p rf-policy -p rf-executor -p rf-bootstrap
 
