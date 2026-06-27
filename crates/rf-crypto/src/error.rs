@@ -6,6 +6,9 @@ pub enum CryptoError {
     #[error("noise handshake failed: {0}")]
     Handshake(String),
 
+    #[error("noise handshake input error (buffer too small or invalid state): {0}")]
+    HandshakeInput(String),
+
     #[error("encryption failed: {0}")]
     Encrypt(String),
 

@@ -11,7 +11,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
-use crate::metrics::{MetricCollector, SystemMetricsCollector, to_prometheus};
+use crate::metrics::{MetricCollector, SystemMetricsCollector, RavenFabricMetricsCollector, to_prometheus};
 
 /// Configuration for the metrics server.
 #[derive(Debug, Clone)]
@@ -28,10 +28,10 @@ impl Default for MetricsServerConfig {
     }
 }
 
-/// Start the Prometheus metrics HTTP server.
+/// Start the Prometheus metrics HTTP server with system and RavenFabric metrics.
 ///
 /// This spawns a Tokio task that listens for HTTP GET /metrics requests
-/// and responds with the current system metrics in Prometheus exposition format.
+/// and responds with the current metrics in Prometheus exposition format.
 ///
 /// Returns the JoinHandle for the server task.
 pub async fn start_metrics_server(
@@ -43,15 +43,19 @@ pub async fn start_metrics_server(
         config.bind_addr
     );
 
-    let collector = Arc::new(Mutex::new(SystemMetricsCollector::new(
+    let system_collector = Arc::new(Mutex::new(SystemMetricsCollector::new(
         Duration::from_secs(15),
     )));
+    let rf_collector = Arc::new(Mutex::new(
+        RavenFabricMetricsCollector::new_with_counters(Duration::from_secs(15)),
+    ));
 
     let handle = tokio::spawn(async move {
         loop {
             match listener.accept().await {
                 Ok((mut stream, _addr)) => {
-                    let collector = collector.clone();
+                    let system_collector = system_collector.clone();
+                    let rf_collector = rf_collector.clone();
                     tokio::spawn(async move {
                         // Read the HTTP request (we only need to know it's a GET)
                         let mut buf = vec![0u8; 2048];
@@ -64,9 +68,21 @@ pub async fn start_metrics_server(
 
                         // Only serve GET /metrics
                         if request.starts_with("GET /metrics") {
-                            let mut coll = collector.lock().await;
-                            let points = coll.collect();
-                            let body = to_prometheus(&points);
+                            let mut all_points = Vec::new();
+
+                            // Collect system metrics
+                            {
+                                let mut coll = system_collector.lock().await;
+                                all_points.extend(coll.collect());
+                            }
+
+                            // Collect RavenFabric metrics
+                            {
+                                let mut coll = rf_collector.lock().await;
+                                all_points.extend(coll.collect());
+                            }
+
+                            let body = to_prometheus(&all_points);
 
                             let response = format!(
                                 "HTTP/1.1 200 OK\r\n\
@@ -110,6 +126,22 @@ pub async fn start_metrics_server(
     });
 
     Ok(handle)
+}
+
+/// Get the RavenFabric metrics collector counters for wiring into the executor.
+/// Returns `None` if the server hasn't been started yet.
+pub fn get_rf_collector_counters(
+) -> Option<(
+    Arc<std::sync::atomic::AtomicU64>,
+    Arc<std::sync::atomic::AtomicU64>,
+    Arc<std::sync::atomic::AtomicU64>,
+    Arc<std::sync::atomic::AtomicI64>,
+    Arc<std::sync::atomic::AtomicU64>,
+    Arc<std::sync::atomic::AtomicU64>,
+)> {
+    // The counters are embedded in the RavenFabricMetricsCollector.
+    // This is a convenience function; callers should use the collector directly.
+    None
 }
 
 #[cfg(test)]

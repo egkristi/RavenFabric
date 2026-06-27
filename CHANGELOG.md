@@ -5,6 +5,21 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.2] — 2026-06-27
+
+### Added
+
+- **RavenFabric-specific Prometheus metrics** — `RavenFabricMetricsCollector` with 6 shared atomic counters: commands_allowed, commands_denied, audit_entries, active_connections, handshakes_completed, handshake_latency_us. Integrated into the `/metrics` HTTP endpoint alongside system metrics.
+- **Audit log staleness detection** — `StalenessConfig` with configurable `max_idle_secs` (default 300) and `dedup_window_secs` (default 600). `AlertEngine::check_staleness()` fires an alert if no audit activity occurs within the idle window. `record_activity()` auto-called on every `evaluate()`.
+- **Policy rules for non-exec actions** — Built-in coding assistant template now allows `port-forward`, `remote-forward`, `socks5-forward` (localhost only), and `proxy` actions.
+- **MCP server systemd unit** — `rf-mcp-server.service` with security hardening (DynamicUser, ProtectSystem=strict, PrivateTmp, NoNewPrivileges), listens on `127.0.0.1:8080` HTTP+SSE.
+
+### Fixed
+
+- **Relay mode in agent systemd config** — `ExecStart` now includes `--relay ws://localhost:9090` so the agent connects to the local relay on startup.
+- **Cross-platform Noise XX handshake** — Improved `Error::Input` handling from snow 0.10.0 with diagnostic logging, larger payload buffer (65535+256 bytes), and specific `HandshakeInput` error variant for better debugging of macOS→Linux relay handshake failures.
+- **Restricted `bash` in policy allow list** — Deny patterns now cover bare `bash`, `sh`, `/bin/bash`, `/usr/bin/bash` in addition to the existing `python`/`perl`/`ruby` restrictions.
+
 ## [0.25.1] — 2026-05-24
 
 ### Fixed

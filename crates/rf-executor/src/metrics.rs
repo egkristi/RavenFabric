@@ -7,6 +7,7 @@
 //! disconnected or mesh-networked nodes.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -183,6 +184,156 @@ impl MetricCollector for SystemMetricsCollector {
             .unwrap_or_default()
             .as_millis() as u64;
         self.collect_system_metrics(ts)
+    }
+
+    fn interval(&self) -> Duration {
+        self.interval
+    }
+}
+
+/// RavenFabric-specific metrics collector.
+///
+/// Tracks agent-level metrics: active connections, commands allowed/denied,
+/// audit entries, and handshake latency. These are collected from shared
+/// atomic counters that the executor updates during operation.
+#[derive(Debug)]
+pub struct RavenFabricMetricsCollector {
+    interval: Duration,
+    /// Shared counter: total commands allowed.
+    commands_allowed: Arc<std::sync::atomic::AtomicU64>,
+    /// Shared counter: total commands denied.
+    commands_denied: Arc<std::sync::atomic::AtomicU64>,
+    /// Shared counter: total audit entries written.
+    audit_entries: Arc<std::sync::atomic::AtomicU64>,
+    /// Shared counter: active connections.
+    active_connections: Arc<std::sync::atomic::AtomicI64>,
+    /// Shared counter: total handshakes completed.
+    handshakes_completed: Arc<std::sync::atomic::AtomicU64>,
+    /// Shared counter: cumulative handshake latency in microseconds.
+    handshake_latency_us: Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl RavenFabricMetricsCollector {
+    /// Create a new RavenFabric metrics collector with shared counters.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        interval: Duration,
+        commands_allowed: Arc<std::sync::atomic::AtomicU64>,
+        commands_denied: Arc<std::sync::atomic::AtomicU64>,
+        audit_entries: Arc<std::sync::atomic::AtomicU64>,
+        active_connections: Arc<std::sync::atomic::AtomicI64>,
+        handshakes_completed: Arc<std::sync::atomic::AtomicU64>,
+        handshake_latency_us: Arc<std::sync::atomic::AtomicU64>,
+    ) -> Self {
+        Self {
+            interval,
+            commands_allowed,
+            commands_denied,
+            audit_entries,
+            active_connections,
+            handshakes_completed,
+            handshake_latency_us,
+        }
+    }
+
+    /// Create a new RavenFabric metrics collector with fresh counters.
+    pub fn new_with_counters(interval: Duration) -> Self {
+        Self {
+            interval,
+            commands_allowed: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            commands_denied: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            audit_entries: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            active_connections: Arc::new(std::sync::atomic::AtomicI64::new(0)),
+            handshakes_completed: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            handshake_latency_us: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        }
+    }
+
+    /// Get references to the shared counters for wiring into the executor.
+    #[allow(clippy::too_many_arguments)]
+    pub fn counters(
+        &self,
+    ) -> (
+        &Arc<std::sync::atomic::AtomicU64>,
+        &Arc<std::sync::atomic::AtomicU64>,
+        &Arc<std::sync::atomic::AtomicU64>,
+        &Arc<std::sync::atomic::AtomicI64>,
+        &Arc<std::sync::atomic::AtomicU64>,
+        &Arc<std::sync::atomic::AtomicU64>,
+    ) {
+        (
+            &self.commands_allowed,
+            &self.commands_denied,
+            &self.audit_entries,
+            &self.active_connections,
+            &self.handshakes_completed,
+            &self.handshake_latency_us,
+        )
+    }
+}
+
+impl MetricCollector for RavenFabricMetricsCollector {
+    fn name(&self) -> &str {
+        "ravenfabric"
+    }
+
+    fn collect(&mut self) -> Vec<MetricPoint> {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let allowed = self.commands_allowed.load(std::sync::atomic::Ordering::Relaxed);
+        let denied = self.commands_denied.load(std::sync::atomic::Ordering::Relaxed);
+        let audit = self.audit_entries.load(std::sync::atomic::Ordering::Relaxed);
+        let connections = self.active_connections.load(std::sync::atomic::Ordering::Relaxed);
+        let handshakes = self.handshakes_completed.load(std::sync::atomic::Ordering::Relaxed);
+        let latency_us = self.handshake_latency_us.load(std::sync::atomic::Ordering::Relaxed);
+
+        let avg_latency_ms = if handshakes > 0 {
+            latency_us as f64 / handshakes as f64 / 1000.0
+        } else {
+            0.0
+        };
+
+        vec![
+            MetricPoint {
+                name: "ravenfabric_commands_allowed_total".into(),
+                value: MetricValue::Counter(allowed),
+                labels: HashMap::new(),
+                timestamp_ms: ts,
+            },
+            MetricPoint {
+                name: "ravenfabric_commands_denied_total".into(),
+                value: MetricValue::Counter(denied),
+                labels: HashMap::new(),
+                timestamp_ms: ts,
+            },
+            MetricPoint {
+                name: "ravenfabric_audit_entries_total".into(),
+                value: MetricValue::Counter(audit),
+                labels: HashMap::new(),
+                timestamp_ms: ts,
+            },
+            MetricPoint {
+                name: "ravenfabric_active_connections".into(),
+                value: MetricValue::Gauge(connections as f64),
+                labels: HashMap::new(),
+                timestamp_ms: ts,
+            },
+            MetricPoint {
+                name: "ravenfabric_handshakes_completed_total".into(),
+                value: MetricValue::Counter(handshakes),
+                labels: HashMap::new(),
+                timestamp_ms: ts,
+            },
+            MetricPoint {
+                name: "ravenfabric_handshake_latency_avg_ms".into(),
+                value: MetricValue::Gauge(avg_latency_ms),
+                labels: HashMap::new(),
+                timestamp_ms: ts,
+            },
+        ]
     }
 
     fn interval(&self) -> Duration {

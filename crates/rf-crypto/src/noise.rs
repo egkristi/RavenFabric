@@ -1,6 +1,6 @@
-use snow::{Builder, HandshakeState, StatelessTransportState};
+use snow::{Builder, Error as SnowError, HandshakeState, StatelessTransportState};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 use crate::error::CryptoError;
 use crate::keys::StaticKey;
@@ -127,7 +127,24 @@ where
 {
     let len = noise
         .write_message(payload, buf)
-        .map_err(|e| CryptoError::Handshake(e.to_string()))?;
+        .map_err(|e| {
+            if matches!(e, SnowError::Input) {
+                warn!(
+                    "Noise write_message Error::Input — buf={}, payload={}, finished={}, my_turn={}",
+                    buf.len(),
+                    payload.len(),
+                    noise.is_handshake_finished(),
+                    noise.is_my_turn(),
+                );
+                CryptoError::HandshakeInput(format!(
+                    "write_message buffer too small: buf={}, payload={}",
+                    buf.len(),
+                    payload.len(),
+                ))
+            } else {
+                CryptoError::Handshake(e.to_string())
+            }
+        })?;
 
     transport
         .write_all(&(len as u16).to_be_bytes())
@@ -170,10 +187,30 @@ where
         .await
         .map_err(|_| CryptoError::Disconnected)?;
 
-    let mut payload_buf = vec![0u8; 65535];
+    // Use a payload buffer sized to the maximum possible decrypted output:
+    // the ciphertext length plus the MAC overhead (16 bytes per encrypted token).
+    // snow 0.10.0 can return Error::Input if the output buffer is too small.
+    let mut payload_buf = vec![0u8; 65535 + 256];
     noise
         .read_message(&buf[..len], &mut payload_buf)
-        .map_err(|e| CryptoError::Handshake(e.to_string()))?;
+        .map_err(|e| {
+            if matches!(e, SnowError::Input) {
+                warn!(
+                    "Noise read_message Error::Input — msg_len={}, buf={}, finished={}, my_turn={}",
+                    len,
+                    buf.len(),
+                    noise.is_handshake_finished(),
+                    noise.is_my_turn(),
+                );
+                CryptoError::HandshakeInput(format!(
+                    "read_message buffer too small: msg_len={}, buf={}",
+                    len,
+                    buf.len(),
+                ))
+            } else {
+                CryptoError::Handshake(e.to_string())
+            }
+        })?;
 
     trace!("recv handshake msg: {} bytes", len);
     Ok(())

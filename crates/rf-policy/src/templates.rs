@@ -352,6 +352,11 @@ fn security_investigator_template() -> PolicyTemplate {
       - pattern: "^kubectl (get|describe|logs) .*"
       - pattern: "^(systemctl status|systemctl list-units) .*"
       - pattern: "^(dpkg -l|rpm -qa|pip list|npm list) .*"
+      # Non-exec action allow rules (synthetic commands checked by policy engine)
+      - pattern: "^port-forward [0-9.]+:[0-9]+ [0-9a-zA-Z._-]+:[0-9]+$"
+      - pattern: "^remote-forward [0-9.]+:[0-9]+ [0-9a-zA-Z._-]+:[0-9]+$"
+      - pattern: "^socks5-forward (127\\.0\\.0\\.1|localhost):[0-9]+$"
+      - pattern: "^proxy [0-9a-zA-Z._-]+:[0-9]+$"
     deny:
       - pattern: "^(rm|mv|cp|mkdir|touch|chmod|chown|dd|mkfs) .*"
       - pattern: "^(curl|wget|nc|ncat|socat) .*[^localhost].*"
@@ -359,7 +364,9 @@ fn security_investigator_template() -> PolicyTemplate {
       - pattern: "^(systemctl|service) (start|stop|restart|enable|disable) .*"
       - pattern: "^(kill|killall|pkill) .*"
       - pattern: "^sudo .*"
-      - pattern: "^(python|perl|ruby|bash|sh) -c .*"
+      - pattern: "^(python|perl|ruby|bash|sh)( -c .*)?$"
+      - pattern: "^/bin/(bash|sh)( .*)?$"
+      - pattern: "^/usr/bin/(bash|sh)( .*)?$"
   filesystem:
     allow:
       - path: /var/log

@@ -1,14 +1,20 @@
 [Unit]
-Description=RavenFabric Agent
+Description=RavenFabric MCP Server — AI agent integration
 Documentation=https://ravenfabric.io
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/rf-agent --config /etc/ravenfabric/raven.toml --relay ws://localhost:9090
+ExecStart=/usr/local/bin/rf-mcp-server \
+    --policy /etc/ravenfabric/policy.yaml \
+    --audit /var/log/ravenfabric/mcp-audit.jsonl \
+    --http-listen 127.0.0.1:8080
 Restart=on-failure
 RestartSec=5
+
+# Environment
+Environment=RF_LOG_LEVEL=info
 
 # Security hardening
 NoNewPrivileges=yes
@@ -23,7 +29,7 @@ ReadOnlyPaths=/etc/ravenfabric
 
 # Resource limits
 LimitNOFILE=65536
-MemoryMax=128M
+MemoryMax=256M
 
 [Install]
 WantedBy=multi-user.target

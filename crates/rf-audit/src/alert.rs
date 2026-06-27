@@ -142,12 +142,43 @@ async fn post_webhook(url: String, payload: String) {
     }
 }
 
+/// Configuration for staleness detection.
+///
+/// When no audit entries have been received for `max_idle_secs`, the engine
+/// fires a synthetic "staleness" alert. This is useful for detecting agent
+/// crashes, network partitions, or silent failures.
+#[derive(Debug, Clone)]
+pub struct StalenessConfig {
+    /// Maximum seconds without any audit activity before firing a staleness alert.
+    pub max_idle_secs: u64,
+    /// Minimum seconds between repeated staleness alerts (dedup).
+    pub dedup_window_secs: u64,
+    /// Optional webhook URL for staleness alerts.
+    pub webhook_url: Option<String>,
+}
+
+impl Default for StalenessConfig {
+    fn default() -> Self {
+        Self {
+            max_idle_secs: 300,       // 5 minutes
+            dedup_window_secs: 600,    // 10 minutes between repeats
+            webhook_url: None,
+        }
+    }
+}
+
 /// Engine that evaluates a set of `AlertRule`s against incoming audit entries
 /// and fires deduplicated alerts.
 pub struct AlertEngine {
     rules: Vec<AlertRule>,
     /// Last fired time per (rule_name, action) key.
     last_fired: Mutex<HashMap<String, Instant>>,
+    /// Timestamp of the last audit entry received.
+    last_activity: Mutex<Instant>,
+    /// Staleness detection configuration.
+    staleness: StalenessConfig,
+    /// Last time a staleness alert was fired (for dedup).
+    last_staleness_alert: Mutex<Option<Instant>>,
 }
 
 impl AlertEngine {
@@ -156,7 +187,89 @@ impl AlertEngine {
         Self {
             rules,
             last_fired: Mutex::new(HashMap::new()),
+            last_activity: Mutex::new(Instant::now()),
+            staleness: StalenessConfig::default(),
+            last_staleness_alert: Mutex::new(None),
         }
+    }
+
+    /// Configure staleness detection.
+    #[must_use]
+    pub fn with_staleness(mut self, config: StalenessConfig) -> Self {
+        self.staleness = config;
+        self
+    }
+
+    /// Record that an audit entry was received (updates the last-activity timestamp).
+    pub fn record_activity(&self) {
+        if let Ok(mut last) = self.last_activity.lock() {
+            *last = Instant::now();
+        }
+    }
+
+    /// Check if the audit stream has gone silent and fire a staleness alert if so.
+    ///
+    /// Returns the staleness alert name if one was fired, or `None` if the stream
+    /// is still active or the staleness alert is suppressed by dedup.
+    ///
+    /// This should be called periodically (e.g., every 30 seconds) by a watchdog task.
+    pub fn check_staleness(&self) -> Option<String> {
+        let now = Instant::now();
+
+        // Check if we've exceeded the max idle window
+        let idle = match self.last_activity.lock() {
+            Ok(last) => now.duration_since(*last).as_secs(),
+            Err(_) => return None,
+        };
+
+        if idle < self.staleness.max_idle_secs {
+            return None; // Still within acceptable window
+        }
+
+        // Dedup check
+        let should_fire = match self.last_staleness_alert.lock() {
+            Ok(guard) => match *guard {
+                Some(last) => {
+                    now.duration_since(last) >= Duration::from_secs(self.staleness.dedup_window_secs)
+                }
+                None => true,
+            },
+            Err(_) => return None,
+        };
+
+        if !should_fire {
+            return None;
+        }
+
+        // Fire the staleness alert
+        if let Ok(mut last) = self.last_staleness_alert.lock() {
+            *last = Some(now);
+        }
+
+        let alert_name = format!("staleness-{}s", idle);
+        tracing::warn!(
+            alert_rule = "staleness",
+            idle_seconds = idle,
+            max_idle_seconds = self.staleness.max_idle_secs,
+            "ALERT: no audit entries received — possible agent crash or network partition"
+        );
+
+        // Dispatch webhook if configured
+        if let Some(ref url) = self.staleness.webhook_url {
+            let payload = serde_json::json!({
+                "rule": "staleness",
+                "action": "audit_staleness",
+                "decision": "warning",
+                "idle_seconds": idle,
+                "max_idle_seconds": self.staleness.max_idle_secs,
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+            })
+            .to_string();
+            let url = url.clone();
+            tokio::spawn(post_webhook(url, payload));
+        }
+
+        Some(alert_name)
     }
 
     /// Evaluate all rules against `entry`. For each matching, non-deduplicated rule,
@@ -164,6 +277,9 @@ impl AlertEngine {
     ///
     /// Returns the names of all rules that fired.
     pub fn evaluate(&self, entry: &AuditEntry) -> Vec<String> {
+        // Record activity for staleness detection
+        self.record_activity();
+
         let now = Instant::now();
         let mut fired = Vec::new();
 

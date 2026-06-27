@@ -2382,7 +2382,7 @@ dependencies = [
 
 [[package]]
 name = "rf-agent"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2408,7 +2408,7 @@ dependencies = [
 
 [[package]]
 name = "rf-audit"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "chrono",
  "regex",
@@ -2422,7 +2422,7 @@ dependencies = [
 
 [[package]]
 name = "rf-bootstrap"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "chrono",
  "hex",
@@ -2438,7 +2438,7 @@ dependencies = [
 
 [[package]]
 name = "rf-cli"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -2465,7 +2465,7 @@ dependencies = [
 
 [[package]]
 name = "rf-crypto"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "chacha20poly1305",
  "criterion",
@@ -2486,7 +2486,7 @@ dependencies = [
 
 [[package]]
 name = "rf-executor"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2518,7 +2518,7 @@ dependencies = [
 
 [[package]]
 name = "rf-ingress"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -2565,7 +2565,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-client"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -2575,7 +2575,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-server"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -2602,7 +2602,7 @@ dependencies = [
 
 [[package]]
 name = "rf-policy"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "regex",
  "rf-audit",
@@ -2616,7 +2616,7 @@ dependencies = [
 
 [[package]]
 name = "rf-relay"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -2636,7 +2636,7 @@ dependencies = [
 
 [[package]]
 name = "rf-rpc"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "criterion",
  "futures-util",
@@ -2659,7 +2659,7 @@ dependencies = [
 
 [[package]]
 name = "rf-transport"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "async-trait",
  "chacha20poly1305",

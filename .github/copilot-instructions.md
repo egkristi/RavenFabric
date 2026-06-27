@@ -37,7 +37,7 @@ Cargo workspace with 14 crates:
 | `rf-ingress` | HTTP ingress gateway (axum), reverse-proxy routing table, API key auth, per-IP rate limiting | **Done** (~580 LOC, 11 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~72,767 LOC, 1,432 tests, 0 clippy warnings.**
+**Total: ~73,128 LOC, 1,423 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
@@ -177,6 +177,8 @@ All previously tracked debt items have been resolved:
 - ~~No yamux multiplexing~~ — `MuxClient`/`MuxServer` in `rf-rpc`
 - ~~No `rf dev` mode~~ — relay + agent in one process
 
+**Current technical debt** is tracked in [ROADMAP.md](../ROADMAP.md#technical-debt) — see the v0.25.2 release checklist for audit findings that need resolution.
+
 ## Testing Requirements
 
 When implementing new code or fixing bugs:
@@ -290,6 +292,7 @@ Every new feature **must** include the following before it is considered done:
 
 1. **Changelog updated** — add entry to `CHANGELOG.md` describing the feature
 2. **Relevant documentation updated** — update `README.md`, `ROADMAP.md`, and any other affected docs to reflect the new functionality
+3. **ROADMAP.md checklist updated** — mark the corresponding item as `[x]` in the appropriate release checklist section
 
 ## Version & Metric Consistency (Mandatory)
 
@@ -373,17 +376,18 @@ meet_secret = "env:RELAY_SECRET"
 
 ## Implementation Priority (What to Build Next)
 
-The critical path to a working demo (`rf exec --token <token> "cmd"`) is **COMPLETE**.
-v0.1 foundation is done: all crates implemented, 35 tests passing, integration tests working.
+All planned features through v1.3 are **implemented**. The project is in alpha at v0.25.1.
 
-**Next priorities (v0.2):**
+**Current priority:** Fix audit findings from the 26-day rpi5 soak test. See [ROADMAP.md](../ROADMAP.md#release-checklist-v0252--audit-fixes) for the v0.25.2 release checklist.
 
-1. QUIC transport driver
-2. yamux multiplexing for concurrent RPC
-3. Hot-reload policy via SIGHUP
-4. Streaming stdout/stderr via mux stream
-5. Agent enrollment flow (OTP → key exchange)
-6. Per-IP rate limiting on relay
+**Next priorities (v0.25.2 — Audit Fixes):**
+
+1. Fix relay mode — add `--relay` flag to agent systemd config
+2. Fix cross-platform Noise XX handshake (snow-0.10.0 `input error` on macOS→Linux)
+3. Deploy MCP server as systemd service
+4. Add policy rules for non-exec actions (shell, forward, proxy, background)
+5. Add RavenFabric-specific Prometheus metrics
+6. Restrict `bash` in policy allow list
 
 ## Website (ravenfabric.io)
 
