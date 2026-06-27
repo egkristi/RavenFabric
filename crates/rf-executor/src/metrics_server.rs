@@ -11,7 +11,9 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
-use crate::metrics::{MetricCollector, SystemMetricsCollector, RavenFabricMetricsCollector, to_prometheus};
+use crate::metrics::{
+    MetricCollector, RavenFabricMetricsCollector, SystemMetricsCollector, to_prometheus,
+};
 
 /// Configuration for the metrics server.
 #[derive(Debug, Clone)]
@@ -46,9 +48,9 @@ pub async fn start_metrics_server(
     let system_collector = Arc::new(Mutex::new(SystemMetricsCollector::new(
         Duration::from_secs(15),
     )));
-    let rf_collector = Arc::new(Mutex::new(
-        RavenFabricMetricsCollector::new_with_counters(Duration::from_secs(15)),
-    ));
+    let rf_collector = Arc::new(Mutex::new(RavenFabricMetricsCollector::new_with_counters(
+        Duration::from_secs(15),
+    )));
 
     let handle = tokio::spawn(async move {
         loop {
@@ -128,17 +130,21 @@ pub async fn start_metrics_server(
     Ok(handle)
 }
 
-/// Get the RavenFabric metrics collector counters for wiring into the executor.
-/// Returns `None` if the server hasn't been started yet.
-pub fn get_rf_collector_counters(
-) -> Option<(
+/// Type alias for the 6-tuple of shared atomic counters used by
+/// [`RavenFabricMetricsCollector`].
+type RfCounters = (
     Arc<std::sync::atomic::AtomicU64>,
     Arc<std::sync::atomic::AtomicU64>,
     Arc<std::sync::atomic::AtomicU64>,
     Arc<std::sync::atomic::AtomicI64>,
     Arc<std::sync::atomic::AtomicU64>,
     Arc<std::sync::atomic::AtomicU64>,
-)> {
+);
+
+/// Get the RavenFabric metrics collector counters for wiring into the executor.
+/// Returns `None` if the server hasn't been started yet.
+#[allow(clippy::type_complexity)]
+pub fn get_rf_collector_counters() -> Option<RfCounters> {
     // The counters are embedded in the RavenFabricMetricsCollector.
     // This is a convenience function; callers should use the collector directly.
     None

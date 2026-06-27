@@ -125,26 +125,24 @@ async fn send_handshake_msg<T>(
 where
     T: AsyncWrite + Unpin,
 {
-    let len = noise
-        .write_message(payload, buf)
-        .map_err(|e| {
-            if matches!(e, SnowError::Input) {
-                warn!(
-                    "Noise write_message Error::Input — buf={}, payload={}, finished={}, my_turn={}",
-                    buf.len(),
-                    payload.len(),
-                    noise.is_handshake_finished(),
-                    noise.is_my_turn(),
-                );
-                CryptoError::HandshakeInput(format!(
-                    "write_message buffer too small: buf={}, payload={}",
-                    buf.len(),
-                    payload.len(),
-                ))
-            } else {
-                CryptoError::Handshake(e.to_string())
-            }
-        })?;
+    let len = noise.write_message(payload, buf).map_err(|e| {
+        if matches!(e, SnowError::Input) {
+            warn!(
+                "Noise write_message Error::Input — buf={}, payload={}, finished={}, my_turn={}",
+                buf.len(),
+                payload.len(),
+                noise.is_handshake_finished(),
+                noise.is_my_turn(),
+            );
+            CryptoError::HandshakeInput(format!(
+                "write_message buffer too small: buf={}, payload={}",
+                buf.len(),
+                payload.len(),
+            ))
+        } else {
+            CryptoError::Handshake(e.to_string())
+        }
+    })?;
 
     transport
         .write_all(&(len as u16).to_be_bytes())

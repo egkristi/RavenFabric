@@ -160,8 +160,8 @@ pub struct StalenessConfig {
 impl Default for StalenessConfig {
     fn default() -> Self {
         Self {
-            max_idle_secs: 300,       // 5 minutes
-            dedup_window_secs: 600,    // 10 minutes between repeats
+            max_idle_secs: 300,     // 5 minutes
+            dedup_window_secs: 600, // 10 minutes between repeats
             webhook_url: None,
         }
     }
@@ -230,7 +230,8 @@ impl AlertEngine {
         let should_fire = match self.last_staleness_alert.lock() {
             Ok(guard) => match *guard {
                 Some(last) => {
-                    now.duration_since(last) >= Duration::from_secs(self.staleness.dedup_window_secs)
+                    now.duration_since(last)
+                        >= Duration::from_secs(self.staleness.dedup_window_secs)
                 }
                 None => true,
             },
@@ -246,7 +247,7 @@ impl AlertEngine {
             *last = Some(now);
         }
 
-        let alert_name = format!("staleness-{}s", idle);
+        let alert_name = format!("staleness-{idle}s");
         tracing::warn!(
             alert_rule = "staleness",
             idle_seconds = idle,

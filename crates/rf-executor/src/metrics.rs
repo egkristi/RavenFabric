@@ -8,6 +8,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, AtomicU64};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -218,12 +219,12 @@ impl RavenFabricMetricsCollector {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         interval: Duration,
-        commands_allowed: Arc<std::sync::atomic::AtomicU64>,
-        commands_denied: Arc<std::sync::atomic::AtomicU64>,
-        audit_entries: Arc<std::sync::atomic::AtomicU64>,
-        active_connections: Arc<std::sync::atomic::AtomicI64>,
-        handshakes_completed: Arc<std::sync::atomic::AtomicU64>,
-        handshake_latency_us: Arc<std::sync::atomic::AtomicU64>,
+        commands_allowed: Arc<AtomicU64>,
+        commands_denied: Arc<AtomicU64>,
+        audit_entries: Arc<AtomicU64>,
+        active_connections: Arc<AtomicI64>,
+        handshakes_completed: Arc<AtomicU64>,
+        handshake_latency_us: Arc<AtomicU64>,
     ) -> Self {
         Self {
             interval,
@@ -240,26 +241,26 @@ impl RavenFabricMetricsCollector {
     pub fn new_with_counters(interval: Duration) -> Self {
         Self {
             interval,
-            commands_allowed: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            commands_denied: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            audit_entries: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            active_connections: Arc::new(std::sync::atomic::AtomicI64::new(0)),
-            handshakes_completed: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            handshake_latency_us: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            commands_allowed: Arc::new(AtomicU64::new(0)),
+            commands_denied: Arc::new(AtomicU64::new(0)),
+            audit_entries: Arc::new(AtomicU64::new(0)),
+            active_connections: Arc::new(AtomicI64::new(0)),
+            handshakes_completed: Arc::new(AtomicU64::new(0)),
+            handshake_latency_us: Arc::new(AtomicU64::new(0)),
         }
     }
 
     /// Get references to the shared counters for wiring into the executor.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     pub fn counters(
         &self,
     ) -> (
-        &Arc<std::sync::atomic::AtomicU64>,
-        &Arc<std::sync::atomic::AtomicU64>,
-        &Arc<std::sync::atomic::AtomicU64>,
-        &Arc<std::sync::atomic::AtomicI64>,
-        &Arc<std::sync::atomic::AtomicU64>,
-        &Arc<std::sync::atomic::AtomicU64>,
+        &Arc<AtomicU64>,
+        &Arc<AtomicU64>,
+        &Arc<AtomicU64>,
+        &Arc<AtomicI64>,
+        &Arc<AtomicU64>,
+        &Arc<AtomicU64>,
     ) {
         (
             &self.commands_allowed,
@@ -283,12 +284,24 @@ impl MetricCollector for RavenFabricMetricsCollector {
             .unwrap_or_default()
             .as_millis() as u64;
 
-        let allowed = self.commands_allowed.load(std::sync::atomic::Ordering::Relaxed);
-        let denied = self.commands_denied.load(std::sync::atomic::Ordering::Relaxed);
-        let audit = self.audit_entries.load(std::sync::atomic::Ordering::Relaxed);
-        let connections = self.active_connections.load(std::sync::atomic::Ordering::Relaxed);
-        let handshakes = self.handshakes_completed.load(std::sync::atomic::Ordering::Relaxed);
-        let latency_us = self.handshake_latency_us.load(std::sync::atomic::Ordering::Relaxed);
+        let allowed = self
+            .commands_allowed
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let denied = self
+            .commands_denied
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let audit = self
+            .audit_entries
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let connections = self
+            .active_connections
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let handshakes = self
+            .handshakes_completed
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let latency_us = self
+            .handshake_latency_us
+            .load(std::sync::atomic::Ordering::Relaxed);
 
         let avg_latency_ms = if handshakes > 0 {
             latency_us as f64 / handshakes as f64 / 1000.0
