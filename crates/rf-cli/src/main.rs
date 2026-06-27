@@ -1334,7 +1334,10 @@ fn lint_policy_yaml(yaml_str: &str) -> Vec<(LintSeverity, String)> {
     let root: Value = match serde_yaml::from_str(yaml_str) {
         Ok(v) => v,
         Err(e) => {
-            findings.push((LintSeverity::Error, format!("failed to parse policy YAML: {e}")));
+            findings.push((
+                LintSeverity::Error,
+                format!("failed to parse policy YAML: {e}"),
+            ));
             return findings;
         }
     };
@@ -1378,19 +1381,25 @@ fn lint_policy_yaml(yaml_str: &str) -> Vec<(LintSeverity, String)> {
             if lower.contains("rm ") || lower.contains("rm -rf") || lower.contains("rm -r") {
                 findings.push((
                     LintSeverity::Warning,
-                    format!("command allow pattern '{pattern}' allows rm — risk of destructive deletion"),
+                    format!(
+                        "command allow pattern '{pattern}' allows rm — risk of destructive deletion"
+                    ),
                 ));
             }
             if lower.contains("sudo") || lower.contains("su ") {
                 findings.push((
                     LintSeverity::Warning,
-                    format!("command allow pattern '{pattern}' allows privilege escalation (sudo/su)"),
+                    format!(
+                        "command allow pattern '{pattern}' allows privilege escalation (sudo/su)"
+                    ),
                 ));
             }
             if lower.contains("chmod") || lower.contains("chown") {
                 findings.push((
                     LintSeverity::Warning,
-                    format!("command allow pattern '{pattern}' allows permission changes (chmod/chown)"),
+                    format!(
+                        "command allow pattern '{pattern}' allows permission changes (chmod/chown)"
+                    ),
                 ));
             }
             if lower.contains("wget") || lower.contains("curl ") || lower.contains("curl -") {
@@ -1506,7 +1515,8 @@ fn lint_policy_yaml(yaml_str: &str) -> Vec<(LintSeverity, String)> {
                 if !has_hostname && !has_cidr {
                     findings.push((
                         LintSeverity::Warning,
-                        "HTTP allow entry without hostname or CIDR — may match unintended targets".into(),
+                        "HTTP allow entry without hostname or CIDR — may match unintended targets"
+                            .into(),
                     ));
                 }
             }
@@ -1594,7 +1604,10 @@ fn policy_command(action: PolicyAction) -> anyhow::Result<()> {
                         LintSeverity::Info => println!("  INFO: {msg}"),
                     }
                 }
-                if findings.iter().any(|(s, _)| matches!(s, LintSeverity::Error)) {
+                if findings
+                    .iter()
+                    .any(|(s, _)| matches!(s, LintSeverity::Error))
+                {
                     std::process::exit(1);
                 }
             }

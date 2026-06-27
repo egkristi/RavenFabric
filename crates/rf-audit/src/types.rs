@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use hmac::{Mac, KeyInit};
+use hmac::{KeyInit, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -59,8 +59,7 @@ impl AuditEntry {
     pub fn compute_hmac(&self, key: &[u8]) -> String {
         use hmac::Hmac;
         type HmacSha256 = Hmac<Sha256>;
-        let mut mac = HmacSha256::new_from_slice(key)
-            .expect("HMAC accepts any key length");
+        let mut mac = HmacSha256::new_from_slice(key).expect("HMAC accepts any key length");
         mac.update(&self.canonical_bytes());
         let result = mac.finalize();
         hex::encode(result.into_bytes())
@@ -72,12 +71,10 @@ impl AuditEntry {
             Some(ref expected) => {
                 use hmac::Hmac;
                 type HmacSha256 = Hmac<Sha256>;
-                let mut mac = HmacSha256::new_from_slice(key)
-                    .expect("HMAC accepts any key length");
+                let mut mac = HmacSha256::new_from_slice(key).expect("HMAC accepts any key length");
                 mac.update(&self.canonical_bytes());
-                mac.verify_slice(
-                    &hex::decode(expected).unwrap_or_default()
-                ).is_ok()
+                mac.verify_slice(&hex::decode(expected).unwrap_or_default())
+                    .is_ok()
             }
             None => false,
         }

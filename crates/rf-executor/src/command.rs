@@ -521,7 +521,7 @@ impl Executor {
             caller_key: self.caller_key.clone(),
             reason: None,
             prev_hash: None,
-            hmac: None
+            hmac: None,
         }) {
             tracing::error!("audit log write failed: {e}");
         }
@@ -554,7 +554,7 @@ impl Executor {
                 caller_key: self.caller_key.clone(),
                 reason: None,
                 prev_hash: None,
-                hmac: None
+                hmac: None,
             }) {
                 tracing::error!("audit log write failed: {}", e);
             }
@@ -622,7 +622,7 @@ impl Executor {
             caller_key: self.caller_key.clone(),
             reason: None,
             prev_hash: None,
-            hmac: None
+            hmac: None,
         }) {
             tracing::error!("audit log write failed: {}", e);
         }

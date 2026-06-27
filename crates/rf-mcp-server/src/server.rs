@@ -1338,7 +1338,7 @@ impl McpServer {
             caller_key: self.session_id.clone(),
             reason: reason.map(String::from),
             prev_hash: None,
-            hmac: None
+            hmac: None,
         };
 
         // Store in session log

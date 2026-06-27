@@ -277,10 +277,7 @@ async fn agent_main() -> anyhow::Result<()> {
     let secret_store = if cfg.seal_key_path.exists() {
         let key_bytes = std::fs::read(&cfg.seal_key_path)?;
         if key_bytes.len() != 32 {
-            anyhow::bail!(
-                "seal key must be exactly 32 bytes, got {}",
-                key_bytes.len()
-            );
+            anyhow::bail!("seal key must be exactly 32 bytes, got {}", key_bytes.len());
         }
         let mut seal_key = [0u8; 32];
         seal_key.copy_from_slice(&key_bytes);
@@ -288,7 +285,10 @@ async fn agent_main() -> anyhow::Result<()> {
         info!("secret store loaded from {}", cfg.seal_key_path.display());
         Some(store)
     } else {
-        info!("no seal key at {}, secrets disabled", cfg.seal_key_path.display());
+        info!(
+            "no seal key at {}, secrets disabled",
+            cfg.seal_key_path.display()
+        );
         None
     };
 
@@ -488,7 +488,7 @@ async fn handle_direct_connection(
                     caller_key: String::new(),
                     reason: None,
                     prev_hash: None,
-                    hmac: None
+                    hmac: None,
                 });
                 return Err(anyhow::anyhow!("tamper detected"));
             }
@@ -506,7 +506,7 @@ async fn handle_direct_connection(
                     caller_key: String::new(),
                     reason: None,
                     prev_hash: None,
-                    hmac: None
+                    hmac: None,
                 });
                 return Err(anyhow::anyhow!("frame injection detected"));
             }
@@ -813,7 +813,7 @@ where
             caller_key: caller_key.clone(),
             reason: None,
             prev_hash: None,
-            hmac: None
+            hmac: None,
         });
         let response = Response {
             id: request_id.to_string(),
@@ -857,7 +857,7 @@ where
         caller_key: caller_key.clone(),
         reason: None,
         prev_hash: None,
-        hmac: None
+        hmac: None,
     });
 
     // Confirm tunnel is ready
@@ -887,7 +887,7 @@ where
         caller_key,
         reason: None,
         prev_hash: None,
-        hmac: None
+        hmac: None,
     });
 
     Ok(())
@@ -1034,7 +1034,7 @@ where
             caller_key: caller_key.clone(),
             reason: None,
             prev_hash: None,
-            hmac: None
+            hmac: None,
         });
         let response = Response {
             id: request_id.to_string(),
@@ -1076,7 +1076,7 @@ where
         caller_key: caller_key.clone(),
         reason: None,
         prev_hash: None,
-        hmac: None
+        hmac: None,
     });
 
     // Signal readiness — client starts sending raw frames immediately
@@ -1196,7 +1196,7 @@ where
         caller_key,
         reason: None,
         prev_hash: None,
-        hmac: None
+        hmac: None,
     });
 
     let done = Response {
@@ -1256,7 +1256,7 @@ where
             caller_key: caller_key.clone(),
             reason: None,
             prev_hash: None,
-            hmac: None
+            hmac: None,
         });
         let response = Response {
             id: request_id.to_string(),
@@ -1301,7 +1301,7 @@ where
         caller_key: caller_key.clone(),
         reason: None,
         prev_hash: None,
-        hmac: None
+        hmac: None,
     });
 
     // Announce file metadata — client now expects raw frames
@@ -1338,7 +1338,7 @@ where
         caller_key,
         reason: None,
         prev_hash: None,
-        hmac: None
+        hmac: None,
     });
 
     Ok(())

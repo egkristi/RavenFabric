@@ -76,7 +76,10 @@ impl FileAuditLogger {
 impl AuditLogger for FileAuditLogger {
     fn log(&self, mut entry: AuditEntry) -> Result<(), AuditError> {
         // Set the prev_hash from the chain
-        let prev = self.prev_hash.lock().map_err(|_| AuditError::LockPoisoned)?;
+        let prev = self
+            .prev_hash
+            .lock()
+            .map_err(|_| AuditError::LockPoisoned)?;
         entry.prev_hash = Some(prev.clone());
         drop(prev);
 
@@ -90,7 +93,10 @@ impl AuditLogger for FileAuditLogger {
 
         // Update prev_hash for next entry
         let content_hash = entry.content_hash();
-        let mut prev = self.prev_hash.lock().map_err(|_| AuditError::LockPoisoned)?;
+        let mut prev = self
+            .prev_hash
+            .lock()
+            .map_err(|_| AuditError::LockPoisoned)?;
         *prev = content_hash;
 
         Ok(())
@@ -115,11 +121,12 @@ pub fn verify_audit_chain(path: &PathBuf, hmac_key: &[u8]) -> Result<(), AuditEr
         if line.trim().is_empty() {
             continue;
         }
-        let entry: AuditEntry =
-            serde_json::from_str(&line).map_err(|e| AuditError::Io(std::io::Error::new(
+        let entry: AuditEntry = serde_json::from_str(&line).map_err(|e| {
+            AuditError::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 format!("line {}: failed to parse entry: {e}", i + 1),
-            )))?;
+            ))
+        })?;
 
         // Verify prev_hash chain
         if let Some(ref expected_prev) = prev_content_hash {
@@ -321,7 +328,11 @@ mod tests {
         // Verify HMAC chain integrity
         assert!(parsed.hmac.is_some(), "entry should have HMAC");
         assert!(parsed.prev_hash.is_some(), "entry should have prev_hash");
-        assert_eq!(parsed.prev_hash.as_deref().unwrap_or(""), "", "first entry prev_hash should be empty");
+        assert_eq!(
+            parsed.prev_hash.as_deref().unwrap_or(""),
+            "",
+            "first entry prev_hash should be empty"
+        );
     }
 
     #[test]
