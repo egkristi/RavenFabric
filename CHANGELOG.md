@@ -5,6 +5,22 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.3] — 2026-07-17
+
+### Added
+
+- **`rf policy lint` command** — Validates policy YAML with 6 check categories: dangerous patterns (bash in allow list), overly broad regex, missing deny rules, filesystem allow/deny overlaps, HTTP allow without deny, missing resource limits.
+- **`rf audit verify` command** — Checks HMAC-SHA256 chain continuity across the audit log, reports tampered entries, and shows chain gaps.
+- **HMAC chain integrity for audit log** — Every `AuditEntry` now carries `prev_hash` and `hmac` fields. `FileAuditLogger` computes HMAC-SHA256 over canonical field representation on every write. `verify_audit_chain()` validates continuity.
+- **Secret store wiring in agent** — Added `seal_key_path` to agent config, CLI args, and `ResolvedConfig`. `SecretStore` initialized on agent startup and wired to both Executor instances via `.with_secrets()`. New `seal_key_path` field in `raven.toml.example`.
+
+### Fixed
+
+- **Playbook YAML schema** — All 6 playbook files updated from map syntax to correct YAML tag syntax (`!agents [...]`, `!canary { ... }`, etc.) for serde_yaml externally-tagged enums.
+- **File chunking in `rf cp`** — Fixed 3 locations where chunk size was 65536 instead of 65535 (wire protocol max frame payload).
+- **AuditEntry constructor completeness** — All 32+ `AuditEntry` constructors across 5 crates updated with `prev_hash` and `hmac` fields.
+- **Clippy warnings** — Fixed `needless_borrow` and `format!` variable warnings in `rf-cli` and `rf-ingress`.
+
 ## [0.25.2] — 2026-06-27
 
 ### Added

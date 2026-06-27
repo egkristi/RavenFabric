@@ -180,6 +180,24 @@ enum Commands {
         #[command(subcommand)]
         action: SecretAction,
     },
+    /// Audit log management and verification
+    Audit {
+        #[command(subcommand)]
+        action: AuditAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum AuditAction {
+    /// Verify HMAC chain integrity of an audit log file
+    Verify {
+        /// Path to the audit log file (JSON-lines format)
+        file: PathBuf,
+
+        /// HMAC key file (raw 32-byte key, or hex-encoded)
+        #[arg(short, long)]
+        key_file: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -198,6 +216,16 @@ enum PolicyAction {
         file: Option<PathBuf>,
 
         /// Validate a built-in template by name
+        #[arg(short, long)]
+        template: Option<String>,
+    },
+    /// Lint a policy YAML file for dangerous patterns and misconfigurations
+    Lint {
+        /// Path to policy YAML file (or --template for built-in)
+        #[arg(short, long)]
+        file: Option<PathBuf>,
+
+        /// Lint a built-in template by name
         #[arg(short, long)]
         template: Option<String>,
     },
@@ -360,6 +388,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Secret { action } => {
             secret_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, action).await?;
+        }
+        Commands::Audit { action } => {
+            audit_command(action)?;
         }
     }
 
@@ -1283,6 +1314,208 @@ async fn connect_dev_agent(
     Ok(())
 }
 
+/// Severity level for policy lint findings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum LintSeverity {
+    Error,
+    Warning,
+    Info,
+}
+
+/// Lint a policy YAML string for dangerous patterns and misconfigurations.
+///
+/// Returns a list of (severity, message) tuples. Empty list means no issues.
+fn lint_policy_yaml(yaml_str: &str) -> Vec<(LintSeverity, String)> {
+    use serde_yaml::Value;
+
+    let mut findings: Vec<(LintSeverity, String)> = Vec::new();
+
+    // 1. Try to parse the YAML
+    let root: Value = match serde_yaml::from_str(yaml_str) {
+        Ok(v) => v,
+        Err(e) => {
+            findings.push((LintSeverity::Error, format!("failed to parse policy YAML: {e}")));
+            return findings;
+        }
+    };
+
+    let spec = match root.get("spec") {
+        Some(v) => v,
+        None => {
+            findings.push((
+                LintSeverity::Warning,
+                "policy has no 'spec' section — no rules defined".into(),
+            ));
+            return findings;
+        }
+    };
+
+    // Helper to extract string patterns from a list of { pattern: "..." } entries
+    let get_patterns = |section: &Value, key: &str| -> Vec<String> {
+        section
+            .get(key)
+            .and_then(|v| v.as_sequence())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|entry| entry.get("pattern").and_then(|p| p.as_str()))
+                    .map(|s| s.to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+
+    // 2. Check for dangerous patterns in command allow list
+    if let Some(commands) = spec.get("commands") {
+        let allow_patterns = get_patterns(commands, "allow");
+        for pattern in &allow_patterns {
+            let lower = pattern.to_lowercase();
+            if lower.contains("bash") || lower.contains("sh ") || lower.contains("/sh") {
+                findings.push((
+                    LintSeverity::Warning,
+                    format!("command allow pattern '{pattern}' allows shell access (bash/sh) — consider restricting to specific commands"),
+                ));
+            }
+            if lower.contains("rm ") || lower.contains("rm -rf") || lower.contains("rm -r") {
+                findings.push((
+                    LintSeverity::Warning,
+                    format!("command allow pattern '{pattern}' allows rm — risk of destructive deletion"),
+                ));
+            }
+            if lower.contains("sudo") || lower.contains("su ") {
+                findings.push((
+                    LintSeverity::Warning,
+                    format!("command allow pattern '{pattern}' allows privilege escalation (sudo/su)"),
+                ));
+            }
+            if lower.contains("chmod") || lower.contains("chown") {
+                findings.push((
+                    LintSeverity::Warning,
+                    format!("command allow pattern '{pattern}' allows permission changes (chmod/chown)"),
+                ));
+            }
+            if lower.contains("wget") || lower.contains("curl ") || lower.contains("curl -") {
+                findings.push((
+                    LintSeverity::Info,
+                    format!("command allow pattern '{pattern}' allows network downloads (wget/curl) — ensure this is intentional"),
+                ));
+            }
+            if !pattern.starts_with('^') && !pattern.starts_with('.') {
+                findings.push((
+                    LintSeverity::Info,
+                    format!("command allow pattern '{pattern}' is not anchored with ^ — may match unintended commands"),
+                ));
+            }
+        }
+
+        let deny_patterns = get_patterns(commands, "deny");
+        for pattern in &deny_patterns {
+            if pattern == ".*" || pattern == "^.*" {
+                findings.push((
+                    LintSeverity::Warning,
+                    format!("command deny pattern '{pattern}' is a catch-all — consider more specific patterns"),
+                ));
+            }
+        }
+    } else {
+        findings.push((LintSeverity::Warning, "no 'commands' rules defined — all commands are denied by default, but explicit rules are recommended".into()));
+    }
+
+    // 3. Check for missing sections
+    if spec.get("filesystem").is_none() {
+        findings.push((
+            LintSeverity::Info,
+            "no 'filesystem' rules defined — file access is unrestricted".into(),
+        ));
+    }
+    if spec.get("network").is_none() {
+        findings.push((
+            LintSeverity::Info,
+            "no 'network' rules defined — network access is unrestricted".into(),
+        ));
+    }
+
+    // 4. Check for resource limits
+    if let Some(resources) = spec.get("resources") {
+        let max_output = resources
+            .get("maxOutputBytes")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        if max_output == 0 {
+            findings.push((
+                LintSeverity::Warning,
+                "resources.maxOutputBytes is not set — output is unbounded, risk of memory exhaustion".into(),
+            ));
+        }
+        let timeout = resources
+            .get("timeoutSeconds")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        if timeout == 0 {
+            findings.push((
+                LintSeverity::Warning,
+                "resources.timeoutSeconds is not set — execution may hang indefinitely".into(),
+            ));
+        }
+    } else {
+        findings.push((
+            LintSeverity::Warning,
+            "no 'resources' section — output is unbounded and execution has no timeout".into(),
+        ));
+    }
+
+    // 5. Check for filesystem path overlaps
+    if let Some(fs) = spec.get("filesystem") {
+        let allow_paths: Vec<String> = fs
+            .get("allow")
+            .and_then(|v| v.as_sequence())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|e| e.get("path").and_then(|p| p.as_str()))
+                    .map(|s| s.to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let deny_paths: Vec<String> = fs
+            .get("deny")
+            .and_then(|v| v.as_sequence())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|e| e.get("path").and_then(|p| p.as_str()))
+                    .map(|s| s.to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        for a in &allow_paths {
+            for d in &deny_paths {
+                if d.starts_with(a) || a.starts_with(d) {
+                    findings.push((
+                        LintSeverity::Warning,
+                        format!("filesystem allow path '{a}' overlaps with deny path '{d}' — deny takes precedence"),
+                    ));
+                }
+            }
+        }
+    }
+
+    // 6. Check for HTTP rules without hostname validation
+    if let Some(http) = spec.get("http") {
+        if let Some(allow) = http.get("allow").and_then(|v| v.as_sequence()) {
+            for entry in allow {
+                let has_hostname = entry.get("hostname").and_then(|v| v.as_str()).is_some();
+                let has_cidr = entry.get("cidr").and_then(|v| v.as_str()).is_some();
+                if !has_hostname && !has_cidr {
+                    findings.push((
+                        LintSeverity::Warning,
+                        "HTTP allow entry without hostname or CIDR — may match unintended targets".into(),
+                    ));
+                }
+            }
+        }
+    }
+
+    findings
+}
+
 fn policy_command(action: PolicyAction) -> anyhow::Result<()> {
     let registry = TemplateRegistry::new();
 
@@ -1329,6 +1562,41 @@ fn policy_command(action: PolicyAction) -> anyhow::Result<()> {
             } else {
                 eprintln!("ERROR: specify either --file or --template");
                 std::process::exit(1);
+            }
+        }
+        PolicyAction::Lint { file, template } => {
+            let yaml_content = if let Some(ref template_name) = template {
+                let tmpl = registry
+                    .get(template_name)
+                    .ok_or_else(|| anyhow::anyhow!("template '{template_name}' not found"))?;
+                tmpl.yaml.clone()
+            } else if let Some(path) = file.clone() {
+                std::fs::read_to_string(&path)?
+            } else {
+                eprintln!("ERROR: specify either --file or --template");
+                std::process::exit(1);
+            };
+
+            let findings = lint_policy_yaml(&yaml_content);
+            if findings.is_empty() {
+                println!("OK: no issues found");
+            } else {
+                let label = file
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .or(template)
+                    .unwrap_or_default();
+                println!("Lint findings for {label}:\n");
+                for (severity, msg) in &findings {
+                    match severity {
+                        LintSeverity::Error => eprintln!("  ERROR: {msg}"),
+                        LintSeverity::Warning => println!("  WARNING: {msg}"),
+                        LintSeverity::Info => println!("  INFO: {msg}"),
+                    }
+                }
+                if findings.iter().any(|(s, _)| matches!(s, LintSeverity::Error)) {
+                    std::process::exit(1);
+                }
             }
         }
         PolicyAction::Compose { templates } => {
@@ -1479,8 +1747,8 @@ async fn cp_command(
                 }
                 _ => anyhow::bail!("unexpected response to FilePushStream"),
             }
-            // 3. Stream raw file data in 64 KB frames
-            const STREAM_CHUNK: usize = 65536;
+            // 3. Stream raw file data in 64 KB frames (max frame payload is 65535)
+            const STREAM_CHUNK: usize = 65535;
             let mut sent = 0usize;
             while sent < total {
                 let end = (sent + STREAM_CHUNK).min(total);
@@ -1925,6 +2193,41 @@ async fn handle_proxy_connection(
     Ok(())
 }
 
+fn audit_command(action: AuditAction) -> anyhow::Result<()> {
+    match action {
+        AuditAction::Verify { file, key_file } => {
+            let key_bytes = std::fs::read(&key_file).map_err(|e| {
+                anyhow::anyhow!("failed to read key file '{}': {e}", key_file.display())
+            })?;
+
+            // Try hex-decoded 32-byte key first, then raw bytes
+            let hmac_key = if key_bytes.len() == 64 {
+                hex::decode(&key_bytes).unwrap_or(key_bytes)
+            } else {
+                key_bytes
+            };
+
+            if hmac_key.len() != 32 {
+                anyhow::bail!(
+                    "HMAC key must be 32 bytes (got {}). Use a 32-byte raw key or 64-char hex string.",
+                    hmac_key.len()
+                );
+            }
+
+            match rf_audit::logger::verify_audit_chain(&file, &hmac_key) {
+                Ok(()) => {
+                    println!("OK: audit chain integrity verified for {}", file.display());
+                }
+                Err(e) => {
+                    eprintln!("ERROR: audit chain verification failed: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn rand_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let t = SystemTime::now()
@@ -2180,8 +2483,8 @@ async fn push_single_file(
         _ => anyhow::bail!("unexpected response to FilePushStream"),
     }
 
-    // 3. Stream raw data in 64 KB frames
-    const CHUNK: usize = 65536;
+    // 3. Stream raw data in 64 KB frames (max frame payload is 65535)
+    const CHUNK: usize = 65535;
     let mut sent = 0;
     while sent < total {
         let end = (sent + CHUNK).min(total);

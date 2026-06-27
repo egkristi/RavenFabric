@@ -37,7 +37,7 @@ Cargo workspace with 14 crates:
 | `rf-ingress` | HTTP ingress gateway (axum), reverse-proxy routing table, API key auth, per-IP rate limiting | **Done** (~580 LOC, 11 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~73,128 LOC, 1,423 tests, 0 clippy warnings.**
+**Total: ~73,812 LOC, 1,423 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 
@@ -177,7 +177,7 @@ All previously tracked debt items have been resolved:
 - ~~No yamux multiplexing~~ — `MuxClient`/`MuxServer` in `rf-rpc`
 - ~~No `rf dev` mode~~ — relay + agent in one process
 
-**Current technical debt** is tracked in [ROADMAP.md](../ROADMAP.md#technical-debt) — see the v0.25.2 release checklist for audit findings that need resolution.
+**Current technical debt** is tracked in [ROADMAP.md](../ROADMAP.md#technical-debt) — see the v0.25.3 release checklist for audit findings that need resolution.
 
 ## Testing Requirements
 
@@ -378,9 +378,9 @@ meet_secret = "env:RELAY_SECRET"
 
 All planned features through v1.3 are **implemented**. The project is in alpha at v0.25.1.
 
-**Current priority:** Fix audit findings from the 26-day rpi5 soak test. See [ROADMAP.md](../ROADMAP.md#release-checklist-v0252--audit-fixes) for the v0.25.2 release checklist.
+**Current priority:** Fix audit findings from the 26-day rpi5 soak test. See [ROADMAP.md](../ROADMAP.md#release-checklist-v0253--remaining-audit-fixes) for the v0.25.3 release checklist.
 
-**Next priorities (v0.25.2 — Audit Fixes):**
+**Next priorities (v1.0.0-beta.1 — Beta Readiness):**
 
 1. Fix relay mode — add `--relay` flag to agent systemd config
 2. Fix cross-platform Noise XX handshake (snow-0.10.0 `input error` on macOS→Linux)

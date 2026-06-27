@@ -260,6 +260,8 @@ mod tests {
             duration_ms: 10,
             caller_key: "heckeyaabb".into(),
             reason: None,
+            prev_hash: None,
+            hmac: None,
         }
     }
 

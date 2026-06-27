@@ -19,6 +19,9 @@ chrono = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 regex = { workspace = true }
+sha2 = { workspace = true }
+hmac = { workspace = true }
+hex = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

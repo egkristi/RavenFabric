@@ -56,6 +56,9 @@ pub struct IngressConfig {
     /// Optional path for the structured JSON-lines audit log.
     /// If `None`, audit entries are discarded (no-op logger).
     pub audit_path: Option<String>,
+    /// Optional path to the HMAC key file (32-byte raw or 64-char hex) for audit chain integrity.
+    /// Required if `audit_path` is set.
+    pub audit_key_path: Option<String>,
 }
 
 impl Default for IngressConfig {
@@ -67,6 +70,7 @@ impl Default for IngressConfig {
             upstream_timeout_ms: 30_000,
             max_response_bytes: 10 * 1024 * 1024, // 10 MiB
             audit_path: None,
+            audit_key_path: None,
         }
     }
 }
@@ -78,7 +82,22 @@ pub async fn run_ingress(config: IngressConfig, routing_table: RoutingTable) -> 
         .build()?;
 
     let audit: Arc<dyn AuditLogger> = if let Some(ref path) = config.audit_path {
-        Arc::new(FileAuditLogger::new(path.into())?)
+        let hmac_key = match config.audit_key_path {
+            Some(ref key_path) => {
+                let key_bytes = std::fs::read(key_path)
+                    .map_err(|e| anyhow::anyhow!("failed to read audit key '{key_path}': {e}"))?;
+                if key_bytes.len() == 64 {
+                    hex::decode(&key_bytes).unwrap_or(key_bytes)
+                } else {
+                    key_bytes
+                }
+            }
+            None => anyhow::bail!("audit_key_path is required when audit_path is set"),
+        };
+        if hmac_key.len() != 32 {
+            anyhow::bail!("audit HMAC key must be 32 bytes (got {})", hmac_key.len());
+        }
+        Arc::new(FileAuditLogger::new(path.into(), hmac_key)?)
     } else {
         Arc::new(NullAuditLogger)
     };
@@ -156,6 +175,8 @@ async fn proxy_handler(
             duration_ms: start.elapsed().as_millis() as u64,
             caller_key: caller_key.clone(),
             reason: Some(format!("source_ip={remote_ip}")),
+            prev_hash: None,
+            hmac: None,
         }) {
             warn!("audit write failed: {e}");
         }
@@ -176,6 +197,8 @@ async fn proxy_handler(
             duration_ms: start.elapsed().as_millis() as u64,
             caller_key: caller_key.clone(),
             reason: Some(format!("source_ip={remote_ip}")),
+            prev_hash: None,
+            hmac: None,
         }) {
             warn!("audit write failed: {e}");
         }
@@ -212,6 +235,8 @@ async fn proxy_handler(
                 duration_ms: start.elapsed().as_millis() as u64,
                 caller_key: caller_key.clone(),
                 reason: Some(format!("host={host}")),
+                prev_hash: None,
+                hmac: None,
             }) {
                 warn!("audit write failed: {e}");
             }
@@ -316,6 +341,8 @@ async fn proxy_handler(
         duration_ms: latency_ms,
         caller_key,
         reason: None,
+        prev_hash: None,
+        hmac: None,
     }) {
         warn!("audit write failed: {e}");
     }

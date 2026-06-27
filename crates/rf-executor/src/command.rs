@@ -520,6 +520,8 @@ impl Executor {
             duration_ms,
             caller_key: self.caller_key.clone(),
             reason: None,
+            prev_hash: None,
+            hmac: None
         }) {
             tracing::error!("audit log write failed: {e}");
         }
@@ -551,6 +553,8 @@ impl Executor {
                 duration_ms,
                 caller_key: self.caller_key.clone(),
                 reason: None,
+                prev_hash: None,
+                hmac: None
             }) {
                 tracing::error!("audit log write failed: {}", e);
             }
@@ -617,6 +621,8 @@ impl Executor {
             duration_ms,
             caller_key: self.caller_key.clone(),
             reason: None,
+            prev_hash: None,
+            hmac: None
         }) {
             tracing::error!("audit log write failed: {}", e);
         }
@@ -1339,6 +1345,8 @@ impl Executor {
                         duration_ms: start.elapsed().as_millis() as u64,
                         caller_key: self.caller_key.clone(),
                         reason: Some(asciicast),
+                        prev_hash: None,
+                        hmac: None,
                     });
                 }
 
@@ -3419,6 +3427,8 @@ impl Executor {
             duration_ms: start.elapsed().as_millis() as u64,
             caller_key: self.caller_key.clone(),
             reason: Some(format!("current_version={current_version}")),
+            prev_hash: None,
+            hmac: None,
         }) {
             tracing::warn!("audit write failed: {e}");
         }
@@ -3463,6 +3473,8 @@ impl Executor {
                         duration_ms: start.elapsed().as_millis() as u64,
                         caller_key: self.caller_key.clone(),
                         reason: Some(reason.clone()),
+                        prev_hash: None,
+                        hmac: None,
                     });
                     return RpcResult::UpdateFailed { reason };
                 }
@@ -3487,6 +3499,8 @@ impl Executor {
                         duration_ms: start.elapsed().as_millis() as u64,
                         caller_key: self.caller_key.clone(),
                         reason: Some(reason.clone()),
+                        prev_hash: None,
+                        hmac: None,
                     });
                     return RpcResult::UpdateFailed { reason };
                 }
@@ -3520,6 +3534,8 @@ impl Executor {
                     duration_ms: start.elapsed().as_millis() as u64,
                     caller_key: self.caller_key.clone(),
                     reason: Some(reason.clone()),
+                    prev_hash: None,
+                    hmac: None,
                 });
                 // Fire webhook alert on download failure.
                 if let Some(hook_url) = self.alert_webhook.read().await.clone() {
@@ -3547,6 +3563,8 @@ impl Executor {
             duration_ms: start.elapsed().as_millis() as u64,
             caller_key: self.caller_key.clone(),
             reason: Some(format!("url={url} allow_downgrade={allow_downgrade}")),
+            prev_hash: None,
+            hmac: None,
         });
 
         // exec() the new binary — does not return on Unix.
@@ -3686,6 +3704,8 @@ impl Executor {
             duration_ms: start.elapsed().as_millis() as u64,
             caller_key: self.caller_key.clone(),
             reason: Some(format!("agent_id={}", self.agent_id)),
+            prev_hash: None,
+            hmac: None,
         });
         RpcResult::HealthCheckPassed {
             agent_id: self.agent_id.clone(),
@@ -3719,6 +3739,8 @@ impl Executor {
             duration_ms: start.elapsed().as_millis() as u64,
             caller_key: self.caller_key.clone(),
             reason: None,
+            prev_hash: None,
+            hmac: None,
         });
         RpcResult::AlertWebhookSet { url: url_clone }
     }

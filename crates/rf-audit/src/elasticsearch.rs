@@ -316,6 +316,8 @@ mod tests {
             duration_ms: 5,
             caller_key: "eskeyaabb".into(),
             reason: None,
+            prev_hash: None,
+            hmac: None,
         }
     }
 

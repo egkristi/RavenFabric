@@ -207,7 +207,7 @@ impl McpServer {
         let policy = Arc::new(RwLock::new(policy));
 
         let audit: Arc<dyn AuditLogger> = if let Some(path) = audit_path {
-            Arc::new(FileAuditLogger::new(path.to_path_buf())?)
+            Arc::new(FileAuditLogger::new(path.to_path_buf(), vec![])?)
         } else {
             Arc::new(rf_audit::logger::NullAuditLogger)
         };
@@ -1337,6 +1337,8 @@ impl McpServer {
             duration_ms: 0,
             caller_key: self.session_id.clone(),
             reason: reason.map(String::from),
+            prev_hash: None,
+            hmac: None
         };
 
         // Store in session log
@@ -1369,6 +1371,8 @@ impl McpServer {
                 duration_ms: 0,
                 caller_key: self.session_id.clone(),
                 reason: Some(event.description.clone()),
+                prev_hash: None,
+                hmac: None,
             };
             self.session_log.lock().await.push(anomaly_entry.clone());
             if let Err(e) = self.audit.log(anomaly_entry) {

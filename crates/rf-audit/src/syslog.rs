@@ -253,6 +253,8 @@ mod tests {
             duration_ms: 42,
             caller_key: "deadbeef".into(),
             reason: None,
+            prev_hash: None,
+            hmac: None,
         }
     }
 

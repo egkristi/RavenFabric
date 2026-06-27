@@ -7,11 +7,7 @@ command: |
   echo "login_users: $(cat /etc/passwd | grep -v nologin | grep -v false | wc -l)"
   echo "listening_ports: $(ss -tlnp 2>/dev/null | grep LISTEN | wc -l)"
   echo "=== Done ==="
-target:
-  agents:
-    - rf-collector
-    - rf-webserver
-    - rf-database
+target: !agents [rf-collector, rf-webserver, rf-database]
 strategy: parallel
 on_failure: continue
 timeout_secs: 30

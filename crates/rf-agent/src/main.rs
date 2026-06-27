@@ -16,6 +16,7 @@ use rf_audit::types::AuditEntry;
 use rf_crypto::channel::SecureChannel;
 use rf_crypto::keys::StaticKey;
 use rf_crypto::noise::handshake;
+use rf_crypto::secrets::SecretStore;
 use rf_executor::command::Executor;
 use rf_policy::rpc_policy::RpcPolicy;
 use rf_rpc::codec;
@@ -63,6 +64,10 @@ struct Args {
     /// When set, the agent acts as a server (like sshd) instead of connecting to a relay.
     #[arg(short = 'L', long)]
     listen: Option<String>,
+
+    /// Path to seal key file (32 bytes raw) for SecretStore.
+    #[arg(long)]
+    seal_key_path: Option<PathBuf>,
 }
 
 /// Configuration file format (raven.toml).
@@ -87,6 +92,8 @@ struct AgentConfig {
     /// Geographic region code (e.g. `eu-west`, `us-east`).
     /// Used for region-aware relay selection and fleet orchestration.
     region: Option<String>,
+    /// Path to seal key file (32 bytes raw) for SecretStore.
+    seal_key_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -149,6 +156,8 @@ struct ResolvedConfig {
     listen: Option<String>,
     /// Geographic region code (e.g. `eu-west`, `us-east`, `ap-south`).
     region: Option<String>,
+    /// Path to seal key file (32 bytes raw) for SecretStore.
+    seal_key_path: PathBuf,
 }
 
 fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
@@ -219,6 +228,11 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
         metrics_addr: args.metrics_addr.clone().or(config.agent.metrics_addr),
         listen: args.listen.clone().or(config.agent.listen),
         region: config.agent.region,
+        seal_key_path: args
+            .seal_key_path
+            .clone()
+            .or(config.agent.seal_key_path.map(PathBuf::from))
+            .unwrap_or_else(|| PathBuf::from("seal.key")),
     })
 }
 
@@ -256,8 +270,27 @@ async fn agent_main() -> anyhow::Result<()> {
 
     // Open audit logger
     let audit: Arc<dyn rf_audit::logger::AuditLogger> =
-        Arc::new(FileAuditLogger::new(cfg.audit_path.clone())?);
+        Arc::new(FileAuditLogger::new(cfg.audit_path.clone(), vec![])?);
     info!("audit log: {}", cfg.audit_path.display());
+
+    // Initialize SecretStore (sealed secrets for command execution)
+    let secret_store = if cfg.seal_key_path.exists() {
+        let key_bytes = std::fs::read(&cfg.seal_key_path)?;
+        if key_bytes.len() != 32 {
+            anyhow::bail!(
+                "seal key must be exactly 32 bytes, got {}",
+                key_bytes.len()
+            );
+        }
+        let mut seal_key = [0u8; 32];
+        seal_key.copy_from_slice(&key_bytes);
+        let store = Arc::new(tokio::sync::Mutex::new(SecretStore::new(seal_key)));
+        info!("secret store loaded from {}", cfg.seal_key_path.display());
+        Some(store)
+    } else {
+        info!("no seal key at {}, secrets disabled", cfg.seal_key_path.display());
+        None
+    };
 
     info!("agent {} starting", cfg.id);
 
@@ -306,7 +339,7 @@ async fn agent_main() -> anyhow::Result<()> {
     // Direct-listen mode (like sshd) or relay-connect mode
     if let Some(ref listen_addr) = cfg.listen {
         info!("direct-listen mode on {}", listen_addr);
-        run_listen_mode(listen_addr, &cfg, &key, &policy, &audit).await?;
+        run_listen_mode(listen_addr, &cfg, &key, &policy, &audit, &secret_store).await?;
     } else {
         info!("relay mode: {}", cfg.relay);
         // Reconnect loop with exponential backoff + jitter
@@ -318,7 +351,7 @@ async fn agent_main() -> anyhow::Result<()> {
                 break;
             }
 
-            match run_session(&cfg, &key, &policy, &audit).await {
+            match run_session(&cfg, &key, &policy, &audit, &secret_store).await {
                 Ok(()) => {
                     info!("session ended cleanly");
                     attempt = 0; // Reset on successful session
@@ -361,6 +394,7 @@ async fn run_listen_mode(
     key: &StaticKey,
     policy: &Arc<RwLock<RpcPolicy>>,
     audit: &Arc<dyn rf_audit::logger::AuditLogger>,
+    secret_store: &Option<Arc<tokio::sync::Mutex<SecretStore>>>,
 ) -> anyhow::Result<()> {
     let driver = WebSocketDriver::new();
     let listener = driver.listen(listen_addr).await?;
@@ -376,8 +410,9 @@ async fn run_listen_mode(
                         let policy = policy.clone();
                         let audit = audit.clone();
                         let agent_id = cfg.id.clone();
+                        let secret_store = secret_store.clone();
                         tokio::spawn(async move {
-                            if let Err(e) = handle_direct_connection(stream, &key, &policy, &audit, &agent_id).await {
+                            if let Err(e) = handle_direct_connection(stream, &key, &policy, &audit, &agent_id, &secret_store).await {
                                 warn!("direct session error: {}", e);
                             }
                         });
@@ -403,6 +438,7 @@ async fn handle_direct_connection(
     policy: &Arc<RwLock<RpcPolicy>>,
     audit: &Arc<dyn rf_audit::logger::AuditLogger>,
     agent_id: &str,
+    secret_store: &Option<Arc<tokio::sync::Mutex<SecretStore>>>,
 ) -> anyhow::Result<()> {
     // Noise handshake (agent is responder)
     info!("performing Noise XX handshake...");
@@ -419,9 +455,13 @@ async fn handle_direct_connection(
     ));
 
     // Executor
-    let executor = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
+    let mut executor_builder = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
         .with_agent_id(agent_id.to_string())
         .with_start_time(std::time::Instant::now());
+    if let Some(secrets) = secret_store {
+        executor_builder = executor_builder.with_secrets(secrets.clone());
+    }
+    let executor = executor_builder;
 
     // RPC loop
     info!("direct session ready, waiting for RPC requests");
@@ -447,6 +487,8 @@ async fn handle_direct_connection(
                     duration_ms: 0,
                     caller_key: String::new(),
                     reason: None,
+                    prev_hash: None,
+                    hmac: None
                 });
                 return Err(anyhow::anyhow!("tamper detected"));
             }
@@ -463,6 +505,8 @@ async fn handle_direct_connection(
                     duration_ms: 0,
                     caller_key: String::new(),
                     reason: None,
+                    prev_hash: None,
+                    hmac: None
                 });
                 return Err(anyhow::anyhow!("frame injection detected"));
             }
@@ -553,6 +597,7 @@ async fn run_session(
     key: &StaticKey,
     policy: &Arc<RwLock<RpcPolicy>>,
     audit: &Arc<dyn rf_audit::logger::AuditLogger>,
+    secret_store: &Option<Arc<tokio::sync::Mutex<SecretStore>>>,
 ) -> anyhow::Result<()> {
     let driver = WebSocketDriver::new();
     let target = Target {
@@ -579,10 +624,14 @@ async fn run_session(
     ));
 
     // Executor
-    let executor = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
+    let mut executor_builder = Executor::new(policy.clone(), audit.clone(), hex::encode(peer_key))
         .with_agent_id(cfg.id.clone())
         .with_region(cfg.region.clone())
         .with_start_time(std::time::Instant::now());
+    if let Some(secrets) = secret_store {
+        executor_builder = executor_builder.with_secrets(secrets.clone());
+    }
+    let executor = executor_builder;
 
     // RPC loop with graceful shutdown
     info!("agent {} ready, waiting for RPC requests", cfg.id);
@@ -611,6 +660,8 @@ async fn run_session(
                             duration_ms: 0,
                             caller_key: String::new(),
                             reason: None,
+                            prev_hash: None,
+                            hmac: None
                         });
                         return Err(anyhow::anyhow!("tamper detected: MAC verification failed"));
                     }
@@ -627,6 +678,8 @@ async fn run_session(
                             duration_ms: 0,
                             caller_key: String::new(),
                             reason: None,
+                            prev_hash: None,
+                            hmac: None
                         });
                         return Err(anyhow::anyhow!("frame injection detected"));
                     }
@@ -759,6 +812,8 @@ where
             duration_ms: 0,
             caller_key: caller_key.clone(),
             reason: None,
+            prev_hash: None,
+            hmac: None
         });
         let response = Response {
             id: request_id.to_string(),
@@ -801,6 +856,8 @@ where
         duration_ms: 0,
         caller_key: caller_key.clone(),
         reason: None,
+        prev_hash: None,
+        hmac: None
     });
 
     // Confirm tunnel is ready
@@ -829,6 +886,8 @@ where
         duration_ms: 0,
         caller_key,
         reason: None,
+        prev_hash: None,
+        hmac: None
     });
 
     Ok(())
@@ -974,6 +1033,8 @@ where
             duration_ms: 0,
             caller_key: caller_key.clone(),
             reason: None,
+            prev_hash: None,
+            hmac: None
         });
         let response = Response {
             id: request_id.to_string(),
@@ -1014,6 +1075,8 @@ where
         duration_ms: 0,
         caller_key: caller_key.clone(),
         reason: None,
+        prev_hash: None,
+        hmac: None
     });
 
     // Signal readiness — client starts sending raw frames immediately
@@ -1132,6 +1195,8 @@ where
         duration_ms: 0,
         caller_key,
         reason: None,
+        prev_hash: None,
+        hmac: None
     });
 
     let done = Response {
@@ -1190,6 +1255,8 @@ where
             duration_ms: 0,
             caller_key: caller_key.clone(),
             reason: None,
+            prev_hash: None,
+            hmac: None
         });
         let response = Response {
             id: request_id.to_string(),
@@ -1233,6 +1300,8 @@ where
         duration_ms: 0,
         caller_key: caller_key.clone(),
         reason: None,
+        prev_hash: None,
+        hmac: None
     });
 
     // Announce file metadata — client now expects raw frames
@@ -1246,8 +1315,8 @@ where
     let data = codec::encode(&ready)?;
     chan.send(&data).await?;
 
-    // Stream file data in 64 KB frames
-    const CHUNK: usize = 65536;
+    // Stream file data in 64 KB frames (max frame payload is 65535)
+    const CHUNK: usize = 65535;
     let mut offset = 0;
     while offset < file_data.len() {
         let end = (offset + CHUNK).min(file_data.len());
@@ -1268,6 +1337,8 @@ where
         duration_ms: 0,
         caller_key,
         reason: None,
+        prev_hash: None,
+        hmac: None
     });
 
     Ok(())

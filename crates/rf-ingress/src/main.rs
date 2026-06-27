@@ -53,6 +53,7 @@ async fn main() -> Result<()> {
         upstream_timeout_ms: args.upstream_timeout_ms,
         max_response_bytes: args.max_response_bytes,
         audit_path: None,
+        audit_key_path: None,
     };
 
     let routing_table = RoutingTable::new();

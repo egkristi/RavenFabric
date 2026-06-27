@@ -144,6 +144,8 @@ mod tests {
             duration_ms: 15,
             caller_key: "aabbccdd".into(),
             reason: Some("health check".into()),
+            prev_hash: None,
+            hmac: None,
         }
     }
 

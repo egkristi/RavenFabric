@@ -199,6 +199,8 @@ mod tests {
             duration_ms: 22,
             caller_key: "cafebeef".into(),
             reason: None,
+            prev_hash: None,
+            hmac: None,
         }
     }
 

@@ -1,10 +1,6 @@
 # Collect logs from all agents — sequential to avoid relay overload
 command: "find /var/log -name '*.log' -o -name '*.jsonl' | while read f; do echo \"=== $f ===\"; tail -20 \"$f\"; done"
-target:
-  agents:
-    - rf-webserver
-    - rf-database
-    - rf-collector
-strategy: serial
+target: !agents [rf-webserver, rf-database, rf-collector]
+strategy: sequential
 on_failure: continue
 timeout_secs: 60

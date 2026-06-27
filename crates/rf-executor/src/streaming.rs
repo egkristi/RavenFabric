@@ -57,6 +57,8 @@ pub async fn stream_execute(
             duration_ms,
             caller_key: caller_key.to_string(),
             reason: None,
+            prev_hash: None,
+            hmac: None
         }) {
             tracing::error!("audit log write failed: {}", e);
         }
@@ -189,6 +191,8 @@ pub async fn stream_execute(
         duration_ms,
         caller_key: caller_key.to_string(),
         reason: None,
+        prev_hash: None,
+        hmac: None
     }) {
         tracing::error!("audit log write failed: {}", e);
     }

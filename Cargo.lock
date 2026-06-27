@@ -2382,7 +2382,7 @@ dependencies = [
 
 [[package]]
 name = "rf-agent"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2408,12 +2408,15 @@ dependencies = [
 
 [[package]]
 name = "rf-audit"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "chrono",
+ "hex",
+ "hmac",
  "regex",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -2422,7 +2425,7 @@ dependencies = [
 
 [[package]]
 name = "rf-bootstrap"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "chrono",
  "hex",
@@ -2438,7 +2441,7 @@ dependencies = [
 
 [[package]]
 name = "rf-cli"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -2465,7 +2468,7 @@ dependencies = [
 
 [[package]]
 name = "rf-crypto"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "chacha20poly1305",
  "criterion",
@@ -2486,7 +2489,7 @@ dependencies = [
 
 [[package]]
 name = "rf-executor"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2518,12 +2521,13 @@ dependencies = [
 
 [[package]]
 name = "rf-ingress"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "axum",
  "chrono",
  "clap",
+ "hex",
  "reqwest",
  "rf-audit",
  "rf-crypto",
@@ -2565,7 +2569,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-client"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -2575,7 +2579,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-server"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -2602,7 +2606,7 @@ dependencies = [
 
 [[package]]
 name = "rf-policy"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "regex",
  "rf-audit",
@@ -2616,7 +2620,7 @@ dependencies = [
 
 [[package]]
 name = "rf-relay"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -2636,7 +2640,7 @@ dependencies = [
 
 [[package]]
 name = "rf-rpc"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "criterion",
  "futures-util",
@@ -2659,7 +2663,7 @@ dependencies = [
 
 [[package]]
 name = "rf-transport"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "async-trait",
  "chacha20poly1305",

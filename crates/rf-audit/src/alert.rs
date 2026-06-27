@@ -361,6 +361,8 @@ mod tests {
             duration_ms: 0,
             caller_key: "test-key".to_string(),
             reason: None,
+            prev_hash: None,
+            hmac: None,
         }
     }
 

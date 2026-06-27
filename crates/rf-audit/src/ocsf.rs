@@ -249,6 +249,8 @@ mod tests {
             duration_ms: 30,
             caller_key: "0011aabb".into(),
             reason: Some("health monitor".into()),
+            prev_hash: None,
+            hmac: None,
         }
     }
 

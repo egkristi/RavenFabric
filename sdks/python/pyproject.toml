@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ravenfabric"
-version = "0.25.2"
+version = "0.25.3"
 description = "Python MCP client SDK for RavenFabric secure remote execution"
 readme = "README.md"
 license = "MIT"

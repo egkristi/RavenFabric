@@ -3,11 +3,11 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Alpha (v0.25.2)** — Foundation complete. 14 crates, ~73,128 LOC, 1,423 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Alpha (v0.25.3)** — Foundation complete. 14 crates, ~73,812 LOC, 1,423 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
-[![Version](https://img.shields.io/badge/version-0.25.2-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.25.3-green.svg)](https://github.com/egkristi/RavenFabric-Published/releases/latest)
 
 **Language:** Rust | **License:** AGPL-3.0-or-later (core) + Commercial (enterprise)
 

@@ -1,10 +1,6 @@
 # Fleet data collection — parallel inventory across all agents
 command: "hostname && uname -r && free -h | grep Mem && df -h / | tail -1 && cat /proc/loadavg"
-target:
-  agents:
-    - rf-collector
-    - rf-webserver
-    - rf-database
+target: !agents [rf-collector, rf-webserver, rf-database]
 strategy: parallel
 on_failure: continue
 timeout_secs: 30

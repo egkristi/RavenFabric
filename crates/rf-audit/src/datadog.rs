@@ -294,6 +294,8 @@ mod tests {
             duration_ms: 3,
             caller_key: "ddkeyaabb".into(),
             reason: None,
+            prev_hash: None,
+            hmac: None,
         }
     }
 

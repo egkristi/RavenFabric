@@ -22,6 +22,13 @@ pub enum RolloutStrategy {
 }
 
 /// Targeting rules for selecting which agents to execute on.
+///
+/// Uses externally-tagged YAML enum representation. In playbook YAML files,
+/// use the YAML tag syntax:
+/// ```yaml
+/// target: !agents [rf-agent-1, rf-agent-2]
+/// ```
+/// See `demos/` for complete playbook examples.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetGrain {

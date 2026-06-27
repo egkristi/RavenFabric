@@ -307,6 +307,8 @@ mod tests {
             duration_ms: 1,
             caller_key: "testkey".into(),
             reason: None,
+            prev_hash: None,
+            hmac: None,
         }
     }
 
