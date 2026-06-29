@@ -80,8 +80,9 @@ impl StaticKey {
         }
     }
 
-    /// Get the private key bytes (internal use only — for Noise builder).
-    pub(crate) fn private_bytes(&self) -> &[u8; 32] {
+    /// Get the private key bytes.
+    /// Use with caution — this exposes the raw private key material.
+    pub fn private_bytes(&self) -> &[u8; 32] {
         &self.private
     }
 

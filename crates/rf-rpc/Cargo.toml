@@ -12,8 +12,8 @@ categories = ["command-line-utilities", "network-programming"]
 keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "0.25.4" }
-rf-transport = { path = "../rf-transport", version = "0.25.4" }
+rf-crypto = { path = "../rf-crypto", version = "1.0.0-beta.1" }
+rf-transport = { path = "../rf-transport", version = "1.0.0-beta.1" }
 tokio = { workspace = true }
 tokio-util = { workspace = true, features = ["compat"] }
 serde = { workspace = true }

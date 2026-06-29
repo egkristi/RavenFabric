@@ -5,6 +5,19 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.1] — 2026-07-27
+
+### Added
+
+- **`--export-hmac-key` flag to `rf-agent`** — Derives an HMAC-SHA256 key from the agent identity key via HKDF-SHA256 and prints it in hex. Enables external log verification without exposing the full identity private key.
+- **`rf audit derive-key` subcommand to `rf-cli`** — Same HKDF-SHA256 key derivation for the CLI, enabling operators to derive the HMAC key from an agent key file for offline audit verification.
+- **`BufferedAuditCollector` wrapping in `rf-agent`** — The `FileAuditLogger` is now wrapped in a `BufferedAuditCollector` (4096-entry ring buffer, 5-second flush interval) to bound memory growth under high-throughput audit workloads.
+- **`StaticKey::private_bytes()` made public** — The `rf-crypto` crate now exposes the private key bytes publicly, enabling external tools (agent, CLI) to derive HMAC keys without duplicating key material access logic.
+
+### Fixed
+
+- **Cross-platform Noise XX handshake** — Added `--compat-mode` flag (from v0.25.4) resolves macOS→Linux handshake failures via relay.
+
 ## [0.25.4] — 2026-07-26
 
 ### Added

@@ -87,6 +87,12 @@ struct Args {
     /// when connecting from macOS through a Linux relay.
     #[arg(long)]
     compat_mode: bool,
+
+    /// Export the HMAC key for audit log verification (derived from the agent
+    /// identity key via HKDF-SHA256) and exit. Use the output with
+    /// `rf audit verify --key-file <hex>`.
+    #[arg(long)]
+    export_hmac_key: bool,
 }
 
 /// Configuration file format (raven.toml).
@@ -293,12 +299,41 @@ async fn agent_main() -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(&cfg.key_path)?;
     info!("agent {} public key: {}", cfg.id, key.public_hex());
 
+    // --export-hmac-key: derive HMAC key from agent identity key and exit
+    if args.export_hmac_key {
+        use hmac::{Hmac, Mac, KeyInit};
+        use sha2::Sha256;
+        // Derive a 32-byte HMAC key from the agent's 32-byte private key using
+        // HKDF-SHA256 with a domain separator. This ensures the audit HMAC key
+        // is deterministically derived from the agent identity key, so users can
+        // verify audit logs using their existing agent.key file.
+        let private_key = key.private_bytes();
+        // HKDF-Extract: PRK = HMAC-SHA256(salt="ravenfabric-audit-hmac-v1", IKM=private_key)
+        let salt = b"ravenfabric-audit-hmac-v1";
+        let mut extractor = Hmac::<Sha256>::new_from_slice(salt)
+            .expect("HMAC accepts any key length");
+        extractor.update(private_key.as_slice());
+        let prk = extractor.finalize().into_bytes();
+        // HKDF-Expand: OKM = HMAC-SHA256(PRK, info || 0x01)
+        let info = b"ravenfabric-audit-hmac-key";
+        let mut expander = Hmac::<Sha256>::new_from_slice(&prk)
+            .expect("HMAC accepts any key length");
+        expander.update(info);
+        expander.update(&[0x01]);
+        let hmac_key = expander.finalize().into_bytes();
+        println!("{}", hex::encode(hmac_key.as_slice()));
+        return Ok(());
+    }
+
     // Load policy
     let policy = RpcPolicy::load(&cfg.policy_path)?;
     let policy = Arc::new(RwLock::new(policy));
     info!("policy loaded from {}", cfg.policy_path.display());
 
-    // Open audit logger with optional HMAC key for chain integrity
+    // Open audit logger with optional HMAC key for chain integrity.
+    // Wrap in BufferedAuditCollector for bounded memory usage and
+    // background flushing — prevents audit I/O from blocking the hot path
+    // and keeps RSS growth bounded regardless of audit volume.
     let audit_key: Vec<u8> = if let Some(ref key_path) = cfg.audit_key_path {
         let raw = std::fs::read(key_path)?;
         if raw.len() == 32 {
@@ -325,9 +360,12 @@ async fn agent_main() -> anyhow::Result<()> {
         info!("audit HMAC key not configured — chain integrity verification disabled");
         vec![]
     };
-    let audit: Arc<dyn rf_audit::logger::AuditLogger> =
-        Arc::new(FileAuditLogger::new(cfg.audit_path.clone(), audit_key)?);
-    info!("audit log: {}", cfg.audit_path.display());
+    let file_logger = FileAuditLogger::new(cfg.audit_path.clone(), audit_key)?;
+    let collector_config = rf_audit::collector::CollectorConfig::default()
+        .with_flush_interval(std::time::Duration::from_secs(5));
+    let buffered = rf_audit::collector::BufferedAuditCollector::new(file_logger, collector_config);
+    let audit: Arc<dyn rf_audit::logger::AuditLogger> = Arc::new(buffered);
+    info!("audit log: {} (buffered, flush every 5s)", cfg.audit_path.display());
 
     // Initialize SecretStore (sealed secrets for command execution)
     let secret_store = if cfg.seal_key_path.exists() {

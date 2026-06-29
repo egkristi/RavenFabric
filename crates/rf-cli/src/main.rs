@@ -208,6 +208,14 @@ enum AuditAction {
         #[arg(short, long)]
         key_file: PathBuf,
     },
+
+    /// Derive an HMAC audit key from an agent identity key file (64 bytes)
+    /// using HKDF-SHA256 and print it as hex. Use the output with
+    /// `rf audit verify --key-file <hex>`.
+    DeriveKey {
+        /// Path to the agent key file (64 bytes: 32-byte private + 32-byte public)
+        key_file: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -2312,6 +2320,33 @@ fn audit_command(action: AuditAction) -> anyhow::Result<()> {
                     std::process::exit(1);
                 }
             }
+        }
+        AuditAction::DeriveKey { key_file } => {
+            let key_bytes = std::fs::read(&key_file).map_err(|e| {
+                anyhow::anyhow!("failed to read key file '{}': {e}", key_file.display())
+            })?;
+            if key_bytes.len() != 64 {
+                anyhow::bail!(
+                    "agent key file must be 64 bytes (32-byte private + 32-byte public), got {}",
+                    key_bytes.len()
+                );
+            }
+            let private_key = &key_bytes[..32];
+            // HKDF-SHA256 derivation matching the agent's --export-hmac-key logic
+            use hmac::{Hmac, Mac, KeyInit};
+            use sha2::Sha256;
+            let salt = b"ravenfabric-audit-hmac-v1";
+            let mut extractor = Hmac::<Sha256>::new_from_slice(salt)
+                .expect("HMAC accepts any key length");
+            extractor.update(private_key);
+            let prk = extractor.finalize().into_bytes();
+            let info = b"ravenfabric-audit-hmac-key";
+            let mut expander = Hmac::<Sha256>::new_from_slice(&prk)
+                .expect("HMAC accepts any key length");
+            expander.update(info);
+            expander.update(&[0x01]);
+            let hmac_key = expander.finalize().into_bytes();
+            println!("{}", hex::encode(hmac_key.as_slice()));
         }
     }
     Ok(())

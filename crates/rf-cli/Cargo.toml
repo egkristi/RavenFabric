@@ -29,13 +29,13 @@ assets = [
 ]
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "0.25.4" }
-rf-transport = { path = "../rf-transport", version = "0.25.4" }
-rf-rpc = { path = "../rf-rpc", version = "0.25.4" }
+rf-crypto = { path = "../rf-crypto", version = "1.0.0-beta.1" }
+rf-transport = { path = "../rf-transport", version = "1.0.0-beta.1" }
+rf-rpc = { path = "../rf-rpc", version = "1.0.0-beta.1" }
 rf-relay = { path = "../rf-relay" }
-rf-executor = { path = "../rf-executor", version = "0.25.4" }
-rf-policy = { path = "../rf-policy", version = "0.25.4" }
-rf-audit = { path = "../rf-audit", version = "0.25.4" }
+rf-executor = { path = "../rf-executor", version = "1.0.0-beta.1" }
+rf-policy = { path = "../rf-policy", version = "1.0.0-beta.1" }
+rf-audit = { path = "../rf-audit", version = "1.0.0-beta.1" }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
@@ -46,6 +46,7 @@ anyhow = { workspace = true }
 hex = { workspace = true }
 uuid = { workspace = true }
 sha2 = { workspace = true }
+hmac = { workspace = true }
 serde_yaml = { workspace = true }
 httparse = { workspace = true }
 glob = { workspace = true }
