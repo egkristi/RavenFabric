@@ -301,7 +301,7 @@ async fn agent_main() -> anyhow::Result<()> {
 
     // --export-hmac-key: derive HMAC key from agent identity key and exit
     if args.export_hmac_key {
-        use hmac::{Hmac, Mac, KeyInit};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha2::Sha256;
         // Derive a 32-byte HMAC key from the agent's 32-byte private key using
         // HKDF-SHA256 with a domain separator. This ensures the audit HMAC key
@@ -310,14 +310,14 @@ async fn agent_main() -> anyhow::Result<()> {
         let private_key = key.private_bytes();
         // HKDF-Extract: PRK = HMAC-SHA256(salt="ravenfabric-audit-hmac-v1", IKM=private_key)
         let salt = b"ravenfabric-audit-hmac-v1";
-        let mut extractor = Hmac::<Sha256>::new_from_slice(salt)
-            .expect("HMAC accepts any key length");
+        let mut extractor =
+            Hmac::<Sha256>::new_from_slice(salt).expect("HMAC accepts any key length");
         extractor.update(private_key.as_slice());
         let prk = extractor.finalize().into_bytes();
         // HKDF-Expand: OKM = HMAC-SHA256(PRK, info || 0x01)
         let info = b"ravenfabric-audit-hmac-key";
-        let mut expander = Hmac::<Sha256>::new_from_slice(&prk)
-            .expect("HMAC accepts any key length");
+        let mut expander =
+            Hmac::<Sha256>::new_from_slice(&prk).expect("HMAC accepts any key length");
         expander.update(info);
         expander.update(&[0x01]);
         let hmac_key = expander.finalize().into_bytes();
@@ -365,7 +365,10 @@ async fn agent_main() -> anyhow::Result<()> {
         .with_flush_interval(std::time::Duration::from_secs(5));
     let buffered = rf_audit::collector::BufferedAuditCollector::new(file_logger, collector_config);
     let audit: Arc<dyn rf_audit::logger::AuditLogger> = Arc::new(buffered);
-    info!("audit log: {} (buffered, flush every 5s)", cfg.audit_path.display());
+    info!(
+        "audit log: {} (buffered, flush every 5s)",
+        cfg.audit_path.display()
+    );
 
     // Initialize SecretStore (sealed secrets for command execution)
     let secret_store = if cfg.seal_key_path.exists() {

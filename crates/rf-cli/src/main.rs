@@ -2333,16 +2333,16 @@ fn audit_command(action: AuditAction) -> anyhow::Result<()> {
             }
             let private_key = &key_bytes[..32];
             // HKDF-SHA256 derivation matching the agent's --export-hmac-key logic
-            use hmac::{Hmac, Mac, KeyInit};
+            use hmac::{Hmac, KeyInit, Mac};
             use sha2::Sha256;
             let salt = b"ravenfabric-audit-hmac-v1";
-            let mut extractor = Hmac::<Sha256>::new_from_slice(salt)
-                .expect("HMAC accepts any key length");
+            let mut extractor =
+                Hmac::<Sha256>::new_from_slice(salt).expect("HMAC accepts any key length");
             extractor.update(private_key);
             let prk = extractor.finalize().into_bytes();
             let info = b"ravenfabric-audit-hmac-key";
-            let mut expander = Hmac::<Sha256>::new_from_slice(&prk)
-                .expect("HMAC accepts any key length");
+            let mut expander =
+                Hmac::<Sha256>::new_from_slice(&prk).expect("HMAC accepts any key length");
             expander.update(info);
             expander.update(&[0x01]);
             let hmac_key = expander.finalize().into_bytes();
