@@ -18,13 +18,13 @@ minimal = []
 rt-single-thread = []
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "1.0.0-beta.1" }
-rf-transport = { path = "../rf-transport", version = "1.0.0-beta.1" }
-rf-rpc = { path = "../rf-rpc", version = "1.0.0-beta.1" }
-rf-executor = { path = "../rf-executor", version = "1.0.0-beta.1" }
-rf-policy = { path = "../rf-policy", version = "1.0.0-beta.1" }
-rf-audit = { path = "../rf-audit", version = "1.0.0-beta.1" }
-rf-bootstrap = { path = "../rf-bootstrap", version = "1.0.0-beta.1" }
+rf-crypto = { path = "../rf-crypto", version = "1.0.0-beta.2" }
+rf-transport = { path = "../rf-transport", version = "1.0.0-beta.2" }
+rf-rpc = { path = "../rf-rpc", version = "1.0.0-beta.2" }
+rf-executor = { path = "../rf-executor", version = "1.0.0-beta.2" }
+rf-policy = { path = "../rf-policy", version = "1.0.0-beta.2" }
+rf-audit = { path = "../rf-audit", version = "1.0.0-beta.2" }
+rf-bootstrap = { path = "../rf-bootstrap", version = "1.0.0-beta.2" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

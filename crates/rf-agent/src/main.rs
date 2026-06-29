@@ -95,9 +95,9 @@ struct Args {
     export_hmac_key: bool,
 
     /// Enable memory-constrained mode for IoT / low-RAM devices.
-    /// Reduces audit buffer capacity, dedup window, and transport buffer sizes
-    /// to minimize RSS. Use with `--features rt-single-thread,minimal` at build
-    /// time for maximum savings.
+    /// Reduces audit buffer capacity (4096→512), dedup window (1024→256),
+    /// and max entry age (24h→1h) to minimize RSS. Use with
+    /// `--features rt-single-thread,minimal` at build time for maximum savings.
     #[arg(long)]
     constrained: bool,
 }
@@ -132,6 +132,7 @@ struct AgentConfig {
     #[serde(default)]
     compat_mode: bool,
     /// Enable memory-constrained mode for IoT / low-RAM devices.
+    /// Reduces audit buffer capacity, dedup window, and max entry age.
     #[serde(default)]
     constrained: bool,
 }

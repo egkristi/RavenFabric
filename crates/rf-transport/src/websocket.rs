@@ -103,8 +103,9 @@ impl Listener for WsListener {
 /// - Reader: WS messages → write to duplex
 /// - Writer: read from duplex → WS messages
 ///
-/// Uses a 1 MB duplex buffer to prevent deadlocks during Noise XX handshake
-/// when relay introduces latency asymmetry between the two bridge tasks.
+/// Uses a 64 KB duplex buffer. Noise XX handshake messages are ~200 bytes,
+/// so 64 KB provides ample headroom to prevent deadlocks during asymmetric
+/// relay latency without wasting memory.
 fn bridge_ws<S>(ws: S) -> DuplexStream
 where
     S: futures_util::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
@@ -113,7 +114,7 @@ where
         + Unpin
         + 'static,
 {
-    let (app_stream, bridge_stream) = tokio::io::duplex(256 * 1024); // 256 KB buffer
+    let (app_stream, bridge_stream) = tokio::io::duplex(64 * 1024); // 64 KB buffer
     let (mut bridge_read, mut bridge_write) = tokio::io::split(bridge_stream);
     let (mut ws_sink, mut ws_source) = ws.split();
 

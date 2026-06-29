@@ -1,8 +1,8 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-beta.1 (Beta) — Released 2026-06-29
+> **Version:** 1.0.0-beta.2 (Beta) — Released 2026-06-29
 > **Next:** v1.0.0 (Stable)
-> **Stats:** 14 crates, ~74,562 LOC, 1,423 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 14 crates, ~74,596 LOC, 1,423 tests, 0 clippy warnings, 0 known vulnerabilities
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
@@ -112,7 +112,7 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 | HMAC key derivation mismatch | Low #10 | ✅ Resolved (v1.0.0-beta.1) | `--export-hmac-key` + `rf audit derive-key` |
 | Policy rules for non-exec actions | — | ✅ Resolved (v0.25.2) | shell, forward, proxy, playbook all have allow rules in rpi5 policy |
 | Shell constructs denied | Medium #7b | ✅ Resolved (v0.25.2) | for loops, pipes, && chaining all have explicit allow rules |
-| Agent memory >10 MB | Critical #3 | 🟡 Mitigated (v1.0.0-beta.1) | BufferedAuditCollector bounds growth |
+| Agent memory >10 MB | Critical #3 | 🟡 Mitigated (v1.0.0-beta.2) | BufferedAuditCollector bounds growth + 64 KB WS duplex buffer |
 | MCP server not deployed | Critical #2 | ❌ Still open | No systemd service on rpi5 |
 | Mac CLI version mismatch | Critical #3b | ✅ Resolved (v1.0.0-beta.1) | Version bumped to v1.0.0-beta.1 |
 | Secret store not configured | Low #8 | ❌ Still open | `--seal-key-path` not set |
@@ -125,7 +125,7 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 ### 🔴 Critical (blocking beta) — ✅ Resolved in v1.0.0-beta.1
 
 - [x] **Fix cross-platform Noise XX via relay** — `--compat-mode` flag added to agent, relay, and CLI binaries.
-- [x] **Reduce agent idle memory to <10 MB** — Mitigated with `--constrained` mode (512-entry buffer, 256-entry dedup, 2s flush), 256 KB duplex buffer, `CollectorConfig::constrained()` preset. Build with `--features rt-single-thread,minimal` for max savings (~8-10 MB from tokio runtime + heavy deps).
+- [x] **Reduce agent idle memory to <10 MB** — Mitigated with `--constrained` mode (512-entry buffer, 256-entry dedup, 2s flush), 64 KB duplex buffer (v1.0.0-beta.2), `CollectorConfig::constrained()` preset. Build with `--features rt-single-thread,minimal` for max savings (~8-10 MB from tokio runtime + heavy deps).
 - [ ] **Deploy MCP server on rpi5** — Create `ravenfabric-mcp.service` systemd unit. Verify MCP tools work over stdio transport. **Requires rpi5 access.**
 - [x] **Install rf v1.0.0-beta.1 on Mac controller** — Version bumped to v1.0.0-beta.1.
 
@@ -149,9 +149,9 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 
 ---
 
-## Release Checklist: v1.0.0-beta.1 — Beta Readiness ✅
+## Release Checklist: v1.0.0-beta.2 — Beta Patch ✅
 
-**Released 2026-06-29.** Beta published with all critical v0.25.4 items resolved. See [GitHub Release v1.0.0-beta.1](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.1).
+**Released 2026-06-29.** Patch release with reduced WebSocket duplex buffer (256 KB → 64 KB) for lower per-connection memory overhead. See [GitHub Release v1.0.0-beta.2](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.2).
 
 ### Beta Requirements
 
@@ -170,7 +170,7 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 
 #### ❌ Unresolved (Blocking Stable)
 
-- [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). VmSize 79.6 MB. Blocks IoT/constrained deployment. **Mitigations applied in v1.0.0-beta.1:** `--constrained` flag (512-entry audit buffer, 256-entry dedup, 2s flush), WebSocket duplex buffer reduced from 1 MB to 256 KB, `CollectorConfig::constrained()` preset. Build with `--features rt-single-thread,minimal` for max savings (~8-10 MB from tokio runtime + heavy deps).
+- [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). VmSize 79.6 MB. Blocks IoT/constrained deployment. **Mitigations applied:** `--constrained` flag (512-entry audit buffer, 256-entry dedup, 2s flush), WebSocket duplex buffer reduced from 256 KB to 64 KB (v1.0.0-beta.2), `CollectorConfig::constrained()` preset. Build with `--features rt-single-thread,minimal` for max savings (~8-10 MB from tokio runtime + heavy deps).
 - [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service. Blocks AI agent integration.
 - [x] **Policy rules for non-exec actions** — shell, forward, proxy, playbook, background all have allow rules in rpi5 policy YAML. Port forward, remote forward, SOCKS5 forward, shell sessions, signal/kill all covered. `Proxy` uses `check_network_target()` (covered by network CIDR/port rules). `BackgroundExec` and playbook dispatch use `check_command()` on the actual command — if the command is allowed, they work.
 - [x] **Shell constructs denied** — For loops, pipes, `&&` chaining all have explicit allow rules in rpi5 policy. Command substitution and eval remain denied.
@@ -185,7 +185,7 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 - [x] **HMAC key derivation mismatch** — `--export-hmac-key` flag added to `rf-agent`, `rf audit derive-key` subcommand added to `rf-cli`. HKDF-SHA256 derivation with domain separator `b"ravenfabric-audit-hmac-v1"`.
 - [x] **Local CLI not installed on Mac** — Version bumped to v1.0.0-beta.1, resolving mismatch.
 - [x] **Audit buffer memory growth** — `FileAuditLogger` wrapped in `BufferedAuditCollector` (4096-entry ring buffer, 5s flush) to bound RSS growth.
-- [x] **Constrained mode for IoT devices** — `--constrained` flag + `CollectorConfig::constrained()` preset + reduced WebSocket duplex buffer (256 KB). Saves ~3 MB RSS at runtime.
+- [x] **Constrained mode for IoT devices** — `--constrained` flag + `CollectorConfig::constrained()` preset + reduced WebSocket duplex buffer (64 KB in v1.0.0-beta.2). Saves ~3 MB RSS at runtime.
 
 #### ✅ Resolved (v0.25.4)
 
@@ -494,7 +494,7 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 | Shell latency overhead | < 10ms | Not tested (policy denied) | ✅ Policy rules exist | ✅ Shell rules in rpi5 policy | Imperceptible vs raw TCP |
 | `rf exec` simple command | < 100ms | ~53ms handshake + ~18ms exec | ✅ Working | ✅ Same | Faster than SSH |
 | File transfer throughput | Line speed | 65535B single-frame (protocol-limited) | ✅ `MAX_FRAME_PAYLOAD=65519` | ✅ Same | ChaCha20 saturates >10 Gbps |
-| Agent idle memory | < 10 MB | **19.6-43.2 MB RSS** (varies with load) | ❌ 4x target | 🟡 `--constrained` mode + 256 KB duplex buffer | Raspberry Pi, IoT |
+| Agent idle memory | < 10 MB | **19.6-43.2 MB RSS** (varies with load) | ❌ 4x target | 🟡 `--constrained` mode + 64 KB duplex buffer (v1.0.0-beta.2) | Raspberry Pi, IoT |
 | Agent VmSize | — | **79.6 MB** | ❌ Needs investigation | ❌ Still open | Virtual allocation |
 | Agent binary size | < 15 MB | **8 MB** (aarch64, stripped) | ✅ Target met | ✅ Same | |
 | MCP server binary size | — | **6.5 MB** (aarch64) | | | |

@@ -5,6 +5,16 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.2] — 2026-06-29
+
+### Changed
+
+- **Reduced WebSocket duplex buffer** — Lowered from 256 KB to 64 KB, saving 192 KB per connection. Noise XX handshake messages are ~200 bytes, so 64 KB provides ample headroom for asymmetric relay latency without wasting memory.
+
+### Fixed
+
+- **`--constrained` help text accuracy** — Updated to describe only what it actually does (audit buffer reduction), removing misleading claim about transport buffer sizes.
+
 ## [1.0.0-beta.1] — 2026-06-29
 
 ### Added
