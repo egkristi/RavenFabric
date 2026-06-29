@@ -54,11 +54,9 @@ pub async fn start_metrics_server(
     let system_collector = Arc::new(Mutex::new(SystemMetricsCollector::new(
         Duration::from_secs(15),
     )));
-    let rf_collector = Arc::new(Mutex::new(
-        rf_collector.unwrap_or_else(|| RavenFabricMetricsCollector::new_with_counters(
-            Duration::from_secs(15),
-        )),
-    ));
+    let rf_collector = Arc::new(Mutex::new(rf_collector.unwrap_or_else(|| {
+        RavenFabricMetricsCollector::new_with_counters(Duration::from_secs(15))
+    })));
 
     let handle = tokio::spawn(async move {
         loop {

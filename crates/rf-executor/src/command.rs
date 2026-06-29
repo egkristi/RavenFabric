@@ -205,8 +205,15 @@ impl Executor {
                 env,
                 workdir,
             } => {
-                self.handle_execute(&request.id, command, env, workdir, start, request.reason.clone())
-                    .await
+                self.handle_execute(
+                    &request.id,
+                    command,
+                    env,
+                    workdir,
+                    start,
+                    request.reason.clone(),
+                )
+                .await
             }
             #[cfg(feature = "sysinfo")]
             Action::Metrics => self.handle_metrics(&request.id, start).await,
@@ -227,8 +234,15 @@ impl Executor {
                 env,
                 workdir,
             } => {
-                self.handle_background_exec(&request.id, command, env, workdir, start, request.reason.clone())
-                    .await
+                self.handle_background_exec(
+                    &request.id,
+                    command,
+                    env,
+                    workdir,
+                    start,
+                    request.reason.clone(),
+                )
+                .await
             }
             Action::JobQuery { job_id } => self.handle_job_query(job_id).await,
             Action::JobWait { job_id } => self.handle_job_wait(job_id).await,
@@ -325,8 +339,15 @@ impl Executor {
                 // StreamExecute runs synchronously (like Execute) when no streaming
                 // channel is available. The full streaming path uses stream_execute()
                 // directly from the agent's RPC loop with a mpsc sender.
-                self.handle_execute(&request.id, command, env, workdir, start, request.reason.clone())
-                    .await
+                self.handle_execute(
+                    &request.id,
+                    command,
+                    env,
+                    workdir,
+                    start,
+                    request.reason.clone(),
+                )
+                .await
             }
             Action::FilePush {
                 path,
@@ -770,7 +791,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -811,7 +832,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::Success {
                     stdout: encoded,
@@ -848,7 +869,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -926,7 +947,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -997,7 +1018,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -1022,7 +1043,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::Success {
                     stdout: format!("signal {signal} sent to pid {pid}"),
@@ -1039,7 +1060,7 @@ impl Executor {
                     matched_rule,
                     Some(-1),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::Error {
                     message: format!(
@@ -1261,7 +1282,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -1301,7 +1322,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::ShellOpened { session_id }
             }
@@ -1457,7 +1478,7 @@ impl Executor {
                     "shell-session".into(),
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::ShellExited {
                     session_id: session_id.to_string(),
@@ -1494,7 +1515,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -1528,7 +1549,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::ForwardStarted {
                     forward_id,
@@ -1559,7 +1580,7 @@ impl Executor {
                     "forward-session".into(),
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::ForwardStopped {
                     forward_id: forward_id.to_string(),
@@ -1593,7 +1614,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -1627,7 +1648,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::ForwardStarted {
                     forward_id,
@@ -1661,7 +1682,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -1702,7 +1723,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::ForwardStarted {
                     forward_id,
@@ -1740,7 +1761,7 @@ impl Executor {
                     decision.matched_rule.clone(),
                     None,
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 self.record_policy_decision(false);
                 return RpcResult::Denied {
@@ -1834,7 +1855,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -1865,7 +1886,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::TailOutput {
                     lines: tail,
@@ -1905,7 +1926,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2048,7 +2069,7 @@ impl Executor {
                 matched_rule,
                 Some(0),
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
 
             RpcResult::FileChunkAck {
@@ -2086,7 +2107,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2260,7 +2281,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2284,7 +2305,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 return RpcResult::FileDeltaIndex {
                     blocks: vec![],
@@ -2382,7 +2403,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2573,7 +2594,7 @@ impl Executor {
                 http_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2633,7 +2654,7 @@ impl Executor {
                     String::new(),
                     None,
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 return RpcResult::Error {
                     message: format!("upstream request failed: {e}"),
@@ -2713,7 +2734,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2743,7 +2764,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::ProxyConnected {
                     proxy_id,
@@ -2783,7 +2804,7 @@ impl Executor {
                 http_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2804,7 +2825,7 @@ impl Executor {
                 header_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2825,7 +2846,7 @@ impl Executor {
                 net_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             self.record_policy_decision(false);
             return RpcResult::Denied {
@@ -2847,7 +2868,7 @@ impl Executor {
                 "max_request_body_bytes".to_string(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             return RpcResult::Denied {
                 reason: format!("request body too large: {} > {max_req_body}", body.len()),
@@ -2885,7 +2906,7 @@ impl Executor {
                     "resources.maxHttpRequestsPerWindow".to_string(),
                     None,
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 return RpcResult::Denied {
                     reason: format!(
@@ -3027,7 +3048,7 @@ impl Executor {
                 "max_response_body_bytes".to_string(),
                 Some(resp_body.len() as i32),
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             return RpcResult::Denied {
                 reason: format!(
@@ -3088,7 +3109,7 @@ impl Executor {
                 policy_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             return RpcResult::Denied {
                 reason: policy_decision.reason,
@@ -3160,7 +3181,7 @@ impl Executor {
                     "hook_failed".to_string(),
                     out.status.code(),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 return RpcResult::Error {
                     message: format!(
@@ -3208,7 +3229,7 @@ impl Executor {
                         "health_check_failed".to_string(),
                         out.status.code(),
                         start.elapsed().as_millis() as u64,
-                    None,
+                        None,
                     );
                     return RpcResult::Error {
                         message: format!(
@@ -3369,7 +3390,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             return RpcResult::Denied {
                 reason: decision.reason,
@@ -3436,7 +3457,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
-            None,
+                None,
             );
             return RpcResult::Denied {
                 reason: decision.reason,
@@ -3456,7 +3477,7 @@ impl Executor {
                     String::new(),
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::SecretFetched {
                     backend: backend_name.to_string(),
@@ -3531,7 +3552,7 @@ impl Executor {
                     if already_exists { "rotated" } else { "new" }.to_string(),
                     Some(0),
                     start.elapsed().as_millis() as u64,
-                None,
+                    None,
                 );
                 RpcResult::SecretSealed {
                     name: name.to_string(),

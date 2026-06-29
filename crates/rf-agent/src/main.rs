@@ -401,7 +401,17 @@ async fn agent_main() -> anyhow::Result<()> {
     // Direct-listen mode (like sshd) or relay-connect mode
     if let Some(ref listen_addr) = cfg.listen {
         info!("direct-listen mode on {}", listen_addr);
-        run_listen_mode(listen_addr, &cfg, &key, &policy, &audit, &secret_store, &rf_counters, cfg.compat_mode).await?;
+        run_listen_mode(
+            listen_addr,
+            &cfg,
+            &key,
+            &policy,
+            &audit,
+            &secret_store,
+            &rf_counters,
+            cfg.compat_mode,
+        )
+        .await?;
     } else {
         info!("relay mode: {}", cfg.relay);
         // Reconnect loop with exponential backoff + jitter
@@ -413,7 +423,17 @@ async fn agent_main() -> anyhow::Result<()> {
                 break;
             }
 
-            match run_session(&cfg, &key, &policy, &audit, &secret_store, &rf_counters, cfg.compat_mode).await {
+            match run_session(
+                &cfg,
+                &key,
+                &policy,
+                &audit,
+                &secret_store,
+                &rf_counters,
+                cfg.compat_mode,
+            )
+            .await
+            {
                 Ok(()) => {
                     info!("session ended cleanly");
                     attempt = 0; // Reset on successful session

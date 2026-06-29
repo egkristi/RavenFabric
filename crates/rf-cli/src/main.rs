@@ -352,7 +352,14 @@ async fn main() -> anyhow::Result<()> {
             dev_mode(port, &bind).await?;
         }
         Commands::Status { token } => {
-            status_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, &token, cli.compat_mode).await?;
+            status_command(
+                &cli.relay,
+                cli.connect.as_deref(),
+                &cli.key_path,
+                &token,
+                cli.compat_mode,
+            )
+            .await?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "rf", &mut std::io::stdout());
@@ -405,7 +412,14 @@ async fn main() -> anyhow::Result<()> {
             .await?;
         }
         Commands::Secret { action } => {
-            secret_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, action, cli.compat_mode).await?;
+            secret_command(
+                &cli.relay,
+                cli.connect.as_deref(),
+                &cli.key_path,
+                action,
+                cli.compat_mode,
+            )
+            .await?;
         }
         Commands::Audit { action } => {
             audit_command(action)?;
@@ -878,8 +892,15 @@ async fn playbook_command(
         for agent_id in &batch {
             let agent_start = Instant::now();
             // Connect to agent via relay (each agent uses the same token for pairing)
-            let result =
-                execute_on_agent(relay_url, &key, token, &plan.command, plan.timeout_secs, compat_mode).await;
+            let result = execute_on_agent(
+                relay_url,
+                &key,
+                token,
+                &plan.command,
+                plan.timeout_secs,
+                compat_mode,
+            )
+            .await;
 
             let agent_result = match result {
                 Ok((stdout, stderr, exit_code)) => {
@@ -1927,7 +1948,8 @@ async fn secret_command(
             grace_period,
         } => {
             let key = StaticKey::load_or_generate(key_path)?;
-            let (ch, _peer_key) = dial_agent(relay_url, direct_addr, &key, &token, compat_mode).await?;
+            let (ch, _peer_key) =
+                dial_agent(relay_url, direct_addr, &key, &token, compat_mode).await?;
             let req = Request {
                 id: uuid::Uuid::new_v4().to_string(),
                 action: Action::SealSecret {
@@ -1967,7 +1989,8 @@ async fn secret_command(
         }
         SecretAction::List { token } => {
             let key = StaticKey::load_or_generate(key_path)?;
-            let (ch, _peer_key) = dial_agent(relay_url, direct_addr, &key, &token, compat_mode).await?;
+            let (ch, _peer_key) =
+                dial_agent(relay_url, direct_addr, &key, &token, compat_mode).await?;
             let req = Request {
                 id: uuid::Uuid::new_v4().to_string(),
                 action: Action::ListSecrets,
@@ -2021,7 +2044,8 @@ async fn proxy_command(
     let key = StaticKey::load_or_generate(key_path)?;
 
     // Test connectivity to target via a short-lived probe connection
-    let (probe_chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token, compat_mode).await?;
+    let (probe_chan, _peer_key) =
+        dial_agent(relay_url, direct_addr, &key, token, compat_mode).await?;
     let request = Request {
         id: "proxy-test".into(),
         action: Action::Proxy {
@@ -2163,7 +2187,14 @@ async fn handle_proxy_connection(
     use tokio::time::{Duration, Instant};
 
     // Dedicated connection per tunnel for concurrent operation
-    let (chan, _peer_key) = dial_agent(&relay_url, direct_addr.as_deref(), &key, &token, compat_mode).await?;
+    let (chan, _peer_key) = dial_agent(
+        &relay_url,
+        direct_addr.as_deref(),
+        &key,
+        &token,
+        compat_mode,
+    )
+    .await?;
     let chan = Arc::new(chan);
 
     // Open the proxy tunnel — agent connects to target and sends ProxyReady

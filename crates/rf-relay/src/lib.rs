@@ -206,7 +206,15 @@ async fn handle_connection(
     meet_secret: &Option<String>,
     forward_config: &ForwardConfig,
 ) -> anyhow::Result<()> {
-    handle_connection_inner(ws, state, cancel, meet_secret, forward_config, forward_config.compat_mode).await
+    handle_connection_inner(
+        ws,
+        state,
+        cancel,
+        meet_secret,
+        forward_config,
+        forward_config.compat_mode,
+    )
+    .await
 }
 
 /// Internal handler with optional compat mode for cross-platform relay issues.
@@ -247,7 +255,14 @@ async fn handle_connection_inner(
         let reassembled = ws_sink
             .reunite(ws_source)
             .map_err(|_| anyhow::anyhow!("failed to reunite WebSocket streams for forwarding"))?;
-        return bridge_to_remote_relay_inner(reassembled, target_url, inner_token, cancel, forward_config.compat_mode).await;
+        return bridge_to_remote_relay_inner(
+            reassembled,
+            target_url,
+            inner_token,
+            cancel,
+            forward_config.compat_mode,
+        )
+        .await;
     }
 
     // ── Normal same-relay pairing ─────────────────────────────────────────────
