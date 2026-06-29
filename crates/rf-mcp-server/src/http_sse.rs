@@ -31,6 +31,7 @@ pub struct HttpSseConfig {
     pub listen_addr: String,
     pub policy_path: Option<PathBuf>,
     pub audit_path: Option<PathBuf>,
+    pub audit_key_path: Option<PathBuf>,
     pub caller_key: String,
     pub api_token: Option<String>,
     pub max_requests_per_minute: Option<u32>,
@@ -115,6 +116,7 @@ async fn handle_message(
         let server = match McpServer::new(
             state.config.policy_path.as_deref(),
             state.config.audit_path.as_deref(),
+            state.config.audit_key_path.as_deref(),
             &state.config.caller_key,
             state.config.api_token.clone(),
             state.config.max_requests_per_minute,

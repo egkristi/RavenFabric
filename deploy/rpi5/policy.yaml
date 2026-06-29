@@ -1,0 +1,233 @@
+# RavenFabric Policy — Raspberry Pi 5 (rpi5) agent
+# Deny-by-default with explicit allow rules for system management,
+# monitoring, file operations, and AI agent integration.
+#
+# This policy is designed for a single-board computer running Debian trixie
+# that acts as both a managed node and an MCP server host.
+
+spec:
+  # ── Command Execution ────────────────────────────────────────────────
+  # All commands run through `sh -c`. Shell constructs (pipes, &&, for loops)
+  # are allowed only when the base command matches an allow pattern AND the
+  # full command does not match a deny pattern.
+  commands:
+    allow:
+      # System management
+      - pattern: "^systemctl (status|start|stop|restart|enable|disable|is-active|show) .*"
+      - pattern: "^journalctl.*"
+      - pattern: "^uptime$"
+      - pattern: "^free -h$"
+      - pattern: "^df -h$"
+      - pattern: "^uname -a$"
+      - pattern: "^hostnamectl.*"
+      - pattern: "^timedatectl.*"
+
+      # Process monitoring
+      - pattern: "^ps (aux|auxww|ef).*"
+      - pattern: "^top -b -n1.*"
+      - pattern: "^htop.*"
+      - pattern: "^htop -C.*"
+      - pattern: "^pgrep.*"
+      - pattern: "^pidof.*"
+
+      # Network diagnostics
+      - pattern: "^ip (addr|route|link|neigh) .*"
+      - pattern: "^ss -[tulpan].*"
+      - pattern: "^ping -c [0-9]+ .*"
+      - pattern: "^traceroute.*"
+      - pattern: "^dig .*"
+      - pattern: "^nslookup .*"
+      - pattern: "^curl .*"
+      - pattern: "^wget .*"
+      - pattern: "^netstat.*"
+
+      # File operations
+      - pattern: "^cat .*"
+      - pattern: "^head .*"
+      - pattern: "^tail .*"
+      - pattern: "^less .*"
+      - pattern: "^more .*"
+      - pattern: "^wc .*"
+      - pattern: "^ls -la.*"
+      - pattern: "^find .*"
+      - pattern: "^grep .*"
+      - pattern: "^stat .*"
+      - pattern: "^du -sh.*"
+      - pattern: "^sha256sum .*"
+      - pattern: "^md5sum .*"
+
+      # Log viewing (safe patterns only)
+      - pattern: "^cat /var/log/.*"
+      - pattern: "^tail -[0-9]+ /var/log/.*"
+      - pattern: "^grep .* /var/log/.*"
+
+      # Package management (read-only)
+      - pattern: "^dpkg -l.*"
+      - pattern: "^dpkg --get-selections.*"
+      - pattern: "^apt list --installed.*"
+      - pattern: "^apt-cache policy .*"
+
+      # Python and scripting (for MCP server AI agent use)
+      - pattern: "^python3 .*"
+      - pattern: "^python3 -c .*"
+
+      # ── Non-exec actions ──────────────────────────────────────────────
+      # These are synthetic command strings checked by the executor's policy
+      # enforcement for non-exec RPC actions (port forwarding, shell, etc.).
+
+      # Port forwarding — bind to localhost only, forward to internal targets
+      - pattern: "^port-forward 127\\.0\\.0\\.1:[0-9]+ .*$"
+      - pattern: "^port-forward localhost:[0-9]+ .*$"
+
+      # Remote forwarding — forward from agent to controller
+      - pattern: "^remote-forward 127\\.0\\.0\\.1:[0-9]+ .*$"
+      - pattern: "^remote-forward localhost:[0-9]+ .*$"
+
+      # SOCKS5 dynamic forward — bind to localhost only
+      - pattern: "^socks5-forward 127\\.0\\.0\\.1:[0-9]+$"
+      - pattern: "^socks5-forward localhost:[0-9]+$"
+
+      # Shell sessions — allow common shells
+      - pattern: "^/bin/sh$"
+      - pattern: "^/bin/bash$"
+      - pattern: "^/bin/zsh$"
+      - pattern: "^/usr/bin/sh$"
+      - pattern: "^/usr/bin/bash$"
+      - pattern: "^/usr/bin/zsh$"
+
+      # Signal/kill — allow sending signals to processes
+      - pattern: "^kill -[0-9]+ [0-9]+$"
+      - pattern: "^kill -[A-Z]+ [0-9]+$"
+      - pattern: "^kill -SIG[A-Z]+ [0-9]+$"
+
+      # Shell constructs — pipes and chaining are allowed when the
+      # individual commands in the pipeline are themselves allowed.
+      # The full pipeline string must match one of these patterns.
+      - pattern: "^systemctl status .* \\| grep .*"
+      - pattern: "^journalctl .* \\| grep .*"
+      - pattern: "^ps aux \\| grep .*"
+      - pattern: "^ip addr \\| grep .*"
+      - pattern: "^df -h \\| grep .*"
+      - pattern: "^free -h \\| grep .*"
+      - pattern: "^cat /var/log/.* \\| grep .*"
+      - pattern: "^tail -[0-9]+ /var/log/.* \\| grep .*"
+      - pattern: "^ls -la.* \\| grep .*"
+      - pattern: "^ls -la.* \\| wc -l$"
+      - pattern: "^ps aux \\| wc -l$"
+      - pattern: "^journalctl .* --since .* --until .*"
+      - pattern: "^journalctl .* -u .* -n [0-9]+$"
+      - pattern: "^for f in /var/log/.*; do .*; done"
+      - pattern: "^for f in /tmp/.*; do .*; done"
+
+    deny:
+      # Destructive operations — never allowed
+      - pattern: ".*rm.*-rf.*"
+      - pattern: ".*rm -rf.*"
+      - pattern: ".*mkfs\\..*"
+      - pattern: ".*dd if=.*"
+      - pattern: ".*> /dev/sd.*"
+      - pattern: ".*chmod -R 777 /.*"
+      - pattern: ".*:(){.*}:.*"
+      - pattern: ".*reboot.*"
+      - pattern: ".*halt.*"
+      - pattern: ".*poweroff.*"
+      - pattern: ".*shutdown.*"
+      - pattern: ".*init 0.*"
+      - pattern: ".*init 6.*"
+
+      # Dangerous shell constructs — block command substitution and eval
+      - pattern: ".*\\$\\(.*\\).*"
+      - pattern: ".*`.*`.*"
+      - pattern: ".*eval .*"
+      - pattern: ".*exec .*"
+      - pattern: ".*source .*"
+      - pattern: ".*\\. /.*"
+
+      # Network — block outbound connections to unknown hosts
+      - pattern: ".*curl http://.*"
+      - pattern: ".*wget http://.*"
+      - pattern: ".*nc .*"
+      - pattern: ".*nmap .*"
+
+      # File system — block access to sensitive paths
+      - pattern: ".*cat /etc/shadow.*"
+      - pattern: ".*cat /etc/passwd.*"
+      - pattern: ".*cat /etc/ssh/.*"
+      - pattern: ".*cat /root/.*"
+
+  # ── Filesystem Access ────────────────────────────────────────────────
+  filesystem:
+    allow:
+      - path: /tmp
+      - path: /var/log
+      - path: /var/log/ravenfabric
+      - path: /etc/ravenfabric
+      - path: /opt
+      - path: /home
+    deny:
+      - path: /etc/shadow
+      - path: /etc/passwd
+      - path: /etc/ssh
+      - path: /root/.ssh
+
+  # ── Network Access ───────────────────────────────────────────────────
+  # Controls PortForward, RemoteForward, Socks5Forward, and Proxy actions.
+  network:
+    allow:
+      # Local services
+      - cidr: "127.0.0.1/32"
+        ports: ["80", "443", "8080", "9090", "9100", "3000", "5000"]
+      # Internal network
+      - cidr: "10.0.0.0/8"
+        ports: ["22", "80", "443", "5432", "6379", "8080", "9090", "9100"]
+      - cidr: "192.168.0.0/16"
+        ports: ["22", "80", "443", "8080", "9090", "9100"]
+    deny:
+      # Block access to cloud metadata endpoints
+      - cidr: "169.254.169.254/32"
+      # Block access to external networks by default
+      - cidr: "0.0.0.0/0"
+
+  # ── HTTP Access ──────────────────────────────────────────────────────
+  # Controls HttpForward and ReverseProxy actions.
+  http:
+    allow:
+      - method: GET
+        path: "^/api/.*"
+      - method: POST
+        path: "^/api/.*"
+      - method: GET
+        path: "^/health$"
+      - method: GET
+        path: "^/metrics$"
+    deny:
+      - method: POST
+        path: "^/admin/.*"
+      - method: DELETE
+        path: ".*"
+    headers:
+      require: []
+      forbid: ["Authorization"]
+
+  # ── Resource Limits ──────────────────────────────────────────────────
+  resources:
+    # Max output per command execution (10 MB)
+    maxOutputBytes: 10485760
+    # Max execution timeout (5 minutes)
+    timeoutSeconds: 300
+    # Proxy idle timeout (5 minutes)
+    proxyIdleTimeoutSeconds: 300
+    # Proxy max duration (1 hour)
+    proxyMaxDurationSeconds: 3600
+    # Max HTTP request body (10 MB)
+    maxRequestBodyBytes: 10485760
+    # Max HTTP response body (10 MB)
+    maxResponseBodyBytes: 10485760
+    # Max file transfer size (100 MB)
+    maxFileSizeBytes: 104857600
+    # Max HTTP requests per rate-limit window (0 = unlimited)
+    maxHttpRequestsPerWindow: 0
+    # HTTP rate limit window in seconds
+    httpRateLimitWindowSecs: 60
+    # Max transfer bytes per second (0 = unlimited)
+    maxTransferBytesPerSec: 0

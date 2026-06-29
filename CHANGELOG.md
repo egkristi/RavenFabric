@@ -5,6 +5,22 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.4] — 2026-07-26
+
+### Added
+
+- **`--compat-mode` flag** — Added to `rf-agent`, `rf-relay`, and `rf-cli` binaries. Enables relaxed Noise XX handshake timing for cross-platform compatibility (e.g., macOS→Linux via relay).
+- **`--version` flag to rf-agent** — `rf-agent --version` now prints version info via clap's built-in `#[command(version)]`.
+- **`--reason` flag to `rf exec`** — CLI now accepts an optional `--reason` string that is threaded through to the executor and included in audit log entries.
+- **Handshake metrics counters** — `handshakes_completed` and `handshake_latency_us` Prometheus counters are now incremented on every successful Noise XX handshake in the agent.
+- **Active connections tracking** — `active_connections` Prometheus counter is incremented on connection open and decremented on connection close via a RAII `ConnectionTracker` guard.
+- **Playbook documentation** — New `docs/playbooks.md` with full YAML schema, rollout strategies (parallel, sequential, rolling, canary), failure policies, and examples.
+
+### Fixed
+
+- **`rf cp` chunking for files >65535B** — `MAX_FRAME_PAYLOAD` corrected from 65535 to 65519 (65535 - 16-byte ChaChaPoly MAC tag). All chunk constants in CLI and agent updated to match. The snow crate enforces `plaintext.len() + TAGLEN <= MAXMSGLEN`, so 65535-byte plaintext always failed encryption.
+- **Clippy `too_many_arguments` warnings** — Added `#[allow(clippy::too_many_arguments)]` to `audit()`, `handle_execute()`, and `exec_command()`.
+
 ## [0.25.3] — 2026-07-17
 
 ### Added

@@ -11,7 +11,7 @@ use tracing::{error, info};
 
 use rf_crypto::channel::SecureChannel;
 use rf_crypto::keys::StaticKey;
-use rf_crypto::noise::handshake;
+use rf_crypto::noise::{handshake, handshake_with_compat};
 use rf_policy::templates::TemplateRegistry;
 use rf_rpc::codec;
 use rf_rpc::types::{Action, Request, Response, RpcResult};
@@ -38,6 +38,12 @@ struct Cli {
     #[arg(short, long, default_value = "client.key")]
     key_path: PathBuf,
 
+    /// Enable compatibility mode for cross-platform relay connections.
+    /// Use this if you see "Noise XX handshake failed: Error::Input" errors
+    /// when connecting from macOS through a Linux relay.
+    #[arg(long)]
+    compat_mode: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -57,6 +63,10 @@ enum Commands {
         /// Run in background (returns job ID immediately)
         #[arg(short, long, default_value_t = false)]
         background: bool,
+
+        /// Human-readable reason for this execution (recorded in audit log)
+        #[arg(long)]
+        reason: Option<String>,
 
         /// Command to execute
         command: String,
@@ -284,6 +294,7 @@ async fn main() -> anyhow::Result<()> {
             command,
             stream,
             background,
+            reason,
         } => {
             exec_command(
                 &cli.relay,
@@ -293,6 +304,8 @@ async fn main() -> anyhow::Result<()> {
                 &command,
                 stream,
                 background,
+                reason,
+                cli.compat_mode,
             )
             .await?;
         }
@@ -304,6 +317,7 @@ async fn main() -> anyhow::Result<()> {
                 &token,
                 cols,
                 rows,
+                cli.compat_mode,
             )
             .await?;
         }
@@ -319,6 +333,7 @@ async fn main() -> anyhow::Result<()> {
                 &token,
                 &local,
                 &remote,
+                cli.compat_mode,
             )
             .await?;
         }
@@ -329,6 +344,7 @@ async fn main() -> anyhow::Result<()> {
                 &cli.key_path,
                 &token,
                 &file,
+                cli.compat_mode,
             )
             .await?;
         }
@@ -336,7 +352,7 @@ async fn main() -> anyhow::Result<()> {
             dev_mode(port, &bind).await?;
         }
         Commands::Status { token } => {
-            status_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, &token).await?;
+            status_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, &token, cli.compat_mode).await?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "rf", &mut std::io::stdout());
@@ -362,6 +378,7 @@ async fn main() -> anyhow::Result<()> {
                 chunk_size,
                 recursive,
                 delta,
+                cli.compat_mode,
             )
             .await?;
         }
@@ -383,11 +400,12 @@ async fn main() -> anyhow::Result<()> {
                 idle_timeout,
                 max_duration,
                 http,
+                cli.compat_mode,
             )
             .await?;
         }
         Commands::Secret { action } => {
-            secret_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, action).await?;
+            secret_command(&cli.relay, cli.connect.as_deref(), &cli.key_path, action, cli.compat_mode).await?;
         }
         Commands::Audit { action } => {
             audit_command(action)?;
@@ -404,6 +422,7 @@ async fn dial_agent(
     direct_addr: Option<&str>,
     key: &StaticKey,
     token: &str,
+    compat_mode: bool,
 ) -> anyhow::Result<(AgentChannel, [u8; 32])> {
     let driver = WebSocketDriver::new();
 
@@ -427,7 +446,12 @@ async fn dial_agent(
 
     // Noise handshake (client is initiator)
     info!("performing Noise XX handshake...");
-    let (state, peer_key) = handshake(&mut stream, true, key).await?;
+    let (state, peer_key) = if compat_mode {
+        info!("compatibility mode enabled — using relaxed handshake timing");
+        handshake_with_compat(&mut stream, true, key, true).await?
+    } else {
+        handshake(&mut stream, true, key).await?
+    };
     info!("connected to agent: {}", hex::encode(peer_key));
 
     let (stream_read, stream_write) = tokio::io::split(stream);
@@ -435,6 +459,7 @@ async fn dial_agent(
     Ok((chan, peer_key))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn exec_command(
     relay_url: &str,
     direct_addr: Option<&str>,
@@ -443,11 +468,13 @@ async fn exec_command(
     command: &str,
     streaming: bool,
     background: bool,
+    reason: Option<String>,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
+    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token, compat_mode).await?;
 
     // Select action based on mode
     let action = if background {
@@ -475,7 +502,7 @@ async fn exec_command(
         id: uuid::Uuid::new_v4().to_string(),
         action,
         timeout_ms: Some(30_000),
-        reason: None,
+        reason,
     };
 
     let req_data = codec::encode(&request)?;
@@ -679,11 +706,12 @@ async fn status_command(
     direct_addr: Option<&str>,
     key_path: &std::path::Path,
     token: &str,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    let (chan, peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
+    let (chan, peer_key) = dial_agent(relay_url, direct_addr, &key, token, compat_mode).await?;
 
     // Send Status request
     let request = Request {
@@ -738,11 +766,12 @@ async fn forward_command(
     token: &str,
     local_addr: &str,
     remote_addr: &str,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
+    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token, compat_mode).await?;
 
     // Request port forward
     let request = Request {
@@ -809,6 +838,7 @@ async fn playbook_command(
     key_path: &std::path::Path,
     token: &str,
     file: &std::path::Path,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     use rf_executor::orchestrator::{AgentResult, OrchestrationPlan, Orchestrator, TargetGrain};
     use std::time::Instant;
@@ -849,7 +879,7 @@ async fn playbook_command(
             let agent_start = Instant::now();
             // Connect to agent via relay (each agent uses the same token for pairing)
             let result =
-                execute_on_agent(relay_url, &key, token, &plan.command, plan.timeout_secs).await;
+                execute_on_agent(relay_url, &key, token, &plan.command, plan.timeout_secs, compat_mode).await;
 
             let agent_result = match result {
                 Ok((stdout, stderr, exit_code)) => {
@@ -900,6 +930,7 @@ async fn playbook_command(
                             token,
                             rollback_cmd,
                             plan.timeout_secs,
+                            compat_mode,
                         )
                         .await;
                         let symbol = if rb_result.is_ok() { "↩" } else { "!" };
@@ -938,6 +969,7 @@ async fn execute_on_agent(
     token: &str,
     command: &str,
     timeout_secs: u64,
+    compat_mode: bool,
 ) -> anyhow::Result<(String, String, i32)> {
     let driver = WebSocketDriver::new();
     let target = Target {
@@ -947,7 +979,11 @@ async fn execute_on_agent(
     };
 
     let mut stream = driver.dial(&target, &Default::default()).await?;
-    let (state, peer_key) = handshake(&mut stream, true, key).await?;
+    let (state, peer_key) = if compat_mode {
+        handshake_with_compat(&mut stream, true, key, true).await?
+    } else {
+        handshake(&mut stream, true, key).await?
+    };
 
     let (stream_read, stream_write) = tokio::io::split(stream);
     let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
@@ -996,6 +1032,7 @@ async fn shell_command(
     token: &str,
     cols: u16,
     rows: u16,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     use std::os::unix::io::AsRawFd;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1003,7 +1040,7 @@ async fn shell_command(
     let key = StaticKey::load_or_generate(key_path)?;
     info!("client public key: {}", key.public_hex());
 
-    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
+    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token, compat_mode).await?;
     let chan = Arc::new(chan);
 
     // Request shell session with proper Action::Shell
@@ -1171,6 +1208,7 @@ async fn shell_command(
     _token: &str,
     _cols: u16,
     _rows: u16,
+    _compat_mode: bool,
 ) -> anyhow::Result<()> {
     anyhow::bail!("interactive shell is not supported on this platform");
 }
@@ -1646,9 +1684,10 @@ async fn cp_command(
     chunk_size: u32,
     recursive: bool,
     delta: bool,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
-    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
+    let (chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token, compat_mode).await?;
     let chan = Arc::new(tokio::sync::Mutex::new(chan));
 
     let is_push = !source.contains(':') && dest.contains(':');
@@ -1760,8 +1799,8 @@ async fn cp_command(
                 }
                 _ => anyhow::bail!("unexpected response to FilePushStream"),
             }
-            // 3. Stream raw file data in 64 KB frames (max frame payload is 65535)
-            const STREAM_CHUNK: usize = 65535;
+            // 3. Stream raw file data in ~64 KB frames (max frame payload is 65519)
+            const STREAM_CHUNK: usize = 65519;
             let mut sent = 0usize;
             while sent < total {
                 let end = (sent + STREAM_CHUNK).min(total);
@@ -1878,6 +1917,7 @@ async fn secret_command(
     direct_addr: Option<&str>,
     key_path: &std::path::Path,
     action: SecretAction,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     match action {
         SecretAction::Push {
@@ -1887,7 +1927,7 @@ async fn secret_command(
             grace_period,
         } => {
             let key = StaticKey::load_or_generate(key_path)?;
-            let (ch, _peer_key) = dial_agent(relay_url, direct_addr, &key, &token).await?;
+            let (ch, _peer_key) = dial_agent(relay_url, direct_addr, &key, &token, compat_mode).await?;
             let req = Request {
                 id: uuid::Uuid::new_v4().to_string(),
                 action: Action::SealSecret {
@@ -1927,7 +1967,7 @@ async fn secret_command(
         }
         SecretAction::List { token } => {
             let key = StaticKey::load_or_generate(key_path)?;
-            let (ch, _peer_key) = dial_agent(relay_url, direct_addr, &key, &token).await?;
+            let (ch, _peer_key) = dial_agent(relay_url, direct_addr, &key, &token, compat_mode).await?;
             let req = Request {
                 id: uuid::Uuid::new_v4().to_string(),
                 action: Action::ListSecrets,
@@ -1976,11 +2016,12 @@ async fn proxy_command(
     idle_timeout: Option<u32>,
     max_duration: Option<u32>,
     http_mode: bool,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     let key = StaticKey::load_or_generate(key_path)?;
 
     // Test connectivity to target via a short-lived probe connection
-    let (probe_chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token).await?;
+    let (probe_chan, _peer_key) = dial_agent(relay_url, direct_addr, &key, token, compat_mode).await?;
     let request = Request {
         id: "proxy-test".into(),
         action: Action::Proxy {
@@ -2040,7 +2081,7 @@ async fn proxy_command(
                                 let target_clone = target.to_string();
                                 if http_mode {
                                     // HTTP-aware mode reuses a shared channel (one request at a time)
-                                    let (http_chan, _) = match dial_agent(&relay_url, direct_addr.as_deref(), &key_clone, &token_clone).await {
+                                    let (http_chan, _) = match dial_agent(&relay_url, direct_addr.as_deref(), &key_clone, &token_clone, compat_mode).await {
                                         Ok(c) => c,
                                         Err(e) => {
                                             eprintln!("http proxy connect failed: {e}");
@@ -2060,6 +2101,7 @@ async fn proxy_command(
                                         }
                                     });
                                 } else {
+                                    let compat = compat_mode;
                                     tokio::spawn(async move {
                                         if let Err(e) = handle_proxy_connection(
                                             stream,
@@ -2070,6 +2112,7 @@ async fn proxy_command(
                                             target_clone,
                                             eff_idle,
                                             eff_max,
+                                            compat,
                                         )
                                         .await
                                         {
@@ -2103,6 +2146,7 @@ async fn proxy_command(
 /// Each concurrent tunnel creates its own dedicated connection to the agent so that
 /// multiple tunnels can run in parallel without contending on a shared channel.
 /// After `ProxyReady` the Noise channel carries raw forwarded bytes.
+#[allow(clippy::too_many_arguments)]
 async fn handle_proxy_connection(
     local: tokio::net::TcpStream,
     relay_url: String,
@@ -2112,13 +2156,14 @@ async fn handle_proxy_connection(
     target: String,
     idle_timeout_secs: u32,
     max_duration_secs: u32,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     use std::sync::Arc;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::time::{Duration, Instant};
 
     // Dedicated connection per tunnel for concurrent operation
-    let (chan, _peer_key) = dial_agent(&relay_url, direct_addr.as_deref(), &key, &token).await?;
+    let (chan, _peer_key) = dial_agent(&relay_url, direct_addr.as_deref(), &key, &token, compat_mode).await?;
     let chan = Arc::new(chan);
 
     // Open the proxy tunnel — agent connects to target and sends ProxyReady
@@ -2496,8 +2541,8 @@ async fn push_single_file(
         _ => anyhow::bail!("unexpected response to FilePushStream"),
     }
 
-    // 3. Stream raw data in 64 KB frames (max frame payload is 65535)
-    const CHUNK: usize = 65535;
+    // 3. Stream raw data in ~64 KB frames (max frame payload is 65519)
+    const CHUNK: usize = 65519;
     let mut sent = 0;
     while sent < total {
         let end = (sent + CHUNK).min(total);

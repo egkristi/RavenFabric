@@ -5,7 +5,7 @@
 pub mod cross_region;
 pub mod geoip;
 
-use cross_region::{ForwardConfig, bridge_to_remote_relay, parse_forward_token};
+use cross_region::{ForwardConfig, bridge_to_remote_relay_inner, parse_forward_token};
 
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -206,6 +206,20 @@ async fn handle_connection(
     meet_secret: &Option<String>,
     forward_config: &ForwardConfig,
 ) -> anyhow::Result<()> {
+    handle_connection_inner(ws, state, cancel, meet_secret, forward_config, forward_config.compat_mode).await
+}
+
+/// Internal handler with optional compat mode for cross-platform relay issues.
+/// When `compat_mode` is true, adds a small yield between forwarded messages
+/// to prevent race conditions on certain platform combinations (macOS→Linux).
+async fn handle_connection_inner(
+    ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+    state: MeetState,
+    cancel: tokio_util::sync::CancellationToken,
+    meet_secret: &Option<String>,
+    forward_config: &ForwardConfig,
+    compat_mode: bool,
+) -> anyhow::Result<()> {
     let (mut ws_sink, mut ws_source) = ws.split();
 
     // First message must be the meet token
@@ -233,7 +247,7 @@ async fn handle_connection(
         let reassembled = ws_sink
             .reunite(ws_source)
             .map_err(|_| anyhow::anyhow!("failed to reunite WebSocket streams for forwarding"))?;
-        return bridge_to_remote_relay(reassembled, target_url, inner_token, cancel).await;
+        return bridge_to_remote_relay_inner(reassembled, target_url, inner_token, cancel, forward_config.compat_mode).await;
     }
 
     // ── Normal same-relay pairing ─────────────────────────────────────────────
@@ -256,6 +270,11 @@ async fn handle_connection(
                     match msg {
                         Ok(msg @ Message::Binary(_)) => {
                             if to_first.send(msg).is_err() { break; }
+                            if compat_mode {
+                                // Yield to the runtime to prevent race conditions
+                                // on certain platform combinations (macOS→Linux).
+                                tokio::task::yield_now().await;
+                            }
                         }
                         Ok(Message::Close(_)) | Err(_) => break,
                         _ => {}
@@ -265,6 +284,9 @@ async fn handle_connection(
             _ = async {
                 while let Some(msg) = from_first.recv().await {
                     if ws_sink.send(msg).await.is_err() { break; }
+                    if compat_mode {
+                        tokio::task::yield_now().await;
+                    }
                 }
             } => {}
         }
@@ -289,6 +311,9 @@ async fn handle_connection(
                     match msg {
                         Ok(msg @ Message::Binary(_)) => {
                             if outbound_tx.send(msg).is_err() { break; }
+                            if compat_mode {
+                                tokio::task::yield_now().await;
+                            }
                         }
                         Ok(Message::Close(_)) | Err(_) => break,
                         _ => {}
@@ -298,6 +323,9 @@ async fn handle_connection(
             _ = async {
                 while let Some(msg) = inbound_rx.recv().await {
                     if ws_sink.send(msg).await.is_err() { break; }
+                    if compat_mode {
+                        tokio::task::yield_now().await;
+                    }
                 }
             } => {}
         }

@@ -15,9 +15,10 @@ use rf_audit::logger::FileAuditLogger;
 use rf_audit::types::AuditEntry;
 use rf_crypto::channel::SecureChannel;
 use rf_crypto::keys::StaticKey;
-use rf_crypto::noise::handshake;
+use rf_crypto::noise::{handshake, handshake_with_compat};
 use rf_crypto::secrets::SecretStore;
 use rf_executor::command::Executor;
+use rf_executor::metrics_server::RfCounters;
 use rf_policy::rpc_policy::RpcPolicy;
 use rf_rpc::codec;
 use rf_rpc::types::{Action, Request, Response, RpcResult};
@@ -25,8 +26,20 @@ use rf_transport::driver::{Driver, Target};
 use rf_transport::relay_select::{RelayCluster, RelaySelector};
 use rf_transport::websocket::WebSocketDriver;
 
+/// RAII guard that decrements active_connections on drop.
+/// Used to ensure the counter is decremented on all exit paths (normal return, error, panic).
+struct ConnectionTracker<'a>(&'a Option<RfCounters>);
+
+impl Drop for ConnectionTracker<'_> {
+    fn drop(&mut self) {
+        if let Some(c) = self.0 {
+            c.3.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+}
+
 #[derive(Parser)]
-#[command(name = "rf-agent", about = "RavenFabric agent")]
+#[command(name = "rf-agent", about = "RavenFabric agent", version)]
 struct Args {
     /// Path to config file (raven.toml)
     #[arg(short, long, default_value = "raven.toml")]
@@ -68,6 +81,12 @@ struct Args {
     /// Path to seal key file (32 bytes raw) for SecretStore.
     #[arg(long)]
     seal_key_path: Option<PathBuf>,
+
+    /// Enable compatibility mode for cross-platform relay connections.
+    /// Use this if you see "Noise XX handshake failed: Error::Input" errors
+    /// when connecting from macOS through a Linux relay.
+    #[arg(long)]
+    compat_mode: bool,
 }
 
 /// Configuration file format (raven.toml).
@@ -94,6 +113,11 @@ struct AgentConfig {
     region: Option<String>,
     /// Path to seal key file (32 bytes raw) for SecretStore.
     seal_key_path: Option<String>,
+    /// Path to HMAC key file (32 bytes raw or 64-char hex) for audit chain integrity.
+    audit_key_path: Option<String>,
+    /// Enable compatibility mode for cross-platform relay connections.
+    #[serde(default)]
+    compat_mode: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,6 +182,10 @@ struct ResolvedConfig {
     region: Option<String>,
     /// Path to seal key file (32 bytes raw) for SecretStore.
     seal_key_path: PathBuf,
+    /// Path to HMAC key file (32 bytes raw or 64-char hex) for audit chain integrity.
+    audit_key_path: Option<PathBuf>,
+    /// Enable compatibility mode for cross-platform relay connections.
+    compat_mode: bool,
 }
 
 fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
@@ -233,6 +261,8 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
             .clone()
             .or(config.agent.seal_key_path.map(PathBuf::from))
             .unwrap_or_else(|| PathBuf::from("seal.key")),
+        audit_key_path: config.agent.audit_key_path.map(PathBuf::from),
+        compat_mode: args.compat_mode || config.agent.compat_mode,
     })
 }
 
@@ -268,9 +298,35 @@ async fn agent_main() -> anyhow::Result<()> {
     let policy = Arc::new(RwLock::new(policy));
     info!("policy loaded from {}", cfg.policy_path.display());
 
-    // Open audit logger
+    // Open audit logger with optional HMAC key for chain integrity
+    let audit_key: Vec<u8> = if let Some(ref key_path) = cfg.audit_key_path {
+        let raw = std::fs::read(key_path)?;
+        if raw.len() == 32 {
+            info!("audit HMAC key loaded from {}", key_path.display());
+            raw
+        } else if raw.len() == 64 {
+            // Hex-encoded 32-byte key
+            let decoded = hex::decode(&raw)?;
+            if decoded.len() != 32 {
+                anyhow::bail!(
+                    "audit key hex decoding produced {} bytes, expected 32",
+                    decoded.len()
+                );
+            }
+            info!("audit HMAC key loaded (hex) from {}", key_path.display());
+            decoded
+        } else {
+            anyhow::bail!(
+                "audit key must be 32 bytes raw or 64 hex chars, got {} bytes",
+                raw.len()
+            );
+        }
+    } else {
+        info!("audit HMAC key not configured — chain integrity verification disabled");
+        vec![]
+    };
     let audit: Arc<dyn rf_audit::logger::AuditLogger> =
-        Arc::new(FileAuditLogger::new(cfg.audit_path.clone(), vec![])?);
+        Arc::new(FileAuditLogger::new(cfg.audit_path.clone(), audit_key)?);
     info!("audit log: {}", cfg.audit_path.display());
 
     // Initialize SecretStore (sealed secrets for command execution)
@@ -295,16 +351,22 @@ async fn agent_main() -> anyhow::Result<()> {
     info!("agent {} starting", cfg.id);
 
     // Start Prometheus metrics endpoint if configured
-    if let Some(ref addr) = cfg.metrics_addr {
-        use rf_executor::metrics_server::{MetricsServerConfig, start_metrics_server};
+    let rf_counters: Option<RfCounters> = if let Some(ref addr) = cfg.metrics_addr {
+        use rf_executor::metrics_server::{
+            MetricsServerConfig, new_rf_collector_with_counters, start_metrics_server,
+        };
+        let (collector, counters) = new_rf_collector_with_counters();
         let config = MetricsServerConfig {
             bind_addr: addr.clone(),
         };
-        match start_metrics_server(config).await {
+        match start_metrics_server(config, Some(collector)).await {
             Ok(_handle) => info!("prometheus metrics endpoint on {}", addr),
             Err(e) => warn!("failed to start metrics endpoint on {}: {}", addr, e),
         }
-    }
+        Some(counters)
+    } else {
+        None
+    };
 
     // Set up SIGHUP handler for policy hot-reload (Unix only)
     #[cfg(unix)]
@@ -339,7 +401,7 @@ async fn agent_main() -> anyhow::Result<()> {
     // Direct-listen mode (like sshd) or relay-connect mode
     if let Some(ref listen_addr) = cfg.listen {
         info!("direct-listen mode on {}", listen_addr);
-        run_listen_mode(listen_addr, &cfg, &key, &policy, &audit, &secret_store).await?;
+        run_listen_mode(listen_addr, &cfg, &key, &policy, &audit, &secret_store, &rf_counters, cfg.compat_mode).await?;
     } else {
         info!("relay mode: {}", cfg.relay);
         // Reconnect loop with exponential backoff + jitter
@@ -351,7 +413,7 @@ async fn agent_main() -> anyhow::Result<()> {
                 break;
             }
 
-            match run_session(&cfg, &key, &policy, &audit, &secret_store).await {
+            match run_session(&cfg, &key, &policy, &audit, &secret_store, &rf_counters, cfg.compat_mode).await {
                 Ok(()) => {
                     info!("session ended cleanly");
                     attempt = 0; // Reset on successful session
@@ -395,6 +457,8 @@ async fn run_listen_mode(
     policy: &Arc<RwLock<RpcPolicy>>,
     audit: &Arc<dyn rf_audit::logger::AuditLogger>,
     secret_store: &Option<Arc<tokio::sync::Mutex<SecretStore>>>,
+    counters: &Option<RfCounters>,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     let driver = WebSocketDriver::new();
     let listener = driver.listen(listen_addr).await?;
@@ -411,8 +475,10 @@ async fn run_listen_mode(
                         let audit = audit.clone();
                         let agent_id = cfg.id.clone();
                         let secret_store = secret_store.clone();
+                        let counters = counters.clone();
+                        let compat = compat_mode;
                         tokio::spawn(async move {
-                            if let Err(e) = handle_direct_connection(stream, &key, &policy, &audit, &agent_id, &secret_store).await {
+                            if let Err(e) = handle_direct_connection(stream, &key, &policy, &audit, &agent_id, &secret_store, &counters, compat).await {
                                 warn!("direct session error: {}", e);
                             }
                         });
@@ -439,11 +505,28 @@ async fn handle_direct_connection(
     audit: &Arc<dyn rf_audit::logger::AuditLogger>,
     agent_id: &str,
     secret_store: &Option<Arc<tokio::sync::Mutex<SecretStore>>>,
+    counters: &Option<RfCounters>,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     // Noise handshake (agent is responder)
     info!("performing Noise XX handshake...");
-    let (state, peer_key) = handshake(&mut stream, false, key).await?;
+    let handshake_start = std::time::Instant::now();
+    let (state, peer_key) = if compat_mode {
+        info!("compatibility mode enabled — using relaxed handshake timing");
+        handshake_with_compat(&mut stream, false, key, true).await?
+    } else {
+        handshake(&mut stream, false, key).await?
+    };
+    let handshake_latency_us = handshake_start.elapsed().as_micros() as u64;
     info!("handshake complete, peer key: {}", hex::encode(peer_key));
+
+    // Record handshake metrics
+    if let Some(c) = counters {
+        c.4.fetch_add(1, std::sync::atomic::Ordering::Relaxed); // handshakes_completed
+        c.5.fetch_add(handshake_latency_us, std::sync::atomic::Ordering::Relaxed); // handshake_latency_us
+        c.3.fetch_add(1, std::sync::atomic::Ordering::Relaxed); // active_connections
+    }
+    let _conn = ConnectionTracker(counters);
 
     // SecureChannel — wrapped in Arc so proxy tunnel tasks can share read/write halves
     let (stream_read, stream_write) = tokio::io::split(stream);
@@ -460,6 +543,16 @@ async fn handle_direct_connection(
         .with_start_time(std::time::Instant::now());
     if let Some(secrets) = secret_store {
         executor_builder = executor_builder.with_secrets(secrets.clone());
+    }
+    if let Some(c) = counters {
+        executor_builder = executor_builder.with_counters(
+            Some(c.0.clone()),
+            Some(c.1.clone()),
+            Some(c.2.clone()),
+            Some(c.3.clone()),
+            Some(c.4.clone()),
+            Some(c.5.clone()),
+        );
     }
     let executor = executor_builder;
 
@@ -598,6 +691,8 @@ async fn run_session(
     policy: &Arc<RwLock<RpcPolicy>>,
     audit: &Arc<dyn rf_audit::logger::AuditLogger>,
     secret_store: &Option<Arc<tokio::sync::Mutex<SecretStore>>>,
+    counters: &Option<RfCounters>,
+    compat_mode: bool,
 ) -> anyhow::Result<()> {
     let driver = WebSocketDriver::new();
     let target = Target {
@@ -611,8 +706,23 @@ async fn run_session(
 
     // Noise handshake (agent is responder)
     info!("performing Noise XX handshake...");
-    let (state, peer_key) = handshake(&mut stream, false, key).await?;
+    let handshake_start = std::time::Instant::now();
+    let (state, peer_key) = if compat_mode {
+        info!("compatibility mode enabled — using relaxed handshake timing");
+        handshake_with_compat(&mut stream, false, key, true).await?
+    } else {
+        handshake(&mut stream, false, key).await?
+    };
+    let handshake_latency_us = handshake_start.elapsed().as_micros() as u64;
     info!("handshake complete, peer key: {}", hex::encode(peer_key));
+
+    // Record handshake metrics
+    if let Some(c) = counters {
+        c.4.fetch_add(1, std::sync::atomic::Ordering::Relaxed); // handshakes_completed
+        c.5.fetch_add(handshake_latency_us, std::sync::atomic::Ordering::Relaxed); // handshake_latency_us
+        c.3.fetch_add(1, std::sync::atomic::Ordering::Relaxed); // active_connections
+    }
+    let _conn = ConnectionTracker(counters);
 
     // SecureChannel — wrapped in Arc so proxy tunnel tasks can share read/write halves
     let (stream_read, stream_write) = tokio::io::split(stream);
@@ -630,6 +740,16 @@ async fn run_session(
         .with_start_time(std::time::Instant::now());
     if let Some(secrets) = secret_store {
         executor_builder = executor_builder.with_secrets(secrets.clone());
+    }
+    if let Some(c) = counters {
+        executor_builder = executor_builder.with_counters(
+            Some(c.0.clone()),
+            Some(c.1.clone()),
+            Some(c.2.clone()),
+            Some(c.3.clone()),
+            Some(c.4.clone()),
+            Some(c.5.clone()),
+        );
     }
     let executor = executor_builder;
 
@@ -1315,8 +1435,8 @@ where
     let data = codec::encode(&ready)?;
     chan.send(&data).await?;
 
-    // Stream file data in 64 KB frames (max frame payload is 65535)
-    const CHUNK: usize = 65535;
+    // Stream file data in ~64 KB frames (max frame payload is 65519)
+    const CHUNK: usize = 65519;
     let mut offset = 0;
     while offset < file_data.len() {
         let end = (offset + CHUNK).min(file_data.len());

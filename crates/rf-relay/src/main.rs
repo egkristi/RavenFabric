@@ -5,6 +5,7 @@
 
 use clap::Parser;
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 #[derive(Parser)]
 #[command(name = "rf-relay", about = "RavenFabric stateless relay broker")]
@@ -17,6 +18,14 @@ struct Args {
     /// Can also be set via RELAY_SECRET env var.
     #[arg(short, long, env = "RELAY_SECRET")]
     secret: Option<String>,
+
+    /// Enable compatibility mode for cross-platform relay connections.
+    /// Adds a small delay between forwarded messages to prevent race conditions
+    /// on certain platform combinations (e.g., macOS→Linux via snow-0.10.0).
+    /// Use this if you see "Noise XX handshake failed: Error::Input" errors
+    /// when connecting from macOS through a Linux relay.
+    #[arg(long)]
+    compat_mode: bool,
 }
 
 #[tokio::main]
@@ -38,5 +47,14 @@ async fn main() -> anyhow::Result<()> {
         cancel_clone.cancel();
     });
 
-    rf_relay::run_relay_with_secret(&args.listen, cancel, args.secret).await
+    let forward_config = rf_relay::cross_region::ForwardConfig {
+        compat_mode: args.compat_mode,
+        ..Default::default()
+    };
+
+    if args.compat_mode {
+        info!("compatibility mode enabled — adding inter-message delays for cross-platform relay");
+    }
+
+    rf_relay::run_relay_full(&args.listen, cancel, args.secret, forward_config).await
 }

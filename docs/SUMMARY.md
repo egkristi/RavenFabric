@@ -17,6 +17,7 @@
 
 ## Reference
 
+- [Playbooks](playbooks.md) — Multi-agent orchestration with rollout strategies
 - [Testing](testing.md) — Running tests, coverage, benchmarks
 
 ## Use Cases

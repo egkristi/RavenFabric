@@ -39,7 +39,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{info, warn};
 
 /// Configuration governing cross-region relay forwarding.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ForwardConfig {
     /// Whether forwarding is enabled at all.  Default: `false`.
     pub allow_forwarding: bool,
@@ -47,6 +47,20 @@ pub struct ForwardConfig {
     /// An empty list means *all* targets are permitted (only relevant when
     /// `allow_forwarding` is `true`).
     pub forward_allowlist: Vec<String>,
+    /// Enable compatibility mode for cross-platform relay connections.
+    /// Adds a small yield between forwarded messages to prevent race conditions
+    /// on certain platform combinations (e.g., macOS→Linux via snow-0.10.0).
+    pub compat_mode: bool,
+}
+
+impl Default for ForwardConfig {
+    fn default() -> Self {
+        Self {
+            allow_forwarding: false,
+            forward_allowlist: Vec::new(),
+            compat_mode: false,
+        }
+    }
 }
 
 impl ForwardConfig {
@@ -94,6 +108,17 @@ pub async fn bridge_to_remote_relay(
     inner_token: &str,
     cancel: tokio_util::sync::CancellationToken,
 ) -> anyhow::Result<()> {
+    bridge_to_remote_relay_inner(local_ws, target_relay_url, inner_token, cancel, false).await
+}
+
+/// Internal bridge with optional compat mode for cross-platform relay issues.
+pub(crate) async fn bridge_to_remote_relay_inner(
+    local_ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+    target_relay_url: &str,
+    inner_token: &str,
+    cancel: tokio_util::sync::CancellationToken,
+    compat_mode: bool,
+) -> anyhow::Result<()> {
     info!(
         "opening cross-region forward to {} (token hash {})",
         target_relay_url,
@@ -132,6 +157,9 @@ pub async fn bridge_to_remote_relay(
                 match msg {
                     Ok(msg @ Message::Binary(_)) => {
                         if remote_sink.send(msg).await.is_err() { break; }
+                        if compat_mode {
+                            tokio::task::yield_now().await;
+                        }
                     }
                     Ok(Message::Close(_)) | Err(_) => break,
                     _ => {}
@@ -144,6 +172,9 @@ pub async fn bridge_to_remote_relay(
                 match msg {
                     Ok(msg @ Message::Binary(_)) => {
                         if local_sink.send(msg).await.is_err() { break; }
+                        if compat_mode {
+                            tokio::task::yield_now().await;
+                        }
                     }
                     Ok(Message::Close(_)) | Err(_) => break,
                     _ => {}
@@ -201,6 +232,7 @@ mod tests {
         let cfg = ForwardConfig {
             allow_forwarding: true,
             forward_allowlist: vec![],
+            compat_mode: false,
         };
         assert!(cfg.is_target_allowed("wss://anything.example.com:9090"));
     }
@@ -210,6 +242,7 @@ mod tests {
         let cfg = ForwardConfig {
             allow_forwarding: true,
             forward_allowlist: vec!["wss://trusted.example.com:9090".into()],
+            compat_mode: false,
         };
         assert!(cfg.is_target_allowed("wss://trusted.example.com:9090"));
         assert!(!cfg.is_target_allowed("wss://untrusted.example.com:9090"));

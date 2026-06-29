@@ -53,5 +53,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 0.25.3
-CurrentVersionCode: 4
+CurrentVersion: 0.25.4
+CurrentVersionCode: 5

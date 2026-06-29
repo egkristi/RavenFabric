@@ -38,6 +38,7 @@ spec:
     McpServer::new(
         Some(&policy_path),
         Some(&audit_path),
+        None,
         "test-caller-key",
         Some("test-token".to_string()),
         Some(60),
@@ -300,6 +301,7 @@ async fn test_mcp_rate_limiting() {
     let server = McpServer::new(
         Some(policy_path.as_path()),
         Some(audit_path.as_path()),
+        None,
         "rate-test-caller",
         Some("rate-test-token".to_string()),
         Some(5), // 5 requests per minute

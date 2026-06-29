@@ -1,15 +1,21 @@
 use snow::{Builder, Error as SnowError, HandshakeState, StatelessTransportState};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::time::{Duration, timeout};
 use tracing::{debug, trace, warn};
 
 use crate::error::CryptoError;
 use crate::keys::StaticKey;
 
+/// Timeout for the complete Noise XX handshake (3 messages each direction).
+/// Prevents hanging indefinitely on relay connections with cross-platform issues.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Noise protocol pattern used throughout RavenFabric.
 pub const NOISE_PATTERN: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
 
 /// Maximum plaintext payload per frame (before encryption).
-pub const MAX_FRAME_PAYLOAD: usize = 65535;
+/// snow's MAXMSGLEN = 65535 includes the 16-byte MAC tag, so plaintext is capped at 65519.
+pub const MAX_FRAME_PAYLOAD: usize = 65535 - FRAME_OVERHEAD; // 65519
 
 /// Overhead per encrypted frame (16-byte MAC).
 pub const FRAME_OVERHEAD: usize = 16;
@@ -24,10 +30,26 @@ pub const WIRE_VERSION: u8 = 1;
 ///
 /// Sends wire magic + version before the Noise handshake begins.
 /// Returns the negotiated `StatelessTransportState` (for SecureChannel) and the peer's static public key.
+///
+/// When `compat_mode` is true, adds a small yield between handshake messages
+/// to work around cross-platform relay timing issues (macOS→Linux via snow-0.10.0).
 pub async fn handshake<T>(
     transport: &mut T,
     is_initiator: bool,
     static_key: &StaticKey,
+) -> Result<(StatelessTransportState, [u8; 32]), CryptoError>
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+{
+    handshake_with_compat(transport, is_initiator, static_key, false).await
+}
+
+/// Internal handshake with optional compat mode for cross-platform relay issues.
+pub async fn handshake_with_compat<T>(
+    transport: &mut T,
+    is_initiator: bool,
+    static_key: &StaticKey,
+    compat_mode: bool,
 ) -> Result<(StatelessTransportState, [u8; 32]), CryptoError>
 where
     T: AsyncRead + AsyncWrite + Unpin,
@@ -81,25 +103,59 @@ where
     }
     .map_err(|e| CryptoError::Handshake(e.to_string()))?;
 
-    let mut buf = vec![0u8; 65535];
+    // Use a larger buffer for the handshake to accommodate any platform-specific
+    // message size variations (snow-0.10.0 macOS→Linux relay issue).
+    // The +256 accounts for potential Noise XX message expansion on different
+    // platform curve25519 implementations.
+    let mut buf = vec![0u8; 65535 + 256];
 
-    if is_initiator {
-        // → msg1: e
-        send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
-        // ← msg2: e, ee, s, es
-        recv_handshake_msg(transport, &mut noise, &mut buf).await?;
-        // → msg3: s, se
-        send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
-    } else {
-        // ← msg1: e
-        recv_handshake_msg(transport, &mut noise, &mut buf).await?;
-        // → msg2: e, ee, s, es
-        send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
-        // ← msg3: s, se
-        recv_handshake_msg(transport, &mut noise, &mut buf).await?;
+    // Wrap the entire handshake in a timeout to prevent hanging on
+    // cross-platform relay connections (snow-0.10.0 macOS→Linux issue).
+    let handshake_result = timeout(HANDSHAKE_TIMEOUT, async {
+        if is_initiator {
+            // → msg1: e
+            send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
+            if compat_mode {
+                tokio::task::yield_now().await;
+            }
+            // ← msg2: e, ee, s, es
+            recv_handshake_msg(transport, &mut noise, &mut buf).await?;
+            if compat_mode {
+                tokio::task::yield_now().await;
+            }
+            // → msg3: s, se
+            send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
+        } else {
+            // ← msg1: e
+            recv_handshake_msg(transport, &mut noise, &mut buf).await?;
+            if compat_mode {
+                tokio::task::yield_now().await;
+            }
+            // → msg2: e, ee, s, es
+            send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
+            if compat_mode {
+                tokio::task::yield_now().await;
+            }
+            // ← msg3: s, se
+            recv_handshake_msg(transport, &mut noise, &mut buf).await?;
+        }
+        Ok::<_, CryptoError>(())
+    })
+    .await;
+
+    match handshake_result {
+        Ok(Ok(())) => debug!("Noise XX handshake complete"),
+        Ok(Err(e)) => return Err(e),
+        Err(_) => {
+            warn!(
+                "Noise XX handshake timed out after {}s — possible cross-platform relay issue",
+                HANDSHAKE_TIMEOUT.as_secs()
+            );
+            return Err(CryptoError::HandshakeInput(
+                "handshake timed out — relay may have cross-platform compatibility issue".into(),
+            ));
+        }
     }
-
-    debug!("Noise XX handshake complete");
 
     let peer_key = noise
         .get_remote_static()

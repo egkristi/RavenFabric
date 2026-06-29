@@ -38,6 +38,10 @@ struct Cli {
     #[arg(short, long, env = "RF_AUDIT_PATH")]
     audit: Option<PathBuf>,
 
+    /// Path to HMAC key file (32 bytes raw or 64-char hex) for audit chain integrity.
+    #[arg(long, env = "RF_AUDIT_KEY_PATH")]
+    audit_key: Option<PathBuf>,
+
     /// Caller identity key (defaults to 'mcp-session').
     #[arg(long, default_value = "mcp-session")]
     caller_key: String,
@@ -132,6 +136,7 @@ async fn main() -> anyhow::Result<()> {
             listen_addr: listen_addr.clone(),
             policy_path: cli.policy.clone(),
             audit_path: cli.audit.clone(),
+            audit_key_path: cli.audit_key.clone(),
             caller_key: cli.caller_key.clone(),
             api_token: api_token.clone(),
             max_requests_per_minute: cli.rate_limit,
@@ -153,6 +158,7 @@ async fn main() -> anyhow::Result<()> {
     let server = McpServer::new(
         cli.policy.as_deref(),
         cli.audit.as_deref(),
+        cli.audit_key.as_deref(),
         &cli.caller_key,
         api_token,
         cli.rate_limit,

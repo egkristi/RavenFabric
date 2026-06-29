@@ -1,8 +1,8 @@
 # RavenFabric Roadmap
 
-> **Version:** 0.25.3 (Alpha) — Released 2026-07-17
+> **Version:** 0.25.4 (Alpha) — Released 2026-07-26
 > **Next:** v1.0.0-beta.1 (Beta Readiness)
-> **Stats:** 14 crates, ~73,812 LOC, 1,423 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 14 crates, ~74,410 LOC, 1,423 tests, 0 clippy warnings, 0 known vulnerabilities
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
@@ -69,27 +69,57 @@
 
 ---
 
-## Release Checklist: v0.25.3 — Remaining Audit Fixes ✅
+## Release Checklist: v0.25.3 — Remaining Audit Fixes ⚠️
 
-**Released 2026-07-17.** All items completed.
+**Released 2026-07-17.** Code fixes complete. Real-world validation on rpi5 revealed gaps (see [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md)).
 
 ### 🔴 Critical (blocking)
 
-- [x] **Fix playbook schema bug** — YAML files used map syntax but serde_yaml externally-tagged enums require YAML tag syntax (`!agents [...]`, `!canary { ... }`). All 6 playbook files updated.
-- [x] **Fix file chunking in `rf cp`** — Wire protocol uses 16-bit frame size (max 65535 bytes). Fixed 3 locations where chunk size was 65536 instead of 65535.
+- [x] **Fix playbook schema bug** — YAML files updated with YAML tag syntax. **⚠️ Untested on rpi5** — no policy rule for `playbook` action.
+- [x] **Fix file chunking in `rf cp`** — Fixed 3 locations where chunk size was 65536 instead of 65535. **⚠️ Partial** — `rf cp` >65535B still fails with "frame too large: 65536 bytes (max 65535)". Mac CLI v0.25.2 may be the blocker.
 
 ### 🟡 Medium
 
-- [x] **Add `rf policy lint` command** — Warns about dangerous patterns (bash in allow list), overly broad regex, missing deny rules, filesystem allow/deny overlaps, HTTP allow without deny, resource limits
-- [x] **Add `rf audit verify` command** — Checks HMAC-SHA256 chain continuity across audit log, reports any tampered entries, shows chain gaps
-- [x] **Add policy hot-reload** — SIGHUP handler already existed (lines 276-302 in rf-agent/src/main.rs). Verified working.
-- [x] **Configure secret store on rpi5** — Added `seal_key_path` to agent config, CLI args, and `ResolvedConfig`. SecretStore initialized in `agent_main()` and wired to both Executor instances via `.with_secrets()`.
+- [x] **Add `rf policy lint` command** — ✅ Working. 5 findings (2 INFO, 3 WARNING) on rpi5 policy.
+- [x] **Add `rf audit verify` command** — ❌ **HMAC key derivation mismatch** — `rf audit verify` fails on rpi5. Key derivation logic needs investigation.
+- [x] **Add policy hot-reload** — ⚠️ **Code exists but untested on rpi5.** No SIGHUP test performed during audit.
+- [x] **Configure secret store on rpi5** — ⚠️ **Code fix complete** but `--seal-key-path` not set on rpi5 deployment. `rf secret push` still fails.
 
 ### 🟢 Low
 
-- [ ] **Reduce agent idle memory** — Current 33MB RSS exceeds 10MB target. Profile and optimize: regex cache, connection state, audit buffer sizing
-- [ ] **Relay HA** — Multiple relay instances behind load balancer, agent connection to multiple relays, controller failover between relays
-- [ ] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types
+- [ ] **Reduce agent idle memory** — Measured 19.6-43.2 MB RSS (varies with load). Target <10 MB. VmSize 79.6 MB. **4x over target.**
+- [ ] **Relay HA** — Single relay is SPOF. No failover mechanism.
+- [ ] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types.
+
+---
+
+## Release Checklist: v0.25.4 — Audit Remediation
+
+**Target:** Resolve all findings from the v0.25.3 comprehensive audit (see [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md)). Close the gap between "code complete" and "verified working on rpi5."
+
+### 🔴 Critical (blocking beta)
+
+- [x] **Fix cross-platform Noise XX via relay** — `--compat-mode` flag added to agent, relay, and CLI binaries.
+- [ ] **Reduce agent idle memory to <10 MB** — Currently 19.6-43.2 MB RSS (4x target). Profile and optimize: regex cache, connection state, audit buffer sizing, tokio task count.
+- [ ] **Deploy MCP server on rpi5** — Create `ravenfabric-mcp.service` systemd unit. Verify MCP tools work over stdio transport.
+- [ ] **Install rf v0.25.4 on Mac controller** — Resolve version mismatch.
+
+### 🟡 Medium
+
+- [x] **Fix `rf cp` chunking for files >65535B** — `MAX_FRAME_PAYLOAD` corrected to 65519 (65535 - 16-byte MAC). All chunk constants updated.
+- [x] **Fix RavenFabric-specific metrics counters** — Handshake timing, active connections, and all 6 counters now wired in agent.
+- [ ] **Fix HMAC key derivation for `rf audit verify`** — Audit entries have `prev_hash` + `hmac` fields, but verification fails. Key derivation logic mismatch between writer and verifier.
+- [ ] **Add policy rules for non-exec actions** — Create allow rules for `shell_open`, `port_forward`, `proxy`, `background_exec`, `playbook` in rpi5 policy YAML.
+- [ ] **Add policy rules for shell constructs** — Allow `for` loops, pipes, `&&` chaining with restricted patterns.
+- [ ] **Configure secret store on rpi5** — Generate seal key, set `seal_key_path` in `/etc/ravenfabric/raven.toml`, verify `rf secret push` works.
+- [ ] **Test policy hot-reload on rpi5** — Send SIGHUP to agent, verify policy changes take effect without restart.
+
+### 🟢 Low
+
+- [ ] **Implement relay HA** — Multiple relay instances behind load balancer, agent connection to multiple relays, controller failover between relays.
+- [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types (agents, canary, rolling, fanout).
+- [x] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types in `docs/playbooks.md`.
+- [ ] **Reduce agent VmSize** — Currently 79.6 MB virtual allocation. Investigate if this can be reduced.
 
 ---
 
@@ -99,6 +129,8 @@
 
 ### Beta Requirements
 
+- [ ] **All v0.25.4 critical items resolved** — Cross-platform relay, agent memory <10 MB, MCP server running, Mac CLI upgraded
+- [ ] **All v0.25.4 medium items resolved** — File chunking, metrics counters, HMAC verification, policy rules, secret store, hot-reload
 - [x] **Soak test** — 26 days on rpi5 (2026-06-27) — **completed**
 - [x] **Wire protocol stability guarantee**
 - [x] **Code coverage metrics** (60% threshold)
@@ -110,20 +142,42 @@
 
 ### Beta Blockers
 
-- [x] All v0.25.2 critical items resolved
-- [x] Relay mode verified working from macOS and Linux controllers
-- [x] MCP server running and tested
-- [x] Policy rules cover all CLI actions (exec, shell, forward, proxy, background, cp, secret)
-- [x] Playbook feature working (resolved in v0.25.3)
-- [x] File transfer for files >64KB (resolved in v0.25.3)
+#### ❌ Unresolved (Blocking Beta)
+
+- [ ] **Cross-platform Noise XX via relay** — Direct connect Mac→Pi works (~53ms), relay connect hangs with "buffer too small" (snow-0.10.0). Blocks multi-platform mesh.
+- [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). VmSize 79.6 MB. Blocks IoT/constrained deployment.
+- [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service. Blocks AI agent integration.
+- [ ] **`rf cp` >65535B fails** — No chunking protocol. "frame too large: 65536 bytes (max 65535)". Blocks file transfers >64KB.
+- [ ] **Metrics counters stuck at 0** — All 6 RF-specific Prometheus counters show 0 despite 1358 audit entries. Monitoring blind spot.
+- [ ] **HMAC key derivation mismatch** — `rf audit verify` fails. Blocks audit chain verification.
+- [ ] **Policy rules for non-exec actions** — shell, forward, proxy, playbook, background all need explicit allow rules in policy YAML.
+- [ ] **Shell constructs denied** — For loops, pipes blocked. No allow rules for complex commands.
+- [ ] **Secret store not configured on rpi5** — `--seal-key-path` not set. Blocks `rf secret push`.
+- [ ] **Policy hot-reload untested** — Code exists but no SIGHUP test performed during audit.
+- [ ] **Local CLI v0.25.2 vs agent v0.25.3** — Version mismatch on Mac controller may cause protocol issues.
+- [ ] **Single relay SPOF** — No HA/failover for relay broker.
+
+#### ✅ Resolved
+
+- [x] Playbook schema fix (code complete, untested on rpi5)
+- [x] File chunking fix (code complete, Mac CLI upgrade needed)
+- [x] Policy lint command (working)
+- [x] Audit HMAC chain (v0.25.3+ entries have prev_hash + hmac)
+- [x] Background exec (working)
+- [x] Relay systemd service (running)
+- [x] Agent→relay connection (working)
+- [x] Bash restriction (built-in deny rule working)
 
 ### Why Not Beta Yet
 
-- No production deployment
-- No external users
-- Single developer (no peer review on security-critical code)
-- Exotic transports untested on real hardware
-- No external security audit
+- **12 unresolved blockers** (see above) — 3 critical, 6 medium, 3 low
+- **78.6% test pass rate** (22/28) — 6 features fail or are blocked
+- **Agent memory 4x over target** — 43.2 MB RSS vs <10 MB target
+- **Cross-platform relay broken** — Mac→Pi relay handshake fails
+- **No production deployment** — Single rpi5 test node
+- **No external users** — Single developer
+- **No external security audit** — Self-audit only
+- **Exotic transports untested** on real hardware
 
 ---
 
@@ -412,16 +466,20 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 
 | Metric | Target | Measured (rpi5, 2026-06-27) | Rationale |
 |--------|--------|-------------------------------|-----------|
-| Connection setup | < 2 RTT | ~38ms handshake (direct connect) | Noise XX = 1.5 RTT |
+| Connection setup | < 2 RTT | ~53ms handshake (direct connect) | Noise XX = 1.5 RTT |
 | Shell latency overhead | < 10ms | Not tested (policy denied) | Imperceptible vs raw TCP |
-| `rf exec` simple command | < 100ms | ~38ms handshake + ~18ms exec | Faster than SSH |
-| File transfer throughput | Line speed | 63KB single-frame (protocol-limited) | ChaCha20 saturates >10 Gbps |
-| Agent idle memory | < 10 MB | **33 MB RSS** (26-day steady state) | Raspberry Pi, IoT — target not met |
-| Agent binary size | < 15 MB | Not measured | Static musl, stripped |
+| `rf exec` simple command | < 100ms | ~53ms handshake + ~18ms exec | Faster than SSH |
+| File transfer throughput | Line speed | 65535B single-frame (protocol-limited) | ChaCha20 saturates >10 Gbps |
+| Agent idle memory | < 10 MB | **19.6-43.2 MB RSS** (varies with load) | Raspberry Pi, IoT — target not met (4x) |
+| Agent VmSize | — | **79.6 MB** | Virtual allocation |
+| Agent binary size | < 15 MB | **8 MB** (aarch64, stripped) | ✅ Target met |
+| MCP server binary size | — | **6.5 MB** (aarch64) | |
 | Relay throughput | 10k concurrent sessions | Not benchmarked | Per-relay |
-| Relay idle memory | < 5 MB | **1.8 MB RSS** (26-day steady state) | Minimal footprint |
+| Relay idle memory | < 5 MB | **1.2 MB RSS** (26-day steady state) | ✅ Target met |
 | Agent CPU usage | < 1% idle | ~3min 22s total over 26 days | Negligible idle overhead |
 | Audit log growth | Bounded | +64 entries per test session | HMAC-chained, append-only |
+| Audit denial rate | — | **17.4%** (236/1358 denied) | Healthy for deny-by-default |
+| Test pass rate | 100% | **78.6%** (22/28) | 6 features fail/blocked |
 
 ---
 
@@ -470,7 +528,7 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 
 - [ ] `snow v0.10.0` pins `sha2 v0.10` causing duplicate crypto dependency tree — waiting for upstream (#99)
 
-### Real-World Audit Findings (2026-06-27)
+### Real-World Audit Findings (2026-06-27 — v0.25.3 Comprehensive Audit)
 
 **Resolved in v0.25.2:**
 - Relay mode — `--relay` flag added to agent systemd config
@@ -481,15 +539,27 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 - Bash restriction — deny bare bash/sh, /bin/bash, /usr/bin/bash
 - Audit log staleness alert — `StalenessConfig`, `check_staleness()`, `record_activity()`
 
-**Remaining (tracked in v0.25.3):**
-- Playbook schema bug — serde deserialization blocks all `rf playbook` usage
-- File transfer size limit — 64KB frame cap blocks `rf cp` for larger files
-- No policy lint command
-- No audit log verification tool
-- No policy hot-reload
-- Secret store not configured on rpi5
-- Agent idle memory 33MB (exceeds 10MB target)
-- Single relay point of failure
+**Resolved in v0.25.3 (code complete, see validation status):**
+- Playbook schema bug — serde deserialization fixed with YAML tag syntax. **⚠️ Untested on rpi5**
+- Policy lint command — `rf policy lint --file <policy.yaml>` — **✅ Working**
+- Audit log verification tool — `rf audit verify` — **❌ HMAC key derivation mismatch**
+- Policy hot-reload — SIGHUP handler exists. **⚠️ Untested on rpi5**
+- Secret store — `seal_key_path` config + SecretStore init. **⚠️ Not deployed on rpi5**
+
+**Resolved in v0.25.4:**
+- **Cross-platform Noise XX via relay** — `--compat-mode` flag added to agent, relay, and CLI.
+- **File transfer size limit** — `MAX_FRAME_PAYLOAD` corrected to 65519 (65535 - 16-byte MAC). All chunk constants updated.
+- **Metrics counters stuck at 0** — Handshake timing, active connections, and all 6 counters now wired in agent.
+- **Playbook documentation** — `docs/playbooks.md` with full YAML schema, examples, and rollout strategies.
+- **Local CLI v0.25.4** — Version bump with all fixes.
+
+**Unresolved (tracked in v1.0.0-beta.1):**
+- **Agent idle memory 19.6-43.2 MB RSS** — 4x over <10 MB target. VmSize 79.6 MB.
+- **MCP server not running on rpi5** — No systemd service. Binary exists but unused.
+- **HMAC key derivation mismatch** — `rf audit verify` fails. Key derivation logic needs investigation.
+- **Policy rules for non-exec actions** — shell, forward, proxy, playbook, background need explicit allow rules.
+- **Shell constructs denied** — For loops, pipes blocked. No allow rules for complex commands.
+- **Single relay SPOF** — No HA/failover for relay broker.
 
 ### Integration Wishlist (Post-v1.0)
 

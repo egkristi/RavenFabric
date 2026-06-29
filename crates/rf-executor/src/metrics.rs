@@ -63,7 +63,7 @@ impl SystemMetricsCollector {
         Self {
             interval,
             #[cfg(feature = "sysinfo")]
-            sys: sysinfo::System::new_all(),
+            sys: sysinfo::System::new(),
         }
     }
 
@@ -72,7 +72,8 @@ impl SystemMetricsCollector {
     pub fn collect_system_metrics(&mut self, timestamp_ms: u64) -> Vec<MetricPoint> {
         use sysinfo::System;
 
-        self.sys.refresh_all();
+        self.sys.refresh_cpu_all();
+        self.sys.refresh_memory();
 
         let cpu_usage = self.sys.global_cpu_usage() as f64;
         let mem_used = self.sys.used_memory() as f64;

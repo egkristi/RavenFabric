@@ -35,9 +35,15 @@ impl Default for MetricsServerConfig {
 /// This spawns a Tokio task that listens for HTTP GET /metrics requests
 /// and responds with the current metrics in Prometheus exposition format.
 ///
+/// `rf_collector` — an optional pre-configured RavenFabric metrics collector.
+/// When `None`, a fresh collector with independent counters is created (useful
+/// for testing).  When `Some(collector)`, the collector's counters are shared
+/// with the executor so that `/metrics` reflects real-time activity.
+///
 /// Returns the JoinHandle for the server task.
 pub async fn start_metrics_server(
     config: MetricsServerConfig,
+    rf_collector: Option<RavenFabricMetricsCollector>,
 ) -> std::io::Result<tokio::task::JoinHandle<()>> {
     let listener = TcpListener::bind(&config.bind_addr).await?;
     info!(
@@ -48,9 +54,11 @@ pub async fn start_metrics_server(
     let system_collector = Arc::new(Mutex::new(SystemMetricsCollector::new(
         Duration::from_secs(15),
     )));
-    let rf_collector = Arc::new(Mutex::new(RavenFabricMetricsCollector::new_with_counters(
-        Duration::from_secs(15),
-    )));
+    let rf_collector = Arc::new(Mutex::new(
+        rf_collector.unwrap_or_else(|| RavenFabricMetricsCollector::new_with_counters(
+            Duration::from_secs(15),
+        )),
+    ));
 
     let handle = tokio::spawn(async move {
         loop {
@@ -132,7 +140,7 @@ pub async fn start_metrics_server(
 
 /// Type alias for the 6-tuple of shared atomic counters used by
 /// [`RavenFabricMetricsCollector`].
-type RfCounters = (
+pub type RfCounters = (
     Arc<std::sync::atomic::AtomicU64>,
     Arc<std::sync::atomic::AtomicU64>,
     Arc<std::sync::atomic::AtomicU64>,
@@ -141,13 +149,36 @@ type RfCounters = (
     Arc<std::sync::atomic::AtomicU64>,
 );
 
-/// Get the RavenFabric metrics collector counters for wiring into the executor.
-/// Returns `None` if the server hasn't been started yet.
+/// Create a [`RavenFabricMetricsCollector`] and return it together with its
+/// shared counter Arcs so callers can wire them into the executor.
+///
+/// Usage in agent main:
+/// ```ignore
+/// let (rf_collector, counters) = new_rf_collector_with_counters();
+/// let executor = Executor::new(...)
+///     .with_counters(
+///         Some(counters.0),
+///         Some(counters.1),
+///         Some(counters.2),
+///         Some(counters.3),
+///         Some(counters.4),
+///         Some(counters.5),
+///     );
+/// start_metrics_server(config, Some(rf_collector)).await?;
+/// ```
 #[allow(clippy::type_complexity)]
-pub fn get_rf_collector_counters() -> Option<RfCounters> {
-    // The counters are embedded in the RavenFabricMetricsCollector.
-    // This is a convenience function; callers should use the collector directly.
-    None
+pub fn new_rf_collector_with_counters() -> (RavenFabricMetricsCollector, RfCounters) {
+    let collector = RavenFabricMetricsCollector::new_with_counters(Duration::from_secs(15));
+    let (ca, cd, ae, ac, hc, hl) = collector.counters();
+    let counters = (
+        Arc::clone(ca),
+        Arc::clone(cd),
+        Arc::clone(ae),
+        Arc::clone(ac),
+        Arc::clone(hc),
+        Arc::clone(hl),
+    );
+    (collector, counters)
 }
 
 #[cfg(test)]
@@ -165,7 +196,7 @@ mod tests {
             bind_addr: format!("127.0.0.1:{port}"),
         };
 
-        let _handle = start_metrics_server(config).await.unwrap();
+        let _handle = start_metrics_server(config, None).await.unwrap();
 
         // Give the server time to start
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -198,7 +229,7 @@ mod tests {
             bind_addr: format!("127.0.0.1:{port}"),
         };
 
-        let _handle = start_metrics_server(config).await.unwrap();
+        let _handle = start_metrics_server(config, None).await.unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
         let mut stream = tokio::net::TcpStream::connect(format!("127.0.0.1:{port}"))

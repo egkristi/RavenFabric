@@ -9,6 +9,7 @@ Type=simple
 ExecStart=/usr/local/bin/rf-mcp-server \
     --policy /etc/ravenfabric/policy.yaml \
     --audit /var/log/ravenfabric/mcp-audit.jsonl \
+    --audit-key /etc/ravenfabric/audit.key \
     --http-listen 127.0.0.1:8080
 Restart=on-failure
 RestartSec=5

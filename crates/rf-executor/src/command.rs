@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::time::Instant;
 
 use chrono::Utc;
@@ -78,6 +79,20 @@ pub struct Executor {
     /// Registry of external secret backends (Vault, AWS, Azure, GCP, generic HTTP).
     #[cfg(feature = "secret-backends")]
     backend_registry: Arc<tokio::sync::RwLock<crate::secret_backends::SecretBackendRegistry>>,
+
+    // ── Prometheus metrics counters ──────────────────────────────────────
+    /// Shared counter: total commands allowed.
+    commands_allowed: Option<Arc<AtomicU64>>,
+    /// Shared counter: total commands denied.
+    commands_denied: Option<Arc<AtomicU64>>,
+    /// Shared counter: total audit entries written.
+    audit_entries: Option<Arc<AtomicU64>>,
+    /// Shared counter: active connections.
+    active_connections: Option<Arc<AtomicI64>>,
+    /// Shared counter: total handshakes completed.
+    handshakes_completed: Option<Arc<AtomicU64>>,
+    /// Shared counter: cumulative handshake latency in microseconds.
+    handshake_latency_us: Option<Arc<AtomicU64>>,
 }
 
 impl Executor {
@@ -99,7 +114,7 @@ impl Executor {
             forwards: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             secrets: None,
             #[cfg(feature = "sysinfo")]
-            sysinfo_cache: Arc::new(Mutex::new(sysinfo::System::new_all())),
+            sysinfo_cache: Arc::new(Mutex::new(sysinfo::System::new())),
             http_dest_rate: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             pinned_version: Arc::new(RwLock::new(None)),
             update_window: Arc::new(RwLock::new(None)),
@@ -108,6 +123,12 @@ impl Executor {
             backend_registry: Arc::new(tokio::sync::RwLock::new(
                 crate::secret_backends::SecretBackendRegistry::new(),
             )),
+            commands_allowed: None,
+            commands_denied: None,
+            audit_entries: None,
+            active_connections: None,
+            handshakes_completed: None,
+            handshake_latency_us: None,
         }
     }
 
@@ -132,6 +153,29 @@ impl Executor {
     /// Set the sealed secret store for `{{ secrets.KEY }}` resolution.
     pub fn with_secrets(mut self, secrets: Arc<tokio::sync::Mutex<SecretStore>>) -> Self {
         self.secrets = Some(secrets);
+        self
+    }
+
+    /// Wire Prometheus metrics counters into the executor.
+    ///
+    /// The counters are shared with [`RavenFabricMetricsCollector`] so that
+    /// the `/metrics` endpoint reflects real-time activity.
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_counters(
+        mut self,
+        commands_allowed: Option<Arc<AtomicU64>>,
+        commands_denied: Option<Arc<AtomicU64>>,
+        audit_entries: Option<Arc<AtomicU64>>,
+        active_connections: Option<Arc<AtomicI64>>,
+        handshakes_completed: Option<Arc<AtomicU64>>,
+        handshake_latency_us: Option<Arc<AtomicU64>>,
+    ) -> Self {
+        self.commands_allowed = commands_allowed;
+        self.commands_denied = commands_denied;
+        self.audit_entries = audit_entries;
+        self.active_connections = active_connections;
+        self.handshakes_completed = handshakes_completed;
+        self.handshake_latency_us = handshake_latency_us;
         self
     }
 
@@ -161,7 +205,7 @@ impl Executor {
                 env,
                 workdir,
             } => {
-                self.handle_execute(&request.id, command, env, workdir, start)
+                self.handle_execute(&request.id, command, env, workdir, start, request.reason.clone())
                     .await
             }
             #[cfg(feature = "sysinfo")]
@@ -183,7 +227,7 @@ impl Executor {
                 env,
                 workdir,
             } => {
-                self.handle_background_exec(&request.id, command, env, workdir, start)
+                self.handle_background_exec(&request.id, command, env, workdir, start, request.reason.clone())
                     .await
             }
             Action::JobQuery { job_id } => self.handle_job_query(job_id).await,
@@ -281,7 +325,7 @@ impl Executor {
                 // StreamExecute runs synchronously (like Execute) when no streaming
                 // channel is available. The full streaming path uses stream_execute()
                 // directly from the agent's RPC loop with a mpsc sender.
-                self.handle_execute(&request.id, command, env, workdir, start)
+                self.handle_execute(&request.id, command, env, workdir, start, request.reason.clone())
                     .await
             }
             Action::FilePush {
@@ -498,7 +542,21 @@ impl Executor {
         }
     }
 
+    /// Increment the `commands_allowed` or `commands_denied` counter based on
+    /// a policy decision.  No-op if counters were not wired via [`with_counters`].
+    fn record_policy_decision(&self, allowed: bool) {
+        if allowed {
+            if let Some(ref c) = self.commands_allowed {
+                c.fetch_add(1, Ordering::Relaxed);
+            }
+        } else if let Some(ref c) = self.commands_denied {
+            c.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
     /// Write an audit log entry, logging errors via tracing.
+    /// Increments the `audit_entries` Prometheus counter if wired.
+    #[allow(clippy::too_many_arguments)]
     fn audit(
         &self,
         request_id: &str,
@@ -508,6 +566,7 @@ impl Executor {
         matched_rule: String,
         exit_code: Option<i32>,
         duration_ms: u64,
+        reason: Option<String>,
     ) {
         if let Err(e) = self.audit.log(AuditEntry {
             timestamp: Utc::now(),
@@ -519,14 +578,18 @@ impl Executor {
             exit_code,
             duration_ms,
             caller_key: self.caller_key.clone(),
-            reason: None,
+            reason,
             prev_hash: None,
             hmac: None,
         }) {
             tracing::error!("audit log write failed: {e}");
         }
+        if let Some(ref c) = self.audit_entries {
+            c.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn handle_execute(
         &self,
         request_id: &str,
@@ -534,6 +597,7 @@ impl Executor {
         env: &std::collections::HashMap<String, String>,
         workdir: &Option<String>,
         start: Instant,
+        reason: Option<String>,
     ) -> RpcResult {
         let policy = self.policy.read().await;
 
@@ -552,18 +616,21 @@ impl Executor {
                 exit_code: None,
                 duration_ms,
                 caller_key: self.caller_key.clone(),
-                reason: None,
+                reason: reason.clone(),
                 prev_hash: None,
                 hmac: None,
             }) {
                 tracing::error!("audit log write failed: {}", e);
             }
+            self.record_policy_decision(false);
 
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+
+        self.record_policy_decision(true);
 
         // Execute with timeout
         let timeout_dur = Duration::from_secs(policy.timeout_seconds as u64);
@@ -620,7 +687,7 @@ impl Executor {
             exit_code: Some(exit_code),
             duration_ms,
             caller_key: self.caller_key.clone(),
-            reason: None,
+            reason,
             prev_hash: None,
             hmac: None,
         }) {
@@ -638,7 +705,10 @@ impl Executor {
     #[cfg(feature = "sysinfo")]
     async fn handle_metrics(&self, request_id: &str, start: Instant) -> RpcResult {
         let mut sys = self.sysinfo_cache.lock().await;
-        sys.refresh_all();
+        // Only refresh CPU and memory — avoids loading processes/disks
+        // which saves ~5-15 MB RSS on every poll.
+        sys.refresh_cpu_all();
+        sys.refresh_memory();
         let stdout = format!(
             "{{\"hostname\":\"{}\",\"cpus\":{},\"memory_total_mb\":{},\"memory_used_mb\":{}}}",
             sysinfo::System::host_name().unwrap_or_default(),
@@ -655,6 +725,7 @@ impl Executor {
             "built-in".into(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::Success {
@@ -674,6 +745,7 @@ impl Executor {
             "built-in".into(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
         RpcResult::StatusInfo {
             agent_id: self.agent_id.clone(),
@@ -698,12 +770,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         let max_output = policy.max_output_bytes as usize;
         drop(policy);
@@ -736,6 +811,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::Success {
                     stdout: encoded,
@@ -772,12 +848,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -821,6 +900,7 @@ impl Executor {
             matched_rule,
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::Success {
@@ -846,12 +926,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -890,6 +973,7 @@ impl Executor {
             matched_rule,
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
         RpcResult::Success {
             stdout: entries.join("\n"),
@@ -913,12 +997,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -935,6 +1022,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::Success {
                     stdout: format!("signal {signal} sent to pid {pid}"),
@@ -951,6 +1039,7 @@ impl Executor {
                     matched_rule,
                     Some(-1),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::Error {
                     message: format!(
@@ -978,6 +1067,7 @@ impl Executor {
         env: &std::collections::HashMap<String, String>,
         workdir: &Option<String>,
         start: Instant,
+        reason: Option<String>,
     ) -> RpcResult {
         // Policy check
         let policy = self.policy.read().await;
@@ -991,12 +1081,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+                reason.clone(),
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         let max_output = policy.max_output_bytes as usize;
         drop(policy);
@@ -1040,6 +1133,7 @@ impl Executor {
             matched_rule,
             None,
             start.elapsed().as_millis() as u64,
+            reason,
         );
 
         // Spawn background task to wait for completion
@@ -1167,12 +1261,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -1204,6 +1301,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::ShellOpened { session_id }
             }
@@ -1229,6 +1327,7 @@ impl Executor {
             "shell-session".into(),
             None,
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         let now_ms = std::time::SystemTime::now()
@@ -1358,6 +1457,7 @@ impl Executor {
                     "shell-session".into(),
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::ShellExited {
                     session_id: session_id.to_string(),
@@ -1394,12 +1494,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -1425,6 +1528,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::ForwardStarted {
                     forward_id,
@@ -1455,6 +1559,7 @@ impl Executor {
                     "forward-session".into(),
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::ForwardStopped {
                     forward_id: forward_id.to_string(),
@@ -1488,12 +1593,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -1519,6 +1627,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::ForwardStarted {
                     forward_id,
@@ -1552,12 +1661,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -1590,6 +1702,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::ForwardStarted {
                     forward_id,
@@ -1627,12 +1740,15 @@ impl Executor {
                     decision.matched_rule.clone(),
                     None,
                     start.elapsed().as_millis() as u64,
+                None,
                 );
+                self.record_policy_decision(false);
                 return RpcResult::Denied {
                     reason: decision.reason,
                     rule: decision.matched_rule,
                 };
             }
+            self.record_policy_decision(true);
             drop(policy);
         }
 
@@ -1686,6 +1802,7 @@ impl Executor {
             "default-allow".into(),
             if result.success { Some(0) } else { Some(1) },
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::HealthCheckResult {
@@ -1717,12 +1834,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -1745,6 +1865,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::TailOutput {
                     lines: tail,
@@ -1784,12 +1905,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -1924,6 +2048,7 @@ impl Executor {
                 matched_rule,
                 Some(0),
                 start.elapsed().as_millis() as u64,
+            None,
             );
 
             RpcResult::FileChunkAck {
@@ -1961,12 +2086,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -2085,6 +2213,7 @@ impl Executor {
             matched_rule,
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::FileChunk {
@@ -2131,12 +2260,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         drop(policy);
 
@@ -2152,6 +2284,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 return RpcResult::FileDeltaIndex {
                     blocks: vec![],
@@ -2212,6 +2345,7 @@ impl Executor {
             matched_rule,
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::FileDeltaIndex {
@@ -2248,12 +2382,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
 
         // Enforce file size limit
@@ -2362,6 +2499,7 @@ impl Executor {
             matched_rule,
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::FileDeltaApplied {
@@ -2394,6 +2532,7 @@ impl Executor {
             String::new(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
         let _ = subdomain;
         let _ = path_prefix;
@@ -2434,12 +2573,15 @@ impl Executor {
                 http_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: http_decision.reason,
                 rule: http_decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
 
         let effective_timeout_ms =
             timeout_ms.unwrap_or(policy.proxy_idle_timeout_seconds as u64 * 1000);
@@ -2491,6 +2633,7 @@ impl Executor {
                     String::new(),
                     None,
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 return RpcResult::Error {
                     message: format!("upstream request failed: {e}"),
@@ -2535,6 +2678,7 @@ impl Executor {
             String::new(),
             None,
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::ReverseProxyResponse {
@@ -2569,12 +2713,15 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: decision.reason,
                 rule: decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
         let matched_rule = decision.matched_rule.clone();
         // Resolve effective timeouts: request overrides < policy defaults
         let effective_idle = idle_timeout_secs.unwrap_or(policy.proxy_idle_timeout_seconds);
@@ -2596,6 +2743,7 @@ impl Executor {
                     matched_rule,
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::ProxyConnected {
                     proxy_id,
@@ -2635,12 +2783,15 @@ impl Executor {
                 http_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: http_decision.reason,
                 rule: http_decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
 
         // Check header policy (required / forbidden headers)
         let header_decision = policy.check_http_headers(headers);
@@ -2653,12 +2804,15 @@ impl Executor {
                 header_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: header_decision.reason,
                 rule: header_decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
 
         // Check network target policy (CIDR/hostname/port rules)
         let net_decision = policy.check_network_target(target);
@@ -2671,12 +2825,15 @@ impl Executor {
                 net_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
+            self.record_policy_decision(false);
             return RpcResult::Denied {
                 reason: net_decision.reason,
                 rule: net_decision.matched_rule,
             };
         }
+        self.record_policy_decision(true);
 
         // Check request body size limit
         let max_req_body = policy.max_request_body_bytes;
@@ -2690,6 +2847,7 @@ impl Executor {
                 "max_request_body_bytes".to_string(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
             return RpcResult::Denied {
                 reason: format!("request body too large: {} > {max_req_body}", body.len()),
@@ -2727,6 +2885,7 @@ impl Executor {
                     "resources.maxHttpRequestsPerWindow".to_string(),
                     None,
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 return RpcResult::Denied {
                     reason: format!(
@@ -2868,6 +3027,7 @@ impl Executor {
                 "max_response_body_bytes".to_string(),
                 Some(resp_body.len() as i32),
                 start.elapsed().as_millis() as u64,
+            None,
             );
             return RpcResult::Denied {
                 reason: format!(
@@ -2889,6 +3049,7 @@ impl Executor {
             matched_rule,
             Some(status_code as i32),
             latency_ms,
+            None,
         );
 
         RpcResult::HttpResponse {
@@ -2927,6 +3088,7 @@ impl Executor {
                 policy_decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
             return RpcResult::Denied {
                 reason: policy_decision.reason,
@@ -2998,6 +3160,7 @@ impl Executor {
                     "hook_failed".to_string(),
                     out.status.code(),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 return RpcResult::Error {
                     message: format!(
@@ -3045,6 +3208,7 @@ impl Executor {
                         "health_check_failed".to_string(),
                         out.status.code(),
                         start.elapsed().as_millis() as u64,
+                    None,
                     );
                     return RpcResult::Error {
                         message: format!(
@@ -3086,6 +3250,7 @@ impl Executor {
             "rotation_hook".to_string(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::Rotated {
@@ -3154,6 +3319,7 @@ impl Executor {
             format!("ttl={ttl_secs}s grace={grace_period_secs}s"),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::RotationConfigured {
@@ -3203,6 +3369,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
             return RpcResult::Denied {
                 reason: decision.reason,
@@ -3240,6 +3407,7 @@ impl Executor {
             String::new(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::SecretBackendConfigured {
@@ -3268,6 +3436,7 @@ impl Executor {
                 decision.matched_rule.clone(),
                 None,
                 start.elapsed().as_millis() as u64,
+            None,
             );
             return RpcResult::Denied {
                 reason: decision.reason,
@@ -3287,6 +3456,7 @@ impl Executor {
                     String::new(),
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::SecretFetched {
                     backend: backend_name.to_string(),
@@ -3361,6 +3531,7 @@ impl Executor {
                     if already_exists { "rotated" } else { "new" }.to_string(),
                     Some(0),
                     start.elapsed().as_millis() as u64,
+                None,
                 );
                 RpcResult::SecretSealed {
                     name: name.to_string(),
@@ -3398,6 +3569,7 @@ impl Executor {
             String::new(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
 
         RpcResult::SecretsList { names }
@@ -3615,6 +3787,7 @@ impl Executor {
             "built-in".into(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
         RpcResult::VersionPinned {
             version: version.to_string(),
@@ -3635,6 +3808,7 @@ impl Executor {
             "built-in".into(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
         RpcResult::VersionUnpinned
     }
@@ -3651,6 +3825,7 @@ impl Executor {
             "built-in".into(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
         RpcResult::VersionInfo {
             agent_id: self.agent_id.clone(),
@@ -3683,6 +3858,7 @@ impl Executor {
             "built-in".into(),
             Some(0),
             start.elapsed().as_millis() as u64,
+            None,
         );
         RpcResult::UpdateWindowSet {
             window: window_clone,

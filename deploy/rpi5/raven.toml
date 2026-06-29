@@ -1,12 +1,12 @@
-# RavenFabric Agent Configuration
-# See https://ravenfabric.io for documentation
+# RavenFabric Agent Configuration — Raspberry Pi 5
+# Deployed at /etc/ravenfabric/raven.toml
 
 [agent]
 # Unique identifier for this agent
-id = "agent-01"
+id = "rpi5"
 
 # Relay server endpoint
-relay = "wss://relay.example.com/meet"
+relay = "ws://localhost:9090"
 
 # Path to agent private key (auto-generated on first run)
 key_path = "/etc/ravenfabric/agent.key"
@@ -17,18 +17,25 @@ policy_path = "/etc/ravenfabric/policy.yaml"
 # Audit log path (JSON-lines format)
 audit_path = "/var/log/ravenfabric/audit.jsonl"
 
+# Path to HMAC key file (32 bytes raw or 64-char hex) for audit chain integrity.
+# Generate with: dd if=/dev/urandom bs=32 count=1 of=/etc/ravenfabric/audit.key
+audit_key_path = "/etc/ravenfabric/audit.key"
+
 # Path to seal key file (32 bytes raw) for SecretStore.
 # If the file does not exist, secrets are disabled.
 # Generate with: dd if=/dev/urandom bs=32 count=1 of=/etc/ravenfabric/seal.key
 seal_key_path = "/etc/ravenfabric/seal.key"
 
+# Prometheus metrics endpoint
+metrics_addr = "127.0.0.1:9100"
+
 # Enable compatibility mode for cross-platform relay connections.
 # Set to true if you see "Noise XX handshake failed: Error::Input" errors
 # when connecting from macOS through a Linux relay.
-# compat_mode = true
+compat_mode = true
 
 [transport]
-# Transport driver: websocket, quic, memory, unix, stdio
+# Transport driver: websocket (default)
 driver = "websocket"
 
 # Reconnect interval in seconds
@@ -36,10 +43,3 @@ reconnect_interval = 5
 
 # Maximum retries (0 = infinite)
 max_retries = 0
-
-[relay]
-# Listen address for relay mode
-listen = "0.0.0.0:9090"
-
-# Meet secret (use env: prefix for environment variables)
-meet_secret = "env:RELAY_SECRET"

@@ -187,6 +187,7 @@ impl McpServer {
     pub fn new(
         policy_path: Option<&Path>,
         audit_path: Option<&Path>,
+        audit_key_path: Option<&Path>,
         caller_key: &str,
         api_token: Option<String>,
         max_requests_per_minute: Option<u32>,
@@ -206,8 +207,30 @@ impl McpServer {
 
         let policy = Arc::new(RwLock::new(policy));
 
+        let audit_key: Vec<u8> = if let Some(key_path) = audit_key_path {
+            let raw = std::fs::read(key_path)?;
+            if raw.len() == 32 {
+                raw
+            } else if raw.len() == 64 {
+                let decoded = hex::decode(&raw)?;
+                if decoded.len() != 32 {
+                    anyhow::bail!(
+                        "audit key hex decoding produced {} bytes, expected 32",
+                        decoded.len()
+                    );
+                }
+                decoded
+            } else {
+                anyhow::bail!(
+                    "audit key must be 32 bytes raw or 64 hex chars, got {} bytes",
+                    raw.len()
+                );
+            }
+        } else {
+            vec![]
+        };
         let audit: Arc<dyn AuditLogger> = if let Some(path) = audit_path {
-            Arc::new(FileAuditLogger::new(path.to_path_buf(), vec![])?)
+            Arc::new(FileAuditLogger::new(path.to_path_buf(), audit_key)?)
         } else {
             Arc::new(rf_audit::logger::NullAuditLogger)
         };
@@ -1500,6 +1523,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -1516,6 +1540,7 @@ mod tests {
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
@@ -1551,6 +1576,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -1580,6 +1606,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -1604,6 +1631,7 @@ mod tests {
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
@@ -1630,6 +1658,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -1655,6 +1684,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -1677,6 +1707,7 @@ mod tests {
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
@@ -1705,6 +1736,7 @@ mod tests {
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             Some("secret-token-123".into()),
@@ -1735,6 +1767,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             Some("new-token-456,old-token-123".into()),
             None,
@@ -1762,6 +1795,7 @@ mod tests {
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             Some("new-token-456,old-token-123".into()),
@@ -1791,6 +1825,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             Some("secret-token-123".into()),
             None,
@@ -1819,6 +1854,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             Some("secret-token-123".into()),
             None,
@@ -1846,6 +1882,7 @@ mod tests {
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             Some("secret-token-123".into()),
@@ -1912,6 +1949,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             Some(2),
@@ -1965,6 +2003,7 @@ mod tests {
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             Some(1),
@@ -2003,6 +2042,7 @@ mod tests {
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
@@ -2110,6 +2150,7 @@ mod tests {
         let server = McpServer::new(
             None,
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -2159,6 +2200,7 @@ mod tests {
         }];
 
         let server = McpServer::new(
+            None,
             None,
             None,
             "test-caller",
@@ -2261,6 +2303,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let server = McpServer::new(
             None,
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -2287,6 +2330,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
         // Now create a new session for monitor-agent (each connection is a new server)
         let server2 = McpServer::new(
+            None,
             None,
             None,
             "test-caller",
@@ -2348,6 +2392,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let server = McpServer::new(
             None, // No default policy → deny-all
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -2391,6 +2436,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let patterns: Vec<String> = patterns.iter().copied().map(String::from).collect();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
@@ -2779,6 +2825,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -2813,6 +2860,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
@@ -2863,6 +2911,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let server = McpServer::new(
             Some(f.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -2894,6 +2943,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let policy_file = create_test_policy();
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
@@ -2949,6 +2999,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -2984,6 +3035,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
@@ -3037,6 +3089,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -3083,6 +3136,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -3126,6 +3180,7 @@ policy = "/etc/rf/dev-policy.yaml"
         let server = McpServer::new(
             Some(policy_file.path()),
             None,
+            None,
             "test-caller",
             None,
             None,
@@ -3165,6 +3220,7 @@ policy = "/etc/rf/dev-policy.yaml"
 
         let server = McpServer::new(
             Some(policy_file.path()),
+            None,
             None,
             "test-caller",
             None,
