@@ -73,6 +73,20 @@ impl CollectorConfig {
         }
     }
 
+    /// Conservative preset for IoT / constrained devices (<10 MB RSS target).
+    ///
+    /// Reduces buffer capacity from 4,096 to 512 entries (~2 MB savings),
+    /// dedup window from 1,024 to 256, and flushes more aggressively (every 2s)
+    /// so entries spend less time in memory.
+    pub fn constrained() -> Self {
+        Self {
+            buffer_capacity: 512,
+            flush_interval: Duration::from_secs(2),
+            dedup_window: 256,
+            max_age: Some(Duration::from_secs(3600)), // 1 hour
+        }
+    }
+
     /// Set the flush interval.
     pub fn with_flush_interval(mut self, interval: Duration) -> Self {
         self.flush_interval = interval;

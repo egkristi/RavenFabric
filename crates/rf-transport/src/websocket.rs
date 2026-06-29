@@ -113,7 +113,7 @@ where
         + Unpin
         + 'static,
 {
-    let (app_stream, bridge_stream) = tokio::io::duplex(1024 * 1024); // 1 MB buffer
+    let (app_stream, bridge_stream) = tokio::io::duplex(256 * 1024); // 256 KB buffer
     let (mut bridge_read, mut bridge_write) = tokio::io::split(bridge_stream);
     let (mut ws_sink, mut ws_source) = ws.split();
 

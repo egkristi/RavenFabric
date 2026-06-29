@@ -93,6 +93,13 @@ struct Args {
     /// `rf audit verify --key-file <hex>`.
     #[arg(long)]
     export_hmac_key: bool,
+
+    /// Enable memory-constrained mode for IoT / low-RAM devices.
+    /// Reduces audit buffer capacity, dedup window, and transport buffer sizes
+    /// to minimize RSS. Use with `--features rt-single-thread,minimal` at build
+    /// time for maximum savings.
+    #[arg(long)]
+    constrained: bool,
 }
 
 /// Configuration file format (raven.toml).
@@ -124,6 +131,9 @@ struct AgentConfig {
     /// Enable compatibility mode for cross-platform relay connections.
     #[serde(default)]
     compat_mode: bool,
+    /// Enable memory-constrained mode for IoT / low-RAM devices.
+    #[serde(default)]
+    constrained: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -192,6 +202,8 @@ struct ResolvedConfig {
     audit_key_path: Option<PathBuf>,
     /// Enable compatibility mode for cross-platform relay connections.
     compat_mode: bool,
+    /// Enable memory-constrained mode for IoT / low-RAM devices.
+    constrained: bool,
 }
 
 fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
@@ -269,6 +281,7 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
             .unwrap_or_else(|| PathBuf::from("seal.key")),
         audit_key_path: config.agent.audit_key_path.map(PathBuf::from),
         compat_mode: args.compat_mode || config.agent.compat_mode,
+        constrained: args.constrained || config.agent.constrained,
     })
 }
 
@@ -361,8 +374,13 @@ async fn agent_main() -> anyhow::Result<()> {
         vec![]
     };
     let file_logger = FileAuditLogger::new(cfg.audit_path.clone(), audit_key)?;
-    let collector_config = rf_audit::collector::CollectorConfig::default()
-        .with_flush_interval(std::time::Duration::from_secs(5));
+    let collector_config = if cfg.constrained {
+        info!("constrained mode: using reduced audit buffer (512 entries, 2s flush)");
+        rf_audit::collector::CollectorConfig::constrained()
+    } else {
+        rf_audit::collector::CollectorConfig::default()
+            .with_flush_interval(std::time::Duration::from_secs(5))
+    };
     let buffered = rf_audit::collector::BufferedAuditCollector::new(file_logger, collector_config);
     let audit: Arc<dyn rf_audit::logger::AuditLogger> = Arc::new(buffered);
     info!(

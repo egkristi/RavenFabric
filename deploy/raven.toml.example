@@ -27,6 +27,11 @@ seal_key_path = "/etc/ravenfabric/seal.key"
 # when connecting from macOS through a Linux relay.
 # compat_mode = true
 
+# Enable memory-constrained mode for IoT / low-RAM devices (Raspberry Pi Zero, etc.).
+# Reduces audit buffer from 4096 to 512 entries and flushes more aggressively.
+# Use with `--features rt-single-thread,minimal` at build time for max savings.
+# constrained = true
+
 [transport]
 # Transport driver: websocket, quic, memory, unix, stdio
 driver = "websocket"
