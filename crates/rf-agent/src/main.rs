@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use clap::Parser;
 use rand::Rng as _;
@@ -183,10 +184,88 @@ impl Default for TransportConfig {
     }
 }
 
+/// A list of relay URLs with health tracking for HA failover.
+///
+/// The agent maintains a list of candidate relays and tracks which ones are
+/// reachable. On connection failure, the next healthy relay is tried instead
+/// of retrying the same URL.
+#[allow(dead_code)]
+struct RelayList {
+    /// All configured relay URLs in preference order.
+    urls: Vec<String>,
+    /// Index of the currently active relay in `urls`.
+    current: usize,
+    /// Tracks which relays have been marked as failed (by index).
+    failed: Vec<bool>,
+    /// Measured RTT in ms for each relay (None = not yet probed).
+    rtt_ms: Vec<Option<u32>>,
+}
+
+impl RelayList {
+    fn new(urls: Vec<String>) -> Self {
+        let len = urls.len();
+        Self {
+            urls,
+            current: 0,
+            failed: vec![false; len],
+            rtt_ms: vec![None; len],
+        }
+    }
+
+    /// Return the currently active relay URL.
+    fn current_url(&self) -> &str {
+        &self.urls[self.current]
+    }
+
+    /// Mark the current relay as failed and advance to the next healthy one.
+    /// Returns `None` if all relays are exhausted.
+    fn failover(&mut self) -> Option<&str> {
+        if self.current < self.failed.len() {
+            self.failed[self.current] = true;
+        }
+        // Try all relays starting from the next index, wrapping around
+        let len = self.urls.len();
+        for offset in 1..=len {
+            let idx = (self.current + offset) % len;
+            if !self.failed[idx] {
+                self.current = idx;
+                return Some(&self.urls[idx]);
+            }
+        }
+        // All relays failed — reset failure state and try from the start
+        self.failed.fill(false);
+        self.current = 0;
+        (!self.urls.is_empty()).then(|| self.urls[0].as_str())
+    }
+
+    /// Reset failure state for all relays (e.g. after a successful connection).
+    fn reset_failures(&mut self) {
+        self.failed.fill(false);
+    }
+
+    /// Update RTT measurement for the current relay.
+    #[allow(dead_code)]
+    fn set_rtt(&mut self, rtt_ms: u32) {
+        if self.current < self.rtt_ms.len() {
+            self.rtt_ms[self.current] = Some(rtt_ms);
+        }
+    }
+
+    /// Return all relay URLs.
+    fn all_urls(&self) -> &[String] {
+        &self.urls
+    }
+}
+
 /// Resolved configuration (CLI > config file > defaults).
 struct ResolvedConfig {
     id: String,
+    /// Primary relay URL (first in the list). For backwards compatibility,
+    /// this is the first configured relay.
     relay: String,
+    /// All relay URLs for HA failover. When multiple relays are configured,
+    /// the agent will try them in order on connection failure.
+    relay_list: RelayList,
     token: String,
     key_path: PathBuf,
     policy_path: PathBuf,
@@ -215,8 +294,11 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
         Config::default()
     };
 
-    // Build relay URL: prefer CLI arg, then try cluster selection, then config field.
-    let relay = args.relay.clone().or_else(|| {
+    // Build relay URL list: prefer CLI arg, then try cluster selection, then config field.
+    // Supports HA failover when multiple relays are configured via clusters.
+    let relay_urls: Vec<String> = if let Some(cli_relay) = args.relay.clone() {
+        vec![cli_relay]
+    } else {
         let clusters: Vec<RelayCluster> = config
             .transport
             .relay_clusters
@@ -231,17 +313,38 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
             })
             .collect();
         if clusters.is_empty() {
-            return None;
+            // No clusters — fall back to single relay from config or default
+            vec![
+                config
+                    .agent
+                    .relay
+                    .clone()
+                    .unwrap_or_else(|| "ws://127.0.0.1:9090".to_string()),
+            ]
+        } else {
+            let selector = RelaySelector::from_clusters(clusters);
+            let region = config.agent.region.as_deref().unwrap_or("");
+            // Collect all relay URLs from the selector, ordered by affinity
+            let all: Vec<String> = selector
+                .multi_relay_affinity(region)
+                .into_iter()
+                .map(|ep| ep.addr.clone())
+                .collect();
+            if all.is_empty() {
+                vec![
+                    config
+                        .agent
+                        .relay
+                        .clone()
+                        .unwrap_or_else(|| "ws://127.0.0.1:9090".to_string()),
+                ]
+            } else {
+                all
+            }
         }
-        let selector = RelaySelector::from_clusters(clusters);
-        let region = config.agent.region.as_deref().unwrap_or("");
-        selector
-            .best_in_region(region, None, None)
-            .map(|ep| ep.addr.clone())
-    });
-    let relay = relay
-        .or(config.agent.relay)
-        .unwrap_or_else(|| "ws://127.0.0.1:9090".to_string());
+    };
+    let relay = relay_urls[0].clone();
+    let relay_list = RelayList::new(relay_urls);
 
     Ok(ResolvedConfig {
         id: args
@@ -249,7 +352,8 @@ fn load_config(args: &Args) -> anyhow::Result<ResolvedConfig> {
             .clone()
             .or(config.agent.id)
             .unwrap_or_else(|| "agent".to_string()),
-        relay,
+        relay: relay.clone(),
+        relay_list,
         token: args
             .token
             .clone()
@@ -473,9 +577,24 @@ async fn agent_main() -> anyhow::Result<()> {
         )
         .await?;
     } else {
-        info!("relay mode: {}", cfg.relay);
-        // Reconnect loop with exponential backoff + jitter
+        info!(
+            "relay mode: primary={}, {} relays configured",
+            cfg.relay,
+            cfg.relay_list.all_urls().len()
+        );
+
+        // Spawn relay health probe task (periodic RTT measurement)
+        let probe_relays: Vec<String> = cfg.relay_list.all_urls().to_vec();
+        let probe_token = cfg.token.clone();
+        let probe_key = key.clone();
+        let probe_compat = cfg.compat_mode;
+        tokio::spawn(async move {
+            relay_health_prober(probe_relays, probe_token, probe_key, probe_compat).await;
+        });
+
+        // Reconnect loop with exponential backoff + jitter + relay failover
         let mut attempt: u64 = 0;
+        let mut relay_list = RelayList::new(cfg.relay_list.all_urls().to_vec());
         loop {
             // Check if we've exceeded max retries (0 = infinite)
             if cfg.max_retries > 0 && attempt >= cfg.max_retries {
@@ -483,7 +602,9 @@ async fn agent_main() -> anyhow::Result<()> {
                 break;
             }
 
-            match run_session(
+            let current_relay = relay_list.current_url().to_string();
+            match run_session_for_relay(
+                &current_relay,
                 &cfg,
                 &key,
                 &policy,
@@ -497,10 +618,20 @@ async fn agent_main() -> anyhow::Result<()> {
                 Ok(()) => {
                     info!("session ended cleanly");
                     attempt = 0; // Reset on successful session
+                    relay_list.reset_failures();
                 }
                 Err(e) => {
                     attempt += 1;
-                    warn!("session error (attempt {}): {}", attempt, e);
+                    warn!(
+                        "session error on {} (attempt {}): {}",
+                        current_relay, attempt, e
+                    );
+                    // Try failover to next relay if available
+                    if let Some(next) = relay_list.failover() {
+                        info!("failing over to relay: {}", next);
+                    } else {
+                        warn!("all relays exhausted, retrying primary");
+                    }
                 }
             }
 
@@ -765,7 +896,85 @@ async fn handle_direct_connection(
     }
 }
 
-async fn run_session(
+/// Background task that periodically probes all configured relays to measure
+/// RTT and detect unreachable relays. Results are logged for observability.
+/// In a future enhancement, these measurements could be fed back into the
+/// `RelayList` to dynamically reorder relays by latency.
+async fn relay_health_prober(
+    relays: Vec<String>,
+    token: String,
+    key: StaticKey,
+    compat_mode: bool,
+) {
+    use tokio::time::interval;
+
+    let probe_interval = Duration::from_secs(300); // every 5 minutes
+    let mut ticker = interval(probe_interval);
+
+    info!(
+        "relay health prober started: {} relays, interval={}s",
+        relays.len(),
+        probe_interval.as_secs()
+    );
+
+    for relay_url in &relays {
+        let rtt = probe_single_relay(relay_url, &token, &key, compat_mode).await;
+        match rtt {
+            Some(ms) => info!("relay health: {} RTT={}ms", relay_url, ms),
+            None => warn!("relay health: {} UNREACHABLE", relay_url),
+        }
+    }
+
+    loop {
+        ticker.tick().await;
+        for relay_url in &relays {
+            let rtt = probe_single_relay(relay_url, &token, &key, compat_mode).await;
+            match rtt {
+                Some(ms) => info!("relay health: {} RTT={}ms", relay_url, ms),
+                None => warn!("relay health: {} UNREACHABLE", relay_url),
+            }
+        }
+    }
+}
+
+/// Probe a single relay by establishing a WebSocket connection, performing a
+/// Noise XX handshake, and immediately closing. Returns the RTT in milliseconds
+/// on success, or `None` if the relay is unreachable.
+async fn probe_single_relay(
+    relay_url: &str,
+    token: &str,
+    key: &StaticKey,
+    compat_mode: bool,
+) -> Option<u32> {
+    let driver = WebSocketDriver::new();
+    let target = Target {
+        agent_id: "health-probe".into(),
+        relay_url: Some(relay_url.to_string()),
+        meet_token: Some(token.to_string()),
+    };
+
+    let start = Instant::now();
+    match tokio::time::timeout(Duration::from_secs(10), async {
+        let mut stream = driver.dial(&target, &Default::default()).await?;
+        if compat_mode {
+            let _ = rf_crypto::noise::handshake_with_compat(&mut stream, false, key, true).await?;
+        } else {
+            let _ = rf_crypto::noise::handshake(&mut stream, false, key).await?;
+        }
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    {
+        Ok(Ok(())) => {
+            let rtt = start.elapsed().as_millis() as u32;
+            Some(rtt)
+        }
+        _ => None,
+    }
+}
+
+async fn run_session_for_relay(
+    relay_url: &str,
     cfg: &ResolvedConfig,
     key: &StaticKey,
     policy: &Arc<RwLock<RpcPolicy>>,
@@ -777,11 +986,11 @@ async fn run_session(
     let driver = WebSocketDriver::new();
     let target = Target {
         agent_id: cfg.id.clone(),
-        relay_url: Some(cfg.relay.clone()),
+        relay_url: Some(relay_url.to_string()),
         meet_token: Some(cfg.token.clone()),
     };
 
-    info!("connecting to relay: {}", cfg.relay);
+    info!("connecting to relay: {}", relay_url);
     let mut stream = driver.dial(&target, &Default::default()).await?;
 
     // Noise handshake (agent is responder)

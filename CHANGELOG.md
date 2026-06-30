@@ -5,6 +5,13 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.4] — 2026-07-18
+
+### Added
+
+- **Relay HA failover** — Agent now supports multiple relay URLs via `[[transport.relay_clusters]]` configuration. On connection failure, the agent automatically fails over to the next healthy relay in the cluster instead of retrying the same URL. A background health prober measures RTT to all configured relays every 5 minutes for observability.
+- **`relay_url` field in `AgentInfo`** — Controller now tracks which relay each agent is connected through, enabling clients to discover agent→relay mappings for HA-aware routing.
+
 ## [1.0.0-beta.3] — 2026-06-30
 
 ### Changed

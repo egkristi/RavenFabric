@@ -48,10 +48,18 @@ Builds:
       - apt-get install -y cargo rustc
     build:
       - cargo build --release --target aarch64-linux-android --bin rf-agent
+  - versionName: 1.0.0-beta.4
+    versionCode: 5
+    commit: v1.0.0-beta.4
+    sudo:
+      - apt-get update
+      - apt-get install -y cargo rustc
+    build:
+      - cargo build --release --target aarch64-linux-android --bin rf-agent
     ndk: r27
     target: aarch64-linux-android
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.0-beta.3
-CurrentVersionCode: 5
+CurrentVersion: 1.0.0-beta.4
+CurrentVersionCode: 6

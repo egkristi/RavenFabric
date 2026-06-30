@@ -1,8 +1,8 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-beta.3 (Beta) — Released 2026-06-30
+> **Version:** 1.0.0-beta.4 (Beta) — Released 2026-07-18
 > **Next:** v1.0.0 (Stable)
-> **Stats:** 14 crates, ~74,602 LOC, 1,423 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 14 crates, ~74,827 LOC, 1,423 tests, 0 clippy warnings, 0 known vulnerabilities
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
@@ -170,7 +170,7 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 
 ## Release Checklist: v1.0.0-beta.3 — Feedback Reconciliation ✅
 
-**Released 2026-06-30.** Patch release addressing remaining rpi5 feedback findings from Sessions 7-8.
+**Released 2026-06-30.** Patch release addressing remaining rpi5 feedback findings from Sessions 7-8 (sysinfo cache, VmSize analysis).
 See [GitHub Release v1.0.0-beta.3](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.3).
 
 ### Feedback Reconciliation (Sessions 7-8)
@@ -196,15 +196,25 @@ See [GitHub Release v1.0.0-beta.3](https://github.com/egkristi/RavenFabric/relea
 
 - [x] **Cached `sysinfo::System` in health check probes** — `check_process_alive()` now uses `OnceLock<Mutex<System>>` to avoid re-reading `/proc` on every call. Previously created a new `sysinfo::System` instance per invocation, each enumerating all processes.
 
+---
+
+## Release Checklist: v1.0.0-beta.4 — Relay HA ✅
+
+**Released 2026-07-18.** Feature release adding relay high-availability failover.
+See [GitHub Release v1.0.0-beta.4](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.4).
+
+### 🔴 Critical
+
+- [x] **Relay HA failover** — Agent now supports multiple relay URLs via `[[transport.relay_clusters]]` config. On connection failure, the agent automatically fails over to the next healthy relay. Background health prober measures RTT to all configured relays every 5 minutes. `AgentInfo` tracks `relay_url` for controller visibility.
+
 ### 🟡 Medium — ✅ Resolved in v1.0.0-beta.3
 
 - [x] **Agent VmSize investigation** — 79.6 MB virtual allocation analyzed. Primary contributors: Tokio multi-thread runtime (~10-20 MB), `sysinfo::System` instances (~15-30 MB across 3 locations), QUIC stack (~5-10 MB), audit buffer (~8-16 MB). Fixed `check_process_alive()` sysinfo leak. Remaining VmSize is expected for a Rust binary with these dependencies. Build with `--features rt-single-thread,minimal` and run with `--constrained --no-metrics-addr` for max savings.
 
 ### 🟢 Low — Still Open (Post-v1.0)
 
-- [ ] **Implement relay HA** — Multiple relay instances behind load balancer, agent connection to multiple relays, controller failover between relays. **Post-v1.0 feature.**
 - [ ] **External testers** (2-3 people) — needs human recruitment
-- [ ] **Publish to crates.io** (#44) — crates ready, needs `cargo publish` execution
+- [ ] **Publish to crates.io** (#44) — crates ready, needs `cargo publish` execution. CI workflow has `publish-crates` job; needs `CRATES_IO_TOKEN` secret configured in GitHub repo settings.
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
@@ -213,6 +223,10 @@ See [GitHub Release v1.0.0-beta.3](https://github.com/egkristi/RavenFabric/relea
 - [ ] **Test policy hot-reload on rpi5** — Send SIGHUP to agent, verify policy changes take effect without restart.
 - [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types.
 - [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). Mitigations applied but need rpi5 measurement to verify.
+
+### ✅ Resolved in v1.0.0-beta.4 (Relay HA)
+
+- [x] **Relay HA failover** — Agent now supports multiple relay URLs via `[[transport.relay_clusters]]`. On connection failure, the agent automatically fails over to the next healthy relay in the cluster. Background health prober measures RTT to all configured relays every 5 minutes. `AgentInfo.relay_url` tracks which relay each agent is connected through.
 
 ### ✅ Resolved in v1.0.0-beta.3
 

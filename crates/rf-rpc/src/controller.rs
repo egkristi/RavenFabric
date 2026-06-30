@@ -276,6 +276,10 @@ pub struct AgentInfo {
     /// Geographic region code (e.g. `"eu-west"`, `"us-east"`, `"ap-south"`).
     /// Set from the agent's `raven.toml` `[agent] region` field.
     pub region: Option<String>,
+    /// The relay URL this agent is currently connected through.
+    /// Used for relay HA — clients can discover which relay an agent is on.
+    /// `None` if the agent is in direct-listen mode.
+    pub relay_url: Option<String>,
 }
 
 /// Agent connection status.
@@ -1159,6 +1163,7 @@ mod tests {
                 m
             },
             region: None,
+            relay_url: None,
         };
         assert!(reg.upsert(agent));
         assert_eq!(reg.count(), 1);
@@ -1175,6 +1180,7 @@ mod tests {
             version: "0.1.0".into(),
             labels: HashMap::new(),
             region: None,
+            relay_url: None,
         });
 
         assert!(reg.heartbeat("agent-1", 5000));
@@ -1193,6 +1199,7 @@ mod tests {
             version: "0.1.0".into(),
             labels: HashMap::new(),
             region: None,
+            relay_url: None,
         });
 
         let stale = reg.check_stale(15_000); // 14s since heartbeat, > 10s timeout
@@ -1215,6 +1222,7 @@ mod tests {
                 m
             },
             region: None,
+            relay_url: None,
         });
         reg.upsert(AgentInfo {
             id: "db-01".into(),
@@ -1228,6 +1236,7 @@ mod tests {
                 m
             },
             region: None,
+            relay_url: None,
         });
 
         let web_agents = reg.select(&{
@@ -1250,6 +1259,7 @@ mod tests {
             version: "0.1.0".into(),
             labels: HashMap::new(),
             region: None,
+            relay_url: None,
         });
         assert!(!reg.upsert(AgentInfo {
             id: "agent-2".into(),
@@ -1259,6 +1269,7 @@ mod tests {
             version: "0.1.0".into(),
             labels: HashMap::new(),
             region: None,
+            relay_url: None,
         }));
     }
 
@@ -1273,6 +1284,7 @@ mod tests {
             version: "0.1.0".into(),
             labels: HashMap::new(),
             region: Some("eu-west".into()),
+            relay_url: None,
         });
         reg.upsert(AgentInfo {
             id: "us-01".into(),
@@ -1282,6 +1294,7 @@ mod tests {
             version: "0.1.0".into(),
             labels: HashMap::new(),
             region: Some("us-east".into()),
+            relay_url: None,
         });
         reg.upsert(AgentInfo {
             id: "no-region".into(),
@@ -1291,6 +1304,7 @@ mod tests {
             version: "0.1.0".into(),
             labels: HashMap::new(),
             region: None,
+            relay_url: None,
         });
 
         // Filter by eu-west
@@ -1460,6 +1474,7 @@ mod tests {
             version: "0.1.0".into(),
             labels: HashMap::new(),
             region: None,
+            relay_url: None,
         });
         let dispatcher = ApiDispatcher::new(reg);
         let req = ApiRequest {
