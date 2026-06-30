@@ -342,7 +342,7 @@ jobs:
             exit 0
           fi
           # Publish in dependency order, skip already-published versions
-          for crate in rf-audit rf-crypto rf-bootstrap rf-transport rf-policy rf-rpc rf-executor rf-mcp-client rf-mcp-server rf-relay rf-agent rf-cli; do
+          for crate in rf-audit rf-crypto rf-bootstrap rf-transport rf-policy rf-rpc rf-executor rf-mcp-client rf-mcp-server rf-relay rf-agent rf-cli rf-ingress; do
             echo "Publishing $crate..."
             cargo publish -p "$crate" --no-verify || echo "Skipping $crate (already published or error)"
             sleep 15  # Wait for crates.io index to update
