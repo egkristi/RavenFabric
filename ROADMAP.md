@@ -1,8 +1,8 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-beta.5 (Beta) — Released 2026-07-18
+> **Version:** 1.0.0-beta.6 (Beta) — Released 2026-07-18
 > **Next:** v1.0.0 (Stable)
-> **Stats:** 14 crates, ~75,139 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 14 crates, ~75,170 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
@@ -286,6 +286,27 @@ See [GitHub Release v1.0.0-beta.5](https://github.com/egkristi/RavenFabric/relea
 
 - [x] **`docs/compliance/README.md`** — GDPR, PCI-DSS, SOC 2 added to compliance matrix
 - [x] **`docs/src/compliance/README.md`** — mdBook copy updated
+
+### Still Requires rpi5 Access (Blocking v1.0 Stable)
+
+- [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service. Blocks AI agent integration.
+- [ ] **Configure secret store on rpi5** — Generate seal key, set `seal_key_path` in `/etc/ravenfabric/raven.toml`, verify `rf secret push` works.
+- [ ] **Test policy hot-reload on rpi5** — Send SIGHUP to agent, verify policy changes take effect without restart.
+- [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types.
+- [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). Mitigations applied but need rpi5 measurement to verify.
+
+---
+
+## Release Checklist: v1.0.0-beta.6 — Dependency Maintenance ✅
+
+**Released 2026-07-18.** Maintenance release with 81 compatible dependency updates.
+See [GitHub Release v1.0.0-beta.6](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.6).
+
+### Dependency Updates
+
+- [x] **`cargo update`** — 81 packages updated to latest compatible versions, including chrono v0.4.45, hyper v1.10.1, quinn v0.11.11, rustls v0.23.41, serde_json v1.0.150, wasmtime v36.0.12, zeroize v1.9.0
+- [x] **All 1,429 tests pass** — No regressions from dependency updates
+- [x] **0 clippy warnings** — No new lint issues introduced
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
