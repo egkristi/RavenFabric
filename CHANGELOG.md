@@ -5,12 +5,16 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.6] — 2026-07-18
+## [1.0.0-rc.1] — 2026-07-18
+
+### Added
+
+- **Release Candidate** — All features through v1.3 implemented (Secure Access Layer, Fleet Operations, Enterprise & Compliance). 14 crates, ~75,170 LOC, 1,429 tests, 0 clippy warnings.
+- **Version bump** — 1.0.0-beta.6 → 1.0.0-rc.1 across all Cargo.toml, docs, website, SDKs, and deploy files.
 
 ### Changed
 
 - **Dependency maintenance** — `cargo update` applied 81 compatible dependency updates across the workspace, including chrono, hyper, quinn, rustls, serde_json, wasmtime, and zeroize.
-- **Updated stats** — 75,170 LOC, 1,429 tests across 14 crates.
 
 ## [1.0.0-beta.5] — 2026-07-18
 

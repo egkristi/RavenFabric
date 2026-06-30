@@ -1,6 +1,6 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-beta.6 (Beta) — Released 2026-07-18
+> **Version:** 1.0.0-rc.1 (Release Candidate) — Released 2026-07-18
 > **Next:** v1.0.0 (Stable)
 > **Stats:** 14 crates, ~75,170 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
@@ -297,16 +297,18 @@ See [GitHub Release v1.0.0-beta.5](https://github.com/egkristi/RavenFabric/relea
 
 ---
 
-## Release Checklist: v1.0.0-beta.6 — Dependency Maintenance ✅
+## Release Checklist: v1.0.0-rc.1 — Release Candidate ✅
 
-**Released 2026-07-18.** Maintenance release with 81 compatible dependency updates.
-See [GitHub Release v1.0.0-beta.6](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.6).
+**Released 2026-07-18.** Release Candidate — all features through v1.3 implemented, all tests passing, zero clippy warnings. Ready for final validation.
+See [GitHub Release v1.0.0-rc.1](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.1).
 
-### Dependency Updates
+### Release Candidate Qualification
 
-- [x] **`cargo update`** — 81 packages updated to latest compatible versions, including chrono v0.4.45, hyper v1.10.1, quinn v0.11.11, rustls v0.23.41, serde_json v1.0.150, wasmtime v36.0.12, zeroize v1.9.0
-- [x] **All 1,429 tests pass** — No regressions from dependency updates
-- [x] **0 clippy warnings** — No new lint issues introduced
+- [x] **All features through v1.3 implemented** — Secure Access Layer, Fleet Operations, Enterprise & Compliance. 14 crates, ~75,170 LOC.
+- [x] **All 1,429 tests pass** — No regressions across the entire workspace.
+- [x] **0 clippy warnings** — Clean linting across all crates.
+- [x] **`cargo update`** — 81 packages updated to latest compatible versions, including chrono v0.4.45, hyper v1.10.1, quinn v0.11.11, rustls v0.23.41, serde_json v1.0.150, wasmtime v36.0.12, zeroize v1.9.0.
+- [x] **Version bumped** — 1.0.0-beta.6 → 1.0.0-rc.1 across all Cargo.toml, docs, website, SDKs, and deploy files.
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
