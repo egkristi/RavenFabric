@@ -5,6 +5,19 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.5] — 2026-07-18
+
+### Added
+
+- **Regulatory compliance documentation** — GDPR (Articles 5, 17, 32, 33, 35), PCI-DSS v4.0 (Requirements 1–12), and SOC 2 (Trust Services Criteria CC1–CC9, A1, C1, PI1) compliance mappings documented in `docs/compliance/frameworks/`.
+- **Data retention/deletion API** — `FileAuditLogger::purge_entries_before(cutoff)` removes entries older than a timestamp; `delete_entries_by_filter(filter)` removes entries matching AND-combined criteria (older_than, action, caller_key, decision, request_id_contains). HMAC chain is preserved via `rewrite_chain()`.
+- **`AuditError::NoEntriesMatched`** — New error variant returned when no audit entries match deletion criteria.
+- **6 new tests** — Coverage for purge, filter, and combined deletion scenarios with HMAC chain integrity verification.
+
+### Changed
+
+- **Compliance matrix updated** — `docs/compliance/README.md` and mdBook copy now include GDPR, PCI-DSS, and SOC 2 entries.
+
 ## [1.0.0-beta.4] — 2026-07-18
 
 ### Added

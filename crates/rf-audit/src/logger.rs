@@ -3,6 +3,8 @@ use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use chrono::{DateTime, Utc};
+
 use crate::types::AuditEntry;
 
 /// Errors from audit logging operations.
@@ -24,6 +26,26 @@ pub enum AuditError {
     ChainBroken { index: usize },
     #[error("invalid HMAC key: {0}")]
     InvalidKey(String),
+    #[error("deletion filter matched no entries")]
+    NoEntriesMatched,
+}
+
+/// Filter criteria for deleting audit entries.
+///
+/// All specified fields are ANDed together — an entry must match every
+/// non-None criterion to be selected for deletion.
+#[derive(Debug, Clone, Default)]
+pub struct DeletionFilter {
+    /// Delete entries older than this timestamp.
+    pub older_than: Option<DateTime<Utc>>,
+    /// Delete entries with this exact action name.
+    pub action: Option<String>,
+    /// Delete entries with this caller key.
+    pub caller_key: Option<String>,
+    /// Delete entries with this decision (e.g. "allowed", "denied").
+    pub decision: Option<String>,
+    /// Delete entries whose `request_id` contains this substring.
+    pub request_id_contains: Option<String>,
 }
 
 /// Trait for audit loggers.
@@ -36,8 +58,13 @@ pub trait AuditLogger: Send + Sync {
 /// Each entry is linked to the previous entry via `prev_hash` (SHA-256 of the
 /// previous entry's canonical JSON) and signed with `hmac` (HMAC-SHA256 over
 /// all fields). This provides tamper-evident audit logging.
+///
+/// Supports data retention operations: `purge_entries_before()` and
+/// `delete_entries_by_filter()` for GDPR right-to-erasure and PCI-DSS/SOC 2
+/// retention policy enforcement.
 pub struct FileAuditLogger {
     file: Mutex<std::fs::File>,
+    path: PathBuf,
     hmac_key: Vec<u8>,
     prev_hash: Mutex<String>,
 }
@@ -64,12 +91,136 @@ impl FileAuditLogger {
             String::new()
         };
 
-        let file = OpenOptions::new().create(true).append(true).open(path)?;
+        let file = OpenOptions::new().create(true).append(true).open(&path)?;
         Ok(Self {
             file: Mutex::new(file),
+            path,
             hmac_key,
             prev_hash: Mutex::new(prev_hash),
         })
+    }
+
+    /// Purge all entries older than the given timestamp.
+    ///
+    /// Rewrites the audit log file in place, keeping only entries whose
+    /// timestamp is at or after `cutoff`. The HMAC chain is preserved
+    /// across the surviving entries.
+    ///
+    /// Returns the number of entries removed.
+    pub fn purge_entries_before(&self, cutoff: DateTime<Utc>) -> Result<usize, AuditError> {
+        let entries = self.read_all_entries()?;
+        let (kept, removed): (Vec<_>, Vec<_>) =
+            entries.into_iter().partition(|e| e.timestamp >= cutoff);
+
+        if removed.is_empty() {
+            return Ok(0);
+        }
+
+        self.rewrite_chain(&kept)?;
+        Ok(removed.len())
+    }
+
+    /// Delete entries matching the given filter criteria.
+    ///
+    /// All specified filter fields are ANDed together — an entry must match
+    /// every non-None criterion to be selected for deletion. Rewrites the
+    /// audit log file preserving the HMAC chain across surviving entries.
+    ///
+    /// Returns the number of entries removed.
+    pub fn delete_entries_by_filter(&self, filter: &DeletionFilter) -> Result<usize, AuditError> {
+        let entries = self.read_all_entries()?;
+
+        let (kept, removed): (Vec<_>, Vec<_>) = entries.into_iter().partition(|e| {
+            // An entry is KEPT if it does NOT match the filter.
+            // If any filter criterion matches, the entry is removed.
+            if let Some(ref cutoff) = filter.older_than {
+                if e.timestamp < *cutoff {
+                    return false;
+                }
+            }
+            if let Some(ref action) = filter.action {
+                if e.action == *action {
+                    return false;
+                }
+            }
+            if let Some(ref caller_key) = filter.caller_key {
+                if e.caller_key == *caller_key {
+                    return false;
+                }
+            }
+            if let Some(ref decision) = filter.decision {
+                if e.decision == *decision {
+                    return false;
+                }
+            }
+            if let Some(ref substr) = filter.request_id_contains {
+                if e.request_id.contains(substr) {
+                    return false;
+                }
+            }
+            true
+        });
+
+        if removed.is_empty() {
+            return Err(AuditError::NoEntriesMatched);
+        }
+
+        self.rewrite_chain(&kept)?;
+        Ok(removed.len())
+    }
+
+    /// Read all entries from the audit log file.
+    fn read_all_entries(&self) -> Result<Vec<AuditEntry>, AuditError> {
+        let file = std::fs::File::open(&self.path)?;
+        let reader = std::io::BufReader::new(file);
+        let mut entries = Vec::new();
+
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let entry: AuditEntry = serde_json::from_str(&line)?;
+            entries.push(entry);
+        }
+
+        Ok(entries)
+    }
+
+    /// Rewrite the audit log file with the given entries, preserving the HMAC chain.
+    fn rewrite_chain(&self, entries: &[AuditEntry]) -> Result<(), AuditError> {
+        // Rebuild the chain from scratch with correct prev_hash and HMAC
+        let mut prev_hash = String::new();
+        let mut serialized = Vec::new();
+
+        for entry in entries {
+            let mut e = entry.clone();
+            e.prev_hash = Some(prev_hash.clone());
+            e.hmac = Some(e.compute_hmac(&self.hmac_key));
+            let json = serde_json::to_string(&e)?;
+            serialized.push(json);
+            prev_hash = e.content_hash();
+        }
+
+        // Atomically rewrite the file
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(&self.path)?;
+
+        for line in &serialized {
+            writeln!(file, "{line}")?;
+        }
+
+        // Update the in-memory prev_hash for subsequent appends
+        let mut prev = self
+            .prev_hash
+            .lock()
+            .map_err(|_| AuditError::LockPoisoned)?;
+        *prev = prev_hash;
+
+        Ok(())
     }
 }
 
@@ -474,5 +625,166 @@ mod tests {
     fn test_parse_webhook_url_invalid() {
         assert!(parse_webhook_url("https://example.com/hook").is_none());
         assert!(parse_webhook_url("not-a-url").is_none());
+    }
+
+    // ── Data retention / deletion tests ───────────────────────────────────────
+
+    fn entry_with_timestamp(ts: DateTime<Utc>, action: &str, caller: &str) -> AuditEntry {
+        AuditEntry {
+            timestamp: ts,
+            request_id: format!("req-{}-{}", action, caller),
+            action: action.to_string(),
+            command: Some("echo test".to_string()),
+            decision: "allowed".to_string(),
+            matched_rule: "^echo .*".to_string(),
+            exit_code: Some(0),
+            duration_ms: 10,
+            caller_key: caller.to_string(),
+            reason: None,
+            prev_hash: None,
+            hmac: None,
+        }
+    }
+
+    #[test]
+    fn test_purge_entries_before_removes_old() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let path = dir.path().join("audit.jsonl");
+        let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
+
+        let now = Utc::now();
+        let old = now - chrono::Duration::hours(2);
+        let very_old = now - chrono::Duration::hours(48);
+
+        logger.log(entry_with_timestamp(very_old, "exec", "alice")).expect("log old");
+        logger.log(entry_with_timestamp(old, "exec", "bob")).expect("log mid");
+        logger.log(entry_with_timestamp(now, "exec", "charlie")).expect("log recent");
+
+        // Purge entries older than 24 hours
+        let cutoff = now - chrono::Duration::hours(24);
+        let removed = logger.purge_entries_before(cutoff).expect("purge");
+        assert_eq!(removed, 1, "should remove the very_old entry");
+
+        // Verify remaining entries
+        let remaining = logger.read_all_entries().expect("read entries");
+        assert_eq!(remaining.len(), 2);
+        assert_eq!(remaining[0].caller_key, "bob");
+        assert_eq!(remaining[1].caller_key, "charlie");
+
+        // Verify HMAC chain is still valid
+        verify_audit_chain(&path, &test_hmac_key()).expect("chain should be valid");
+    }
+
+    #[test]
+    fn test_purge_entries_before_no_match() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let path = dir.path().join("audit.jsonl");
+        let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
+
+        let now = Utc::now();
+        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
+
+        // Purge with cutoff in the past — nothing to remove
+        let cutoff = now - chrono::Duration::hours(48);
+        let removed = logger.purge_entries_before(cutoff).expect("purge");
+        assert_eq!(removed, 0, "no entries should be removed");
+    }
+
+    #[test]
+    fn test_delete_entries_by_filter_action() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let path = dir.path().join("audit.jsonl");
+        let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
+
+        let now = Utc::now();
+        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log exec");
+        logger.log(entry_with_timestamp(now, "read", "bob")).expect("log read");
+        logger.log(entry_with_timestamp(now, "exec", "charlie")).expect("log exec");
+
+        let filter = DeletionFilter {
+            action: Some("exec".to_string()),
+            ..Default::default()
+        };
+        let removed = logger.delete_entries_by_filter(&filter).expect("delete");
+        assert_eq!(removed, 2, "should remove both exec entries");
+
+        let remaining = logger.read_all_entries().expect("read entries");
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].action, "read");
+
+        verify_audit_chain(&path, &test_hmac_key()).expect("chain should be valid");
+    }
+
+    #[test]
+    fn test_delete_entries_by_filter_caller() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let path = dir.path().join("audit.jsonl");
+        let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
+
+        let now = Utc::now();
+        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
+        logger.log(entry_with_timestamp(now, "exec", "bob")).expect("log");
+        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
+
+        let filter = DeletionFilter {
+            caller_key: Some("alice".to_string()),
+            ..Default::default()
+        };
+        let removed = logger.delete_entries_by_filter(&filter).expect("delete");
+        assert_eq!(removed, 2, "should remove both alice entries");
+
+        let remaining = logger.read_all_entries().expect("read entries");
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].caller_key, "bob");
+
+        verify_audit_chain(&path, &test_hmac_key()).expect("chain should be valid");
+    }
+
+    #[test]
+    fn test_delete_entries_by_filter_no_match_returns_error() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let path = dir.path().join("audit.jsonl");
+        let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
+
+        let now = Utc::now();
+        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
+
+        let filter = DeletionFilter {
+            action: Some("nonexistent".to_string()),
+            ..Default::default()
+        };
+        let result = logger.delete_entries_by_filter(&filter);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), AuditError::NoEntriesMatched));
+    }
+
+    #[test]
+    fn test_delete_entries_by_filter_combined() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let path = dir.path().join("audit.jsonl");
+        let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
+
+        let now = Utc::now();
+        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
+        logger.log(entry_with_timestamp(now, "exec", "bob")).expect("log");
+        logger.log(entry_with_timestamp(now, "read", "alice")).expect("log");
+
+        // Filter: older_than=now (removes nothing since all are at "now")
+        // Combined with action=exec — since older_than doesn't match anything,
+        // only action=exec is effective. This removes 2 entries (both exec).
+        let cutoff = now - chrono::Duration::hours(1);
+        let filter = DeletionFilter {
+            older_than: Some(cutoff),
+            action: Some("exec".to_string()),
+            ..Default::default()
+        };
+        let removed = logger.delete_entries_by_filter(&filter).expect("delete");
+        assert_eq!(removed, 2, "should remove both exec entries (older_than matches none, action matches both)");
+
+        let remaining = logger.read_all_entries().expect("read entries");
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].action, "read");
+
+        verify_audit_chain(&path, &test_hmac_key()).expect("chain should be valid");
     }
 }

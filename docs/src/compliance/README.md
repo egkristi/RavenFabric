@@ -32,7 +32,9 @@ This documentation covers three levels:
 | **MITRE ATT&CK** | Defensive coverage documented | Documented | [frameworks/mitre-attack-coverage.md](frameworks/mitre-attack-coverage.md) |
 | **NIST SP 800-53 Rev 5** | Moderate baseline partial | Planned | — |
 | **ISO/IEC 27001:2022** | Annex A mapping | Planned | — |
-| **SOC 2 Type II** | Trust Services Criteria | Planned (v1.0) | — |
+| **GDPR** (EU 2016/679) | Articles 5, 17, 32, 33, 35 addressed | Documented | [frameworks/gdpr.md](frameworks/gdpr.md) |
+| **PCI-DSS v4.0** | Requirements 1–12 mapped | Documented | [frameworks/pci-dss.md](frameworks/pci-dss.md) |
+| **SOC 2** | Trust Services Criteria (CC1–CC9, A1, C1, PI1) | Documented | [frameworks/soc-2.md](frameworks/soc-2.md) |
 | **FedRAMP** | Moderate baseline | Planned (v1.0) | — |
 
 ---

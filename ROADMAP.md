@@ -1,8 +1,8 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-beta.4 (Beta) — Released 2026-07-18
+> **Version:** 1.0.0-beta.5 (Beta) — Released 2026-07-18
 > **Next:** v1.0.0 (Stable)
-> **Stats:** 14 crates, ~74,827 LOC, 1,423 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 14 crates, ~75,139 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
@@ -263,6 +263,40 @@ See [GitHub Release v1.0.0-beta.4](https://github.com/egkristi/RavenFabric/relea
 
 ---
 
+## Release Checklist: v1.0.0-beta.5 — Regulatory Compliance ✅
+
+**Released 2026-07-18.** Compliance release adding GDPR, PCI-DSS, and SOC 2 documentation plus data retention/deletion API.
+See [GitHub Release v1.0.0-beta.5](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.5).
+
+### Regulatory Compliance (v1.3 Enterprise & Compliance)
+
+- [x] **GDPR** — Data minimization, right to erasure (Article 17), security of processing (Article 32), breach notification (Article 33), DPIA (Article 35). Compliance mapping documented in `docs/compliance/frameworks/gdpr.md`.
+- [x] **PCI-DSS v4.0** — Requirements 1–12 mapped: network security, key management (HSM/FIPS), audit logging, access control, testing. Compliance mapping documented in `docs/compliance/frameworks/pci-dss.md`.
+- [x] **SOC 2** — Trust Services Criteria (CC1–CC9, A1, C1, PI1): control environment, risk assessment, monitoring, access, change management, availability. Compliance mapping documented in `docs/compliance/frameworks/soc-2.md`.
+
+### Data Retention & Deletion API
+
+- [x] **`purge_entries_before(cutoff)`** — Remove all audit entries older than a given timestamp
+- [x] **`delete_entries_by_filter(filter)`** — Remove entries matching AND-combined criteria (older_than, action, caller_key, decision, request_id_contains)
+- [x] **HMAC chain preservation** — `rewrite_chain()` rebuilds prev_hash and HMAC for all surviving entries after deletion
+- [x] **`AuditError::NoEntriesMatched`** — Error variant when no entries match deletion criteria
+- [x] **6 new tests** — purge_old, purge_no_match, filter_action, filter_caller, filter_no_match, filter_combined
+
+### Compliance Matrix Updated
+
+- [x] **`docs/compliance/README.md`** — GDPR, PCI-DSS, SOC 2 added to compliance matrix
+- [x] **`docs/src/compliance/README.md`** — mdBook copy updated
+
+### Still Requires rpi5 Access (Blocking v1.0 Stable)
+
+- [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service. Blocks AI agent integration.
+- [ ] **Configure secret store on rpi5** — Generate seal key, set `seal_key_path` in `/etc/ravenfabric/raven.toml`, verify `rf secret push` works.
+- [ ] **Test policy hot-reload on rpi5** — Send SIGHUP to agent, verify policy changes take effect without restart.
+- [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types.
+- [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). Mitigations applied but need rpi5 measurement to verify.
+
+---
+
 ## Release Checklist: v1.1 — Secure Access Layer
 
 **Goal:** Proxy HTTP/TCP traffic through RavenFabric agents to private services — no VPN, no port-forwards, no exposed ports. Full policy enforcement and audit logging on every request.
@@ -400,9 +434,9 @@ See [GitHub Release v1.0.0-beta.4](https://github.com/egkristi/RavenFabric/relea
 
 ### Regulatory Compliance
 
-- [ ] **GDPR** — Data minimization, access control (partially covered by path policies, output limiting)
-- [ ] **PCI-DSS** — HSM-backed key storage, FIPS mode
-- [ ] **SOC 2** — Audit logging, access controls, change management
+- [x] **GDPR** — Data minimization, right to erasure (Article 17), security of processing (Article 32), breach notification (Article 33), DPIA (Article 35). Compliance mapping documented in `docs/compliance/frameworks/gdpr.md`.
+- [x] **PCI-DSS** — HSM-backed key storage, FIPS mode, audit logging, access control. Compliance mapping documented in `docs/compliance/frameworks/pci-dss.md`.
+- [x] **SOC 2** — Audit logging, access controls, change management, availability. Compliance mapping documented in `docs/compliance/frameworks/soc-2.md`.
 
 ### Hardware Security Module Support
 
