@@ -322,8 +322,8 @@ async fn http_probe(url: &str, expected_status: u16, timeout: Duration) -> Resul
 fn check_process_alive(name: &str) -> bool {
     #[cfg(feature = "sysinfo")]
     {
-        use sysinfo::System;
         use std::sync::Mutex;
+        use sysinfo::System;
 
         static SYS: std::sync::OnceLock<Mutex<System>> = std::sync::OnceLock::new();
         let sys = SYS.get_or_init(|| Mutex::new(System::new()));
