@@ -1,6 +1,6 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.1 (Release Candidate) — Released 2026-07-18
+> **Version:** 1.0.0-rc.2 (Release Candidate) — Released 2026-07-18
 > **Next:** v1.0.0 (Stable)
 > **Stats:** 14 crates, ~75,170 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
@@ -317,6 +317,19 @@ See [GitHub Release v1.0.0-rc.1](https://github.com/egkristi/RavenFabric/release
 - [ ] **Test policy hot-reload on rpi5** — Send SIGHUP to agent, verify policy changes take effect without restart.
 - [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types.
 - [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). Mitigations applied but need rpi5 measurement to verify.
+
+---
+
+## Release Checklist: v1.0.0-rc.2 — Crates.io Publish Fix ✅
+
+**Released 2026-07-18.** Patch release fixing crates.io publish for rf-mcp-client (keyword too long) and rf-ingress (missing from workflow publish list).
+See [GitHub Release v1.0.0-rc.2](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.2).
+
+### Fixes
+
+- [x] **rf-mcp-client keyword fix** — `"model-context-protocol"` (23 chars) shortened to `"mcp-protocol"` (12 chars) to comply with crates.io 20-char keyword limit
+- [x] **rf-ingress added to publish list** — Added `rf-ingress` to the `publish-crates` job in `.github/workflows/release.yml`
+- [x] **All 13 crates published to crates.io** — rf-audit, rf-crypto, rf-bootstrap, rf-transport, rf-policy, rf-rpc, rf-executor, rf-mcp-client, rf-mcp-server, rf-relay, rf-agent, rf-cli, rf-ingress all at v1.0.0-rc.1
 
 ---
 

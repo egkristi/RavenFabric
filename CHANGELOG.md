@@ -5,6 +5,17 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.2] — 2026-07-18
+
+### Fixed
+
+- **rf-mcp-client keyword** — `"model-context-protocol"` (23 chars) shortened to `"mcp-protocol"` (12 chars) to comply with crates.io 20-char keyword limit.
+- **rf-ingress missing from publish list** — Added `rf-ingress` to the `publish-crates` job in `.github/workflows/release.yml`.
+
+### Added
+
+- **All 13 crates published to crates.io** — rf-audit, rf-crypto, rf-bootstrap, rf-transport, rf-policy, rf-rpc, rf-executor, rf-mcp-client, rf-mcp-server, rf-relay, rf-agent, rf-cli, rf-ingress all at v1.0.0-rc.1.
+
 ## [1.0.0-rc.1] — 2026-07-18
 
 ### Added
