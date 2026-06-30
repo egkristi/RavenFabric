@@ -632,7 +632,7 @@ mod tests {
     fn entry_with_timestamp(ts: DateTime<Utc>, action: &str, caller: &str) -> AuditEntry {
         AuditEntry {
             timestamp: ts,
-            request_id: format!("req-{}-{}", action, caller),
+            request_id: format!("req-{action}-{caller}"),
             action: action.to_string(),
             command: Some("echo test".to_string()),
             decision: "allowed".to_string(),
@@ -656,9 +656,15 @@ mod tests {
         let old = now - chrono::Duration::hours(2);
         let very_old = now - chrono::Duration::hours(48);
 
-        logger.log(entry_with_timestamp(very_old, "exec", "alice")).expect("log old");
-        logger.log(entry_with_timestamp(old, "exec", "bob")).expect("log mid");
-        logger.log(entry_with_timestamp(now, "exec", "charlie")).expect("log recent");
+        logger
+            .log(entry_with_timestamp(very_old, "exec", "alice"))
+            .expect("log old");
+        logger
+            .log(entry_with_timestamp(old, "exec", "bob"))
+            .expect("log mid");
+        logger
+            .log(entry_with_timestamp(now, "exec", "charlie"))
+            .expect("log recent");
 
         // Purge entries older than 24 hours
         let cutoff = now - chrono::Duration::hours(24);
@@ -682,7 +688,9 @@ mod tests {
         let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
 
         let now = Utc::now();
-        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
+        logger
+            .log(entry_with_timestamp(now, "exec", "alice"))
+            .expect("log");
 
         // Purge with cutoff in the past — nothing to remove
         let cutoff = now - chrono::Duration::hours(48);
@@ -697,9 +705,15 @@ mod tests {
         let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
 
         let now = Utc::now();
-        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log exec");
-        logger.log(entry_with_timestamp(now, "read", "bob")).expect("log read");
-        logger.log(entry_with_timestamp(now, "exec", "charlie")).expect("log exec");
+        logger
+            .log(entry_with_timestamp(now, "exec", "alice"))
+            .expect("log exec");
+        logger
+            .log(entry_with_timestamp(now, "read", "bob"))
+            .expect("log read");
+        logger
+            .log(entry_with_timestamp(now, "exec", "charlie"))
+            .expect("log exec");
 
         let filter = DeletionFilter {
             action: Some("exec".to_string()),
@@ -722,9 +736,15 @@ mod tests {
         let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
 
         let now = Utc::now();
-        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
-        logger.log(entry_with_timestamp(now, "exec", "bob")).expect("log");
-        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
+        logger
+            .log(entry_with_timestamp(now, "exec", "alice"))
+            .expect("log");
+        logger
+            .log(entry_with_timestamp(now, "exec", "bob"))
+            .expect("log");
+        logger
+            .log(entry_with_timestamp(now, "exec", "alice"))
+            .expect("log");
 
         let filter = DeletionFilter {
             caller_key: Some("alice".to_string()),
@@ -747,7 +767,9 @@ mod tests {
         let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
 
         let now = Utc::now();
-        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
+        logger
+            .log(entry_with_timestamp(now, "exec", "alice"))
+            .expect("log");
 
         let filter = DeletionFilter {
             action: Some("nonexistent".to_string()),
@@ -765,9 +787,15 @@ mod tests {
         let logger = FileAuditLogger::new(path.clone(), test_hmac_key()).expect("create logger");
 
         let now = Utc::now();
-        logger.log(entry_with_timestamp(now, "exec", "alice")).expect("log");
-        logger.log(entry_with_timestamp(now, "exec", "bob")).expect("log");
-        logger.log(entry_with_timestamp(now, "read", "alice")).expect("log");
+        logger
+            .log(entry_with_timestamp(now, "exec", "alice"))
+            .expect("log");
+        logger
+            .log(entry_with_timestamp(now, "exec", "bob"))
+            .expect("log");
+        logger
+            .log(entry_with_timestamp(now, "read", "alice"))
+            .expect("log");
 
         // Filter: older_than=now (removes nothing since all are at "now")
         // Combined with action=exec — since older_than doesn't match anything,
@@ -779,7 +807,10 @@ mod tests {
             ..Default::default()
         };
         let removed = logger.delete_entries_by_filter(&filter).expect("delete");
-        assert_eq!(removed, 2, "should remove both exec entries (older_than matches none, action matches both)");
+        assert_eq!(
+            removed, 2,
+            "should remove both exec entries (older_than matches none, action matches both)"
+        );
 
         let remaining = logger.read_all_entries().expect("read entries");
         assert_eq!(remaining.len(), 1);
