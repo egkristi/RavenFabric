@@ -122,7 +122,7 @@ axum = { version = "0.8" }
 tempfile = "3"
 
 # HSM/PKCS#11 key provider (optional — feature = "hsm")
-cryptoki = "0.6"
+cryptoki = "0.12"
 
 # TPM 2.0 key storage (optional — feature = "tpm")
 tss-esapi = "7"
