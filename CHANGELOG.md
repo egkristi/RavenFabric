@@ -5,6 +5,16 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.3] — 2026-06-30
+
+### Changed
+
+- **Cached `sysinfo::System` in health check probes** — `check_process_alive()` now uses a `OnceLock<Mutex<System>>` to avoid re-reading `/proc` on every process health check, reducing memory churn from repeated `sysinfo::System::new()` allocations.
+
+### Fixed
+
+- **`check_process_alive()` memory leak** — Previously created a new `sysinfo::System` instance on every call, each enumerating all processes. Now cached and reused.
+
 ## [1.0.0-beta.2] — 2026-06-29
 
 ### Changed

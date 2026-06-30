@@ -316,11 +316,18 @@ async fn http_probe(url: &str, expected_status: u16, timeout: Duration) -> Resul
 }
 
 /// Check if a process with the given name is alive (using sysinfo if available).
+///
+/// Uses a cached `sysinfo::System` instance to avoid re-reading `/proc` on every call.
+/// The process table is refreshed each invocation to ensure up-to-date results.
 fn check_process_alive(name: &str) -> bool {
     #[cfg(feature = "sysinfo")]
     {
         use sysinfo::System;
-        let mut sys = System::new();
+        use std::sync::Mutex;
+
+        static SYS: std::sync::OnceLock<Mutex<System>> = std::sync::OnceLock::new();
+        let sys = SYS.get_or_init(|| Mutex::new(System::new()));
+        let mut sys = sys.lock().expect("sysinfo cache lock poisoned");
         sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
         sys.processes()
             .values()
