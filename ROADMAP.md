@@ -1,6 +1,6 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.2 (Release Candidate) — Released 2026-07-18
+> **Version:** 1.0.0-rc.3 (Release Candidate) — Released 2026-07-18
 > **Next:** v1.0.0 (Stable)
 > **Stats:** 14 crates, ~75,170 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
@@ -330,6 +330,23 @@ See [GitHub Release v1.0.0-rc.2](https://github.com/egkristi/RavenFabric/release
 - [x] **rf-mcp-client keyword fix** — `"model-context-protocol"` (23 chars) shortened to `"mcp-protocol"` (12 chars) to comply with crates.io 20-char keyword limit
 - [x] **rf-ingress added to publish list** — Added `rf-ingress` to the `publish-crates` job in `.github/workflows/release.yml`
 - [x] **All 13 crates published to crates.io** — rf-audit, rf-crypto, rf-bootstrap, rf-transport, rf-policy, rf-rpc, rf-executor, rf-mcp-client, rf-mcp-server, rf-relay, rf-agent, rf-cli, rf-ingress all at v1.0.0-rc.1
+
+---
+
+## Release Checklist: v1.0.0-rc.3 — Dependency Maintenance ✅
+
+**Released 2026-07-18.** Patch release updating 5 Dependabot dependencies to latest compatible versions.
+See [GitHub Release v1.0.0-rc.3](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.3).
+
+### Dependencies Updated
+
+- [x] **wasmtime v36→v46** — Updated from 36.0.12 to 46.0.1 in rf-mcp-server (PR #136)
+- [x] **yamux v0.13→v0.14** — Updated from 0.13.10 to 0.14.0 in rf-rpc (PR #137)
+- [x] **actions/checkout v6→v7** — Updated CI workflow (PR #135)
+- [x] **vite v7.3.3→v7.3.6** — Updated website dev dependency (PR #141)
+- [x] **rusqlite v0.39→v0.40** — Updated in rf-rpc (PR #131)
+- [x] **All 1,429 tests pass** — No regressions after dependency updates
+- [x] **0 clippy warnings** — Clean linting maintained
 
 ---
 

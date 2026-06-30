@@ -5,6 +5,12 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.3] — 2026-07-18
+
+### Changed
+
+- **Dependency maintenance** — Merged 4 Dependabot PRs: wasmtime v36→v46, yamux v0.13→v0.14, actions/checkout v6→v7, vite v7.3.3→v7.3.6. Applied rusqlite v0.39→v0.40 update.
+
 ## [1.0.0-rc.2] — 2026-07-18
 
 ### Fixed

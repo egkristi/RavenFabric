@@ -1211,11 +1211,11 @@ dependencies = [
 
 [[package]]
 name = "hashlink"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "824e001ac4f3012dd16a264bec811403a67ca9deb6c102fc5049b32c4574b35f"
+checksum = "a5081f264ed7adee96ea4b4778b6bb9da0a7228b084587aa3bd3ff05da7c5a3b"
 dependencies = [
- "hashbrown 0.16.1",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -1650,9 +1650,9 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.37.0"
+version = "0.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1"
+checksum = "f6c19a05435c21ac299d71b6a9c13db3e3f47c520517d58990a462a1397a61db"
 dependencies = [
  "cc",
  "pkg-config",
@@ -2371,7 +2371,7 @@ dependencies = [
 
 [[package]]
 name = "rf-agent"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2398,7 +2398,7 @@ dependencies = [
 
 [[package]]
 name = "rf-audit"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "chrono",
  "hex",
@@ -2415,7 +2415,7 @@ dependencies = [
 
 [[package]]
 name = "rf-bootstrap"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "chrono",
  "hex",
@@ -2431,7 +2431,7 @@ dependencies = [
 
 [[package]]
 name = "rf-cli"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -2459,7 +2459,7 @@ dependencies = [
 
 [[package]]
 name = "rf-crypto"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "chacha20poly1305",
  "criterion",
@@ -2480,7 +2480,7 @@ dependencies = [
 
 [[package]]
 name = "rf-executor"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2512,7 +2512,7 @@ dependencies = [
 
 [[package]]
 name = "rf-ingress"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -2560,7 +2560,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-client"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -2570,7 +2570,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-server"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -2598,7 +2598,7 @@ dependencies = [
 
 [[package]]
 name = "rf-policy"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "regex",
  "rf-audit",
@@ -2612,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "rf-relay"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -2632,7 +2632,7 @@ dependencies = [
 
 [[package]]
 name = "rf-rpc"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "criterion",
  "futures-util",
@@ -2655,7 +2655,7 @@ dependencies = [
 
 [[package]]
 name = "rf-transport"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.3"
 dependencies = [
  "async-trait",
  "chacha20poly1305",
@@ -2722,9 +2722,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.39.0"
+version = "0.40.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0d2b0146dd9661bf67bb107c0bb2a55064d556eeb3fc314151b957f313bcd4e"
+checksum = "11438310b19e3109b6446c33d1ed5e889428cf2e278407bc7896bc4aaea43323"
 dependencies = [
  "bitflags 2.13.0",
  "fallible-iterator",

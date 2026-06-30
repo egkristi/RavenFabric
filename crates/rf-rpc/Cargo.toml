@@ -12,8 +12,8 @@ categories = ["command-line-utilities", "network-programming"]
 keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.1" }
-rf-transport = { path = "../rf-transport", version = "1.0.0-rc.1" }
+rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.3" }
+rf-transport = { path = "../rf-transport", version = "1.0.0-rc.3" }
 tokio = { workspace = true }
 tokio-util = { workspace = true, features = ["compat"] }
 serde = { workspace = true }
@@ -26,7 +26,7 @@ uuid = { workspace = true }
 yamux = { workspace = true }
 futures-util = "0.3"
 sha2 = { workspace = true }
-rusqlite = { version = "0.39", features = ["bundled"], optional = true }
+rusqlite = { version = "0.40", features = ["bundled"], optional = true }
 
 [features]
 default = []
