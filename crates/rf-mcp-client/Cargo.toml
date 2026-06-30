@@ -9,7 +9,7 @@ homepage.workspace = true
 authors.workspace = true
 rust-version.workspace = true
 categories = ["api-bindings", "network-programming"]
-keywords = ["mcp", "ai-agent", "ravenfabric", "model-context-protocol"]
+keywords = ["mcp", "ai-agent", "ravenfabric", "mcp-protocol"]
 
 [dependencies]
 serde = { workspace = true }
