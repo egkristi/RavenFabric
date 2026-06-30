@@ -5,6 +5,13 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.4] — 2026-07-18
+
+### Changed
+
+- **Dependency maintenance** — Merged 3 Dependabot PRs: codecov/codecov-action v6→v7, maxminddb 0.27.3→0.28.1, serde_json 1.0.149→1.0.150.
+- **cryptoki skipped** — PR #123 (cryptoki 0.6→0.12) deferred due to breaking API changes in the HSM module. Tracked as GitHub Issue.
+
 ## [1.0.0-rc.3] — 2026-07-18
 
 ### Changed
