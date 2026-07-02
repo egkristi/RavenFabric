@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0a0b0d">
     <meta name="color-scheme" content="dark">
     <meta name="author" content="Erling Kristiansen">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'https://asciinema.org'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://ravenfabric.io/demos/">
     <meta property="og:title" content="Live Demos — RavenFabric">
@@ -489,6 +489,7 @@
             <a class="toc-item" href="#resilience"><span class="toc-num">08</span><span class="toc-label">Resilience</span></a>
             <a class="toc-item" href="#controller"><span class="toc-num">09</span><span class="toc-label">Controller / Web UI</span></a>
             <a class="toc-item" href="#direct-connection"><span class="toc-num">10</span><span class="toc-label">Direct Connection</span></a>
+            <a class="toc-item" href="#full-overview"><span class="toc-num">11</span><span class="toc-label">Full Feature Overview</span></a>
             <a class="toc-item" href="#how-it-works"><span class="toc-num">&mdash;</span><span class="toc-label">How It Works</span></a>
         </div>
     </section>
@@ -2039,6 +2040,103 @@ cargo build --release -p rf-cli
 
 <span class="comment"># Teardown</span>
 <span class="cmd">./setup.sh teardown</span></pre>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- DEMO 11: Full Feature Overview                            -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="demo-section" id="full-overview">
+        <div class="demo-header">
+            <div class="demo-eyebrow">Demo 11</div>
+            <h2>Full Feature Overview</h2>
+            <p>
+                A comprehensive walkthrough of every RavenFabric feature — from binary info and dev mode
+                to policy enforcement, interactive shell, port forwarding, file transfer, TCP proxy,
+                secret management, audit logging, status, completions, playbooks, direct connect,
+                cross-platform compatibility, transport diversity, MCP integration, and desired-state
+                convergence. All 19 sections in a single recording.
+            </p>
+        </div>
+
+        <div class="recording">
+            <script src="https://asciinema.org/a/CTCcijVS4wqbPcGb.js" id="asciicast-CTCcijVS4wqbPcGb" async></script>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h4>Sections</h4>
+                <p>19 (all features)</p>
+            </div>
+            <div class="info-card">
+                <h4>Duration</h4>
+                <p>~4 minutes</p>
+            </div>
+            <div class="info-card">
+                <h4>Mode</h4>
+                <p><code>rf dev</code> (zero-setup)</p>
+            </div>
+            <div class="info-card">
+                <h4>Encryption</h4>
+                <p>Noise XX (E2E)</p>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>What's Covered</h3>
+            <div class="setup-prereqs">
+                <span>Single Static Binary</span>
+                <span>Dev Mode</span>
+                <span>Policy Enforcement</span>
+                <span>Interactive Shell</span>
+                <span>Port Forwarding</span>
+                <span>File Transfer</span>
+                <span>TCP Proxy</span>
+                <span>Secret Management</span>
+                <span>Audit Logging</span>
+                <span>Agent Status</span>
+                <span>Shell Completions</span>
+                <span>Playbooks</span>
+                <span>Direct Connect</span>
+                <span>Cross-Platform</span>
+                <span>Transport Diversity</span>
+                <span>Run Anywhere</span>
+                <span>MCP Integration</span>
+                <span>Desired-State</span>
+            </div>
+        </div>
+
+        <div class="setup">
+            <h3>Reproduce It</h3>
+            <div class="setup-prereqs">
+                <span>Rust 1.88+</span>
+                <span>asciinema</span>
+            </div>
+<pre class="code-block"><span class="comment"># Build the CLI</span>
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+cargo build --release -p rf-cli
+
+<span class="comment"># Run the demo script (requires asciinema)</span>
+<span class="cmd">asciinema rec demos/ravenfabric-demo.cast \
+  --title "RavenFabric — Security-first remote execution &amp; mesh networking" \
+  --cols 100 --rows 30 \
+  --command "bash demos/demo-script.sh" \
+  --overwrite</span>
+
+<span class="comment"># Play back the recording</span>
+<span class="cmd">asciinema play demos/ravenfabric-demo.cast</span>
+
+<span class="comment"># Upload to asciinema.org</span>
+<span class="cmd">asciinema upload demos/ravenfabric-demo.cast</span></pre>
+        </div>
+
+        <div class="setup">
+            <h3>Watch Online</h3>
+            <p>
+                <a href="https://asciinema.org/a/CTCcijVS4wqbPcGb" target="_blank" rel="noopener">View on asciinema.org &rarr;</a>
+                &middot; Download the cast file from <code>demos/ravenfabric-demo.cast</code>
+            </p>
         </div>
     </section>
 

@@ -11,3 +11,6 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
   Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://img.shields.io; connect-src 'self'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://buttondown.com; upgrade-insecure-requests
+
+/demos/*
+  Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'https://asciinema.org'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'

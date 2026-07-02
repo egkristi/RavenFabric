@@ -1,6 +1,6 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.6 (Release Candidate) — Released 2026-07-18
+> **Version:** 1.0.0-rc.6 (Release Candidate) — Released 2026-07-02
 > **Next:** v1.0.0 (Stable) — **Blocked by 4 critical bugs + 6 medium items requiring rpi5 access**
 > **Stats:** 14 crates, ~75,315 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. 4 critical bugs confirmed persistent across 3 sessions.
@@ -72,7 +72,7 @@
 
 ## Release Checklist: v0.25.3 — Remaining Audit Fixes ⚠️
 
-**Released 2026-07-17.** Code fixes complete. Real-world validation on rpi5 revealed gaps (see [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md)).
+**Released 2026-06-27.** Code fixes complete. Real-world validation on rpi5 revealed gaps (see [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md)).
 
 ### 🔴 Critical (blocking)
 
@@ -201,7 +201,7 @@ See [GitHub Release v1.0.0-beta.3](https://github.com/egkristi/RavenFabric/relea
 
 ## Release Checklist: v1.0.0-beta.4 — Relay HA ✅
 
-**Released 2026-07-18.** Feature release adding relay high-availability failover.
+**Released 2026-06-30.** Feature release adding relay high-availability failover.
 See [GitHub Release v1.0.0-beta.4](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.4).
 
 ### 🔴 Critical
@@ -274,7 +274,7 @@ See [GitHub Release v1.0.0-beta.4](https://github.com/egkristi/RavenFabric/relea
 
 ## Release Checklist: v1.0.0-beta.5 — Regulatory Compliance ✅
 
-**Released 2026-07-18.** Compliance release adding GDPR, PCI-DSS, and SOC 2 documentation plus data retention/deletion API.
+**Released 2026-06-30.** Compliance release adding GDPR, PCI-DSS, and SOC 2 documentation plus data retention/deletion API.
 See [GitHub Release v1.0.0-beta.5](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-beta.5).
 
 ### Regulatory Compliance (v1.3 Enterprise & Compliance)
@@ -316,7 +316,7 @@ See [GitHub Release v1.0.0-beta.5](https://github.com/egkristi/RavenFabric/relea
 
 ## Release Checklist: v1.0.0-rc.1 — Release Candidate ✅
 
-**Released 2026-07-18.** Release Candidate — all features through v1.3 implemented, all tests passing, zero clippy warnings. Ready for final validation.
+**Released 2026-06-30.** Release Candidate — all features through v1.3 implemented, all tests passing, zero clippy warnings. Ready for final validation.
 See [GitHub Release v1.0.0-rc.1](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.1).
 
 ### Release Candidate Qualification
@@ -347,7 +347,7 @@ See [GitHub Release v1.0.0-rc.1](https://github.com/egkristi/RavenFabric/release
 
 ## Release Checklist: v1.0.0-rc.2 — Crates.io Publish Fix ✅
 
-**Released 2026-07-18.** Patch release fixing crates.io publish for rf-mcp-client (keyword too long) and rf-ingress (missing from workflow publish list).
+**Released 2026-06-30.** Patch release fixing crates.io publish for rf-mcp-client (keyword too long) and rf-ingress (missing from workflow publish list).
 See [GitHub Release v1.0.0-rc.2](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.2).
 
 ### Fixes
@@ -360,7 +360,7 @@ See [GitHub Release v1.0.0-rc.2](https://github.com/egkristi/RavenFabric/release
 
 ## Release Checklist: v1.0.0-rc.4 — Dependency Maintenance ✅
 
-**Released 2026-07-18.** Patch release updating 3 Dependabot dependencies to latest compatible versions.
+**Released 2026-06-30.** Patch release updating 3 Dependabot dependencies to latest compatible versions.
 See [GitHub Release v1.0.0-rc.4](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.4).
 
 ### Dependencies Updated
@@ -376,7 +376,7 @@ See [GitHub Release v1.0.0-rc.4](https://github.com/egkristi/RavenFabric/release
 
 ## Release Checklist: v1.0.0-rc.5 — Streaming Exec Fix ✅
 
-**Released 2026-07-18.** Patch release fixing streaming exec hang in `rf dev` mode.
+**Released 2026-07-02.** Patch release fixing streaming exec hang in `rf dev` mode.
 See [GitHub Release v1.0.0-rc.5](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.5).
 
 ### Fixed
@@ -389,7 +389,7 @@ See [GitHub Release v1.0.0-rc.5](https://github.com/egkristi/RavenFabric/release
 
 ## Release Checklist: v1.0.0-rc.6 — File Transfer Pull Fix ✅
 
-**Released 2026-07-18.** Patch release fixing `rf cp` agent→local pull-stream hang.
+**Released 2026-07-02.** Patch release fixing `rf cp` agent→local pull-stream hang.
 See [GitHub Release v1.0.0-rc.6](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.6).
 
 ### Fixed
@@ -474,7 +474,7 @@ Despite being marked "✅ Resolved" in ROADMAP.md, the following policy rules we
 
 ## Release Checklist: v1.0.0-rc.3 — Dependency Maintenance ✅
 
-**Released 2026-07-18.** Patch release updating 5 Dependabot dependencies to latest compatible versions.
+**Released 2026-06-30.** Patch release updating 5 Dependabot dependencies to latest compatible versions.
 See [GitHub Release v1.0.0-rc.3](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.3).
 
 ### Dependencies Updated
@@ -754,7 +754,7 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 - [ ] Google Search Console setup + sitemap submission (#38)
 - [ ] Submit to Hacker News, Lobsters, Reddit, kode24.no (#40)
 - [ ] Live demo sandbox (`rf-demo.ravenfabric.io`) (#42)
-- [ ] Re-record asciinema demos with live sessions (#98)
+- [x] Re-record asciinema demos with live sessions (#98) — Full feature overview demo recorded and embedded on website
 
 ---
 

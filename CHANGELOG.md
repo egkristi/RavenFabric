@@ -5,13 +5,17 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-rc.6] — 2026-07-18
+## [1.0.0-rc.6] — 2026-07-02
 
 ### Fixed
 
 - **`rf cp` agent→local pull-stream hang** — File transfers from agent to local (pull direction) would hang for any file size >0 bytes. Root cause: `SecureChannel::send()` never flushed the underlying transport, so the last data frame(s) remained buffered and never reached the client. Added `SecureChannel::flush()` public method and call it after the last frame in `handle_file_pull_stream()`. Also added a 30-second idle timeout to the client's receive loop as a safety net.
 
-## [1.0.0-rc.5] — 2026-07-18
+### Added
+
+- **Full feature overview asciinema demo** — New Demo 11 on the website demos page (`/demos/#full-overview`) with an asciinema embed covering all 19 sections of the RavenFabric demo script. CSP updated across `website/index.html`, `website/demos/index.html`, and `website/_headers` to allow asciinema.org embeds. "Watch demo" button added to the main page hero CTA.
+
+## [1.0.0-rc.5] — 2026-07-02
 
 ### Fixed
 
