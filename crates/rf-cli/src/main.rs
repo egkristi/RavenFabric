@@ -1398,10 +1398,8 @@ async fn connect_dev_agent(
             let rid = request.id.clone();
             let ck = hex::encode(peer_key);
             tokio::spawn(async move {
-                rf_executor::streaming::stream_execute(
-                    rid, &cmd, &env_map, &wd, pol, aud, &ck, tx,
-                )
-                .await;
+                rf_executor::streaming::stream_execute(rid, &cmd, &env_map, &wd, pol, aud, &ck, tx)
+                    .await;
             });
             // Forward each streaming response chunk to the channel
             while let Some(resp) = rx.recv().await {
