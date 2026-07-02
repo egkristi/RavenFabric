@@ -6,13 +6,13 @@ publish = false
 
 [dependencies]
 rf-relay = { path = "../rf-relay" }
-rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.5" }
-rf-transport = { path = "../rf-transport", version = "1.0.0-rc.5" }
-rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.5" }
-rf-executor = { path = "../rf-executor", version = "1.0.0-rc.5" }
-rf-policy = { path = "../rf-policy", version = "1.0.0-rc.5" }
-rf-audit = { path = "../rf-audit", version = "1.0.0-rc.5" }
-rf-bootstrap = { path = "../rf-bootstrap", version = "1.0.0-rc.5" }
+rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.6" }
+rf-transport = { path = "../rf-transport", version = "1.0.0-rc.6" }
+rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.6" }
+rf-executor = { path = "../rf-executor", version = "1.0.0-rc.6" }
+rf-policy = { path = "../rf-policy", version = "1.0.0-rc.6" }
+rf-audit = { path = "../rf-audit", version = "1.0.0-rc.6" }
+rf-bootstrap = { path = "../rf-bootstrap", version = "1.0.0-rc.6" }
 rf-mcp-server = { path = "../rf-mcp-server" }
 tokio = { workspace = true }
 tokio-util = { workspace = true }

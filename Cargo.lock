@@ -2371,7 +2371,7 @@ dependencies = [
 
 [[package]]
 name = "rf-agent"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2398,7 +2398,7 @@ dependencies = [
 
 [[package]]
 name = "rf-audit"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "chrono",
  "hex",
@@ -2415,7 +2415,7 @@ dependencies = [
 
 [[package]]
 name = "rf-bootstrap"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "chrono",
  "hex",
@@ -2431,7 +2431,7 @@ dependencies = [
 
 [[package]]
 name = "rf-cli"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "anyhow",
  "clap",
@@ -2459,7 +2459,7 @@ dependencies = [
 
 [[package]]
 name = "rf-crypto"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "chacha20poly1305",
  "criterion",
@@ -2480,7 +2480,7 @@ dependencies = [
 
 [[package]]
 name = "rf-executor"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2512,7 +2512,7 @@ dependencies = [
 
 [[package]]
 name = "rf-ingress"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "anyhow",
  "axum",
@@ -2560,7 +2560,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-client"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "serde",
  "serde_json",
@@ -2570,7 +2570,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-server"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "anyhow",
  "axum",
@@ -2598,7 +2598,7 @@ dependencies = [
 
 [[package]]
 name = "rf-policy"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "regex",
  "rf-audit",
@@ -2612,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "rf-relay"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "anyhow",
  "clap",
@@ -2632,7 +2632,7 @@ dependencies = [
 
 [[package]]
 name = "rf-rpc"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "criterion",
  "futures-util",
@@ -2655,7 +2655,7 @@ dependencies = [
 
 [[package]]
 name = "rf-transport"
-version = "1.0.0-rc.5"
+version = "1.0.0-rc.6"
 dependencies = [
  "async-trait",
  "chacha20poly1305",

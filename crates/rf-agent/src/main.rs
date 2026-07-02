@@ -1807,6 +1807,14 @@ where
         offset = end;
     }
 
+    // Flush the transport to ensure all buffered data is sent before the
+    // channel is dropped when this handler returns. Without this flush, the
+    // last frame(s) may remain in the transport buffer and the client will
+    // hang waiting for data that was never actually transmitted.
+    chan.flush()
+        .await
+        .map_err(|e| anyhow::anyhow!("flush: {e}"))?;
+
     let _ = audit.log(AuditEntry {
         timestamp: chrono::Utc::now(),
         request_id: request_id.to_string(),

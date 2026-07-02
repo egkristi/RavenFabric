@@ -1942,10 +1942,20 @@ async fn cp_command(
             }
             _ => anyhow::bail!("unexpected response to FilePullStream"),
         };
-        // 3. Receive raw file data frames until total_size bytes collected
+        // 3. Receive raw file data frames until total_size bytes collected.
+        //    Use a 30-second idle timeout as a safety net to prevent hanging
+        //    indefinitely if the agent stops sending data mid-transfer.
         let mut file_data: Vec<u8> = Vec::with_capacity(total_size as usize);
         while (file_data.len() as u64) < total_size {
-            let chunk = ch.recv().await?;
+            let chunk = tokio::time::timeout(std::time::Duration::from_secs(30), ch.recv())
+                .await
+                .map_err(|_| {
+                    anyhow::anyhow!(
+                        "timeout waiting for file data (received {}/{} bytes)",
+                        file_data.len(),
+                        total_size
+                    )
+                })??;
             if chunk.is_empty() {
                 anyhow::bail!("connection closed before transfer complete");
             }

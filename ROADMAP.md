@@ -1,8 +1,8 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.5 (Release Candidate) — Released 2026-07-18
+> **Version:** 1.0.0-rc.6 (Release Candidate) — Released 2026-07-18
 > **Next:** v1.0.0 (Stable) — **Blocked by 4 critical bugs + 6 medium items requiring rpi5 access**
-> **Stats:** 14 crates, ~75,295 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 14 crates, ~75,315 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. 4 critical bugs confirmed persistent across 3 sessions.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
@@ -382,6 +382,19 @@ See [GitHub Release v1.0.0-rc.5](https://github.com/egkristi/RavenFabric/release
 ### Fixed
 
 - [x] **Streaming exec hang in `rf dev` mode** — After any exec command completed, the dev agent's `chan.recv()` would hang indefinitely on a half-closed TCP connection, preventing the agent from reconnecting for subsequent commands. Added a 5-second read timeout to `connect_dev_agent()` so the agent properly detects disconnection and reconnects to the relay.
+- [x] **All 1,429 tests pass** — No regressions.
+- [x] **0 clippy warnings** — Clean linting maintained.
+
+---
+
+## Release Checklist: v1.0.0-rc.6 — File Transfer Pull Fix ✅
+
+**Released 2026-07-18.** Patch release fixing `rf cp` agent→local pull-stream hang.
+See [GitHub Release v1.0.0-rc.6](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.6).
+
+### Fixed
+
+- [x] **`rf cp` agent→local pull-stream hang** — File transfers from agent to local (pull direction) would hang for any file size >0 bytes. Root cause: `SecureChannel::send()` never flushed the underlying transport, so the last data frame(s) remained buffered and never reached the client. Added `SecureChannel::flush()` public method and call it after the last frame in `handle_file_pull_stream()`. Also added a 30-second idle timeout to the client's receive loop as a safety net.
 - [x] **All 1,429 tests pass** — No regressions.
 - [x] **0 clippy warnings** — Clean linting maintained.
 

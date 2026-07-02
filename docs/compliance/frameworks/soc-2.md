@@ -2,7 +2,7 @@
 
 > This document maps RavenFabric's capabilities to the SOC 2 Trust Services Criteria.
 
-**RavenFabric version:** v1.0.0-rc.5
+**RavenFabric version:** v1.0.0-rc.6
 **Standard:** SOC 2 (System and Organization Controls 2) — Trust Services Criteria
 **Applicability:** Service organizations that handle customer data
 **Last updated:** 2026-07-18

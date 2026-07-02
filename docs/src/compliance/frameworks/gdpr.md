@@ -3,7 +3,7 @@
 > This document maps RavenFabric's capabilities to the requirements of the
 > General Data Protection Regulation (GDPR, Regulation (EU) 2016/679).
 
-**RavenFabric version:** v1.0.0-rc.5
+**RavenFabric version:** v1.0.0-rc.6
 **Regulation:** Regulation (EU) 2016/679 (General Data Protection Regulation)
 **Applicability:** Any organization processing personal data of EU/EEA data subjects
 **Last updated:** 2026-07-18

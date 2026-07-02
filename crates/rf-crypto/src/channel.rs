@@ -173,12 +173,20 @@ where
     /// The peer will receive a zero-length decrypted result from `recv()`.
     pub async fn close_notify(&self) -> Result<(), CryptoError> {
         self.send(&[]).await?;
+        self.flush().await
+    }
+
+    /// Flush the underlying transport writer.
+    ///
+    /// Ensures all buffered data is actually transmitted. This is important
+    /// before dropping the channel after sending the last data frame, as
+    /// some transport layers (e.g., WebSocket, TLS) may buffer writes.
+    pub async fn flush(&self) -> Result<(), CryptoError> {
         let mut writer = self.writer.lock().await;
         writer
             .transport
             .flush()
             .await
-            .map_err(|_| CryptoError::Disconnected)?;
-        Ok(())
+            .map_err(|_| CryptoError::Disconnected)
     }
 }
