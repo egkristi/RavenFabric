@@ -3,7 +3,7 @@
 > This document maps RavenFabric's capabilities to the requirements of the
 > Payment Card Industry Data Security Standard (PCI-DSS v4.0).
 
-**RavenFabric version:** v1.0.0-rc.4
+**RavenFabric version:** v1.0.0-rc.5
 **Standard:** PCI Data Security Standard v4.0
 **Applicability:** Any organization that stores, processes, or transmits cardholder data
 **Last updated:** 2026-07-18

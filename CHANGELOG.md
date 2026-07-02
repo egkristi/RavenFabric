@@ -5,6 +5,12 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.5] — 2026-07-18
+
+### Fixed
+
+- **Streaming exec hang in `rf dev` mode** — After any exec command completed, the dev agent's `chan.recv()` would hang indefinitely on a half-closed TCP connection, preventing the agent from reconnecting for subsequent commands. Added a 5-second read timeout to `connect_dev_agent()` so the agent properly detects disconnection and reconnects to the relay.
+
 ## [1.0.0-rc.4] — 2026-07-18
 
 ### Changed

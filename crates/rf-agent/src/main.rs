@@ -9,7 +9,7 @@ use std::time::Instant;
 use clap::Parser;
 use rand::Rng as _;
 use serde::Deserialize;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, mpsc};
 use tracing::{error, info, warn};
 
 use rf_audit::logger::FileAuditLogger;
@@ -887,6 +887,44 @@ async fn handle_direct_connection(
             .await;
         }
 
+        // StreamExecute: spawn streaming output and forward chunks over the channel
+        if let Action::StreamExecute {
+            command,
+            env,
+            workdir,
+        } = &request.action
+        {
+            let (tx, mut rx) = mpsc::channel::<Response>(64);
+            let pol = policy.clone();
+            let aud = audit.clone();
+            let cmd = command.clone();
+            let env_map = env.clone();
+            let wd = workdir.clone();
+            let rid = request.id.clone();
+            let ck = hex::encode(peer_key);
+            tokio::spawn(async move {
+                rf_executor::streaming::stream_execute(
+                    rid, &cmd, &env_map, &wd, pol, aud, &ck, tx,
+                )
+                .await;
+            });
+            // Forward each streaming response chunk to the channel
+            while let Some(resp) = rx.recv().await {
+                let resp_data = match codec::encode(&resp) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        error!("encode error: {}", e);
+                        break;
+                    }
+                };
+                if let Err(e) = chan.send(&resp_data).await {
+                    error!("channel send: {}", e);
+                    break;
+                }
+            }
+            continue;
+        }
+
         let response: Response = executor.handle(request).await;
 
         let resp_data = codec::encode(&response)?;
@@ -1172,6 +1210,44 @@ async fn run_session_for_relay(
                 hex::encode(peer_key),
             )
             .await;
+        }
+
+        // StreamExecute: spawn streaming output and forward chunks over the channel
+        if let Action::StreamExecute {
+            command,
+            env,
+            workdir,
+        } = &request.action
+        {
+            let (tx, mut rx) = mpsc::channel::<Response>(64);
+            let pol = policy.clone();
+            let aud = audit.clone();
+            let cmd = command.clone();
+            let env_map = env.clone();
+            let wd = workdir.clone();
+            let rid = request.id.clone();
+            let ck = hex::encode(peer_key);
+            tokio::spawn(async move {
+                rf_executor::streaming::stream_execute(
+                    rid, &cmd, &env_map, &wd, pol, aud, &ck, tx,
+                )
+                .await;
+            });
+            // Forward each streaming response chunk to the channel
+            while let Some(resp) = rx.recv().await {
+                let resp_data = match codec::encode(&resp) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        error!("encode error: {}", e);
+                        break;
+                    }
+                };
+                if let Err(e) = chan.send(&resp_data).await {
+                    error!("channel send: {}", e);
+                    break;
+                }
+            }
+            continue;
         }
 
         let response: Response = executor.handle(request).await;

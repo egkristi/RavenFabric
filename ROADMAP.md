@@ -1,8 +1,9 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.4 (Release Candidate) — Released 2026-07-18
-> **Next:** v1.0.0 (Stable)
-> **Stats:** 14 crates, ~75,170 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Version:** 1.0.0-rc.5 (Release Candidate) — Released 2026-07-18
+> **Next:** v1.0.0 (Stable) — **Blocked by 4 critical bugs + 6 medium items requiring rpi5 access**
+> **Stats:** 14 crates, ~75,295 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. 4 critical bugs confirmed persistent across 3 sessions.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
@@ -106,13 +107,13 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 | Policy regex bare commands denied | Session 7 | ✅ Resolved (Session 7 fix) | `^(cmd)( .*)?$` pattern deployed |
 | No `--version` flag on agent | Session 8 | ✅ Resolved | Agent now supports `--version` |
 | No `--reason` flag on `rf exec` | Session 8 | ✅ Resolved | `rf exec --reason` implemented |
-| `rf cp` chunking >65535B | Medium #4 | ✅ Resolved | `MAX_FRAME_PAYLOAD=65519` |
-| Metrics counters stuck at 0 | Medium #7c | ✅ Resolved | All 6 counters wired in agent |
-| Cross-platform Noise XX via relay | Critical #1 | ✅ Resolved | `--compat-mode` flag added |
+| `rf cp` chunking >65535B | Medium #4 | ✅ Resolved | `MAX_FRAME_PAYLOAD=65519`. Local→agent works. Agent→local **still broken** |
+| Metrics counters stuck at 0 | Medium #7c | ❌ **Still broken** | All 6 counters remain at 0 across 3 sessions. Code fix claimed but not effective |
+| Cross-platform Noise XX via relay | Critical #1 | ❌ **Still broken** | `--compat-mode` flag exists but doesn't fix root cause. Both modes hang |
 | HMAC key derivation mismatch | Low #10 | ✅ Resolved (v1.0.0-beta.1) | `--export-hmac-key` + `rf audit derive-key` |
-| Policy rules for non-exec actions | — | ✅ Resolved (v0.25.2) | shell, forward, proxy, playbook all have allow rules in rpi5 policy |
+| Policy rules for non-exec actions | — | ❌ **Not deployed on rpi5** | Code has rules but rpi5 policy YAML was never updated. All advanced features still denied |
 | Shell constructs denied | Medium #7b | ✅ Resolved (v0.25.2) | for loops, pipes, && chaining all have explicit allow rules |
-| Agent memory >10 MB | Critical #3 | 🟡 Mitigated (v1.0.0-beta.2) | BufferedAuditCollector bounds growth + 64 KB WS duplex buffer |
+| Agent memory >10 MB | Critical #3 | 🟡 Mitigated (v1.0.0-beta.2) | BufferedAuditCollector bounds growth + 64 KB WS duplex buffer. Agent still on v0.25.3 (67MB RSS) |
 | MCP server not deployed | Critical #2 | ❌ Still open | No systemd service on rpi5 |
 | Mac CLI version mismatch | Critical #3b | ✅ Resolved (v1.0.0-beta.1) | Version bumped to v1.0.0-beta.1 |
 | Secret store not configured | Low #8 | ❌ Still open | `--seal-key-path` not set |
@@ -218,11 +219,19 @@ See [GitHub Release v1.0.0-beta.4](https://github.com/egkristi/RavenFabric/relea
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
+**🔴 Critical (confirmed broken across 3 sessions):**
+- [ ] **Metrics counters stuck at 0** — All 6 RF-specific Prometheus counters remain at 0. Code fix claimed in v0.25.4 but never verified. May need agent restart or registry fix.
+- [ ] **Agent→local `rf cp` hangs** — Pull-stream direction broken for any file size. Local→agent works (fixed in v0.25.4). Separate bug in pull stream negotiation.
+- [ ] **Relay mode broken cross-platform** — macOS→Linux Noise XX handshake hangs. `--compat-mode` flag exists but doesn't fix root cause. Direct connect works.
+- [ ] **Agent version mismatch** — Agent still on v0.25.3 after v0.25.4 upgrade. Needs `sudo systemctl restart ravenfabric-agent`.
+
+**🟡 Medium:**
 - [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service. Blocks AI agent integration.
 - [ ] **Configure secret store on rpi5** — Generate seal key, set `seal_key_path` in `/etc/ravenfabric/raven.toml`, verify `rf secret push` works.
 - [ ] **Test policy hot-reload on rpi5** — Send SIGHUP to agent, verify policy changes take effect without restart.
 - [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types.
 - [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). Mitigations applied but need rpi5 measurement to verify.
+- [ ] **Deploy policy rules for advanced features** — `background_exec`, `port_forward`, `proxy`, `shell_open` all still denied. Policy YAML on rpi5 needs updating.
 
 ### ✅ Resolved in v1.0.0-beta.4 (Relay HA)
 
@@ -289,11 +298,19 @@ See [GitHub Release v1.0.0-beta.5](https://github.com/egkristi/RavenFabric/relea
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
-- [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service. Blocks AI agent integration.
-- [ ] **Configure secret store on rpi5** — Generate seal key, set `seal_key_path` in `/etc/ravenfabric/raven.toml`, verify `rf secret push` works.
-- [ ] **Test policy hot-reload on rpi5** — Send SIGHUP to agent, verify policy changes take effect without restart.
-- [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types.
-- [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). Mitigations applied but need rpi5 measurement to verify.
+**🔴 Critical (confirmed broken across 3 sessions):**
+- [ ] **Metrics counters stuck at 0** — All 6 RF-specific Prometheus counters remain at 0. Code fix claimed in v0.25.4 but never verified.
+- [ ] **Agent→local `rf cp` hangs** — Pull-stream direction broken for any file size. Local→agent works (fixed in v0.25.4).
+- [ ] **Relay mode broken cross-platform** — macOS→Linux Noise XX handshake hangs. `--compat-mode` flag exists but doesn't fix root cause.
+- [ ] **Agent version mismatch** — Agent still on v0.25.3 after v0.25.4 upgrade. Needs restart.
+
+**🟡 Medium:**
+- [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service.
+- [ ] **Configure secret store on rpi5** — `--seal-key-path` not set.
+- [ ] **Test policy hot-reload on rpi5** — SIGHUP handler code exists but untested.
+- [ ] **Test playbook feature on rpi5** — Schema fix present but denied by policy.
+- [ ] **Agent memory >10 MB target** — 19.6-43.2 MB RSS (4x target). Mitigations applied but unverified.
+- [ ] **Deploy policy rules for advanced features** — `background_exec`, `port_forward`, `proxy`, `shell_open` all still denied.
 
 ---
 
@@ -312,11 +329,19 @@ See [GitHub Release v1.0.0-rc.1](https://github.com/egkristi/RavenFabric/release
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
-- [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service. Blocks AI agent integration.
-- [ ] **Configure secret store on rpi5** — Generate seal key, set `seal_key_path` in `/etc/ravenfabric/raven.toml`, verify `rf secret push` works.
-- [ ] **Test policy hot-reload on rpi5** — Send SIGHUP to agent, verify policy changes take effect without restart.
-- [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types.
-- [ ] **Agent memory >10 MB target** — Measured 19.6-43.2 MB RSS (4x target). Mitigations applied but need rpi5 measurement to verify.
+**🔴 Critical (confirmed broken across 3 sessions):**
+- [ ] **Metrics counters stuck at 0** — All 6 RF-specific Prometheus counters remain at 0. Code fix claimed in v0.25.4 but never verified.
+- [ ] **Agent→local `rf cp` hangs** — Pull-stream direction broken for any file size. Local→agent works (fixed in v0.25.4).
+- [ ] **Relay mode broken cross-platform** — macOS→Linux Noise XX handshake hangs. `--compat-mode` flag exists but doesn't fix root cause.
+- [ ] **Agent version mismatch** — Agent still on v0.25.3 after v0.25.4 upgrade. Needs restart.
+
+**🟡 Medium:**
+- [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service.
+- [ ] **Configure secret store on rpi5** — `--seal-key-path` not set.
+- [ ] **Test policy hot-reload on rpi5** — SIGHUP handler code exists but untested.
+- [ ] **Test playbook feature on rpi5** — Schema fix present but denied by policy.
+- [ ] **Agent memory >10 MB target** — 19.6-43.2 MB RSS (4x target). Mitigations applied but unverified.
+- [ ] **Deploy policy rules for advanced features** — `background_exec`, `port_forward`, `proxy`, `shell_open` all still denied.
 
 ---
 
@@ -346,6 +371,91 @@ See [GitHub Release v1.0.0-rc.4](https://github.com/egkristi/RavenFabric/release
 - [x] **cryptoki skipped** — PR #123 (0.6→0.12) deferred due to breaking API changes in HSM module; tracked as GitHub Issue
 - [x] **All 1,429 tests pass** — No regressions after dependency updates
 - [x] **0 clippy warnings** — Clean linting maintained
+
+---
+
+## Release Checklist: v1.0.0-rc.5 — Streaming Exec Fix ✅
+
+**Released 2026-07-18.** Patch release fixing streaming exec hang in `rf dev` mode.
+See [GitHub Release v1.0.0-rc.5](https://github.com/egkristi/RavenFabric/releases/tag/v1.0.0-rc.5).
+
+### Fixed
+
+- [x] **Streaming exec hang in `rf dev` mode** — After any exec command completed, the dev agent's `chan.recv()` would hang indefinitely on a half-closed TCP connection, preventing the agent from reconnecting for subsequent commands. Added a 5-second read timeout to `connect_dev_agent()` so the agent properly detects disconnection and reconnects to the relay.
+- [x] **All 1,429 tests pass** — No regressions.
+- [x] **0 clippy warnings** — Clean linting maintained.
+
+---
+
+## Feedback Analysis: RAVENFABRIC-FEEDBACK.md (Sessions 7-9)
+
+**Analysis date:** 2026-07-18. Based on 56+ tests across 10 categories from 3 testing sessions on rpi5.
+
+### Session Overview
+
+| Session | Date | Focus | Tests | Pass | Denied | Fail/Hung | Key Outcome |
+|---------|------|-------|-------|------|--------|-----------|-------------|
+| **7** | Jun 29 | Core exec + policy | ~22 | ~14 | ~6 | ~2 | Policy regex fix deployed; bare commands now work |
+| **8** | Jun 29 | File transfer + edge cases | ~18 | ~12 | ~2 | ~4 | `rf cp` chunking boundary found (65535B); agent has no `--version` |
+| **9** | Jun 30 | Comprehensive (10 categories) | 56+ | 38 | 8 | 8 | Most thorough session; 4 critical bugs confirmed persistent |
+
+### Critical Bugs (All Still Open — Blocking v1.0 Stable)
+
+| # | Bug | Sessions Confirmed | ROADMAP.md Previous Claim | Actual Status |
+|---|-----|-------------------|--------------------------|---------------|
+| 1 | **Metrics counters stuck at 0** — All 6 RF-specific Prometheus counters at 0 despite 1,532 audit entries and 50+ connections | 7, 8, 9 | ✅ Resolved (v0.25.4) | ❌ **Still broken** — counters never incremented |
+| 2 | **Agent→local `rf cp` hangs** — Pull-stream direction broken for any file size >0 bytes. Local→agent works (fixed in v0.25.4) | 8, 9 | ⚠️ Partial (v0.25.3) | ❌ **Still broken** — separate bug in pull stream negotiation |
+| 3 | **Relay mode broken cross-platform** — macOS→Linux Noise XX handshake hangs. `--compat-mode` flag exists but doesn't fix root cause | 7, 8, 9 | ✅ Resolved (`--compat-mode`) | ❌ **Still broken** — snow-0.10.0 crate issue persists |
+| 4 | **Agent version mismatch** — Agent still on v0.25.3 after v0.25.4 upgrade. Not restarted | 9 | — | ❌ **Needs restart** — `sudo systemctl restart ravenfabric-agent` |
+
+### Positive Discoveries
+
+| Finding | Significance |
+|---------|-------------|
+| `--reason` flag IS supported in v0.25.4 CLI | Previously documented as missing — now confirmed working |
+| `sudo` IS allowed by policy | Previously uncertain — confirmed working via `rf exec` |
+| `kubectl exec` IS allowed by policy | Interactive pod access works through RavenFabric |
+| Piped `wc` (non-interpreter) is allowed | Only pipe+interpreter constructs are denied |
+
+### Policy Gaps (Not Deployed on rpi5)
+
+Despite being marked "✅ Resolved" in ROADMAP.md, the following policy rules were **never deployed** to the rpi5 policy YAML:
+
+- `background_exec` — no allow rule
+- `port_forward` — no allow rule
+- `proxy` — no allow rule
+- `shell_open` — no allow rule
+
+### Performance Baseline (Session 9)
+
+| Metric | Value |
+|--------|-------|
+| Average handshake | ~50ms |
+| Fastest exec | 5ms (echo) |
+| Slowest exec | 29.3s (health-check script) |
+| Average round-trip | ~200ms (simple commands) |
+| Agent RSS | 67MB (v0.25.3, not restarted) |
+| Relay RSS | 912KB |
+| Total audit entries | 1,532 |
+| Denial rate | 17.4% (healthy for deny-by-default) |
+
+### Key Contradictions Between ROADMAP.md and Feedback Evidence
+
+| Item | ROADMAP.md Says | Feedback Proves | Corrected Status |
+|------|----------------|----------------|------------------|
+| Metrics counters | ✅ Resolved (v0.25.4) | Still at 0 (3 sessions) | ❌ **Still broken** |
+| Relay mode | ✅ Resolved (`--compat-mode`) | Still hangs | ❌ **Still broken** |
+| Policy rules for non-exec | ✅ Resolved (v0.25.2) | Still denied on rpi5 | ❌ **Not deployed** |
+| Agent memory <10 MB | 🟡 Mitigated | 67MB RSS (v0.25.3) | 🟡 Mitigations not active (old agent) |
+
+### Recommendations (Priority Order)
+
+1. **Restart rf-agent** on rpi5 — fixes version mismatch, may fix metrics counters if fix is in v0.25.4 agent code
+2. **Fix metrics counters** — Investigate why counters stay at 0 despite being "wired in". Check Prometheus registry mismatch
+3. **Fix agent→local `rf cp`** — Pull-stream direction has a separate bug from push. Investigate stream negotiation
+4. **Fix cross-platform relay** — `--compat-mode` exists but doesn't work. May need snow crate investigation
+5. **Deploy policy rules** on rpi5 for `background_exec`, `port_forward`, `proxy`, `shell_open`
+6. **Update ROADMAP.md** to reflect actual status (this update)
 
 ---
 
@@ -653,18 +763,22 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 |--------|--------|-------------------------------|----------------------|-----------|
 | Connection setup | < 2 RTT | ~53ms handshake (direct connect) | ✅ `--compat-mode` for relay | Noise XX = 1.5 RTT |
 | Shell latency overhead | < 10ms | Not re-tested (policy rules exist) | ✅ Shell rules in rpi5 policy | Imperceptible vs raw TCP |
-| `rf exec` simple command | < 100ms | ~53ms handshake + ~4-18ms exec | ✅ Working | Faster than SSH |
-| File transfer throughput | Line speed | ≤65535B single-frame (protocol-limited) | ✅ `MAX_FRAME_PAYLOAD=65519` | ChaCha20 saturates >10 Gbps |
-| Agent idle memory | < 10 MB | **19.6-43.2 MB RSS** (varies with load) | 🟡 `--constrained` + 64 KB duplex buffer | Raspberry Pi, IoT |
+| `rf exec` simple command | < 100ms | ~50ms handshake + ~4-18ms exec | ✅ Working | Faster than SSH |
+| File transfer throughput | Line speed | Local→agent: 1MB verified (v0.25.4). Agent→local: **broken** | ⚠️ Push fixed, pull broken | ChaCha20 saturates >10 Gbps |
+| Agent idle memory | < 10 MB | **67 MB RSS** (v0.25.3, not restarted). Previously 19.6-43.2 MB | 🟡 `--constrained` + 64 KB duplex buffer | Agent needs restart to v0.25.4 |
 | Agent VmSize | — | **79.6 MB** | 🟡 Analyzed — sysinfo leak fixed | Expected for Rust binary with these deps |
 | Agent binary size | < 15 MB | **8 MB** (aarch64, stripped) | ✅ Target met | |
 | MCP server binary size | — | **6.5 MB** (aarch64) | ✅ | |
 | Relay throughput | 10k concurrent sessions | Not benchmarked | ⬜ Not tested | Per-relay |
-| Relay idle memory | < 5 MB | **1.2 MB RSS** (26-day steady state) | ✅ Target met | |
+| Relay idle memory | < 5 MB | **912 KB RSS** (Session 9 measurement) | ✅ Target met | Even lower than previous 1.2 MB |
 | Agent CPU usage | < 1% idle | ~3min 22s total over 26 days | ✅ Negligible | |
-| Audit log growth | Bounded | ~1,400 entries (Sessions 7-8) | ✅ HMAC-chained | |
-| Audit denial rate | — | **17.4%** (240/1400 denied) | ✅ Healthy | |
-| Test pass rate | 100% | **1,423 tests** | ✅ All pass | |
+| Audit log growth | Bounded | ~1,532 entries (Sessions 7-9) | ✅ HMAC-chained | |
+| Audit denial rate | — | **17.4%** (272/1532 denied) | ✅ Healthy | |
+| Test pass rate | 100% | **1,429 tests** | ✅ All pass | |
+| Handshake latency | < 2 RTT | **~50ms avg** (direct connect) | ✅ Working | Noise XX = 1.5 RTT |
+| Fastest exec | — | **5ms** (echo) | ✅ | |
+| Slowest exec | — | **29.3s** (health-check script) | ✅ Streaming works | Long-running scripts stream output |
+| Average round-trip | — | **~200ms** (simple commands) | ✅ | |
 
 ---
 
@@ -731,10 +845,10 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 - Policy hot-reload — SIGHUP handler exists. **⚠️ Untested on rpi5**
 - Secret store — `seal_key_path` config + SecretStore init. **⚠️ Not deployed on rpi5**
 
-**Resolved in v0.25.4:**
-- **Cross-platform Noise XX via relay** — `--compat-mode` flag added to agent, relay, and CLI.
-- **File transfer size limit** — `MAX_FRAME_PAYLOAD` corrected to 65519 (65535 - 16-byte MAC). All chunk constants updated.
-- **Metrics counters stuck at 0** — Handshake timing, active connections, and all 6 counters now wired in agent.
+**Resolved in v0.25.4 (code changes made — see validation notes):**
+- **Cross-platform Noise XX via relay** — `--compat-mode` flag added to agent, relay, and CLI. **⚠️ Still hangs in practice** — flag exists but doesn't fix root cause (snow-0.10.0 issue).
+- **File transfer size limit** — `MAX_FRAME_PAYLOAD` corrected to 65519 (65535 - 16-byte MAC). All chunk constants updated. **⚠️ Local→agent works, agent→local still broken** (pull-stream direction).
+- **Metrics counters stuck at 0** — Handshake timing, active connections, and all 6 counters now wired in agent. **⚠️ Still at 0 in practice** — confirmed across 3 sessions. Counters never increment.
 - **Playbook documentation** — `docs/playbooks.md` with full YAML schema, examples, and rollout strategies.
 - **Local CLI v0.25.4** — Version bump with all fixes.
 
@@ -748,14 +862,25 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 - **Agent VmSize investigation** — 79.6 MB virtual allocation analyzed. Primary contributors documented. `check_process_alive()` sysinfo leak fixed (cached `sysinfo::System` via `OnceLock`). Remaining VmSize is expected for a Rust binary with these dependencies.
 
 **Unresolved (blocking v1.0 Stable — requires rpi5 access):**
-- **Agent idle memory 19.6-43.2 MB RSS** — 4x over <10 MB target. VmSize 79.6 MB. **Mitigations applied:** `--constrained` mode (512-entry buffer, 256-entry dedup, 2s flush), 64 KB duplex buffer (v1.0.0-beta.2), cached sysinfo in health checks (v1.0.0-beta.3). Build with `--features rt-single-thread,minimal` for max savings (~8-10 MB from tokio runtime + heavy deps). Remaining gap is primarily debug build overhead and tokio multi-thread runtime.
+
+#### 🔴 Critical Bugs (Confirmed Across 3 Testing Sessions)
+
+- **Metrics counters stuck at 0** — All 6 RavenFabric-specific Prometheus counters (`ravenfabric_commands_allowed_total`, `ravenfabric_commands_denied_total`, `ravenfabric_audit_entries_total`, `ravenfabric_active_connections`, `ravenfabric_handshakes_completed_total`, `ravenfabric_handshake_latency_avg_ms`) remain at 0 despite 1,532 audit entries and 50+ connections. **Confirmed persistent across Sessions 7, 8, and 9.** ROADMAP.md previously claimed "✅ Resolved (v0.25.4)" but the counters are never incremented. System metrics (CPU, memory, disk) work fine — only RF-specific counters are broken. **Root cause unknown** — may be a registry mismatch or missing increment calls.
+- **Agent→local `rf cp` hangs** — Pull-stream direction broken for any file size >0 bytes. Local→agent transfers work (1MB with checksum verification, fixed in v0.25.4). The pull direction has a **separate bug** in stream negotiation. **Confirmed across Sessions 8 and 9.**
+- **Relay mode broken cross-platform (macOS→Linux)** — Both normal and `--compat-mode` hang during Noise XX handshake. Direct connect works fine. ROADMAP.md previously claimed "✅ Resolved (`--compat-mode`)" but the flag **exists without fixing the root cause**. The snow-0.10.0 crate issue persists.
+- **Agent version mismatch** — After v0.25.4 upgrade, agent was **not restarted** — still running v0.25.3 (67MB RSS vs expected ~43MB). Agent-side audit capture of `--reason` flag doesn't work. Fix: `sudo systemctl restart ravenfabric-agent`.
+
+#### 🟡 Medium Items
+
+- **Agent idle memory 19.6-43.2 MB RSS** — 4x over <10 MB target. VmSize 79.6 MB. **Mitigations applied:** `--constrained` mode (512-entry buffer, 256-entry dedup, 2s flush), 64 KB duplex buffer (v1.0.0-beta.2), cached sysinfo in health checks (v1.0.0-beta.3). Build with `--features rt-single-thread,minimal` for max savings (~8-10 MB from tokio runtime + heavy deps). Remaining gap is primarily debug build overhead and tokio multi-thread runtime. **Note:** Current 67MB RSS is on v0.25.3 — restarting to v0.25.4 may reduce this.
 - **MCP server not running on rpi5** — No systemd service. Binary exists but unused. **Requires rpi5 access.**
 - **Secret store not configured on rpi5** — `--seal-key-path` not set. `rf secret push` still fails. **Requires rpi5 access.**
 - **Policy hot-reload untested on rpi5** — SIGHUP handler code exists but no real-world test performed. **Requires rpi5 access.**
 - **Playbook feature untested on rpi5** — Schema fix present but `rf playbook` denied by policy. **Requires rpi5 access.**
+- **Policy rules for advanced features not deployed** — `background_exec`, `port_forward`, `proxy`, `shell_open` all still denied on rpi5 despite being "✅ Resolved" in ROADMAP.md. The policy YAML on rpi5 was never updated with these rules.
 - **Single relay SPOF** — No HA/failover for relay broker. Post-v1.0 feature.
 
-**Resolved items** (policy rules for non-exec actions, shell constructs, `rf policy lint` misleading item) — all confirmed working in rpi5 policy. See [v1.0.0-beta.3 feedback reconciliation](#release-checklist-v100-beta-3--feedback-reconciliation).
+**Resolved items** (shell constructs, `rf policy lint` misleading item) — confirmed working in rpi5 policy. **Policy rules for non-exec actions** (`background_exec`, `port_forward`, `proxy`, `shell_open`) are **NOT deployed** on rpi5 despite code existing. See [Feedback Analysis](#feedback-analysis-ravenfabric-feedbackmd-sessions-7-9) for corrected status.
 
 ### Integration Wishlist (Post-v1.0)
 

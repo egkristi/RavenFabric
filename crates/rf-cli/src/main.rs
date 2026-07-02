@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, mpsc};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
@@ -1318,10 +1318,12 @@ spec:
                     Ok(()) => info!("dev agent session ended"),
                     Err(e) => error!("dev agent error: {}", e),
                 }
-                // Reconnect after brief pause
+                // Reconnect immediately — the previous session ended because
+                // the client disconnected. We need to be ready for the next
+                // client connection without delay.
                 tokio::select! {
                     () = cancel.cancelled() => break,
-                    () = tokio::time::sleep(tokio::time::Duration::from_secs(1)) => {}
+                    () = tokio::time::sleep(tokio::time::Duration::from_millis(50)) => {}
                 }
             }
         }
@@ -1355,10 +1357,19 @@ async fn connect_dev_agent(
             .with_agent_id("dev-agent".to_string())
             .with_start_time(std::time::Instant::now());
 
+    // Read timeout: if no request arrives within this window, assume the
+    // peer disconnected and reconnect. This prevents hanging on half-closed
+    // TCP connections after a client disconnects.
+    const READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
     loop {
-        let data = match chan.recv().await {
-            Ok(d) => d,
-            Err(_) => break,
+        let data = match tokio::time::timeout(READ_TIMEOUT, chan.recv()).await {
+            Ok(Ok(d)) => d,
+            Ok(Err(_)) => break,
+            Err(_) => {
+                info!("dev agent read timeout — reconnecting");
+                break;
+            }
         };
 
         let request: Request = match codec::decode(&data) {
@@ -1370,6 +1381,44 @@ async fn connect_dev_agent(
         };
 
         info!("request: {} action={:?}", request.id, request.action);
+
+        // StreamExecute: spawn streaming output and forward chunks over the channel
+        if let Action::StreamExecute {
+            command,
+            env,
+            workdir,
+        } = &request.action
+        {
+            let (tx, mut rx) = mpsc::channel::<Response>(64);
+            let pol = policy.clone();
+            let aud = audit.clone();
+            let cmd = command.clone();
+            let env_map = env.clone();
+            let wd = workdir.clone();
+            let rid = request.id.clone();
+            let ck = hex::encode(peer_key);
+            tokio::spawn(async move {
+                rf_executor::streaming::stream_execute(
+                    rid, &cmd, &env_map, &wd, pol, aud, &ck, tx,
+                )
+                .await;
+            });
+            // Forward each streaming response chunk to the channel
+            while let Some(resp) = rx.recv().await {
+                let resp_data = match codec::encode(&resp) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        error!("encode error: {}", e);
+                        break;
+                    }
+                };
+                if chan.send(&resp_data).await.is_err() {
+                    break;
+                }
+            }
+            continue;
+        }
+
         let response: Response = executor.handle(request).await;
 
         let resp_data = codec::encode(&response)?;

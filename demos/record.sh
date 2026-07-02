@@ -19,7 +19,7 @@ echo "This will run the scripted demo automatically."
 echo ""
 
 asciinema rec "$CAST_FILE" \
-  --title "RavenFabric — Security-first remote execution in 30 seconds" \
+  --title "RavenFabric — Security-first remote execution & mesh networking" \
   --cols 100 \
   --rows 30 \
   --command "bash $SCRIPT" \
