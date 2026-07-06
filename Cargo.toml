@@ -128,7 +128,7 @@ cryptoki = "0.6"
 tss-esapi = "7"
 
 # X25519 software DH — used by HSM module for ephemeral keys in snow handshake
-x25519-dalek = { version = "2", features = ["static_secrets"] }
+x25519-dalek = { version = "3", features = ["static_secrets"] }
 
 # GeoIP database reader (optional — feature = "geoip")
 maxminddb = "0.28"
