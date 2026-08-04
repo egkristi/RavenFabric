@@ -2,7 +2,7 @@
 
 > **Version:** 1.0.0-rc.6 (Release Candidate) — Released 2026-07-02
 > **Next:** v1.0.0 (Stable) — **Blocked by 4 critical bugs + 6 medium items requiring rpi5 access**
-> **Stats:** 14 crates, ~75,315 LOC, 1,429 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 14 crates, ~75,315 LOC, 1,453 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. 4 critical bugs confirmed persistent across 3 sessions.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 

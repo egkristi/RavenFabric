@@ -21,20 +21,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Streaming exec hang in `rf dev` mode** — After any exec command completed, the dev agent's `chan.recv()` would hang indefinitely on a half-closed TCP connection, preventing the agent from reconnecting for subsequent commands. Added a 5-second read timeout to `connect_dev_agent()` so the agent properly detects disconnection and reconnects to the relay.
 
-## [1.0.0-rc.4] — 2026-07-18
+## [1.0.0-rc.4] — 2026-06-30
 
 ### Changed
 
 - **Dependency maintenance** — Merged 3 Dependabot PRs: codecov/codecov-action v6→v7, maxminddb 0.27.3→0.28.1, serde_json 1.0.149→1.0.150.
 - **cryptoki skipped** — PR #123 (cryptoki 0.6→0.12) deferred due to breaking API changes in the HSM module. Tracked as GitHub Issue.
 
-## [1.0.0-rc.3] — 2026-07-18
+## [1.0.0-rc.3] — 2026-06-30
 
 ### Changed
 
 - **Dependency maintenance** — Merged 4 Dependabot PRs: wasmtime v36→v46, yamux v0.13→v0.14, actions/checkout v6→v7, vite v7.3.3→v7.3.6. Applied rusqlite v0.39→v0.40 update.
 
-## [1.0.0-rc.2] — 2026-07-18
+## [1.0.0-rc.2] — 2026-06-30
 
 ### Fixed
 
@@ -43,9 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **All 13 crates published to crates.io** — rf-audit, rf-crypto, rf-bootstrap, rf-transport, rf-policy, rf-rpc, rf-executor, rf-mcp-client, rf-mcp-server, rf-relay, rf-agent, rf-cli, rf-ingress all at v1.0.0-rc.1.
+- **Release workflow configured for crates.io** — Publish workflow added for all 13 crates (rf-audit, rf-crypto, rf-bootstrap, rf-transport, rf-policy, rf-rpc, rf-executor, rf-mcp-client, rf-mcp-server, rf-relay, rf-agent, rf-cli, rf-ingress) at v1.0.0-rc.1.
 
-## [1.0.0-rc.1] — 2026-07-18
+## [1.0.0-rc.1] — 2026-06-30
 
 ### Added
 
@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dependency maintenance** — `cargo update` applied 81 compatible dependency updates across the workspace, including chrono, hyper, quinn, rustls, serde_json, wasmtime, and zeroize.
 
-## [1.0.0-beta.5] — 2026-07-18
+## [1.0.0-beta.5] — 2026-06-30
 
 ### Added
 
@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Compliance matrix updated** — `docs/compliance/README.md` and mdBook copy now include GDPR, PCI-DSS, and SOC 2 entries.
 
-## [1.0.0-beta.4] — 2026-07-18
+## [1.0.0-beta.4] — 2026-06-30
 
 ### Added
 
@@ -113,7 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cross-platform Noise XX handshake** — Added `--compat-mode` flag (from v0.25.4) resolves macOS→Linux handshake failures via relay.
 - **Release date in ROADMAP.md** — Corrected from 2026-07-27 to actual release date 2026-06-29.
 
-## [0.25.4] — 2026-07-26
+## [0.25.4] — 2026-06-29
 
 ### Added
 
@@ -129,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`rf cp` chunking for files >65535B** — `MAX_FRAME_PAYLOAD` corrected from 65535 to 65519 (65535 - 16-byte ChaChaPoly MAC tag). All chunk constants in CLI and agent updated to match. The snow crate enforces `plaintext.len() + TAGLEN <= MAXMSGLEN`, so 65535-byte plaintext always failed encryption.
 - **Clippy `too_many_arguments` warnings** — Added `#[allow(clippy::too_many_arguments)]` to `audit()`, `handle_execute()`, and `exec_command()`.
 
-## [0.25.3] — 2026-07-17
+## [0.25.3] — 2026-06-27
 
 ### Added
 
@@ -190,7 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - README: Global Fleet section — relay cluster config, cross-region forwarding protocol (`FORWARD:<url>|<inner>`), deny-by-default `ForwardConfig`, region-aware orchestration.
 
-## [0.24.0] — 2026-05-24
+## [0.24.0] — 2026-05-23
 
 ### Added
 
@@ -209,7 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ~72,767 LOC, 1,432 tests across 14 crates.
 
-## [0.23.0] — 2026-05-29
+## [0.23.0] — 2026-05-22
 
 ### Added
 
@@ -223,7 +223,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RelayEndpoint` builder type with continent, country, coordinates, RTT, and weight metadata
 - 34 new tests across `rf-crypto` (HSM/TPM) and `rf-transport` (relay selection)
 
-## [0.22.0] — 2026-05-28
+## [0.22.0] — 2026-05-22
 
 ### Added
 
@@ -240,7 +240,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ~69,907 LOC, 1,386 tests across 14 crates.
 
-## [0.21.0] — 2026-05-28
+## [0.21.0] — 2026-05-21
 
 ### Added
 
