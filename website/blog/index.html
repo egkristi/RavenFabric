@@ -7,6 +7,11 @@
     <meta name="theme-color" content="#0a0b0d">
     <meta name="color-scheme" content="dark">
     <meta name="author" content="Erling Kristiansen">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ravenfabric.io/blog/">
+    <meta property="og:title" content="Blog — RavenFabric">
+    <meta property="og:description" content="RavenFabric engineering blog — deep dives into security, cryptography, networking, and distributed systems.">
+    <meta property="og:image" content="https://ravenfabric.io/assets/og-image.png">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; script-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
     <title>Blog — RavenFabric</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
@@ -60,6 +65,13 @@
             color: #8a8579;
             font-size: 0.875rem;
         }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -71,7 +83,7 @@
                 <a href="/demos/">Demos</a>
                 <a href="/docs/">Docs</a>
                 <a href="/blog/">Blog</a>
-                <a href="https://github.com/egkristi/RavenFabric-Published/releases">GitHub</a>
+                <a href="https://github.com/egkristi/RavenFabric-Published">GitHub</a>
             </nav>
         </div>
     </header>
@@ -116,7 +128,7 @@
 
     <footer>
         <div class="container">
-            &copy; 2026 Erling Kristiansen &middot; <a href="https://github.com/egkristi/RavenFabric-Published/releases">GitHub</a>
+            &copy; 2026 Erling Kristiansen &middot; <a href="https://github.com/egkristi/RavenFabric-Published">GitHub</a>
         </div>
     </footer>
 </body>

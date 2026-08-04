@@ -261,10 +261,67 @@
             color: var(--accent-gold);
         }
 
+        /* Hamburger menu (mobile) */
+        .hamburger-toggle { display: none; }
+        .hamburger-icon {
+            display: none;
+            cursor: pointer;
+            padding: var(--space-2);
+            flex-direction: column;
+            gap: 5px;
+            z-index: 11;
+        }
+        .hamburger-icon span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: var(--text-secondary);
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            border-radius: 1px;
+        }
+        .hamburger-toggle:checked ~ .topnav {
+            display: flex;
+        }
         @media (max-width: 720px) {
-            .topnav a {
+            .hamburger-icon { display: flex; }
+            .topnav {
                 display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                gap: 0;
+                background: rgba(10, 11, 13, 0.97);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border-bottom: 1px solid var(--border-subtle);
+                padding: var(--space-3) 0;
             }
+            .topnav a {
+                display: block;
+                padding: var(--space-3) var(--space-6);
+                border-bottom: 1px solid var(--border-subtle);
+                font-size: 0.9375rem;
+            }
+            .topnav a:last-child { border-bottom: none; }
+            .nav-close {
+                display: block;
+                padding: var(--space-3) var(--space-6);
+                color: var(--text-tertiary);
+                font-size: 0.8125rem;
+                cursor: pointer;
+                text-align: center;
+            }
+            .nav-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                z-index: 5;
+                background: rgba(0,0,0,0.4);
+                cursor: pointer;
+            }
+            .hamburger-toggle:checked ~ .nav-overlay { display: block; }
         }
 
         /* === Hero === */
@@ -1176,6 +1233,10 @@
                 </svg>
                 <span class="brand-name"><strong>Raven</strong><em>Fabric</em></span>
             </a>
+            <input type="checkbox" id="hamburger" class="hamburger-toggle">
+            <label for="hamburger" class="hamburger-icon" aria-label="Toggle navigation menu">
+                <span></span><span></span><span></span>
+            </label>
             <nav class="topnav">
                 <a href="#what">What</a>
                 <a href="#ai-agents">AI Agents</a>
@@ -1186,7 +1247,9 @@
                 <a href="/demos/">Demos</a>
                 <a href="https://docs.ravenfabric.io" target="_blank" rel="noopener">Docs</a>
                 <a href="/blog/">Blog</a>
+                <label for="hamburger" class="nav-close">&times; Close</label>
             </nav>
+            <label for="hamburger" class="nav-overlay"></label>
         </div>
     </header>
 
@@ -1206,6 +1269,10 @@
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8m-3-3l3 3 3-3M3 13h10"/></svg>
                     Download Latest Release
                 </a>
+                <a href="https://github.com/egkristi/RavenFabric-Published" class="btn btn-secondary" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v8m-4-4h8"/></svg>
+                    Published Binaries
+                </a>
                 <a href="/demos/#full-overview" class="btn btn-secondary">
                     Watch demo
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3l7 5-7 5V3z"/></svg>
@@ -1217,7 +1284,7 @@
             </div>
 
             <div class="hero-badges">
-                <img src="https://img.shields.io/badge/version-1.0.0--beta.1-green?style=flat-square" alt="Version">
+                <img src="https://img.shields.io/badge/version-v1.0.0--rc.6-green?style=flat-square" alt="Version">
                 <img src="https://img.shields.io/badge/language-Rust-orange?style=flat-square" alt="Language">
                 <img src="https://img.shields.io/badge/license-AGPLv3-blue?style=flat-square" alt="License">
                 <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest"><img src="https://img.shields.io/github/release-date/egkristi/RavenFabric-Published?style=flat-square&label=latest%20release" alt="Latest Release"></a>
@@ -1376,7 +1443,7 @@ $ rf exec local "rm -rf /"
             <p class="section-lead">
                 Every layer is a separate crate — testable, replaceable, auditable independently.
                 Policy and audit sit beside execution, not bolted on after the fact.
-                14 crates, ~75,295 lines of Rust, 1,429 tests.
+                14 crates, ~75,315 lines of Rust, 1,429 tests.
             </p>
             <img src="assets/architecture.svg" alt="RavenFabric 7-layer architecture diagram showing crypto, transport, RPC, audit, policy, executor, and application layers" width="800" height="600" style="width:100%;max-width:800px;margin:2rem auto;display:block;border-radius:8px;">
         </div>
@@ -1616,7 +1683,7 @@ $ rf exec local "rm -rf /"
                 </div>
                 <div class="feature-card">
                     <h3>Is it production-ready?</h3>
-                    <p>Not yet. v0.20 is a mature early release — the architecture is proven, security model sound, 30+ transport drivers implemented (WebSocket, QUIC, WireGuard, Tor, LoRa, BLE, serial, satellite, AX.25, and more), and CI-verified across Linux, macOS, Windows, and ARM targets. API stabilization and external security audit remain before a production label.</p>
+                    <p>v1.0.0-rc.6 is a feature-complete release candidate — the architecture is proven, security model sound, 30+ transport drivers implemented (WebSocket, QUIC, WireGuard, Tor, LoRa, BLE, serial, satellite, AX.25, and more), and CI-verified across Linux, macOS, Windows, and ARM targets. API stabilization and an external security audit remain before the 1.0.0 GA label.</p>
                 </div>
                 <div class="feature-card">
                     <h3>Who is this for?</h3>
@@ -2145,15 +2212,17 @@ $ rf exec local "rm -rf /"
                     <ul>
                         <li><a href="https://docs.ravenfabric.io/">Documentation</a></li>
                         <li><a href="/demos/">Live Demos</a></li>
+                        <li><a href="/blog/">Blog</a></li>
+                        <li><a href="https://github.com/egkristi/RavenFabric-Published" target="_blank" rel="noopener">GitHub</a></li>
                         <li><a href="https://github.com/egkristi/RavenFabric-Published/releases" target="_blank" rel="noopener">Releases</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
                     <h4>Resources</h4>
                     <ul>
-                        <li><a href="https://docs.ravenfabric.io/">Documentation</a></li>
                         <li><a href="https://docs.ravenfabric.io/use-cases/cloudnativepg.html">Use Cases</a></li>
                         <li><a href="https://docs.ravenfabric.io/compliance/">Compliance</a></li>
+                        <li><a href="https://docs.ravenfabric.io/quickstart.html">Quickstart</a></li>
                         <li><a href="/.well-known/security.txt">security.txt</a></li>
                     </ul>
                 </div>

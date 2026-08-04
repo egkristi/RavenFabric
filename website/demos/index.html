@@ -447,6 +447,13 @@
             header nav a { margin-left: 1rem; font-size: 0.8rem; }
             .info-grid { grid-template-columns: 1fr; }
         }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -458,6 +465,7 @@
                 <a href="/demos/">Demos</a>
                 <a href="/docs/">Docs</a>
                 <a href="/blog/">Blog</a>
+                <a href="https://github.com/egkristi/RavenFabric-Published">GitHub</a>
             </nav>
         </div>
     </header>
@@ -2182,7 +2190,7 @@ cargo build --release -p rf-cli
         <div class="container">
             <p>
                 <a href="/">RavenFabric</a> &mdash; Security-first distributed execution engine
-                &middot; <a href="https://github.com/egkristi/RavenFabric-Published/releases">Releases</a>
+                &middot; <a href="https://github.com/egkristi/RavenFabric-Published">GitHub</a>
                 &middot; <a href="/docs/">Docs</a>
                 &middot; <a href="/blog/">Blog</a>
             </p>

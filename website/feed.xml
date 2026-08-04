@@ -17,6 +17,22 @@
     </item>
 
     <item>
+      <title>How RavenFabric Stops AI Agents from Running rm -rf /</title>
+      <link>https://ravenfabric.io/blog/ai-guardrails.html</link>
+      <guid isPermaLink="true">https://ravenfabric.io/blog/ai-guardrails.html</guid>
+      <pubDate>Wed, 06 May 2026 00:00:00 +0000</pubDate>
+      <description>Deny-by-default policy enforcement for autonomous AI execution. Two independent checks, shell injection prevention, behavioral anomaly detection, and immutable audit trails — because "are you sure?" doesn't work for machines.</description>
+    </item>
+
+    <item>
+      <title>Zero-Trust Mesh Networking Without Certificates</title>
+      <link>https://ravenfabric.io/blog/noise-xx-deep-dive.html</link>
+      <guid isPermaLink="true">https://ravenfabric.io/blog/noise-xx-deep-dive.html</guid>
+      <pubDate>Wed, 06 May 2026 00:00:00 +0000</pubDate>
+      <description>Deep dive into the Noise XX handshake — mutual authentication, identity hiding, forward secrecy, relay opacity, and post-quantum readiness. How RavenFabric builds a mesh network without a single certificate.</description>
+    </item>
+
+    <item>
       <title>Why Noise XX over TLS</title>
       <link>https://ravenfabric.io/blog/why-noise-xx-over-tls.html</link>
       <guid isPermaLink="true">https://ravenfabric.io/blog/why-noise-xx-over-tls.html</guid>
