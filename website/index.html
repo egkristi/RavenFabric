@@ -1275,6 +1275,19 @@
             color: var(--accent-blood);
             border: 1px solid rgba(139,58,58,0.25);
         }
+        .download-list .unavailable {
+            text-decoration: line-through;
+            text-decoration-color: var(--text-tertiary);
+            color: var(--text-tertiary);
+        }
+        .download-list .unavailable a { color: var(--text-tertiary); }
+        .download-list .planned-tag {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            color: var(--accent-gold-dim);
+            letter-spacing: 0.05em;
+            margin-left: var(--space-1);
+        }
         .download-list .arch-list {
             font-family: var(--font-mono);
             font-size: 0.75rem;
@@ -1456,8 +1469,9 @@ $ rf exec local "rm -rf /"
             <div class="section-eyebrow">Download &amp; Install</div>
             <h2 class="section-title">One static binary. <em>Every platform</em>.</h2>
             <p class="section-lead">
-                Pre-built binaries for Linux (musl/glibc), macOS, Windows, ARM, RISC-V.
-                Package managers, containers, and source builds — everything linked from one place.
+                Pre-built binaries for Linux (musl/glibc), macOS, Windows, and ARM.
+                Package managers and containers are in progress — binaries are ready now.
+                <span class="planned-tag">Items marked strikethrough are planned, not yet published.</span>
             </p>
 
             <div class="one-liner-box">
@@ -1473,62 +1487,73 @@ $ rf exec local "rm -rf /"
                         <li>
                             <span class="tag binary">Binary</span>
                             <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest" target="_blank" rel="noopener">GitHub Releases</a>
-                            <span class="arch-list">amd64 · arm64 · armv7 · riscv64</span>
+                            <span class="arch-list">amd64 · arm64 · armv7</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">Snap</span>
-                            <a href="https://snapcraft.io/ravenfabric" target="_blank" rel="noopener">snapcraft.io/ravenfabric</a>
+                            <span class="cmd">snap install ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">APT</span>
                             <span class="cmd">apt install ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">YUM/DNF</span>
                             <span class="cmd">dnf install ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">AUR</span>
                             <span class="cmd">yay -S ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">Alpine</span>
                             <span class="cmd">apk add ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">Homebrew</span>
                             <span class="cmd">brew install ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">Flatpak</span>
-                            <a href="https://flathub.org/apps/io.ravenfabric.Agent" target="_blank" rel="noopener">flathub.org</a>
+                            <span class="cmd">flatpak install ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">AppImage</span>
                             <span>Single-file portable</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">OpenWrt</span>
                             <span class="cmd">opkg install ravenfabric</span>
                             <span class="arch-list">arm · mips</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag repo">OBS</span>
-                            <a href="https://build.opensuse.org/package/show/home:ravenfabric/ravenfabric" target="_blank" rel="noopener">openSUSE Build Service</a>
+                            <span>openSUSE Build Service</span>
                             <span class="arch-list">RPM · DEB for all distros</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag repo">Raspberry Pi</span>
-                            <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest" target="_blank" rel="noopener">Pre-built image</a>
+                            <span>Pre-built image</span>
                             <span class="arch-list">arm64 · armv7</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
                     </ul>
                 </div>
@@ -1542,24 +1567,28 @@ $ rf exec local "rm -rf /"
                             <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest" target="_blank" rel="noopener">GitHub Releases</a>
                             <span class="arch-list">amd64 · arm64 (Apple Silicon)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">Homebrew</span>
                             <span class="cmd">brew install ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">PKG Installer</span>
                             <span>Signed <code>.pkg</code></span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">DMG</span>
                             <span>Drag-and-drop <code>.dmg</code></span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag repo">launchd</span>
-                            <span>System service plist included</span>
+                            <span>System service plist</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
                     </ul>
 
@@ -1570,29 +1599,34 @@ $ rf exec local "rm -rf /"
                             <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest" target="_blank" rel="noopener">GitHub Releases</a>
                             <span class="arch-list">amd64</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">Winget</span>
                             <span class="cmd">winget install RavenFabric.RavenFabric</span>
                             <span class="arch-list">amd64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">Chocolatey</span>
                             <span class="cmd">choco install ravenfabric</span>
                             <span class="arch-list">amd64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">Scoop</span>
                             <span class="cmd">scoop install ravenfabric</span>
                             <span class="arch-list">amd64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag pkg">NSIS / WiX</span>
                             <span>Installer <code>.exe</code> / <code>.msi</code></span>
                             <span class="arch-list">amd64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag repo">Service</span>
-                            <span>Windows Service via <code>install-windows-service.ps1</code></span>
+                            <span>Windows Service via <code>.ps1</code></span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
                     </ul>
                 </div>
@@ -1601,44 +1635,50 @@ $ rf exec local "rm -rf /"
                 <div class="download-group">
                     <h3>📦 Containers &amp; Kubernetes</h3>
                     <ul class="download-list">
-                        <li>
+                        <li class="unavailable">
                             <span class="tag repo">Docker</span>
-                            <a href="https://github.com/egkristi/RavenFabric-Published/pkgs/container/ravenfabric" target="_blank" rel="noopener">ghcr.io/egkristi/RavenFabric-Published</a>
+                            <span class="cmd">docker pull ghcr.io/egkristi/ravenfabric</span>
                             <span class="arch-list">amd64 · arm64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag repo">Helm</span>
-                            <span class="cmd">helm install ravenfabric ./deploy/helm/ravenfabric</span>
+                            <span class="cmd">helm install ravenfabric</span>
                             <span class="arch-list">Kubernetes 1.28+</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
                         <li>
                             <span class="tag repo">Docker Compose</span>
                             <span class="cmd">docker compose up -d</span>
-                            <span class="arch-list">relay + agent stack</span>
+                            <span class="arch-list">repo includes <code>docker-compose.yml</code></span>
                         </li>
                     </ul>
 
                     <h3 style="margin-top: var(--space-6);">📱 Mobile &amp; IoT</h3>
                     <ul class="download-list">
-                        <li>
+                        <li class="unavailable">
                             <span class="tag binary">Android</span>
                             <span>Foreground service, NDK cross-compile</span>
                             <span class="arch-list">aarch64 · armv7</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag src">F-Droid</span>
                             <span>Metadata ready</span>
                             <span class="arch-list">aarch64 · armv7</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag binary">iOS</span>
                             <span>Network Extension provider</span>
                             <span class="arch-list">aarch64</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
-                        <li>
+                        <li class="unavailable">
                             <span class="tag binary">WASM / WASI</span>
                             <span>Minimal agent profile</span>
                             <span class="arch-list">wasm32</span>
+                            <span class="planned-tag">(planned)</span>
                         </li>
                     </ul>
                 </div>
