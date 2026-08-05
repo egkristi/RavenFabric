@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-policy
+data:
+  policy.yaml: |
+    spec:
+      commands:
+        allow:
+          - pattern: ".*"
+      filesystem:
+        allow:
+          - path: /tmp
+          - path: /var/log
+          - path: /etc/ravenfabric
+      resources:
+        maxOutputBytes: 10485760
+        timeoutSeconds: 300
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: relay
+  labels:
+    app: relay
+spec:
+  restartPolicy: Always
+  containers:
+  - name: relay
+    image: ubuntu:24.04
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      apt-get update -qq && apt-get install -y -qq curl
+      curl -fsSL -o /usr/local/bin/rf-relay https://github.com/egkristi/RavenFabric-Published/releases/download/v1.0.0-rc.6/ravenfabric-linux-amd64-musl-relay
+      chmod +x /usr/local/bin/rf-relay
+      exec /usr/local/bin/rf-relay --listen 0.0.0.0:9090
+    ports:
+    - containerPort: 9090
+      name: relay
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: relay-svc
+  labels:
+    app: relay
+spec:
+  selector:
+    app: relay
+  ports:
+  - port: 9090
+    targetPort: 9090
+  type: ClusterIP
