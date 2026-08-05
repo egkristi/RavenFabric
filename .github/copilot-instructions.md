@@ -61,6 +61,23 @@ rf-mcp-client (no internal deps — standalone SDK)
 rf-ingress (depends on rf-crypto, rf-transport, rf-rpc, rf-audit)
 ```
 
+## Development Environment — Kubernetes
+
+The `ravenfabric` namespace on the K8s cluster (`kubectl` is pre-configured and available) is used for all testing, development, and deployment related to RavenFabric. Use it for:
+
+- Deploying test pods, services, and ConfigMaps
+- Running integration tests against live agents in the cluster
+- Deploying and testing Helm charts (`deploy/helm/ravenfabric/`)
+- Experimenting with CNPG (CloudNativePG) PostgreSQL clusters
+- Any ad-hoc development or debugging that needs a K8s environment
+
+```bash
+kubectl get all -n ravenfabric          # See everything in the namespace
+kubectl run test-ubuntu --image=ubuntu:24.04 -n ravenfabric --restart=Never -- sleep infinity
+kubectl exec -n ravenfabric -it test-ubuntu -- bash
+kubectl delete pod -n ravenfabric test-ubuntu
+```
+
 ## Platform Targets
 
 RavenFabric runs **everywhere**. The agent must compile and operate on any device that can run code:
