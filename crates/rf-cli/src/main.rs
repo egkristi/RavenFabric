@@ -557,6 +557,7 @@ async fn exec_command(
                     duration_ms,
                 } => {
                     info!("exit_code={} duration={}ms", exit_code, duration_ms);
+                    eprintln!("remote exit code: {exit_code}");
                     if exit_code != 0 {
                         std::process::exit(exit_code);
                     }
@@ -584,6 +585,7 @@ async fn exec_command(
                         eprint!("{stderr}");
                     }
                     info!("exit_code={} duration={}ms", exit_code, duration_ms);
+                    eprintln!("remote exit code (fallback): {exit_code}");
                     if exit_code != 0 {
                         std::process::exit(exit_code);
                     }
@@ -619,6 +621,7 @@ async fn exec_command(
                 eprint!("{stderr}");
             }
             info!("exit_code={} duration={}ms", exit_code, duration_ms);
+            eprintln!("remote exit code: {exit_code}");
             if exit_code != 0 {
                 std::process::exit(exit_code);
             }

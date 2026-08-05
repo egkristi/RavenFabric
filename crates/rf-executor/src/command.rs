@@ -3121,7 +3121,7 @@ impl Executor {
             Some(s) => s.clone(),
             None => {
                 return RpcResult::Error {
-                    message: "secret store not configured".to_string(),
+                    message: "secret store not configured — start agent with --seal-key-path <32-byte-file> to enable secrets".to_string(),
                 };
             }
         };
@@ -3300,7 +3300,7 @@ impl Executor {
             Some(s) => s.clone(),
             None => {
                 return RpcResult::Error {
-                    message: "secret store not configured".to_string(),
+                    message: "secret store not configured — start agent with --seal-key-path <32-byte-file> to enable secrets".to_string(),
                 };
             }
         };
@@ -3507,7 +3507,7 @@ impl Executor {
             Some(s) => s.clone(),
             None => {
                 return RpcResult::Error {
-                    message: "secret store not configured".to_string(),
+                    message: "secret store not configured — start agent with --seal-key-path <32-byte-file> to enable secrets".to_string(),
                 };
             }
         };
@@ -3572,7 +3572,7 @@ impl Executor {
             Some(s) => s.clone(),
             None => {
                 return RpcResult::Error {
-                    message: "secret store not configured".to_string(),
+                    message: "secret store not configured — start agent with --seal-key-path <32-byte-file> to enable secrets".to_string(),
                 };
             }
         };

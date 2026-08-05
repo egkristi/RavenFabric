@@ -285,11 +285,11 @@ async fn handle_connection_inner(
                     match msg {
                         Ok(msg @ Message::Binary(_)) => {
                             if to_first.send(msg).is_err() { break; }
-                            if compat_mode {
-                                // Yield to the runtime to prevent race conditions
-                                // on certain platform combinations (macOS→Linux).
-                                tokio::task::yield_now().await;
-                            }
+                            // Always yield after forwarding to prevent handshake message
+                            // ordering issues between the two relay connections. Without this,
+                            // multiple messages arriving in the same poll batch can be delivered
+                            // out of order through the mpsc channel.
+                            tokio::task::yield_now().await;
                         }
                         Ok(Message::Close(_)) | Err(_) => break,
                         _ => {}
@@ -326,9 +326,8 @@ async fn handle_connection_inner(
                     match msg {
                         Ok(msg @ Message::Binary(_)) => {
                             if outbound_tx.send(msg).is_err() { break; }
-                            if compat_mode {
-                                tokio::task::yield_now().await;
-                            }
+                            // Always yield after forwarding — prevents handshake ordering issues
+                            tokio::task::yield_now().await;
                         }
                         Ok(Message::Close(_)) | Err(_) => break,
                         _ => {}
