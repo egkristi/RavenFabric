@@ -78,6 +78,52 @@ kubectl exec -n ravenfabric -it test-ubuntu -- bash
 kubectl delete pod -n ravenfabric test-ubuntu
 ```
 
+### Development Testing Workflow (MANDATORY)
+
+**After every feature addition or code modification, test it before considering it done.**
+
+1. **Check the relay-mode handshake fix** — After any change to `rf-crypto/noise.rs`, `rf-relay/`, or `rf-agent/`, verify agent↔relay connectivity
+2. **Deploy + test in the `ravenfabric` namespace**:
+   ```bash
+   # Clean slate
+   kubectl delete pod -n ravenfabric --all
+
+   # Deploy relay
+   kubectl run relay -n ravenfabric --image=ubuntu:24.04 --restart=Always ... -- /bin/bash -c '<install rf-relay> && exec rf-relay --listen 0.0.0.0:9090'
+   kubectl expose pod relay -n ravenfabric --port=9090 --name=relay-svc
+
+   # Deploy agent(s) with permissive policy
+   kubectl run agent1 -n ravenfabric --image=ubuntu:24.04 --restart=Always ... -- /bin/bash -c '<install rf-agent> && exec rf-agent --relay ws://relay-svc:9090 --token agent1 ...'
+
+   # Test exec through port-forward
+   kubectl port-forward -n ravenfabric pod/relay 9090:9090 &
+   rf --relay ws://127.0.0.1:9090 exec --token agent1 "hostname && echo WORKS"
+   ```
+
+3. **Run existing test suites** found in `test/`:
+   - `test/protocol-testing.md` — Protocol-level tests across distros
+   - `test/scenario-testing.md` — Full feature matrix (29 scenarios)
+   - `test/install-testing.md` — Installation methods across distros
+   - `test/k8s-testing-final.md` — K8s-specific relay/agent tests
+
+4. **Verify key invariants**:
+   - `cargo test -p rf-crypto` passes (50 tests)
+   - Direct connect works: `rf-agent --listen 0.0.0.0:9999` → `rf --connect ws://... exec`
+   - Relay mode works: agent connects, CLI can exec via relay
+   - Policy denial works: `rm -rf /` denied, `hostname` allowed
+   - Audit logging works: `rf-audit.jsonl` has entries with `decision`, `command`, `matched_rule`
+
+5. **If K8s is unavailable**, test locally:
+   ```bash
+   # Dev mode (in-process relay+agent)
+   rf dev --port 9090 &
+   rf exec --token dev "echo local_test"
+   ```
+
+6. **Document any issues found** in the appropriate `test/*.md` file
+
+**This is not optional.** New code ships broken as often as it ships working. Verification catches it.
+
 ## Platform Targets
 
 RavenFabric runs **everywhere**. The agent must compile and operate on any device that can run code:

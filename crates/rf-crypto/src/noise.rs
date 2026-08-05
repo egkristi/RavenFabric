@@ -1,14 +1,20 @@
 use snow::{Builder, Error as SnowError, HandshakeState, StatelessTransportState};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::time::{Duration, timeout};
+use tokio::time::{Duration, sleep, timeout};
 use tracing::{debug, trace, warn};
 
 use crate::error::CryptoError;
 use crate::keys::StaticKey;
 
-/// Timeout for the complete Noise XX handshake (3 messages each direction).
-/// Prevents hanging indefinitely on relay connections with cross-platform issues.
-const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
+/// Timeout for the first Noise XX handshake attempt.
+/// Reduced from 30s to 10s — retries cover the rest.
+const HANDSHAKE_TIMEOUT_FIRST: Duration = Duration::from_secs(10);
+
+/// Timeout for subsequent handshake retries (faster, less headroom needed).
+const HANDSHAKE_TIMEOUT_RETRY: Duration = Duration::from_secs(5);
+
+/// Maximum number of handshake attempts before giving up.
+const HANDSHAKE_MAX_ATTEMPTS: u32 = 3;
 
 /// Noise protocol pattern used throughout RavenFabric.
 pub const NOISE_PATTERN: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
@@ -88,87 +94,138 @@ where
         )));
     }
 
-    let builder = Builder::new(
-        NOISE_PATTERN
-            .parse()
-            .expect("static noise pattern is always valid"),
-    )
-    .local_private_key(static_key.private_bytes())
-    .map_err(|e| CryptoError::Handshake(e.to_string()))?;
-
-    let mut noise = if is_initiator {
-        builder.build_initiator()
-    } else {
-        builder.build_responder()
-    }
-    .map_err(|e| CryptoError::Handshake(e.to_string()))?;
+    let private_key_bytes = static_key.private_bytes();
 
     // Use a larger buffer for the handshake to accommodate any platform-specific
     // message size variations (snow-0.10.0 macOS→Linux relay issue).
     // The +256 accounts for potential Noise XX message expansion on different
     // platform curve25519 implementations.
-    let mut buf = vec![0u8; 65535 + 256];
+    let buf_size = 65535 + 256;
 
-    // Wrap the entire handshake in a timeout to prevent hanging on
-    // cross-platform relay connections (snow-0.10.0 macOS→Linux issue).
-    let handshake_result = timeout(HANDSHAKE_TIMEOUT, async {
-        if is_initiator {
-            // → msg1: e
-            send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
-            if compat_mode {
-                tokio::task::yield_now().await;
-            }
-            // ← msg2: e, ee, s, es
-            recv_handshake_msg(transport, &mut noise, &mut buf).await?;
-            if compat_mode {
-                tokio::task::yield_now().await;
-            }
-            // → msg3: s, se
-            send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
+    // Retry the handshake up to HANDSHAKE_MAX_ATTEMPTS times with progressively
+    // shorter timeouts. Relay connections commonly fail the first attempt due to
+    // message ordering issues between the two forwarded WebSocket connections
+    // (snow-0.10.0 cross-platform timing bug). Subsequent attempts succeed once
+    // the relay's bidirectional forwarding is in a steady state.
+    let mut last_error: Option<CryptoError> = None;
+
+    for attempt in 0..HANDSHAKE_MAX_ATTEMPTS {
+        // Fresh builder + noise state + buffer for each attempt
+        let noise_params = NOISE_PATTERN
+            .parse()
+            .expect("static noise pattern is always valid");
+        let builder = Builder::new(noise_params)
+            .local_private_key(private_key_bytes)
+            .map_err(|e| CryptoError::Handshake(e.to_string()))?;
+
+        let mut noise = if is_initiator {
+            builder.build_initiator()
         } else {
-            // ← msg1: e
-            recv_handshake_msg(transport, &mut noise, &mut buf).await?;
-            if compat_mode {
-                tokio::task::yield_now().await;
-            }
-            // → msg2: e, ee, s, es
-            send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
-            if compat_mode {
-                tokio::task::yield_now().await;
-            }
-            // ← msg3: s, se
-            recv_handshake_msg(transport, &mut noise, &mut buf).await?;
+            builder.build_responder()
         }
-        Ok::<_, CryptoError>(())
-    })
-    .await;
+        .map_err(|e| CryptoError::Handshake(e.to_string()))?;
 
-    match handshake_result {
-        Ok(Ok(())) => debug!("Noise XX handshake complete"),
-        Ok(Err(e)) => return Err(e),
-        Err(_) => {
-            warn!(
-                "Noise XX handshake timed out after {}s — possible cross-platform relay issue",
-                HANDSHAKE_TIMEOUT.as_secs()
+        let mut buf = vec![0u8; buf_size];
+        let timeout_dur = if attempt == 0 {
+            HANDSHAKE_TIMEOUT_FIRST
+        } else {
+            HANDSHAKE_TIMEOUT_RETRY
+        };
+
+        let handshake_result = timeout(timeout_dur, async {
+            if is_initiator {
+                // → msg1: e
+                send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
+                transport.flush().await.map_err(|_| CryptoError::Disconnected)?;
+                if compat_mode {
+                    tokio::task::yield_now().await;
+                }
+                // ← msg2: e, ee, s, es
+                recv_handshake_msg(transport, &mut noise, &mut buf).await?;
+                if compat_mode {
+                    tokio::task::yield_now().await;
+                }
+                // → msg3: s, se
+                send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
+                transport.flush().await.map_err(|_| CryptoError::Disconnected)?;
+            } else {
+                // ← msg1: e
+                recv_handshake_msg(transport, &mut noise, &mut buf).await?;
+                if compat_mode {
+                    tokio::task::yield_now().await;
+                }
+                // → msg2: e, ee, s, es
+                send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
+                transport.flush().await.map_err(|_| CryptoError::Disconnected)?;
+                if compat_mode {
+                    tokio::task::yield_now().await;
+                }
+                // ← msg3: s, se
+                recv_handshake_msg(transport, &mut noise, &mut buf).await?;
+            }
+            Ok::<_, CryptoError>(noise)
+        })
+        .await;
+
+        match handshake_result {
+            Ok(Ok(noise)) => {
+                let peer_key = noise
+                    .get_remote_static()
+                    .ok_or_else(|| CryptoError::Handshake("no remote static key".into()))?;
+
+                let mut peer_key_arr = [0u8; 32];
+                peer_key_arr.copy_from_slice(peer_key);
+
+                let transport_state = noise
+                    .into_stateless_transport_mode()
+                    .map_err(|e| CryptoError::Handshake(e.to_string()))?;
+
+                return Ok((transport_state, peer_key_arr));
+            }
+            Ok(Err(e)) => {
+                warn!("Noise XX handshake attempt {} failed: {}", attempt + 1, e);
+                last_error = Some(e);
+            }
+            Err(_elapsed) => {
+                warn!(
+                    "Noise XX handshake attempt {} timed out after {}s — possible cross-platform relay issue",
+                    attempt + 1,
+                    timeout_dur.as_secs(),
+                );
+                last_error = Some(CryptoError::HandshakeInput(
+                    format!(
+                        "handshake attempt {} timed out after {}s — relay may have cross-platform compatibility issue",
+                        attempt + 1,
+                        timeout_dur.as_secs(),
+                    ),
+                ));
+            }
+        }
+
+        // Backoff before retry
+        if attempt + 1 < HANDSHAKE_MAX_ATTEMPTS {
+            let backoff_ms = 100 * (attempt as u64 + 1);
+            debug!(
+                "handshake retry {}/{} in {}ms...",
+                attempt + 2,
+                HANDSHAKE_MAX_ATTEMPTS,
+                backoff_ms,
             );
-            return Err(CryptoError::HandshakeInput(
-                "handshake timed out — relay may have cross-platform compatibility issue".into(),
-            ));
+            sleep(Duration::from_millis(backoff_ms)).await;
         }
     }
 
-    let peer_key = noise
-        .get_remote_static()
-        .ok_or_else(|| CryptoError::Handshake("no remote static key".into()))?;
-
-    let mut peer_key_arr = [0u8; 32];
-    peer_key_arr.copy_from_slice(peer_key);
-
-    let transport_state = noise
-        .into_stateless_transport_mode()
-        .map_err(|e| CryptoError::Handshake(e.to_string()))?;
-
-    Ok((transport_state, peer_key_arr))
+    // All attempts failed
+    warn!(
+        "Noise XX handshake failed after {} attempts",
+        HANDSHAKE_MAX_ATTEMPTS,
+    );
+    Err(last_error.unwrap_or_else(|| {
+        CryptoError::HandshakeInput(
+            "handshake failed after all retries — relay may have cross-platform compatibility issue"
+                .into(),
+        )
+    }))
 }
 
 /// Send a handshake message (length-prefixed).
