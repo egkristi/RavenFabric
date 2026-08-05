@@ -90,7 +90,7 @@
 
 - [x] **Reduce agent idle memory** — Mitigated in v1.0.0-beta.1 with `--constrained` mode (512-entry buffer, 256-entry dedup, 2s flush), 256 KB duplex buffer. Build with `--features rt-single-thread,minimal` for max savings.
 - [ ] **Relay HA** — Single relay is SPOF. No failover mechanism.
-- [x] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types. ✅ Done in `docs/playbooks.md`.
+- [x] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types. ✅ Done in `docs/src/guide/fleet-orchestration.md`.
 
 ---
 
@@ -144,7 +144,7 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 
 - [ ] **Implement relay HA** — Multiple relay instances behind load balancer, agent connection to multiple relays, controller failover between relays. **Post-v1.0 feature.**
 - [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types (agents, canary, rolling, fanout). **Requires rpi5 access.**
-- [x] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types in `docs/playbooks.md`.
+- [x] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types in `docs/src/guide/fleet-orchestration.md`.
 - [ ] **Reduce agent VmSize** — Currently 79.6 MB virtual allocation. Investigate if this can be reduced.
 - [x] **`rf policy lint` is a local CLI command** — Not executed via `rf exec`. Works directly on any machine with the CLI installed. No policy rule needed.
 
@@ -862,7 +862,7 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 - **Cross-platform Noise XX via relay** — `--compat-mode` flag added to agent, relay, and CLI. **⚠️ Still hangs in practice** — flag exists but doesn't fix root cause (snow-0.10.0 issue).
 - **File transfer size limit** — `MAX_FRAME_PAYLOAD` corrected to 65519 (65535 - 16-byte MAC). All chunk constants updated. **⚠️ Local→agent works, agent→local still broken** (pull-stream direction).
 - **Metrics counters stuck at 0** — Handshake timing, active connections, and all 6 counters now wired in agent. **⚠️ Still at 0 in practice** — confirmed across 3 sessions. Counters never increment.
-- **Playbook documentation** — `docs/playbooks.md` with full YAML schema, examples, and rollout strategies.
+- **Playbook documentation** — `docs/src/guide/fleet-orchestration.md` with full YAML schema, examples, and rollout strategies.
 - **Local CLI v0.25.4** — Version bump with all fixes.
 
 **Resolved in v1.0.0-beta.1 (Released 2026-06-29):**

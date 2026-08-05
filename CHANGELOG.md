@@ -122,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--reason` flag to `rf exec`** — CLI now accepts an optional `--reason` string that is threaded through to the executor and included in audit log entries.
 - **Handshake metrics counters** — `handshakes_completed` and `handshake_latency_us` Prometheus counters are now incremented on every successful Noise XX handshake in the agent.
 - **Active connections tracking** — `active_connections` Prometheus counter is incremented on connection open and decremented on connection close via a RAII `ConnectionTracker` guard.
-- **Playbook documentation** — New `docs/playbooks.md` with full YAML schema, rollout strategies (parallel, sequential, rolling, canary), failure policies, and examples.
+- **Playbook documentation** — Full YAML schema, rollout strategies (parallel, sequential, rolling, canary), failure policies, and examples in `docs/src/guide/fleet-orchestration.md`.
 
 ### Fixed
 

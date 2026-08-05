@@ -1,124 +1,146 @@
 # Installation
 
-## Pre-built Binaries (Recommended)
+RavenFabric is distributed as a single static binary with zero runtime dependencies.
+Binaries are typically 6–12 MB stripped. All include the Noise XX handshake, policy engine, and audit logger.
 
-Download the latest release from [GitHub Releases](https://github.com/egkristi/RavenFabric-Published/releases):
-
-| Platform | Binary |
-|----------|--------|
-| Linux x86_64 (static) | [ravenfabric-linux-amd64-musl-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-cli) |
-| Linux ARM64 (static) | [ravenfabric-linux-arm64-musl-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-arm64-musl-cli) |
-| Linux armv7 (static) | [ravenfabric-linux-armv7-musl-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-armv7-musl-cli) |
-| macOS x86_64 | [ravenfabric-darwin-amd64-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-amd64-cli) |
-| macOS ARM64 (Apple Silicon) | [ravenfabric-darwin-arm64-cli](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-darwin-arm64-cli) |
-| Windows x86_64 | [ravenfabric-windows-amd64-cli.exe](https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-windows-amd64-cli.exe) |
-
-```bash
-# Example: Linux x86_64
-curl -Lo rf https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-cli
-chmod +x rf
-sudo mv rf /usr/local/bin/
-```
-
-## Install Script
+## Quick Start — One-Line Installer
 
 ```bash
 curl -fsSL https://ravenfabric.io/install.sh | sh
 ```
 
-## Package Managers
+This downloads `rf` (CLI), `rf-agent`, and `rf-relay` to `/usr/local/bin`.
+Auto-detects OS and architecture.
 
-### macOS
+## GitHub Releases (Pre-built Binaries)
+
+The primary distribution channel.
+[github.com/egkristi/RavenFabric-Published](https://github.com/egkristi/RavenFabric-Published)
+
+| Platform | Arch | Binary | Agent | Relay |
+|----------|------|--------|-------|-------|
+| Linux (musl) | amd64 | ✅ | ✅ | ✅ |
+| Linux (musl) | arm64 | ✅ | ✅ | ✅ |
+| Linux (musl) | armv7 | ✅ | ✅ | ✅ |
+| macOS | amd64 | ✅ | ✅ | ✅ |
+| macOS | arm64 | ✅ | ✅ | ✅ |
+| Windows | amd64 | ✅ | ✅ | ✅ |
 
 ```bash
-# Homebrew — https://github.com/egkristi/homebrew-tap
+# Linux x86_64
+curl -LO https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-cli
+chmod +x ravenfabric-linux-amd64-musl-cli
+sudo mv ravenfabric-linux-amd64-musl-cli /usr/local/bin/rf
+
+# Verify checksum
+curl -LO https://github.com/egkristi/RavenFabric-Published/releases/latest/download/ravenfabric-linux-amd64-musl-cli.sha256
+sha256sum -c ravenfabric-linux-amd64-musl-cli.sha256
+```
+
+## Homebrew (macOS & Linux)
+
+Tested and working:
+
+```bash
 brew install egkristi/tap/ravenfabric
-# Or tap first, then install by name:
-brew tap egkristi/tap
-brew install ravenfabric
-# Upgrade:
-brew update && brew upgrade ravenfabric
 ```
 
-### Linux
+Upgrade: `brew update && brew upgrade ravenfabric`
+
+[Homebrew tap](https://github.com/egkristi/homebrew-tap)
+
+## Cargo (crates.io)
+
+All 13 crates published on [crates.io](https://crates.io/search?q=rf-). Requires Rust 1.88+.
 
 ```bash
-# Arch Linux (AUR)
-yay -S ravenfabric
-
-# Snap
-sudo snap install ravenfabric
-
-# Nix
-nix profile install ravenfabric
+cargo install rf-cli         # CLI
+cargo install rf-agent       # Agent
+cargo install rf-relay       # Relay broker
+cargo install rf-mcp-server  # MCP server for AI agents
 ```
 
-### Windows
+| Crate | Purpose |
+|-------|---------|
+| [`rf-cli`](https://crates.io/crates/rf-cli) | CLI client (`rf`) |
+| [`rf-agent`](https://crates.io/crates/rf-agent) | Agent daemon |
+| [`rf-relay`](https://crates.io/crates/rf-relay) | Relay broker |
+| [`rf-mcp-server`](https://crates.io/crates/rf-mcp-server) | MCP server |
+| [`rf-crypto`](https://crates.io/crates/rf-crypto) | Noise XX, key management |
+| [`rf-transport`](https://crates.io/crates/rf-transport) | 30+ transport drivers |
+| [`rf-rpc`](https://crates.io/crates/rf-rpc) | RPC types + yamux |
+| [`rf-audit`](https://crates.io/crates/rf-audit) | Audit logging |
+| [`rf-policy`](https://crates.io/crates/rf-policy) | Policy engine |
+| [`rf-executor`](https://crates.io/crates/rf-executor) | Execution engine |
+| [`rf-bootstrap`](https://crates.io/crates/rf-bootstrap) | OTP enrollment |
+| [`rf-ingress`](https://crates.io/crates/rf-ingress) | HTTP ingress |
+| [`rf-mcp-client`](https://crates.io/crates/rf-mcp-client) | MCP client SDK |
 
-```powershell
-# winget
-winget install RavenFabric.RavenFabric
+## Build from Source
 
-# Scoop
-scoop bucket add extras
-scoop install ravenfabric
-
-# Chocolatey
-choco install ravenfabric
-```
-
-### Cargo
-
-```bash
-cargo install ravenfabric
-```
-
-## From Source
-
-RavenFabric requires Rust 1.88+ (Edition 2024).
+Requires Rust 1.88+ (Edition 2024). No runtime dependencies.
 
 ```bash
 git clone https://github.com/egkristi/RavenFabric.git
 cd RavenFabric
 cargo build --release
 
-# Binaries are in target/release/
-ls target/release/rf target/release/rf-agent target/release/rf-relay target/release/rf-mcp-server
+# Binaries: target/release/{rf, rf-agent, rf-relay, rf-mcp-server}
 ```
 
-## Docker
-
-```bash
-docker pull ghcr.io/egkristi/ravenfabric:latest
-
-# Or build locally
-docker build --target agent -t ravenfabric-agent .
-docker build --target relay -t ravenfabric-relay .
-```
-
-## Static Binary (Linux)
-
-For a fully static binary with no libc dependency:
+Static musl build (Linux):
 
 ```bash
 rustup target add x86_64-unknown-linux-musl
 cargo build --release --target x86_64-unknown-linux-musl
 ```
 
+Cross-compile for Raspberry Pi:
+
+```bash
+rustup target add armv7-unknown-linux-musleabihf
+cargo build --release --target armv7-unknown-linux-musleabihf
+```
+
+## Docker Compose
+
+Local relay + agent stack:
+
+```bash
+git clone https://github.com/egkristi/RavenFabric.git
+cd RavenFabric
+docker compose up -d
+```
+
+## Systemd Services (Linux)
+
+```bash
+sudo cp deploy/rf-agent.service /etc/systemd/system/
+sudo cp deploy/rf-relay.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now rf-agent
+```
+
+## Planned Package Managers (Not Yet Published)
+
+| Manager | Status |
+|---------|--------|
+| Snap | 🔜 `snap/snapcraft.yaml` ready |
+| AUR (Arch) | 🔜 `deploy/aur/PKGBUILD` ready |
+| Alpine (apk) | 🔜 `deploy/alpine/APKBUILD` ready |
+| Flatpak | 🔜 `deploy/flatpak/` ready |
+| Winget / Choco / Scoop | 🔜 `deploy/winget/`, `deploy/chocolatey/`, `deploy/scoop/` ready |
+| Docker image (ghcr) | 🔜 `Dockerfile` ready |
+| Helm | 🔜 `deploy/helm/` ready |
+| Android / iOS / WASM | 🔜 Roadmap |
+
 ## Platform Support
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| Linux x86_64 | Tier 1 (CI-tested) | Static musl binary |
-| Linux ARM64 | Tier 1 (CI-tested) | Static musl binary |
-| macOS x86_64 | Tier 1 (CI-tested) | Universal binary |
-| macOS ARM64 | Tier 1 (CI-tested) | Apple Silicon native |
-| Windows x86_64 | Tier 1 (CI-tested) | Static CRT |
-| Linux armv7 | Tier 2 (CI cross-checked) | Raspberry Pi 3/4/Zero 2W |
-| Linux riscv64 | Tier 2 (CI cross-checked) | RISC-V boards |
-| FreeBSD x86_64 | Tier 2 (CI cross-checked) | BSD servers |
-| Android (aarch64) | Tier 3 (planned) | NDK cross-compile |
-| iOS (aarch64) | Tier 3 (planned) | Network Extension |
+| Tier | Platforms | Status |
+|------|-----------|--------|
+| Tier 1 (CI) | Linux amd64/arm64, macOS amd64/arm64, Windows amd64 | ✅ |
+| Tier 2 | Linux armv7/riscv64, FreeBSD | ⚠️ |
+| Tier 3 (Planned) | Android, iOS, WASM, OpenWrt | 🔜 |
 
 ## Verify Installation
 

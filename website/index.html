@@ -1208,104 +1208,7 @@
             background: var(--accent-gold-dim);
         }
 
-        /* === Downloads === */
-        .downloads-section {
-            background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-deep) 100%);
-            border-top: 1px solid var(--border-subtle);
-        }
-        .downloads-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: var(--space-8);
-            margin-top: var(--space-8);
-        }
-        @media (min-width: 900px) {
-            .downloads-grid { grid-template-columns: 1fr 1fr; }
-        }
-        .download-group h3 {
-            font-family: var(--font-display);
-            font-size: 1.125rem;
-            font-weight: 500;
-            margin-bottom: var(--space-3);
-            display: flex;
-            align-items: center;
-            gap: var(--space-2);
-        }
-        .download-group h3 .os-icon {
-            font-size: 1.2rem;
-        }
-        .download-list {
-            list-style: none;
-            font-size: 0.9rem;
-        }
-        .download-list li {
-            padding: var(--space-2) 0;
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            border-bottom: 1px solid var(--border-subtle);
-        }
-        .download-list li:last-child { border-bottom: none; }
-        .download-list .tag {
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            padding: 2px 8px;
-            border-radius: 3px;
-            white-space: nowrap;
-            font-weight: 500;
-            letter-spacing: 0.05em;
-        }
-        .download-list .tag.binary {
-            background: rgba(95,168,168,0.12);
-            color: var(--accent-cyan);
-            border: 1px solid rgba(95,168,168,0.25);
-        }
-        .download-list .tag.pkg {
-            background: rgba(201,169,97,0.12);
-            color: var(--accent-gold);
-            border: 1px solid rgba(201,169,97,0.25);
-        }
-        .download-list .tag.repo {
-            background: rgba(107,148,97,0.12);
-            color: var(--success);
-            border: 1px solid rgba(107,148,97,0.25);
-        }
-        .download-list .tag.src {
-            background: rgba(139,58,58,0.12);
-            color: var(--accent-blood);
-            border: 1px solid rgba(139,58,58,0.25);
-        }
-        .download-list .unavailable {
-            text-decoration: line-through;
-            text-decoration-color: var(--text-tertiary);
-            color: var(--text-tertiary);
-        }
-        .download-list .unavailable a { color: var(--text-tertiary); }
-        .download-list .planned-tag {
-            font-family: var(--font-mono);
-            font-size: 0.625rem;
-            color: var(--accent-gold-dim);
-            letter-spacing: 0.05em;
-            margin-left: var(--space-1);
-        }
-        .download-list .arch-list {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            color: var(--text-tertiary);
-            margin-left: auto;
-        }
-        .download-list .cmd {
-            font-family: var(--font-mono);
-            font-size: 0.8125rem;
-            color: var(--accent-gold);
-            background: var(--bg-overlay);
-            padding: 0.15em 0.4em;
-            border-radius: 3px;
-        }
-        .download-list a {
-            color: var(--text-secondary);
-        }
-        .download-list a:hover { color: var(--accent-gold); text-decoration: none; }
+        /* Compact download one-liner — used in Try It Today */
         .one-liner-box {
             background: var(--bg-overlay);
             border: 1px solid var(--border-subtle);
@@ -1353,7 +1256,6 @@
                 <a href="#what">What</a>
                 <a href="#ai-agents">AI Agents</a>
                 <a href="#architecture">Architecture</a>
-                <a href="#downloads">Downloads</a>
                 <a href="#replaces">Replaces</a>
                 <a href="#examples">Examples</a>
                 <a href="#status">Status</a>
@@ -1460,261 +1362,20 @@ $ rf exec local "rm -rf /"
                 Production deployment uses mutual Noise XX authentication, OTP enrollment, and YAML policy files.
                 <a href="https://docs.ravenfabric.io/">Full setup guide →</a>
             </p>
-        </div>
-    </section>
-
-    <!-- ─── DOWNLOADS ────────────────────────────────────────────── -->
-    <section id="downloads" class="content-section downloads-section">
-        <div class="container">
-            <div class="section-eyebrow">Download &amp; Install</div>
-            <h2 class="section-title">One static binary. <em>Every platform</em>.</h2>
-            <p class="section-lead">
-                Pre-built binaries for Linux (musl/glibc), macOS, Windows, and ARM.
-                Package managers and containers are in progress — binaries are ready now.
-                <span class="planned-tag">Items marked strikethrough are planned, not yet published.</span>
-            </p>
 
             <div class="one-liner-box">
                 <span class="prompt">$</span> <span class="cmd">curl -sSL https://ravenfabric.io/install.sh | sh</span>
-                <span style="color: var(--text-tertiary); margin-left: 1rem;">&larr; The universal one-liner</span>
+                <span style="color: var(--text-tertiary); margin-left: 1rem;">&larr; One command, every platform</span>
             </div>
-
-            <div class="downloads-grid">
-                <!-- Linux -->
-                <div class="download-group">
-                    <h3>🐧 Linux</h3>
-                    <ul class="download-list">
-                        <li>
-                            <span class="tag binary">Binary</span>
-                            <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest" target="_blank" rel="noopener">GitHub Releases</a>
-                            <span class="arch-list">amd64 · arm64 · armv7</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">Snap</span>
-                            <span class="cmd">snap install ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">APT</span>
-                            <span class="cmd">apt install ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">YUM/DNF</span>
-                            <span class="cmd">dnf install ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">AUR</span>
-                            <span class="cmd">yay -S ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">Alpine</span>
-                            <span class="cmd">apk add ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">Homebrew</span>
-                            <span class="cmd">brew install ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">Flatpak</span>
-                            <span class="cmd">flatpak install ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">AppImage</span>
-                            <span>Single-file portable</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">OpenWrt</span>
-                            <span class="cmd">opkg install ravenfabric</span>
-                            <span class="arch-list">arm · mips</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag repo">OBS</span>
-                            <span>openSUSE Build Service</span>
-                            <span class="arch-list">RPM · DEB for all distros</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag repo">Raspberry Pi</span>
-                            <span>Pre-built image</span>
-                            <span class="arch-list">arm64 · armv7</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- macOS -->
-                <div class="download-group">
-                    <h3>🍎 macOS</h3>
-                    <ul class="download-list">
-                        <li>
-                            <span class="tag binary">Binary</span>
-                            <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest" target="_blank" rel="noopener">GitHub Releases</a>
-                            <span class="arch-list">amd64 · arm64 (Apple Silicon)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">Homebrew</span>
-                            <span class="cmd">brew install ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">PKG Installer</span>
-                            <span>Signed <code>.pkg</code></span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">DMG</span>
-                            <span>Drag-and-drop <code>.dmg</code></span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag repo">launchd</span>
-                            <span>System service plist</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                    </ul>
-
-                    <h3 style="margin-top: var(--space-6);">🪟 Windows</h3>
-                    <ul class="download-list">
-                        <li>
-                            <span class="tag binary">Binary</span>
-                            <a href="https://github.com/egkristi/RavenFabric-Published/releases/latest" target="_blank" rel="noopener">GitHub Releases</a>
-                            <span class="arch-list">amd64</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">Winget</span>
-                            <span class="cmd">winget install RavenFabric.RavenFabric</span>
-                            <span class="arch-list">amd64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">Chocolatey</span>
-                            <span class="cmd">choco install ravenfabric</span>
-                            <span class="arch-list">amd64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">Scoop</span>
-                            <span class="cmd">scoop install ravenfabric</span>
-                            <span class="arch-list">amd64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag pkg">NSIS / WiX</span>
-                            <span>Installer <code>.exe</code> / <code>.msi</code></span>
-                            <span class="arch-list">amd64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag repo">Service</span>
-                            <span>Windows Service via <code>.ps1</code></span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Containers & K8s -->
-                <div class="download-group">
-                    <h3>📦 Containers &amp; Kubernetes</h3>
-                    <ul class="download-list">
-                        <li class="unavailable">
-                            <span class="tag repo">Docker</span>
-                            <span class="cmd">docker pull ghcr.io/egkristi/ravenfabric</span>
-                            <span class="arch-list">amd64 · arm64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag repo">Helm</span>
-                            <span class="cmd">helm install ravenfabric</span>
-                            <span class="arch-list">Kubernetes 1.28+</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li>
-                            <span class="tag repo">Docker Compose</span>
-                            <span class="cmd">docker compose up -d</span>
-                            <span class="arch-list">repo includes <code>docker-compose.yml</code></span>
-                        </li>
-                    </ul>
-
-                    <h3 style="margin-top: var(--space-6);">📱 Mobile &amp; IoT</h3>
-                    <ul class="download-list">
-                        <li class="unavailable">
-                            <span class="tag binary">Android</span>
-                            <span>Foreground service, NDK cross-compile</span>
-                            <span class="arch-list">aarch64 · armv7</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag src">F-Droid</span>
-                            <span>Metadata ready</span>
-                            <span class="arch-list">aarch64 · armv7</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag binary">iOS</span>
-                            <span>Network Extension provider</span>
-                            <span class="arch-list">aarch64</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                        <li class="unavailable">
-                            <span class="tag binary">WASM / WASI</span>
-                            <span>Minimal agent profile</span>
-                            <span class="arch-list">wasm32</span>
-                            <span class="planned-tag">(planned)</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Source Build -->
-                <div class="download-group">
-                    <h3>🦀 Build from Source</h3>
-                    <ul class="download-list">
-                        <li>
-                            <span class="tag src">Source</span>
-                            <a href="https://github.com/egkristi/RavenFabric" target="_blank" rel="noopener">github.com/egkristi/RavenFabric</a>
-                            <span class="arch-list">AGPLv3</span>
-                        </li>
-                        <li>
-                            <span class="cmd" style="display:block;margin-top:0.5rem;">git clone https://github.com/egkristi/RavenFabric.git<br>cd RavenFabric<br>cargo build --release</span>
-                        </li>
-                        <li style="margin-top:0.5rem;color:var(--text-tertiary);font-size:0.8rem;">
-                            Requires Rust 1.88+. Compiles on any target with a Rust toolchain — x86_64, aarch64, armv7, riscv64, wasm32, and more.
-                        </li>
-                    </ul>
-
-                    <h3 style="margin-top: var(--space-6);">🔗 All Install Sources</h3>
-                    <ul class="download-list">
-                        <li><a href="https://github.com/egkristi/RavenFabric-Published/releases" target="_blank" rel="noopener">GitHub Releases</a> <span class="arch-list">Binaries + checksums</span></li>
-                        <li><a href="https://github.com/egkristi/RavenFabric-Published" target="_blank" rel="noopener">Published Binaries Repo</a> <span class="arch-list">Pre-built artifacts</span></li>
-                        <li><a href="https://github.com/egkristi/RavenFabric" target="_blank" rel="noopener">Source Code</a> <span class="arch-list">AGPLv3</span></li>
-                        <li><a href="https://docs.ravenfabric.io/installation.html" target="_blank" rel="noopener">Installation Docs</a> <span class="arch-list">Full guide</span></li>
-                    </ul>
-                </div>
-            </div>
-
-            <p style="text-align: center; margin-top: var(--space-8); font-size: 0.85rem; color: var(--text-tertiary);">
-                All binaries are statically linked (musl on Linux). No runtime dependencies.
-                SHA-256 checksums published with every release.
-                <br>
-                <a href="https://docs.ravenfabric.io/installation.html" target="_blank" rel="noopener" style="color: var(--accent-gold);">Full installation documentation &rarr;</a>
+            <p class="try-note">
+                Pre-built binaries for Linux, macOS, and Windows on
+                <a href="https://github.com/egkristi/RavenFabric-Published/releases" target="_blank" rel="noopener">GitHub Releases</a>.
+                Also via <a href="https://github.com/egkristi/homebrew-tap" target="_blank" rel="noopener">Homebrew</a>
+                and <a href="https://crates.io/search?q=rf-" target="_blank" rel="noopener">crates.io</a>.
+                Build from source: <code>cargo install rf-cli</code>.
+            </p>
+            <p class="try-note">
+                <a href="https://docs.ravenfabric.io/getting-started/installation">Full installation guide &rarr;</a>
             </p>
         </div>
     </section>
@@ -2026,9 +1687,9 @@ $ rf exec local "rm -rf /"
 
             <p style="font-size: 0.875rem; color: var(--text-tertiary); margin-top: var(--space-6); text-align: center;">
                 Full AI agent architecture:
-                <a href="https://docs.ravenfabric.io/use-cases/ai-agent-access.html" style="color: var(--accent-gold);">AI Agent Access Use Case</a> &middot;
-                <a href="https://docs.ravenfabric.io/reference/mcp-server.html" style="color: var(--accent-gold);">MCP Server Reference</a> &middot;
-                <a href="https://docs.ravenfabric.io/reference/ai-agent-skill.html" style="color: var(--accent-gold);">Agent Skill Reference</a>
+                <a href="https://docs.ravenfabric.io/use-cases/ai-agent-access" style="color: var(--accent-gold);">AI Agent Access Use Case</a> &middot;
+                <a href="https://docs.ravenfabric.io/reference/mcp-server" style="color: var(--accent-gold);">MCP Server Reference</a> &middot;
+                <a href="https://docs.ravenfabric.io/reference/ai-agent-skill" style="color: var(--accent-gold);">Agent Skill Reference</a>
             </p>
         </div>
     </section>
@@ -2590,9 +2251,9 @@ $ rf exec local "rm -rf /"
                 <div class="footer-col">
                     <h4>Resources</h4>
                     <ul>
-                        <li><a href="https://docs.ravenfabric.io/use-cases/cloudnativepg.html">Use Cases</a></li>
+                        <li><a href="https://docs.ravenfabric.io/use-cases/cloudnativepg">Use Cases</a></li>
                         <li><a href="https://docs.ravenfabric.io/compliance/">Compliance</a></li>
-                        <li><a href="https://docs.ravenfabric.io/quickstart.html">Quickstart</a></li>
+                        <li><a href="https://docs.ravenfabric.io/quickstart">Quickstart</a></li>
                         <li><a href="/.well-known/security.txt">security.txt</a></li>
                     </ul>
                 </div>
