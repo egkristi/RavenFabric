@@ -284,17 +284,11 @@ cargo fmt --check        # Format check
 - Always run `cargo test` and `cargo clippy` before pushing
 - **Issue tracking**: When you discover work that should be done but is out of scope for the current task, create a GitHub Issue for it rather than ignoring it
 
-### Push Procedure (MANDATORY)
+### Push Procedure
 
-The repository is **private** by default. Every push must follow this exact sequence:
+The repository is **permanently public** (`egkristi/RavenFabric`).
 
-1. **Make repo public** before pushing:
-
-   ```bash
-   gh repo edit egkristi/RavenFabric --visibility public --accept-visibility-change-consequences
-   ```
-
-2. **Push commit and version tag** (every version bump commit MUST be tagged to trigger the release pipeline):
+1. **Push commit and version tag** (every version bump commit MUST be tagged to trigger the release pipeline):
 
    ```bash
    git add -A && git commit -m "<message>" && git push
@@ -302,26 +296,15 @@ The repository is **private** by default. Every push must follow this exact sequ
    git push origin vX.Y.Z
    ```
 
-3. **Wait for ALL GitHub Actions pipelines to complete successfully** (Check, Test, Clippy, Format, MSRV, Cross-compile, Coverage, CodeQL, Release, Docker, and any other triggered workflows). Monitor with:
+2. **Wait for ALL GitHub Actions pipelines to complete successfully**. Monitor with:
 
    ```bash
    gh run list --branch main --limit 8
    ```
 
-4. **If any pipeline fails**: Diagnose and fix immediately. Create a GitHub Issue for each distinct problem. Push the fix (repo is still public).
-5. **Make repo private** only after all pipelines are green:
-
-   ```bash
-   gh repo edit egkristi/RavenFabric --visibility private --accept-visibility-change-consequences
-   ```
-
-**Important:** Do not leave the repo public longer than necessary. Make it private again as soon as all pipelines finish. Never push without completing this full cycle.
+3. **If any pipeline fails**: Diagnose and fix immediately. Create a GitHub Issue for each distinct problem.
 
 **Critical:** Every version bump commit **must** be followed by a `git tag` + `git push origin vX.Y.Z`. Without the tag, the Release workflow does not run, and no binaries are published to GitHub Releases or `RavenFabric-Published`.
-
-## GitHub Actions Minutes
-
-The repository uses the public-for-push workflow above because private repos on the GitHub Free plan have limited Actions minutes (2,000/month). Public repos get unlimited free Actions minutes.
 
 ## Versioning (Semantic Versioning)
 

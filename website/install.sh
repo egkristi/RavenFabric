@@ -1,29 +1,34 @@
-#!/bin/bash
-# RavenFabric install script
+#!/bin/sh
+# RavenFabric install script — POSIX-compatible (dash, bash, BusyBox ash)
 # Usage: curl -fsSL https://ravenfabric.io/install.sh | sh
-# Or:    curl -fsSL https://get.ravenfabric.io | sh (alias)
+# Or:    curl -fsSL https://get.ravenfabric.io | sh
 
-set -euo pipefail
+set -eu
 
 REPO="egkristi/RavenFabric-Published"
 INSTALL_DIR="${RAVENFABRIC_INSTALL_DIR:-/usr/local/bin}"
+tmpdir=""
+
+# Cleanup on exit (handle tmpdir being unset)
+cleanup() {
+    if [ -n "${tmpdir:-}" ] && [ -d "${tmpdir:-}" ]; then
+        rm -rf "${tmpdir}" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
 
 # Colors (disabled if not a terminal)
 if [ -t 1 ]; then
-    BOLD="\033[1m"
-    DIM="\033[2m"
-    GOLD="\033[33m"
-    GREEN="\033[32m"
-    RED="\033[31m"
-    RESET="\033[0m"
+    BOLD='\033[1m'; DIM='\033[2m'; GOLD='\033[33m'
+    GREEN='\033[32m'; RED='\033[31m'; RESET='\033[0m'
 else
-    BOLD="" DIM="" GOLD="" GREEN="" RED="" RESET=""
+    BOLD=''; DIM=''; GOLD=''; GREEN=''; RED=''; RESET=''
 fi
 
-info()  { echo -e "${BOLD}${GOLD}=>${RESET} $1"; }
-ok()    { echo -e "${GREEN}✓${RESET} $1"; }
-err()   { echo -e "${RED}✗${RESET} $1" >&2; }
-die()   { err "$1"; exit 1; }
+info() { printf "%b=>%b %s\\n" "${BOLD}${GOLD}" "${RESET}" "$1"; }
+ok()   { printf "%b✓%b %s\\n" "${GREEN}" "${RESET}" "$1"; }
+err()  { printf "%b✗%b %s\\n" "${RED}" "${RESET}" "$1" >&2; }
+die()  { err "$1"; exit 1; }
 
 detect_os() {
     case "$(uname -s)" in
@@ -44,55 +49,56 @@ detect_arch() {
 
 latest_version() {
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/'
+        curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/'
     elif command -v wget >/dev/null 2>&1; then
-        wget -qO- "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/'
+        wget -qO- "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/'
     else
         die "Neither curl nor wget found. Install one and retry."
     fi
 }
 
 download() {
-    local url="$1" dest="$2"
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "$url" -o "$dest"
+        curl -fsSL "$1" -o "$2"
     else
-        wget -q "$url" -O "$dest"
+        wget -q "$1" -O "$2"
     fi
 }
 
 main() {
     echo ""
-    echo -e "${BOLD}RavenFabric Installer${RESET}"
-    echo -e "${DIM}Security-first distributed execution engine${RESET}"
+    printf "%bRavenFabric Installer%b\\n" "${BOLD}" "${RESET}"
+    printf "%bSecurity-first distributed execution engine%b\\n" "${DIM}" "${RESET}"
     echo ""
 
-    local os arch version
     os="$(detect_os)"
     arch="$(detect_arch)"
-    version="${RAVENFABRIC_VERSION:-$(latest_version)}"
 
-    [ -z "$version" ] && die "Could not determine latest version. Set RAVENFABRIC_VERSION manually."
+    version="${RAVENFABRIC_VERSION:-}"
+    if [ -z "$version" ]; then
+        version="$(latest_version)"
+    fi
+
+    if [ -z "$version" ]; then
+        die "Could not determine latest version. Set RAVENFABRIC_VERSION manually."
+    fi
 
     # Prefer musl on Linux for maximum portability
-    local suffix=""
+    suffix=""
     if [ "$os" = "linux" ]; then
         suffix="-musl"
     fi
 
-    local base_url="https://github.com/${REPO}/releases/download/v${version}"
-    local artifact="ravenfabric-${os}-${arch}${suffix}"
+    base_url="https://github.com/${REPO}/releases/download/v${version}"
+    artifact="ravenfabric-${os}-${arch}${suffix}"
 
     info "OS: ${os}, Arch: ${arch}, Version: v${version}"
 
-    local tmpdir
-    tmpdir="$(mktemp -d)"
-    trap 'rm -rf "$tmpdir"' EXIT
+    tmpdir="$(mktemp -d)" || die "Cannot create temp directory"
 
-    local binaries=("agent" "relay" "cli")
-    for bin in "${binaries[@]}"; do
-        local ext=""
-        local name="${artifact}-${bin}"
+    # Download each binary — no bash arrays, POSIX iteration
+    for bin in agent relay cli; do
+        name="${artifact}-${bin}"
         info "Downloading ${name}..."
         download "${base_url}/${name}" "${tmpdir}/${name}"
         chmod +x "${tmpdir}/${name}"
@@ -100,7 +106,7 @@ main() {
 
     info "Installing to ${INSTALL_DIR}/ (may require sudo)..."
 
-    local use_sudo=""
+    use_sudo=""
     if [ ! -w "$INSTALL_DIR" ]; then
         if command -v sudo >/dev/null 2>&1; then
             use_sudo="sudo"
@@ -109,18 +115,18 @@ main() {
         fi
     fi
 
-    $use_sudo mkdir -p "$INSTALL_DIR"
-    $use_sudo cp "${tmpdir}/${artifact}-agent" "${INSTALL_DIR}/rf-agent"
-    $use_sudo cp "${tmpdir}/${artifact}-relay" "${INSTALL_DIR}/rf-relay"
-    $use_sudo cp "${tmpdir}/${artifact}-cli"   "${INSTALL_DIR}/rf"
+    ${use_sudo} mkdir -p "$INSTALL_DIR"
+    ${use_sudo} cp "${tmpdir}/${artifact}-agent" "${INSTALL_DIR}/rf-agent"
+    ${use_sudo} cp "${tmpdir}/${artifact}-relay" "${INSTALL_DIR}/rf-relay"
+    ${use_sudo} cp "${tmpdir}/${artifact}-cli"   "${INSTALL_DIR}/rf"
 
     echo ""
     ok "rf-agent installed to ${INSTALL_DIR}/rf-agent"
     ok "rf-relay installed to ${INSTALL_DIR}/rf-relay"
     ok "rf       installed to ${INSTALL_DIR}/rf"
     echo ""
-    echo -e "${DIM}Run 'rf --help' to get started.${RESET}"
-    echo -e "${DIM}Docs: https://ravenfabric.io/docs/${RESET}"
+    printf "%bRun 'rf --help' to get started.%b\\n" "${DIM}" "${RESET}"
+    printf "%bDocs: https://ravenfabric.io/docs/%b\\n" "${DIM}" "${RESET}"
     echo ""
 }
 
