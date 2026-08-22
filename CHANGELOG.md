@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0-rc.11] — 2026-08-22
 
+### Added
+
+- **CLI relay failover (Relay HA)** — `rf --relay` now accepts a comma-separated list of relay URLs. On connection or Noise XX handshake failure, the CLI fails over to the next relay in order instead of erroring out. This completes controller-side relay high-availability, complementing the agent-side failover added in v1.0.0-beta.4. Applies to all commands that go through `dial_agent` (exec, shell, forward, playbook, status, cp, proxy, secret).
+
 ### Fixed
 
 - **Relay health prober deadlock (root cause of relay handshake hang)** — The agent's background relay health prober was dialing with the agent's real meet token and performing a full Noise XX handshake. Since both the agent and the prober are Noise responders, the relay paired them together — deadlocking both and stealing the pairing from the CLI initiator. The prober now uses a distinct `__health_probe__<token>` meet token and skips the handshake entirely (a probe has no initiator peer, so a handshake would always time out). Relay exec now completes end-to-end.

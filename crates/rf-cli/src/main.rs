@@ -7,7 +7,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use tokio::sync::{RwLock, mpsc};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use rf_crypto::channel::SecureChannel;
 use rf_crypto::keys::StaticKey;
@@ -26,7 +26,9 @@ type AgentChannel = SecureChannel<
 #[derive(Parser)]
 #[command(name = "rf", about = "RavenFabric — secure remote execution", version)]
 struct Cli {
-    /// Relay URL (ignored when --connect is used)
+    /// Relay URL (ignored when --connect is used). Comma-separated for failover:
+    /// the CLI tries each relay in order and fails over to the next on
+    /// connection or handshake failure.
     #[arg(short, long, env = "RF_RELAY", default_value = "ws://127.0.0.1:9090")]
     relay: String,
 
@@ -437,8 +439,23 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Split a possibly comma-separated relay URL list into individual, trimmed,
+/// non-empty URLs. A single URL is returned as-is.
+fn split_relay_urls(relay_url: &str) -> Vec<String> {
+    relay_url
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
 /// Establish a connection to an agent, either directly or via relay.
 /// Returns the handshaked SecureChannel and the peer's public key.
+///
+/// When connecting via relay, `relay_url` may be a comma-separated list. Each
+/// relay is tried in order; on connection or handshake failure the next relay
+/// is attempted (failover). An error is returned only if all relays fail.
 async fn dial_agent(
     relay_url: &str,
     direct_addr: Option<&str>,
@@ -448,37 +465,76 @@ async fn dial_agent(
 ) -> anyhow::Result<(AgentChannel, [u8; 32])> {
     let driver = WebSocketDriver::new();
 
-    let mut stream = if let Some(addr) = direct_addr {
+    // Direct connect (bypasses relay) — single attempt.
+    if let Some(addr) = direct_addr {
         info!("connecting directly to agent: {}", addr);
         let target = Target {
             agent_id: String::new(),
             relay_url: Some(addr.to_string()),
             meet_token: None,
         };
-        driver.dial(&target, &Default::default()).await?
-    } else {
-        info!("connecting to relay: {}", relay_url);
+        let mut stream = driver.dial(&target, &Default::default()).await?;
+        let (state, peer_key) = if compat_mode {
+            handshake_with_compat(&mut stream, true, key, true).await?
+        } else {
+            handshake(&mut stream, true, key).await?
+        };
+        info!("connected to agent: {}", hex::encode(peer_key));
+        let (stream_read, stream_write) = tokio::io::split(stream);
+        let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+        return Ok((chan, peer_key));
+    }
+
+    // Relay mode — fail over across all configured relays.
+    let relay_urls = split_relay_urls(relay_url);
+    let mut last_err: Option<anyhow::Error> = None;
+    for relay in &relay_urls {
+        info!("connecting to relay: {}", relay);
         let target = Target {
             agent_id: String::new(),
-            relay_url: Some(relay_url.to_string()),
+            relay_url: Some(relay.to_string()),
             meet_token: Some(token.to_string()),
         };
-        driver.dial(&target, &Default::default()).await?
-    };
 
-    // Noise handshake (client is initiator)
-    info!("performing Noise XX handshake...");
-    let (state, peer_key) = if compat_mode {
-        info!("compatibility mode enabled — using relaxed handshake timing");
-        handshake_with_compat(&mut stream, true, key, true).await?
-    } else {
-        handshake(&mut stream, true, key).await?
-    };
-    info!("connected to agent: {}", hex::encode(peer_key));
+        let mut stream = match driver.dial(&target, &Default::default()).await {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("relay {} unreachable: {}; failing over", relay, e);
+                last_err = Some(e.into());
+                continue;
+            }
+        };
 
-    let (stream_read, stream_write) = tokio::io::split(stream);
-    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
-    Ok((chan, peer_key))
+        // Noise handshake (client is initiator)
+        info!("performing Noise XX handshake...");
+        let (state, peer_key) = if compat_mode {
+            info!("compatibility mode enabled — using relaxed handshake timing");
+            match handshake_with_compat(&mut stream, true, key, true).await {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("relay {} handshake failed: {}; failing over", relay, e);
+                    last_err = Some(e.into());
+                    continue;
+                }
+            }
+        } else {
+            match handshake(&mut stream, true, key).await {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("relay {} handshake failed: {}; failing over", relay, e);
+                    last_err = Some(e.into());
+                    continue;
+                }
+            }
+        };
+        info!("connected to agent: {}", hex::encode(peer_key));
+
+        let (stream_read, stream_write) = tokio::io::split(stream);
+        let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+        return Ok((chan, peer_key));
+    }
+
+    Err(last_err.unwrap_or_else(|| anyhow::anyhow!("no relays configured")))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1003,22 +1059,7 @@ async fn execute_on_agent(
     timeout_secs: u64,
     compat_mode: bool,
 ) -> anyhow::Result<(String, String, i32)> {
-    let driver = WebSocketDriver::new();
-    let target = Target {
-        agent_id: String::new(),
-        relay_url: Some(relay_url.to_string()),
-        meet_token: Some(token.to_string()),
-    };
-
-    let mut stream = driver.dial(&target, &Default::default()).await?;
-    let (state, peer_key) = if compat_mode {
-        handshake_with_compat(&mut stream, true, key, true).await?
-    } else {
-        handshake(&mut stream, true, key).await?
-    };
-
-    let (stream_read, stream_write) = tokio::io::split(stream);
-    let chan = SecureChannel::new(stream_read, stream_write, state, peer_key);
+    let (chan, _peer_key) = dial_agent(relay_url, None, key, token, compat_mode).await?;
 
     let request = Request {
         id: uuid::Uuid::new_v4().to_string(),
@@ -2840,5 +2881,41 @@ async fn delta_push(
         RpcResult::Denied { reason, rule } => anyhow::bail!("denied: {reason} (rule: {rule})"),
         RpcResult::Error { message } => anyhow::bail!("delta patch failed: {message}"),
         _ => anyhow::bail!("unexpected response to FileDeltaPatch"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_relay_urls;
+
+    #[test]
+    fn split_single_relay() {
+        let urls = split_relay_urls("ws://127.0.0.1:9090");
+        assert_eq!(urls, vec!["ws://127.0.0.1:9090".to_string()]);
+    }
+
+    #[test]
+    fn split_multiple_relays_trims_whitespace() {
+        let urls = split_relay_urls("ws://a:1, ws://b:2 ,wss://c:3");
+        assert_eq!(
+            urls,
+            vec![
+                "ws://a:1".to_string(),
+                "ws://b:2".to_string(),
+                "wss://c:3".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn split_filters_empty_entries() {
+        let urls = split_relay_urls("ws://a:1,,  ,ws://b:2,");
+        assert_eq!(urls, vec!["ws://a:1".to_string(), "ws://b:2".to_string()]);
+    }
+
+    #[test]
+    fn split_empty_string_returns_empty() {
+        let urls = split_relay_urls("");
+        assert!(urls.is_empty());
     }
 }

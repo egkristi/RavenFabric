@@ -117,7 +117,7 @@
 ### 🟢 Low
 
 - [x] **Reduce agent idle memory** — Mitigated in v1.0.0-beta.1 with `--constrained` mode (512-entry buffer, 256-entry dedup, 2s flush), 256 KB duplex buffer. Build with `--features rt-single-thread,minimal` for max savings.
-- [ ] **Relay HA** — Single relay is SPOF. No failover mechanism.
+- [x] **Relay HA** — Agent-side failover implemented in v1.0.0-beta.4 (multiple relay URLs + health prober). CLI-side failover implemented in v1.0.0-rc.11: `--relay` accepts comma-separated URLs and fails over on connection/handshake failure.
 - [x] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types. ✅ Done in `docs/src/guide/fleet-orchestration.md`.
 
 ---
@@ -170,7 +170,7 @@ The [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) document (written during 
 
 ### 🟢 Low
 
-- [ ] **Implement relay HA** — Multiple relay instances behind load balancer, agent connection to multiple relays, controller failover between relays. **Post-v1.0 feature.**
+- [x] **Implement relay HA** — Agent-side failover (v1.0.0-beta.4) + CLI-side failover (v1.0.0-rc.11: comma-separated `--relay` with connection/handshake failover).
 - [ ] **Test playbook feature on rpi5** — After policy rule added, verify `rf playbook` with all target types (agents, canary, rolling, fanout). **Requires rpi5 access.**
 - [x] **Add `rf playbook` documentation** — Document correct YAML schema with examples for all target types in `docs/src/guide/fleet-orchestration.md`.
 - [ ] **Reduce agent VmSize** — Currently 79.6 MB virtual allocation. Investigate if this can be reduced.
