@@ -2,7 +2,7 @@
 
 > **Version:** 1.0.0-rc.12 (Release Candidate) — Released 2026-08-22
 > **Next:** v1.0.0 (Stable) — **Critical bugs resolved; remaining blockers require rpi5 access or human action**
-> **Stats:** 14 crates, ~75,389 LOC, 1,432 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 15 crates, ~75,658 LOC, 1,433 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. Critical bugs resolved in rc.7–rc.11.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
@@ -932,7 +932,7 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 ### Integration Wishlist (Post-v1.0)
 
 - [ ] **Kubernetes operator** — CRDs for agents, policies, playbooks; mutating webhook for auto-injection
-- [ ] **Web dashboard** — Read-only UI: connected agents, live audit feed, policy visualization, metrics graphs
+- [x] **Web dashboard** — `rf-controller` binary added in v1.0.0-rc.13: embedded Web UI dashboard + REST API (`/healthz`, `POST /api/v1/agents/heartbeat`, `GET /api/v1/agents`) with agent registry, heartbeat/stale detection, label selection, and bearer-token auth. Live audit feed, policy visualization, and metrics graphs remain follow-up enhancements.
 - [ ] **Terraform provider** — `ravenfabric_agent`, `ravenfabric_policy`, `ravenfabric_secret`, `ravenfabric_playbook`
 - [ ] **Ansible collection** — Install/configure agents, deploy policies, manage lifecycle, collect audit logs
 - [ ] **Windows agent support** — Windows as a supported agent platform

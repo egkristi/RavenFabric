@@ -58,6 +58,7 @@ cargo install rf-cli         # CLI
 cargo install rf-agent       # Agent
 cargo install rf-relay       # Relay broker
 cargo install rf-mcp-server  # MCP server for AI agents
+cargo install rf-controller  # Controller (REST API + Web UI dashboard)
 ```
 
 | Crate | Purpose |
@@ -75,6 +76,7 @@ cargo install rf-mcp-server  # MCP server for AI agents
 | [`rf-bootstrap`](https://crates.io/crates/rf-bootstrap) | OTP enrollment |
 | [`rf-ingress`](https://crates.io/crates/rf-ingress) | HTTP ingress |
 | [`rf-mcp-client`](https://crates.io/crates/rf-mcp-client) | MCP client SDK |
+| [`rf-controller`](https://crates.io/crates/rf-controller) | Controller binary (REST API + Web UI dashboard) |
 
 ## Build from Source
 
@@ -85,7 +87,7 @@ git clone https://github.com/egkristi/RavenFabric.git
 cd RavenFabric
 cargo build --release
 
-# Binaries: target/release/{rf, rf-agent, rf-relay, rf-mcp-server}
+# Binaries: target/release/{rf, rf-agent, rf-relay, rf-mcp-server, rf-controller}
 ```
 
 Static musl build (Linux):

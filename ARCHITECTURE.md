@@ -2,9 +2,9 @@
 
 ## Overview
 
-RavenFabric is built as a Rust Cargo workspace with 13 focused crates. Each crate has a single responsibility and clear dependency boundaries. The architecture follows a strict layered model where higher layers depend on lower layers, never the reverse.
+RavenFabric is built as a Rust Cargo workspace with 15 focused crates. Each crate has a single responsibility and clear dependency boundaries. The architecture follows a strict layered model where higher layers depend on lower layers, never the reverse.
 
-**Current state:** ~75,389 lines of Rust across 14 crates with 1,432 tests.
+**Current state:** ~75,658 lines of Rust across 15 crates with 1,433 tests.
 
 ---
 
@@ -63,6 +63,7 @@ RavenFabric is built as a Rust Cargo workspace with 13 focused crates. Each crat
 | `rf-mcp-server` | 6 | 3,300 | 46 | MCP server binary (AI agent integration, stdio + HTTP+SSE, 8 tools, approval workflow) |
 | `rf-mcp-client` | — | 720 | 15 | MCP client SDK (Rust library, standalone, no internal deps) |
 | `rf-ingress` | 4 | 580 | 11 | HTTP ingress gateway: axum HTTP server, routing table, API key auth, rate limiting, reverse proxy |
+| `rf-controller` | 6 | 83 | 0 | Controller binary (`rf-controller`): REST API + embedded Web UI dashboard, agent registry |
 | `rf-integration-tests` | — | 1,700 | 33 | End-to-end integration tests |
 
 ---
@@ -87,6 +88,7 @@ rf-cli     (depends on rf-crypto, rf-transport, rf-rpc, rf-relay, rf-executor, r
 rf-mcp-server (depends on rf-crypto, rf-policy, rf-audit, rf-executor, rf-rpc)
 rf-mcp-client (no internal deps — standalone SDK)
 rf-ingress (depends on rf-crypto, rf-transport, rf-rpc, rf-audit)
+rf-controller (depends on rf-rpc, rf-transport)
 ```
 
 ---

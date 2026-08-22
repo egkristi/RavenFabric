@@ -1,0 +1,31 @@
+[package]
+name = "rf-controller"
+description = "RavenFabric — Controller binary (REST API + embedded Web UI dashboard)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+categories = ["command-line-utilities", "network-programming"]
+keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
+
+[dependencies]
+rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.12" }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true, features = ["env"] }
+anyhow = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[package.metadata.deb]
+maintainer = "Erling Kristiansen <erling@ravenfabric.io>"
+section = "net"
+priority = "optional"
+assets = [
+    ["target/release/rf-controller", "usr/bin/", "755"],
+]

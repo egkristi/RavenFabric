@@ -23,6 +23,7 @@
 
 - [Agent Enrollment](guide/enrollment.md)
 - [Relay Setup](guide/relay.md)
+- [Controller](guide/controller.md)
 - [Policy Configuration](guide/policy-config.md)
 - [Remote Execution](guide/execution.md)
 - [Port Forwarding](guide/port-forwarding.md)

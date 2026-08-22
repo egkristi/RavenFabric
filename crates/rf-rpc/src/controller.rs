@@ -440,6 +440,12 @@ impl ApiRouter {
                     required_role: "viewer".into(),
                 },
                 ApiRoute {
+                    method: HttpMethod::Post,
+                    path: "/api/v1/agents/heartbeat".into(),
+                    handler: "register_agent".into(),
+                    required_role: "".into(),
+                },
+                ApiRoute {
                     method: HttpMethod::Get,
                     path: "/api/v1/agents/{id}".into(),
                     handler: "get_agent".into(),
@@ -850,7 +856,7 @@ impl ApiDispatcher {
     }
 
     /// Dispatch a request and return a response.
-    pub fn dispatch(&self, request: &ApiRequest) -> ApiResponse {
+    pub fn dispatch(&mut self, request: &ApiRequest) -> ApiResponse {
         let route = match self.router.match_route(&request.method, &request.path) {
             Some(r) => r,
             None => return ApiResponse::not_found(),
@@ -885,6 +891,68 @@ impl ApiDispatcher {
                     Some(agent) => ApiResponse::ok(serde_json::to_value(agent).unwrap_or_default()),
                     None => ApiResponse::not_found(),
                 }
+            }
+            "register_agent" => {
+                // POST /api/v1/agents/heartbeat — agent registers or refreshes
+                // its heartbeat in the registry.
+                let body = match request.body.as_ref() {
+                    Some(b) => b.clone(),
+                    None => serde_json::Value::Null,
+                };
+
+                let id = body
+                    .get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string();
+                if id.is_empty() {
+                    return ApiResponse::bad_request("missing required field: id");
+                }
+
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+
+                let info = AgentInfo {
+                    id: id.clone(),
+                    key_hash: body
+                        .get("key_hash")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    last_heartbeat_ms: now_ms,
+                    status: AgentStatus::Online,
+                    version: body
+                        .get("version")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    labels: body
+                        .get("labels")
+                        .and_then(serde_json::Value::as_object)
+                        .map(|m| {
+                            m.iter()
+                                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    region: body
+                        .get("region")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_string),
+                    relay_url: body
+                        .get("relay_url")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_string),
+                };
+
+                self.registry.upsert(info);
+                ApiResponse::ok(serde_json::json!({
+                    "status": "registered",
+                    "agent_id": id,
+                    "heartbeat_ms": now_ms,
+                }))
             }
             "health_check" => ApiResponse::ok(serde_json::json!({
                 "status": "healthy",
@@ -1333,7 +1401,7 @@ mod tests {
     #[test]
     fn test_api_router_match() {
         let router = ApiRouter::new();
-        assert_eq!(router.route_count(), 8);
+        assert_eq!(router.route_count(), 9);
 
         let route = router.match_route(&HttpMethod::Get, "/api/v1/agents");
         assert!(route.is_some());
@@ -1450,7 +1518,7 @@ mod tests {
     #[test]
     fn test_api_dispatcher_health() {
         let reg = AgentRegistry::new(100, 30_000);
-        let dispatcher = ApiDispatcher::new(reg);
+        let mut dispatcher = ApiDispatcher::new(reg);
         let req = ApiRequest {
             method: HttpMethod::Get,
             path: "/healthz".into(),
@@ -1476,7 +1544,7 @@ mod tests {
             region: None,
             relay_url: None,
         });
-        let dispatcher = ApiDispatcher::new(reg);
+        let mut dispatcher = ApiDispatcher::new(reg);
         let req = ApiRequest {
             method: HttpMethod::Get,
             path: "/api/v1/agents".into(),
@@ -1492,7 +1560,7 @@ mod tests {
     #[test]
     fn test_api_dispatcher_unauthorized() {
         let reg = AgentRegistry::new(100, 30_000);
-        let dispatcher = ApiDispatcher::new(reg);
+        let mut dispatcher = ApiDispatcher::new(reg);
         let req = ApiRequest {
             method: HttpMethod::Get,
             path: "/api/v1/agents".into(),
@@ -1502,6 +1570,42 @@ mod tests {
         };
         let resp = dispatcher.dispatch(&req);
         assert_eq!(resp.status_code, 401);
+    }
+
+    #[test]
+    fn test_api_dispatcher_register_agent() {
+        let reg = AgentRegistry::new(100, 30_000);
+        let mut dispatcher = ApiDispatcher::new(reg);
+        let req = ApiRequest {
+            method: HttpMethod::Post,
+            path: "/api/v1/agents/heartbeat".into(),
+            body: Some(serde_json::json!({
+                "id": "web-02",
+                "key_hash": "abc",
+                "version": "1.0.0-rc.12",
+                "region": "eu-west",
+                "relay_url": "wss://relay.example.com/meet",
+                "labels": {"role": "web"}
+            })),
+            auth_token: None,
+            trace_context: None,
+        };
+        let resp = dispatcher.dispatch(&req);
+        assert_eq!(resp.status_code, 200);
+        assert_eq!(resp.body["status"], "registered");
+        assert_eq!(resp.body["agent_id"], "web-02");
+
+        // Now list agents should include the registered agent.
+        let list_req = ApiRequest {
+            method: HttpMethod::Get,
+            path: "/api/v1/agents".into(),
+            body: None,
+            auth_token: Some("token".into()),
+            trace_context: None,
+        };
+        let list_resp = dispatcher.dispatch(&list_req);
+        assert_eq!(list_resp.status_code, 200);
+        assert_eq!(list_resp.body["total"], 1);
     }
 
     #[test]

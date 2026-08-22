@@ -35,9 +35,10 @@ Cargo workspace with 14 crates:
 | `rf-mcp-server` | MCP server binary (AI agent integration, stdio + HTTP+SSE transport) | **Done** (~3,400 LOC, 61 tests) |
 | `rf-mcp-client` | MCP client SDK (Rust library for building MCP-aware applications) | **Done** (~720 LOC, 14 tests) |
 | `rf-ingress` | HTTP ingress gateway (axum), reverse-proxy routing table, API key auth, per-IP rate limiting | **Done** (~580 LOC, 11 tests) |
+| `rf-controller` | Controller binary (REST API + embedded Web UI dashboard), agent registry with heartbeat/stale detection | **Done** (~150 LOC) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~75,389 LOC, 1,432 tests, 0 clippy warnings.**
+**Total: ~75,389 LOC, 1,433 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

@@ -2458,6 +2458,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rf-controller"
+version = "1.0.0-rc.12"
+dependencies = [
+ "anyhow",
+ "clap",
+ "rf-rpc",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "rf-crypto"
 version = "1.0.0-rc.12"
 dependencies = [

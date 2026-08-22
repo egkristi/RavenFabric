@@ -132,6 +132,13 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER: armv7l-linux-musleabihf-gcc
 
+      - name: Build rf-controller
+        run: cargo build --release --target ${{ matrix.target }} -p rf-controller
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER: armv7l-linux-musleabihf-gcc
+
       - name: Package binaries
         shell: bash
         run: |
@@ -141,11 +148,13 @@ jobs:
             cp target/${{ matrix.target }}/release/rf-relay.exe dist/${{ matrix.artifact }}-relay.exe
             cp target/${{ matrix.target }}/release/rf.exe dist/${{ matrix.artifact }}-cli.exe
             cp target/${{ matrix.target }}/release/rf-mcp-server.exe dist/${{ matrix.artifact }}-mcp-server.exe
+            cp target/${{ matrix.target }}/release/rf-controller.exe dist/${{ matrix.artifact }}-controller.exe
           else
             cp target/${{ matrix.target }}/release/rf-agent dist/${{ matrix.artifact }}-agent
             cp target/${{ matrix.target }}/release/rf-relay dist/${{ matrix.artifact }}-relay
             cp target/${{ matrix.target }}/release/rf dist/${{ matrix.artifact }}-cli
             cp target/${{ matrix.target }}/release/rf-mcp-server dist/${{ matrix.artifact }}-mcp-server
+            cp target/${{ matrix.target }}/release/rf-controller dist/${{ matrix.artifact }}-controller
           fi
 
       - name: Create portable ZIP (Windows)
@@ -156,6 +165,8 @@ jobs:
           cp target/${{ matrix.target }}/release/rf-agent.exe zip-staging/
           cp target/${{ matrix.target }}/release/rf-relay.exe zip-staging/
           cp target/${{ matrix.target }}/release/rf.exe zip-staging/
+          cp target/${{ matrix.target }}/release/rf-mcp-server.exe zip-staging/
+          cp target/${{ matrix.target }}/release/rf-controller.exe zip-staging/
           cd zip-staging && 7z a -tzip ../dist/ravenfabric-windows-x64.zip . && cd ..
 
       - uses: actions/upload-artifact@v7
@@ -342,7 +353,7 @@ jobs:
             exit 0
           fi
           # Publish in dependency order, skip already-published versions
-          for crate in rf-audit rf-crypto rf-bootstrap rf-transport rf-policy rf-rpc rf-executor rf-mcp-client rf-mcp-server rf-relay rf-agent rf-cli rf-ingress; do
+          for crate in rf-audit rf-crypto rf-bootstrap rf-transport rf-policy rf-rpc rf-executor rf-mcp-client rf-mcp-server rf-relay rf-agent rf-cli rf-ingress rf-controller; do
             echo "Publishing $crate..."
             cargo publish -p "$crate" --no-verify || echo "Skipping $crate (already published or error)"
             sleep 15  # Wait for crates.io index to update

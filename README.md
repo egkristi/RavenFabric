@@ -3,7 +3,7 @@
 > Security-first distributed execution engine. Network-agnostic, E2E encrypted, policy-driven, ZTNA.
 > From full mesh VPN, fire-and-forget commands to declarative desired state — all within an airtight policy layer.
 
-**Status: Release Candidate (v1.0.0-rc.12)** — Foundation complete. 14 crates, ~75,389 LOC, 1,432 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
+**Status: Release Candidate (v1.0.0-rc.12)** — Foundation complete. 15 crates, ~75,658 LOC, 1,433 tests. E2E encrypted execution, 30+ transport drivers, deny-by-default policy.
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSES/AGPLv3.txt)
@@ -526,7 +526,7 @@ Identity = SHA-256(public_key)[0..16]    # 128-bit cryptographic address
 
 ## Current Implementation Status
 
-**~75,389 LOC | 1,432 tests | 0 clippy warnings**
+**~75,658 LOC | 1,433 tests | 0 clippy warnings**
 
 What works today:
 

@@ -5,6 +5,12 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`rf-controller` binary (Web dashboard + REST API)** — New management-plane binary that serves the embedded Web UI dashboard and REST API. Adds `POST /api/v1/agents/heartbeat` for agent registration/heartbeat ingestion (mutating `ApiDispatcher`), and fixes `/healthz` routing so the liveness endpoint returns `{"status":"healthy"}`. Ships with a hardened `deploy/rf-controller.service` systemd unit and `docs/src/guide/controller.md`.
+
 ## [1.0.0-rc.12] — 2026-08-22
 
 ### Added

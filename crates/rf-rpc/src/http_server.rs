@@ -177,7 +177,7 @@ async fn handle_connection(
             let (status, content_type, html) = webui::dashboard_response();
             send_response(&mut writer, status, content_type, html.as_bytes()).await?;
         }
-        p if p.starts_with("/api/") => {
+        p if p.starts_with("/api/") || p == "/healthz" => {
             // Check auth if configured.
             if let Some(ref expected_token) = config.auth_token {
                 let provided = auth_header
@@ -239,7 +239,7 @@ async fn handle_connection(
                 trace_context: None,
             };
 
-            let dispatcher = dispatcher.read().await;
+            let mut dispatcher = dispatcher.write().await;
             let response = dispatcher.dispatch(&api_request);
             let json = serde_json::to_vec(&response.body).unwrap_or_default();
             send_response_with_status(&mut writer, response.status_code, "application/json", &json)
