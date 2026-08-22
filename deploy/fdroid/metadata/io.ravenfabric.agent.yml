@@ -48,7 +48,7 @@ Builds:
       - apt-get install -y cargo rustc
     build:
       - cargo build --release --target aarch64-linux-android --bin rf-agent
-  - versionName: 1.0.0-rc.11
+  - versionName: 1.0.0-rc.12
     versionCode: 7
     commit: v1.0.0-rc.6
     sudo:

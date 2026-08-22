@@ -1,12 +1,18 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.11 (Release Candidate) — Released 2026-08-22
+> **Version:** 1.0.0-rc.12 (Release Candidate) — Released 2026-08-22
 > **Next:** v1.0.0 (Stable) — **Critical bugs resolved; remaining blockers require rpi5 access or human action**
-> **Stats:** 14 crates, ~75,389 LOC, 1,428 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 14 crates, ~75,389 LOC, 1,432 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. Critical bugs resolved in rc.7–rc.11.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
+
+## Release Checklist: v1.0.0-rc.12 — CLI Relay Failover ✅
+
+**Released 2026-08-22.** Completes controller-side relay high availability.
+
+- [x] **CLI relay failover (Relay HA)** — `rf --relay` accepts comma-separated relay URLs and fails over on connection/handshake failure. Complements agent-side failover (v1.0.0-beta.4). Applies to exec, shell, forward, playbook, status, cp, proxy, and secret. Verified locally with a dead-first relay list.
 
 ## Release Checklist: v1.0.0-rc.11 — Critical Bug Resolution ✅
 

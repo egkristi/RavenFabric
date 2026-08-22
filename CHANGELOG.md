@@ -5,11 +5,13 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-rc.11] — 2026-08-22
+## [1.0.0-rc.12] — 2026-08-22
 
 ### Added
 
-- **CLI relay failover (Relay HA)** — `rf --relay` now accepts a comma-separated list of relay URLs. On connection or Noise XX handshake failure, the CLI fails over to the next relay in order instead of erroring out. This completes controller-side relay high-availability, complementing the agent-side failover added in v1.0.0-beta.4. Applies to all commands that go through `dial_agent` (exec, shell, forward, playbook, status, cp, proxy, secret).
+- **CLI relay failover (Relay HA)** — `rf --relay` now accepts a comma-separated list of relay URLs. On connection or Noise XX handshake failure, the CLI fails over to the next relay in order instead of erroring out. This completes controller-side relay high-availability, complementing the agent-side failover added in v1.0.0-beta.4. Applies to all commands routed through `dial_agent` (exec, shell, forward, playbook, status, cp, proxy, secret).
+
+## [1.0.0-rc.11] — 2026-08-22
 
 ### Fixed
 

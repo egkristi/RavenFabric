@@ -1,6 +1,6 @@
 {
   "name": "ravenfabric",
-  "version": "1.0.0-rc.11",
+  "version": "1.0.0-rc.12",
   "description": "TypeScript MCP client SDK for RavenFabric secure remote execution",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
