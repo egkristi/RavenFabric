@@ -1,10 +1,38 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.6 (Release Candidate) — Released 2026-07-02
-> **Next:** v1.0.0 (Stable) — **Blocked by 4 critical bugs + 6 medium items requiring rpi5 access**
-> **Stats:** 14 crates, ~75,315 LOC, 1,453 tests, 0 clippy warnings, 0 known vulnerabilities
-> **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. 4 critical bugs confirmed persistent across 3 sessions.
+> **Version:** 1.0.0-rc.11 (Release Candidate) — Released 2026-08-22
+> **Next:** v1.0.0 (Stable) — **Critical bugs resolved; remaining blockers require rpi5 access or human action**
+> **Stats:** 14 crates, ~75,389 LOC, 1,428 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. Critical bugs resolved in rc.7–rc.11.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
+
+---
+
+## Release Checklist: v1.0.0-rc.11 — Critical Bug Resolution ✅
+
+**Released 2026-08-22.** The four critical bugs that blocked v1.0 Stable are now resolved and verified locally. See [CHANGELOG.md](CHANGELOG.md) for full detail.
+
+### 🔴 Critical (resolved in rc.7–rc.11)
+
+- [x] **Metrics counters stuck at 0** — `record_audit_entry()` helper added to `rf-executor` so `ravenfabric_audit_entries_total` (and the other 5 counters) increment on every execute action. Verified locally: all 6 counters report non-zero values after relay exec.
+- [x] **Agent→local `rf cp` hangs** — Pull-stream direction fixed in rc.6 (`SecureChannel::flush()` after final frame). Verified locally: 21-byte agent→local pull completes with checksum verification.
+- [x] **Relay mode broken cross-platform** — Root cause identified and fixed in rc.8+rc.11: the agent health prober was using the agent's real meet token and performing a full Noise XX handshake, causing the relay to pair the prober (responder) with the agent (also a responder) — deadlocking both and stealing the pairing from the CLI initiator. The prober now dials with a distinct `__health_probe__<token>` token and skips the handshake. Verified locally: relay exec returns `RELAY_EXEC_OK` with exit code 0.
+- [x] **Agent version mismatch** — Version strings reconciled across all Cargo.toml, deploy, SDK, website, and doc files (rc.6/rc.9 → rc.11).
+
+### 🟡 Medium (resolved)
+
+- [x] **Exit code not forwarded to shell** — `rf exec "exit 42"` now returns shell exit code 42. Verified locally.
+- [x] **Secret store unclear error** — Improved `--seal-key-path` hint in error message.
+- [x] **install.sh dash/BusyBox incompatibility** — Rewritten as POSIX-compatible `#!/bin/sh` (no bashisms).
+
+### Still Requires rpi5 Access / Human Action (Blocking v1.0 Stable)
+
+- [ ] **Deploy MCP server on rpi5** — systemd service exists; needs rpi5 deployment.
+- [ ] **Configure secret store on rpi5** — `--seal-key-path` needs to be set on device.
+- [ ] **Test policy hot-reload on rpi5** — SIGHUP handler code exists but needs real-device test.
+- [ ] **Test playbook feature on rpi5** — needs policy rule deployment + device test.
+- [ ] **External testers** (2-3 people) — human recruitment.
+- [ ] **Publish to crates.io** (#44) — needs `CRATES_IO_TOKEN` secret.
 
 ---
 

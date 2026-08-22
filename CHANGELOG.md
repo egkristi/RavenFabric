@@ -5,6 +5,39 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.11] — 2026-08-22
+
+### Fixed
+
+- **Relay health prober deadlock (root cause of relay handshake hang)** — The agent's background relay health prober was dialing with the agent's real meet token and performing a full Noise XX handshake. Since both the agent and the prober are Noise responders, the relay paired them together — deadlocking both and stealing the pairing from the CLI initiator. The prober now uses a distinct `__health_probe__<token>` meet token and skips the handshake entirely (a probe has no initiator peer, so a handshake would always time out). Relay exec now completes end-to-end.
+- **Version consistency** — Reconciled version strings across the workspace (`rc.9`), inter-crate dependencies (`rc.6`), deploy manifests, SDKs, website, and documentation to a single `rc.11` release.
+
+## [1.0.0-rc.10] — 2026-07-02
+
+### Fixed
+
+- **Relay yield** — Relay now always yields after mpsc send to prevent a single connection from monopolizing the event loop.
+- **Exit code propagation** — `rf exec` now returns the remote command's exit code to the shell.
+- **Secret store error clarity** — Added a `--seal-key-path` hint to the "secret store not configured" error.
+
+## [1.0.0-rc.9] — 2026-07-02
+
+### Changed
+
+- **Kubernetes testing** — Additional K8s integration test scenarios and manifests.
+
+## [1.0.0-rc.8] — 2026-07-02
+
+### Fixed
+
+- **Noise XX handshake flush** — Added `flush()` after each handshake message and reduced the handshake timeout from 30s to 10s to fix relay handshake timeouts.
+
+## [1.0.0-rc.7] — 2026-07-02
+
+### Fixed
+
+- **Noise XX handshake retry** — Added a 3-attempt retry loop with `flush()` after each message to fix relay timeouts.
+
 ## [1.0.0-rc.6] — 2026-07-02
 
 ### Fixed

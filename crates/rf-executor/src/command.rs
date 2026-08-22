@@ -5472,15 +5472,14 @@ spec:
     #[tokio::test]
     async fn test_execute_increments_audit_entries_counter() {
         let audit = Arc::new(TestAuditLogger::new());
-        let exec = make_executor(audit.clone())
-            .with_counters(
-                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
-                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
-                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
-                Some(Arc::new(std::sync::atomic::AtomicI64::new(0))),
-                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
-                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
-            );
+        let exec = make_executor(audit.clone()).with_counters(
+            Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+            Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+            Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+            Some(Arc::new(std::sync::atomic::AtomicI64::new(0))),
+            Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+            Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+        );
 
         // Allowed command
         let allowed_req = Request {

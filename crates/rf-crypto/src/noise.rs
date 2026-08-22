@@ -115,7 +115,10 @@ where
         if is_initiator {
             // → msg1: e
             send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
-            transport.flush().await.map_err(|_| CryptoError::Disconnected)?;
+            transport
+                .flush()
+                .await
+                .map_err(|_| CryptoError::Disconnected)?;
             if compat_mode {
                 tokio::task::yield_now().await;
             }
@@ -126,7 +129,10 @@ where
             }
             // → msg3: s, se
             send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
-            transport.flush().await.map_err(|_| CryptoError::Disconnected)?;
+            transport
+                .flush()
+                .await
+                .map_err(|_| CryptoError::Disconnected)?;
         } else {
             // ← msg1: e
             recv_handshake_msg(transport, &mut noise, &mut buf).await?;
@@ -135,7 +141,10 @@ where
             }
             // → msg2: e, ee, s, es
             send_handshake_msg(transport, &mut noise, &[], &mut buf).await?;
-            transport.flush().await.map_err(|_| CryptoError::Disconnected)?;
+            transport
+                .flush()
+                .await
+                .map_err(|_| CryptoError::Disconnected)?;
             if compat_mode {
                 tokio::task::yield_now().await;
             }

@@ -37,7 +37,7 @@ Cargo workspace with 14 crates:
 | `rf-ingress` | HTTP ingress gateway (axum), reverse-proxy routing table, API key auth, per-IP rate limiting | **Done** (~580 LOC, 11 tests) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~75,315 LOC, 1,453 tests, 0 clippy warnings.**
+**Total: ~75,389 LOC, 1,428 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

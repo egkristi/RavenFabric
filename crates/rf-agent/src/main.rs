@@ -934,10 +934,7 @@ async fn handle_direct_connection(
 /// RTT and detect unreachable relays. Results are logged for observability.
 /// In a future enhancement, these measurements could be fed back into the
 /// `RelayList` to dynamically reorder relays by latency.
-async fn relay_health_prober(
-    relays: Vec<String>,
-    token: String,
-) {
+async fn relay_health_prober(relays: Vec<String>, token: String) {
     use tokio::time::interval;
 
     let probe_interval = Duration::from_secs(300); // every 5 minutes
