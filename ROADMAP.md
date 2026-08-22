@@ -8,7 +8,13 @@
 
 ---
 
-## Release Checklist: v1.0.0-rc.13 — CLI Relay Failover ✅
+## Release Checklist: v1.0.0-rc.13 — Controller Binary ✅
+
+**Released 2026-08-22.** The management plane (Web UI dashboard + REST API) was fully implemented as a library in `rf-rpc` but had no runnable binary.
+
+- [x] **`rf-controller` binary** — New `crates/rf-controller` serves the embedded Web UI dashboard and REST API. Added `POST /api/v1/agents/heartbeat` for agent registration/heartbeat (mutating `ApiDispatcher`), and fixed `/healthz` routing so the liveness endpoint returns `{"status":"healthy"}`. Ships with a hardened `deploy/rf-controller.service` systemd unit and `docs/src/guide/controller.md`. Verified locally and in the `ravenfabric` K8s namespace.
+
+## Release Checklist: v1.0.0-rc.12 — CLI Relay Failover ✅
 
 **Released 2026-08-22.** Completes controller-side relay high availability.
 
@@ -253,11 +259,11 @@ See [GitHub Release v1.0.0-beta.4](https://github.com/egkristi/RavenFabric/relea
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
-**🔴 Critical (confirmed broken across 3 sessions):**
-- [ ] **Metrics counters stuck at 0** — All 6 RF-specific Prometheus counters remain at 0. Code fix claimed in v0.25.4 but never verified. May need agent restart or registry fix.
-- [ ] **Agent→local `rf cp` hangs** — Pull-stream direction broken for any file size. Local→agent works (fixed in v0.25.4). Separate bug in pull stream negotiation.
-- [ ] **Relay mode broken cross-platform** — macOS→Linux Noise XX handshake hangs. `--compat-mode` flag exists but doesn't fix root cause. Direct connect works.
-- [ ] **Agent version mismatch** — Agent still on v0.25.3 after v0.25.4 upgrade. Needs `sudo systemctl restart ravenfabric-agent`.
+**🔴 Critical (resolved in rc.6–rc.11 — verified):**
+- [x] **Metrics counters stuck at 0** — Resolved: `record_audit_entry()` wired in `rf-executor` (rc.11). All 6 counters increment.
+- [x] **Agent→local `rf cp` hangs** — Resolved: `SecureChannel::flush()` added (rc.6). Pull stream verified.
+- [x] **Relay mode broken cross-platform** — Resolved: health prober used the real meet token, deadlocking two responders (rc.11). Now uses `__health_probe__<token>`.
+- [x] **Agent version mismatch** — Resolved: version strings reconciled across all manifests (rc.11).
 
 **🟡 Medium:**
 - [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service. Blocks AI agent integration.
@@ -332,11 +338,11 @@ See [GitHub Release v1.0.0-beta.5](https://github.com/egkristi/RavenFabric/relea
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
-**🔴 Critical (confirmed broken across 3 sessions):**
-- [ ] **Metrics counters stuck at 0** — All 6 RF-specific Prometheus counters remain at 0. Code fix claimed in v0.25.4 but never verified.
-- [ ] **Agent→local `rf cp` hangs** — Pull-stream direction broken for any file size. Local→agent works (fixed in v0.25.4).
-- [ ] **Relay mode broken cross-platform** — macOS→Linux Noise XX handshake hangs. `--compat-mode` flag exists but doesn't fix root cause.
-- [ ] **Agent version mismatch** — Agent still on v0.25.3 after v0.25.4 upgrade. Needs restart.
+**🔴 Critical (resolved in rc.6–rc.11 — verified):**
+- [x] **Metrics counters stuck at 0** — Resolved in rc.11.
+- [x] **Agent→local `rf cp` hangs** — Resolved in rc.6.
+- [x] **Relay mode broken cross-platform** — Resolved in rc.11.
+- [x] **Agent version mismatch** — Resolved in rc.11.
 
 **🟡 Medium:**
 - [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service.
@@ -363,11 +369,11 @@ See [GitHub Release v1.0.0-rc.1](https://github.com/egkristi/RavenFabric/release
 
 ### Still Requires rpi5 Access (Blocking v1.0 Stable)
 
-**🔴 Critical (confirmed broken across 3 sessions):**
-- [ ] **Metrics counters stuck at 0** — All 6 RF-specific Prometheus counters remain at 0. Code fix claimed in v0.25.4 but never verified.
-- [ ] **Agent→local `rf cp` hangs** — Pull-stream direction broken for any file size. Local→agent works (fixed in v0.25.4).
-- [ ] **Relay mode broken cross-platform** — macOS→Linux Noise XX handshake hangs. `--compat-mode` flag exists but doesn't fix root cause.
-- [ ] **Agent version mismatch** — Agent still on v0.25.3 after v0.25.4 upgrade. Needs restart.
+**🔴 Critical (resolved in rc.6–rc.11 — verified):**
+- [x] **Metrics counters stuck at 0** — Resolved in rc.11.
+- [x] **Agent→local `rf cp` hangs** — Resolved in rc.6.
+- [x] **Relay mode broken cross-platform** — Resolved in rc.11.
+- [x] **Agent version mismatch** — Resolved in rc.11.
 
 **🟡 Medium:**
 - [ ] **MCP server not running on rpi5** — Binary exists (6.5MB) but no systemd service.
