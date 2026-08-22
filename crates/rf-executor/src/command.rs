@@ -575,6 +575,15 @@ impl Executor {
         }
     }
 
+    /// Increment the `audit_entries` Prometheus counter if wired.
+    /// Used by code paths that write audit entries directly via `self.audit.log()`
+    /// rather than through the `self.audit()` helper (which already increments it).
+    fn record_audit_entry(&self) {
+        if let Some(ref c) = self.audit_entries {
+            c.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
     /// Write an audit log entry, logging errors via tracing.
     /// Increments the `audit_entries` Prometheus counter if wired.
     #[allow(clippy::too_many_arguments)]
@@ -644,6 +653,7 @@ impl Executor {
                 tracing::error!("audit log write failed: {}", e);
             }
             self.record_policy_decision(false);
+            self.record_audit_entry();
 
             return RpcResult::Denied {
                 reason: decision.reason,
@@ -714,6 +724,7 @@ impl Executor {
         }) {
             tracing::error!("audit log write failed: {}", e);
         }
+        self.record_audit_entry();
 
         RpcResult::Success {
             stdout,
@@ -5449,6 +5460,63 @@ spec:
             matches!(resp.result, RpcResult::Error { .. }),
             "should return Error when no secret store is configured: {:?}",
             resp.result,
+        );
+    }
+
+    /// Regression test: `handle_execute` must increment the `audit_entries`
+    /// Prometheus counter for BOTH allowed and denied commands.
+    /// Previously the counter stayed at 0 for `Execute` actions because
+    /// `handle_execute` wrote directly via `self.audit.log()` without
+    /// incrementing the counter (the `self.audit()` helper increments it,
+    /// but `handle_execute` did not use that helper).
+    #[tokio::test]
+    async fn test_execute_increments_audit_entries_counter() {
+        let audit = Arc::new(TestAuditLogger::new());
+        let exec = make_executor(audit.clone())
+            .with_counters(
+                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+                Some(Arc::new(std::sync::atomic::AtomicI64::new(0))),
+                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+                Some(Arc::new(std::sync::atomic::AtomicU64::new(0))),
+            );
+
+        // Allowed command
+        let allowed_req = Request {
+            id: "allowed".into(),
+            action: Action::Execute {
+                command: "echo hi".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let _ = exec.handle(allowed_req).await;
+
+        // Denied command
+        let denied_req = Request {
+            id: "denied".into(),
+            action: Action::Execute {
+                command: "rm -rf /".into(),
+                env: Default::default(),
+                workdir: None,
+            },
+            timeout_ms: None,
+            reason: None,
+        };
+        let _ = exec.handle(denied_req).await;
+
+        // audit_entries counter is the 3rd element (index 2)
+        let audit_entries_counter = exec
+            .audit_entries
+            .as_ref()
+            .expect("audit_entries counter should be wired");
+        assert_eq!(
+            audit_entries_counter.load(std::sync::atomic::Ordering::Relaxed),
+            2,
+            "audit_entries counter should be 2 (one allowed + one denied)"
         );
     }
 }
