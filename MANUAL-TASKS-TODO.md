@@ -121,6 +121,14 @@ Marketing posts are pre-written in `marketing/`:
 - [ ] Add rate limiting and auto-reset (sandbox should reset every hour)
 - Closes [#42](https://github.com/egkristi/RavenFabric/issues/42)
 
+### Re-upload full feature overview asciinema demo
+
+The demo script was expanded to 20 sections (added "Relay High Availability — Failover" in v1.0.0-rc.12) and the recording regenerated at `demos/ravenfabric-demo.cast`. The website still embeds the old 19-section recording.
+
+- [ ] `asciinema upload demos/ravenfabric-demo.cast` (requires an asciinema.org account)
+- [ ] Copy the new recording ID from the upload output
+- [ ] Update `website/demos/index.html` — replace `CTCcijVS4wqbPcGb` with the new recording ID in the Demo 11 (`#full-overview`) `<script src="https://asciinema.org/a/....js">` embed
+
 ---
 
 ## Priority 4 — Platform-specific (when resources available)
