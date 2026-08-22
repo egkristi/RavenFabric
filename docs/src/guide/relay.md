@@ -71,6 +71,30 @@ relay-ap.example.com  (Singapore)
 
 Agents connect to the nearest relay. The relay selection is automatic based on latency probing.
 
+## Relay High Availability (Failover)
+
+A single relay is a single point of failure. RavenFabric provides failover on both sides of the connection:
+
+- **Agent side** — configure multiple relay URLs in the agent's `raven.toml` (`[[transport.relay_clusters]]`). The agent fails over to the next healthy relay on connection failure and probes RTT to all relays every 5 minutes.
+- **CLI side** — pass a comma-separated list to `--relay`. The CLI tries each relay in order and fails over on connection or Noise XX handshake failure.
+
+```bash
+# CLI failover across three relays
+rf exec \
+  --relay "ws://relay-eu.example.com:9090,ws://relay-us.example.com:9090,ws://relay-ap.example.com:9090" \
+  --token abc123 "hostname"
+```
+
+```toml
+# Agent-side failover (raven.toml)
+[[transport.relay_clusters]]
+urls = [
+  "wss://relay-eu.example.com/meet",
+  "wss://relay-us.example.com/meet",
+  "wss://relay-ap.example.com/meet",
+]
+```
+
 ## Security Properties
 
 - **Stateless** — No session data stored on disk

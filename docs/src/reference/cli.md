@@ -6,12 +6,20 @@ The `rf` binary is the user-facing CLI for RavenFabric. All commands communicate
 
 | Option | Short | Description | Default |
 |--------|-------|-------------|---------|
-| `--relay <URL>` | `-r` | Relay WebSocket URL | `ws://127.0.0.1:9090` |
+| `--relay <URL>` | `-r` | Relay WebSocket URL (comma-separated list for failover) | `ws://127.0.0.1:9090` |
 | `--key-path <PATH>` | `-k` | Client key file | `client.key` |
 | `--help` | `-h` | Print help | — |
 | `--version` | `-V` | Print version | — |
 
 **Environment:** `RF_RELAY` overrides the default relay URL.
+
+**Relay failover:** `--relay` accepts a comma-separated list of relay URLs. The
+CLI tries each in order and fails over to the next on connection or Noise XX
+handshake failure. Example:
+
+```bash
+rf exec --relay "ws://relay-eu.example.com:9090,ws://relay-us.example.com:9090" --token abc123 "hostname"
+```
 
 ---
 

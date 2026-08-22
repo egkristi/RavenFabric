@@ -55,7 +55,7 @@ pause() {
 # ── Clean start ────────────────────────────────────────────────
 clear
 echo ""
-printf '\033[1;36m  RavenFabric v1.0.0-rc.6\033[0m — Security-first remote execution & mesh networking\n'
+printf '\033[1;36m  RavenFabric v1.0.0-rc.12\033[0m — Security-first remote execution & mesh networking\n'
 echo "  $(printf '%.0s─' {1..55})"
 echo ""
 sleep 2
@@ -335,13 +335,37 @@ echo ""
 sleep 1
 
 # ════════════════════════════════════════════════════════════════
-# SECTION 19: Cleanup
+# SECTION 19: Relay High Availability (Failover)
 # ════════════════════════════════════════════════════════════════
-section "19. Cleanup"
+section "19. Relay High Availability — Failover"
+
+comment "A single relay is a single point of failure. Use comma-separated relays:"
+type_cmd "$RF --relay 'ws://relay-eu:9090,ws://relay-us:9090,ws://relay-ap:9090' exec --token dev 'hostname'"
+printf '\033[0;33m  (CLI fails over to the next relay on connection or handshake failure)\033[0m\n'
+echo ""
+sleep 1
+
+comment "Agents configure multiple relays in raven.toml for the same failover:"
+printf '\033[0;90m  [[transport.relay_clusters]]\033[0m\n'
+printf '\033[0;90m  urls = ["wss://relay-eu/meet", "wss://relay-us/meet", "wss://relay-ap/meet"]\033[0m\n'
+echo ""
+sleep 2
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 20: Cleanup
+# ════════════════════════════════════════════════════════════════
+section "20. Cleanup"
 
 comment "Stop dev mode"
-kill "$RF_DEV_PID" 2>/dev/null || true
-wait "$RF_DEV_PID" 2>/dev/null || true
+# `rf dev` exits on SIGINT (Ctrl+C). Send SIGINT, then SIGKILL as a fallback.
+# Avoid `wait` — under a recording PTY the backgrounded process can outlive the
+# script's wait, blocking the recording indefinitely.
+kill -INT "$RF_DEV_PID" 2>/dev/null || true
+for _ in {1..20}; do
+    kill -0 "$RF_DEV_PID" 2>/dev/null || break
+    sleep 0.1
+done
+kill -9 "$RF_DEV_PID" 2>/dev/null || true
 printf '\033[0;32m  ✓ dev mode stopped\033[0m\n'
 echo ""
 sleep 1
@@ -352,7 +376,7 @@ sleep 1
 echo ""
 echo "  $(printf '%.0s═' {1..55})"
 echo ""
-printf '\033[1;36m  RavenFabric v1.0.0-rc.6\033[0m — Security-first distributed execution\n'
+printf '\033[1;36m  RavenFabric v1.0.0-rc.12\033[0m — Security-first distributed execution\n'
 echo ""
 printf '\033[0;37m  ✓ Noise XX mutual authentication (no TLS, no certificates)\033[0m\n'
 printf '\033[0;37m  ✓ Deny-by-default policy engine\033[0m\n'
@@ -363,6 +387,7 @@ printf '\033[0;37m  ✓ Runs everywhere — Linux, macOS, Windows, IoT\033[0m\n'
 printf '\033[0;37m  ✓ Any transport — WebSocket, QUIC, LoRa, BLE, satellite\033[0m\n'
 printf '\033[0;37m  ✓ AI-ready — MCP server for agent integration\033[0m\n'
 printf '\033[0;37m  ✓ Cross-platform compatibility mode\033[0m\n'
+printf '\033[0;37m  ✓ Relay high availability — multi-relay failover\033[0m\n'
 echo ""
 printf '\033[0;37m  github.com/egkristi/RavenFabric\033[0m\n'
 echo ""
