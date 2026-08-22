@@ -12,7 +12,7 @@ categories = ["command-line-utilities", "network-programming"]
 keywords = ["security", "remote-execution", "mesh-networking", "noise-protocol", "zero-trust"]
 
 [dependencies]
-rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.12" }
+rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.13" }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }

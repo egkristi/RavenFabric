@@ -18,10 +18,10 @@ wasm-plugins = ["dep:wasmtime"]
 secret-backends = []
 
 [dependencies]
-rf-policy = { path = "../rf-policy", version = "1.0.0-rc.12" }
-rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.12" }
-rf-audit = { path = "../rf-audit", version = "1.0.0-rc.12" }
-rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.12" }
+rf-policy = { path = "../rf-policy", version = "1.0.0-rc.13" }
+rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.13" }
+rf-audit = { path = "../rf-audit", version = "1.0.0-rc.13" }
+rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.13" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }

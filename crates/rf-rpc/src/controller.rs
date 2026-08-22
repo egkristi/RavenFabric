@@ -1582,7 +1582,7 @@ mod tests {
             body: Some(serde_json::json!({
                 "id": "web-02",
                 "key_hash": "abc",
-                "version": "1.0.0-rc.12",
+                "version": "1.0.0-rc.13",
                 "region": "eu-west",
                 "relay_url": "wss://relay.example.com/meet",
                 "labels": {"role": "web"}

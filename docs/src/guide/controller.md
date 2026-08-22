@@ -45,7 +45,7 @@ Open <http://localhost:9091> for the dashboard.
 {
   "id": "web-01",
   "key_hash": "hex-encoded-agent-key-hash",
-  "version": "1.0.0-rc.12",
+  "version": "1.0.0-rc.13",
   "region": "eu-west",
   "relay_url": "wss://relay.example.com/meet",
   "labels": { "role": "web", "env": "prod" }
@@ -60,7 +60,7 @@ Open <http://localhost:9091> for the dashboard.
 # Register an agent
 curl -X POST http://localhost:9091/api/v1/agents/heartbeat \
   -H 'Content-Type: application/json' \
-  -d '{"id":"web-01","version":"1.0.0-rc.12","region":"eu-west"}'
+  -d '{"id":"web-01","version":"1.0.0-rc.13","region":"eu-west"}'
 
 # List agents (authenticated)
 curl http://localhost:9091/api/v1/agents -H 'Authorization: Bearer <token>'

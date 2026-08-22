@@ -1,6 +1,6 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.12 (Release Candidate) — Released 2026-08-22
+> **Version:** 1.0.0-rc.13 (Release Candidate) — Released 2026-08-22
 > **Next:** v1.0.0 (Stable) — **Critical bugs resolved; remaining blockers require rpi5 access or human action**
 > **Stats:** 15 crates, ~75,658 LOC, 1,433 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. Critical bugs resolved in rc.7–rc.11.
@@ -8,7 +8,7 @@
 
 ---
 
-## Release Checklist: v1.0.0-rc.12 — CLI Relay Failover ✅
+## Release Checklist: v1.0.0-rc.13 — CLI Relay Failover ✅
 
 **Released 2026-08-22.** Completes controller-side relay high availability.
 
