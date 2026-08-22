@@ -586,10 +586,8 @@ async fn agent_main() -> anyhow::Result<()> {
         // Spawn relay health probe task (periodic RTT measurement)
         let probe_relays: Vec<String> = cfg.relay_list.all_urls().to_vec();
         let probe_token = cfg.token.clone();
-        let probe_key = key.clone();
-        let probe_compat = cfg.compat_mode;
         tokio::spawn(async move {
-            relay_health_prober(probe_relays, probe_token, probe_key, probe_compat).await;
+            relay_health_prober(probe_relays, probe_token).await;
         });
 
         // Reconnect loop with exponential backoff + jitter + relay failover
@@ -939,8 +937,6 @@ async fn handle_direct_connection(
 async fn relay_health_prober(
     relays: Vec<String>,
     token: String,
-    key: StaticKey,
-    compat_mode: bool,
 ) {
     use tokio::time::interval;
 
@@ -954,7 +950,7 @@ async fn relay_health_prober(
     );
 
     for relay_url in &relays {
-        let rtt = probe_single_relay(relay_url, &token, &key, compat_mode).await;
+        let rtt = probe_single_relay(relay_url, &token).await;
         match rtt {
             Some(ms) => info!("relay health: {} RTT={}ms", relay_url, ms),
             None => warn!("relay health: {} UNREACHABLE", relay_url),
@@ -964,7 +960,7 @@ async fn relay_health_prober(
     loop {
         ticker.tick().await;
         for relay_url in &relays {
-            let rtt = probe_single_relay(relay_url, &token, &key, compat_mode).await;
+            let rtt = probe_single_relay(relay_url, &token).await;
             match rtt {
                 Some(ms) => info!("relay health: {} RTT={}ms", relay_url, ms),
                 None => warn!("relay health: {} UNREACHABLE", relay_url),
@@ -973,30 +969,35 @@ async fn relay_health_prober(
     }
 }
 
-/// Probe a single relay by establishing a WebSocket connection, performing a
-/// Noise XX handshake, and immediately closing. Returns the RTT in milliseconds
-/// on success, or `None` if the relay is unreachable.
-async fn probe_single_relay(
-    relay_url: &str,
-    token: &str,
-    key: &StaticKey,
-    compat_mode: bool,
-) -> Option<u32> {
+/// Probe a single relay by establishing a WebSocket connection and measuring
+/// round-trip time. Returns the RTT in milliseconds on success, or `None` if
+/// the relay is unreachable.
+///
+/// IMPORTANT: This must NOT use the agent's real meet token and must NOT
+/// perform a Noise XX handshake. If it used the real token, the relay would
+/// pair the probe connection with the agent (both are Noise responders),
+/// which deadlocks and steals the pairing from the CLI initiator. The probe
+/// only needs to verify the relay accepts a WebSocket connection.
+async fn probe_single_relay(relay_url: &str, token: &str) -> Option<u32> {
     let driver = WebSocketDriver::new();
+
+    // Use a distinct, probe-only meet token so the relay never pairs the probe
+    // with a real agent session.
+    let probe_token = format!("__health_probe__{token}");
+
     let target = Target {
         agent_id: "health-probe".into(),
         relay_url: Some(relay_url.to_string()),
-        meet_token: Some(token.to_string()),
+        meet_token: Some(probe_token),
     };
 
     let start = Instant::now();
-    match tokio::time::timeout(Duration::from_secs(10), async {
-        let mut stream = driver.dial(&target, &Default::default()).await?;
-        if compat_mode {
-            let _ = rf_crypto::noise::handshake_with_compat(&mut stream, false, key, true).await?;
-        } else {
-            let _ = rf_crypto::noise::handshake(&mut stream, false, key).await?;
-        }
+    // Only dial (TCP + WebSocket upgrade + meet-token registration). Do NOT
+    // attempt the Noise XX handshake — a probe has no initiator peer, so the
+    // handshake would always time out. Connection establishment alone is the
+    // correct signal for relay health.
+    match tokio::time::timeout(Duration::from_secs(5), async {
+        let _stream = driver.dial(&target, &Default::default()).await?;
         Ok::<_, anyhow::Error>(())
     })
     .await
