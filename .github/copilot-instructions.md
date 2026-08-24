@@ -38,7 +38,7 @@ Cargo workspace with 14 crates:
 | `rf-controller` | Controller binary (REST API + embedded Web UI dashboard), agent registry with heartbeat/stale detection | **Done** (~150 LOC) |
 | `rf-integration-tests` | End-to-end integration tests | **Done** (~2,050 LOC, 50 tests) |
 
-**Total: ~75,389 LOC, 1,433 tests, 0 clippy warnings.**
+**Total: ~76,501 LOC, 1,448 tests, 0 clippy warnings.**
 
 ## Dependency Flow
 

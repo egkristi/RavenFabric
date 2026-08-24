@@ -1,14 +1,35 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.16 (Release Candidate) — Released 2026-08-22
+> **Version:** 1.0.0-rc.16 (Release Candidate) — Released 2026-08-24
 > **Next:** v1.0.0 (Stable) — **Critical bugs resolved; remaining blockers require rpi5 access or human action**
-> **Stats:** 15 crates, ~75,658 LOC, 1,433 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 15 crates, ~76,501 LOC, 1,448 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. Critical bugs resolved in rc.7–rc.11.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
 
-## Release Checklist: v1.0.0-rc.16 — Controller Binary ✅
+## Release Checklist: v1.0.0-rc.16 — rf-relay Metrics + Drain ✅
+
+**Released 2026-08-24.** Adds the `/metrics` + `/healthz` endpoint and graceful drain to `rf-relay`.
+
+- [x] **`/metrics` + `/healthz` (R0.5)** — `--metrics-addr` enables a Prometheus metrics + healthz endpoint (`rf_relay_connections_total`, `rf_relay_sessions_active`, `rf_relay_pending_pairings`, `rf_relay_session_bytes_total`, `rf_relay_session_closed_total`, `rf_relay_channel_send_blocked_total`, `rf_relay_forward_total`).
+- [x] **Graceful drain (R0.8/F14)** — Close frame + `--drain-timeout-secs` on shutdown instead of hard-disconnect.
+
+## Release Checklist: v1.0.0-rc.15 — rf-relay Hardening ✅
+
+**Released 2026-08-24.** First rf-relay hardening pass (R0 phase).
+
+- [x] **Token redaction (R0.2/F2)** — meet token no longer logged in cleartext.
+- [x] **Bounded channels (R0.1/F1)** — backpressure instead of unbounded buffering.
+- [x] **Session quotas (R0.4/F4)** — byte/time/idle quotas + pairing timeout.
+- [x] **IPv6 /64 rate-limit (R0.7/F6)** — `/64` bucketing + `--max-connections` cap.
+- [x] **Hop limit (R0.9/F11)** — cross-region forward hop limit.
+
+## Release Checklist: v1.0.0-rc.14 — Kubernetes Operator CRDs ✅
+
+**Released 2026-08-24.** `RavenAgent`, `RavenPolicy`, `RavenRelay`, `RavenMesh` CRD manifests wired into the Helm chart.
+
+## Release Checklist: v1.0.0-rc.13 — Controller Binary ✅
 
 **Released 2026-08-22.** The management plane (Web UI dashboard + REST API) was fully implemented as a library in `rf-rpc` but had no runnable binary.
 
