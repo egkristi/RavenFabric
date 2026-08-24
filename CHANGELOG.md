@@ -5,6 +5,12 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Kubernetes operator CRDs** — Added installable CRD manifests for `RavenAgent`, `RavenPolicy`, `RavenRelay`, and `RavenMesh` (group `ravenfabric.io`), wired into the Helm chart (`crds/` directory + `crds.enabled` toggle). OpenAPI v3 schemas enforce required fields and printer columns. Verified in the `ravenfabric` K8s namespace: CRs create/list correctly and schema validation rejects a `RavenAgent` missing `spec.id`.
+
 ## [1.0.0-rc.13] — 2026-08-22
 
 ### Added

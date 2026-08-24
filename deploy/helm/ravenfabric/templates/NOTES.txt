@@ -1,5 +1,13 @@
 RavenFabric has been deployed to your cluster.
 
+{{- if .Values.crds.enabled }}
+
+Kubernetes operator CRDs installed:
+  RavenAgent, RavenPolicy, RavenRelay, RavenMesh
+Check:
+  kubectl get crd | grep ravenfabric.io
+{{- end }}
+
 {{- if .Values.ingress.enabled }}
 The relay is accessible at:
   https://{{ .Values.ingress.host }}

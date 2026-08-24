@@ -1,0 +1,54 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: ravenmeshes.ravenfabric.io
+  labels:
+    app.kubernetes.io/name: ravenfabric
+    app.kubernetes.io/part-of: ravenfabric
+spec:
+  group: ravenfabric.io
+  names:
+    kind: RavenMesh
+    listKind: RavenMeshList
+    plural: ravenmeshes
+    singular: ravenmesh
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: RavenMesh describes a mesh network topology of RavenFabric nodes.
+          required: ["spec"]
+          properties:
+            spec:
+              type: object
+              properties:
+                cidr:
+                  type: string
+                  description: IPv6 mesh prefix derived from member public keys.
+                relayCluster:
+                  type: array
+                  description: Relay URLs available to mesh members.
+                  items:
+                    type: string
+                members:
+                  type: array
+                  description: Member agent public key hashes.
+                  items:
+                    type: string
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+              description: Observed state, populated by the operator.
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: CIDR
+          type: string
+          jsonPath: .spec.cidr
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

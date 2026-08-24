@@ -1,0 +1,72 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: ravenagents.ravenfabric.io
+  labels:
+    app.kubernetes.io/name: ravenfabric
+    app.kubernetes.io/part-of: ravenfabric
+spec:
+  group: ravenfabric.io
+  names:
+    kind: RavenAgent
+    listKind: RavenAgentList
+    plural: ravenagents
+    singular: ravenagent
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: RavenAgent describes a RavenFabric agent enrolled in the fabric.
+          required: ["spec"]
+          properties:
+            spec:
+              type: object
+              required: ["id"]
+              properties:
+                id:
+                  type: string
+                  description: Agent identifier.
+                relayUrl:
+                  type: string
+                  description: Relay WebSocket URL the agent connects through (comma-separated for failover).
+                tokenRef:
+                  type: object
+                  description: Reference to a Secret holding the meet token.
+                  required: ["name", "key"]
+                  properties:
+                    name:
+                      type: string
+                    key:
+                      type: string
+                policy:
+                  type: object
+                  description: Inline policy for this agent.
+                  x-kubernetes-preserve-unknown-fields: true
+                region:
+                  type: string
+                  description: Geographic region code (e.g. eu-west, us-east).
+                labels:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Labels used for targeting and selection.
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+              description: Observed state, populated by the operator.
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Agent ID
+          type: string
+          jsonPath: .spec.id
+        - name: Region
+          type: string
+          jsonPath: .spec.region
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

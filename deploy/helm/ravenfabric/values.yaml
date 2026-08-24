@@ -2,6 +2,12 @@
 
 replicaCount: 1
 
+# Kubernetes operator CRDs (RavenAgent, RavenPolicy, RavenRelay, RavenMesh).
+# Installed from crds/ on `helm install`. CRDs are not upgraded or deleted by
+# Helm, so manage lifecycle explicitly.
+crds:
+  enabled: true
+
 image:
   repository: ghcr.io/egkristi/ravenfabric-relay
   pullPolicy: IfNotPresent

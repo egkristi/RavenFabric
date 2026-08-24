@@ -1,0 +1,63 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: ravenrelays.ravenfabric.io
+  labels:
+    app.kubernetes.io/name: ravenfabric
+    app.kubernetes.io/part-of: ravenfabric
+spec:
+  group: ravenfabric.io
+  names:
+    kind: RavenRelay
+    listKind: RavenRelayList
+    plural: ravenrelays
+    singular: ravenrelay
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: RavenRelay describes a stateless encrypted relay broker.
+          required: ["spec"]
+          properties:
+            spec:
+              type: object
+              required: ["listen"]
+              properties:
+                listen:
+                  type: string
+                  description: Listen address (e.g. 0.0.0.0:9090).
+                region:
+                  type: string
+                  description: Geographic region tag for nearest-relay selection.
+                meetSecretRef:
+                  type: object
+                  description: Reference to a Secret holding the meet secret.
+                  required: ["name", "key"]
+                  properties:
+                    name:
+                      type: string
+                    key:
+                      type: string
+                compatMode:
+                  type: boolean
+                  description: Enable cross-platform relay compatibility mode.
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+              description: Observed state, populated by the operator.
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Listen
+          type: string
+          jsonPath: .spec.listen
+        - name: Region
+          type: string
+          jsonPath: .spec.region
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

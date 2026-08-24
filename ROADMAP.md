@@ -937,7 +937,7 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 
 ### Integration Wishlist (Post-v1.0)
 
-- [ ] **Kubernetes operator** — CRDs for agents, policies, playbooks; mutating webhook for auto-injection
+- [x] **Kubernetes operator** — CRD manifests (`RavenAgent`, `RavenPolicy`, `RavenRelay`, `RavenMesh`) added in v1.0.0-rc.14, wired into the Helm chart (`crds/` + `crds.enabled`). OpenAPI v3 schemas enforce required fields; `Reconciler` in `rf-rpc` provides create/update/delete planning. A full watch→reconcile controller loop and mutating webhook remain follow-up enhancements.
 - [x] **Web dashboard** — `rf-controller` binary added in v1.0.0-rc.13: embedded Web UI dashboard + REST API (`/healthz`, `POST /api/v1/agents/heartbeat`, `GET /api/v1/agents`) with agent registry, heartbeat/stale detection, label selection, and bearer-token auth. Live audit feed, policy visualization, and metrics graphs remain follow-up enhancements.
 - [ ] **Terraform provider** — `ravenfabric_agent`, `ravenfabric_policy`, `ravenfabric_secret`, `ravenfabric_playbook`
 - [ ] **Ansible collection** — Install/configure agents, deploy policies, manage lifecycle, collect audit logs
