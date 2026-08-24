@@ -16,10 +16,10 @@ name = "rf-ingress"
 path = "src/main.rs"
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.14" }
-rf-transport = { path = "../rf-transport", version = "1.0.0-rc.14" }
-rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.14" }
-rf-audit = { path = "../rf-audit", version = "1.0.0-rc.14" }
+rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.15" }
+rf-transport = { path = "../rf-transport", version = "1.0.0-rc.15" }
+rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.15" }
+rf-audit = { path = "../rf-audit", version = "1.0.0-rc.15" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

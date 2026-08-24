@@ -5,6 +5,17 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.15] — 2026-08-24
+
+### Security / Fixed
+
+- **rf-relay hardening (R0 phase)** — Implemented the first hardening pass from the new rf-relay roadmap:
+  - **Token redaction (F2)** — the 256-bit meet token is no longer written in cleartext to logs; a truncated 8-hex `SHA-256` token ID is logged instead.
+  - **Bounded channels + backpressure (F1)** — unbounded mpsc channels replaced with bounded channels (depth 256) so a slow peer can no longer OOM the relay.
+  - **Session quotas + timeouts (F4)** — `SessionMeter` enforces `max_session_bytes`/`max_session_secs`/idle timeout, with typed `CloseReason`; pairing timeout drops unpaired peers instead of holding the token slot forever.
+  - **IPv6 /64 rate-limit bucketing (F6)** — rate limiting now keys IPv6 by /64 network prefix, plus a `--max-connections` hard cap.
+  - **Hop limit on cross-region forward (F11)** — `FORWARD:<url>|<hops>|<inner>` tokens with `max_forward_hops` (default 2) prevent A→B→A amplification loops.
+
 ## [1.0.0-rc.14] — 2026-08-24
 
 ### Added
