@@ -4,6 +4,9 @@
 
 pub mod cross_region;
 pub mod geoip;
+pub mod tokens;
+
+use tokens::TokenVerifier;
 
 use cross_region::{ForwardConfig, bridge_to_remote_relay_inner, parse_forward_token_with_hops};
 
@@ -558,8 +561,8 @@ pub async fn run_relay_with_limits(
     .await
 }
 
-/// Run the relay with full configuration, per-session limits, and an optional
-/// `/metrics` + `/healthz` endpoint.
+/// Run the relay with full configuration, per-session limits, an optional
+/// `/metrics` + `/healthz` endpoint, and an optional multi-key token verifier.
 pub async fn run_relay_with_limits_and_metrics(
     listen_addr: &str,
     cancel: tokio_util::sync::CancellationToken,
@@ -567,6 +570,53 @@ pub async fn run_relay_with_limits_and_metrics(
     forward_config: ForwardConfig,
     limits: RelayLimits,
     metrics_addr: Option<String>,
+) -> anyhow::Result<()> {
+    run_relay_full_impl(
+        listen_addr,
+        cancel,
+        meet_secret,
+        forward_config,
+        limits,
+        metrics_addr,
+        None,
+    )
+    .await
+}
+
+/// Run the relay with full configuration, per-session limits, metrics, and a
+/// multi-key `TokenVerifier` (R0.6). When `verifier` is `Some`, it supersedes
+/// the legacy single-secret `meet_secret` verification.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_relay_with_verifier(
+    listen_addr: &str,
+    cancel: tokio_util::sync::CancellationToken,
+    meet_secret: Option<String>,
+    forward_config: ForwardConfig,
+    limits: RelayLimits,
+    metrics_addr: Option<String>,
+    verifier: Option<Arc<TokenVerifier>>,
+) -> anyhow::Result<()> {
+    run_relay_full_impl(
+        listen_addr,
+        cancel,
+        meet_secret,
+        forward_config,
+        limits,
+        metrics_addr,
+        verifier,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_relay_full_impl(
+    listen_addr: &str,
+    cancel: tokio_util::sync::CancellationToken,
+    meet_secret: Option<String>,
+    forward_config: ForwardConfig,
+    limits: RelayLimits,
+    metrics_addr: Option<String>,
+    verifier: Option<Arc<TokenVerifier>>,
 ) -> anyhow::Result<()> {
     let channel_depth = limits.channel_depth.max(1);
     let max_connections = limits.max_connections.max(1);
@@ -578,6 +628,9 @@ pub async fn run_relay_with_limits_and_metrics(
     info!("rf-relay listening on {}", listen_addr);
     if meet_secret.is_some() {
         info!("HMAC meet token verification enabled");
+    }
+    if verifier.is_some() {
+        info!("multi-key invitation token verification enabled");
     }
     info!(
         "relay limits: channel_depth={}, max_connections={}, max_session_bytes={}, max_session_secs={}, idle_timeout_secs={}, pairing_timeout_secs={}",
@@ -672,6 +725,7 @@ pub async fn run_relay_with_limits_and_metrics(
                 let forward_config = Arc::clone(&forward_config);
                 let limits = Arc::clone(&limits);
                 let metrics = Arc::clone(&metrics);
+                let verifier = verifier.clone();
                 connections.spawn(async move {
                     let ws_stream = match tokio_tungstenite::accept_async(tcp_stream).await {
                         Ok(ws) => ws,
@@ -680,7 +734,7 @@ pub async fn run_relay_with_limits_and_metrics(
                             return;
                         }
                     };
-                    if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret, &forward_config, &limits, &metrics).await {
+                    if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret, &forward_config, &limits, &metrics, verifier.as_deref()).await {
                         warn!("Connection from {} ended: {}", addr, e);
                     }
                 });
@@ -701,6 +755,7 @@ async fn handle_connection(
     forward_config: &ForwardConfig,
     limits: &RelayLimits,
     metrics: &Arc<RelayMetrics>,
+    verifier: Option<&TokenVerifier>,
 ) -> anyhow::Result<()> {
     handle_connection_inner(
         ws,
@@ -711,6 +766,7 @@ async fn handle_connection(
         forward_config.compat_mode,
         limits,
         metrics,
+        verifier,
     )
     .await
 }
@@ -728,6 +784,7 @@ async fn handle_connection_inner(
     compat_mode: bool,
     limits: &RelayLimits,
     metrics: &Arc<RelayMetrics>,
+    verifier: Option<&TokenVerifier>,
 ) -> anyhow::Result<()> {
     let (mut ws_sink, mut ws_source) = ws.split();
 
@@ -738,13 +795,17 @@ async fn handle_connection_inner(
         _ => return Err(anyhow::anyhow!("expected meet token as first message")),
     };
 
-    // HMAC verification if secret is configured
-    if !verify_meet_token(&meet_token, meet_secret.as_deref()) {
+    // Token verification: prefer the multi-key verifier, fall back to legacy HMAC.
+    let token_ok = match verifier {
+        Some(v) => v.verify(&meet_token) == tokens::VerifyOutcome::Valid,
+        None => verify_meet_token(&meet_token, meet_secret.as_deref()),
+    };
+    if !token_ok {
         metrics
             .connections_auth_failed
             .fetch_add(1, Ordering::Relaxed);
-        warn!("invalid meet token (HMAC verification failed)");
-        return Err(anyhow::anyhow!("meet token HMAC verification failed"));
+        warn!("invalid meet token (authentication failed)");
+        return Err(anyhow::anyhow!("meet token authentication failed"));
     }
 
     // ── Cross-region forwarding check ────────────────────────────────────────

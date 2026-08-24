@@ -65,6 +65,20 @@ struct Args {
     /// Empty disables the endpoint.
     #[arg(long, default_value = "")]
     metrics_addr: String,
+
+    /// Path to a TOML keyring file for multi-key invitation tokens
+    /// (`[keys.<kid>] secret = "<hex>"`, `enabled`, `label`). When set,
+    /// supersedes the single `--secret` for token verification.
+    #[arg(long)]
+    secrets_file: Option<String>,
+
+    /// Enforce single-use tokens via a nonce (requires `--secrets-file`).
+    #[arg(long)]
+    enforce_single_use: bool,
+
+    /// Maximum allowed token lifetime in seconds (ceiling on `exp`). 0 = no ceiling.
+    #[arg(long, default_value_t = 0)]
+    max_token_age_secs: u64,
 }
 
 #[tokio::main]
@@ -112,13 +126,32 @@ async fn main() -> anyhow::Result<()> {
         Some(args.metrics_addr.clone())
     };
 
-    rf_relay::run_relay_with_limits_and_metrics(
+    // Build the multi-key token verifier if a secrets file is configured.
+    let verifier = if let Some(path) = &args.secrets_file {
+        let keyring = rf_relay::tokens::TokenKeyring::load(std::path::Path::new(path))?;
+        info!(
+            "multi-key token verification enabled ({} keys, single_use={})",
+            keyring.len(),
+            args.enforce_single_use
+        );
+        Some(std::sync::Arc::new(rf_relay::tokens::TokenVerifier::new(
+            std::sync::Arc::new(std::sync::Mutex::new(keyring)),
+            args.secret.clone(),
+            args.max_token_age_secs,
+            args.enforce_single_use,
+        )))
+    } else {
+        None
+    };
+
+    rf_relay::run_relay_with_verifier(
         &args.listen,
         cancel,
         args.secret,
         forward_config,
         limits,
         metrics_addr,
+        verifier,
     )
     .await
 }

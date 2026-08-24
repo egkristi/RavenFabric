@@ -39,3 +39,4 @@ fuzz/corpus/
 
 .wrangler/
 RAVENFABRIC-FEEDBACK.md
+core.*

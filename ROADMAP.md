@@ -196,7 +196,7 @@ rf_relay_build_info{version,transport_drivers}
 
 Without this you have no data basis for the scaling triggers. Build it early.
 
-#### R0.6 Multi-key invitation tokens *(F5, F9 — critical for the invitation phase)*
+#### R0.6 Multi-key invitation tokens *(F5, F9 — critical for the invitation phase)* ✅
 
 Current format `<payload>.<hex_mac>` with one global secret gives no revocation.
 
