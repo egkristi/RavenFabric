@@ -132,7 +132,7 @@ tss-esapi = "7"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 
 # GeoIP database reader (optional — feature = "geoip")
-maxminddb = "0.28"
+maxminddb = "0.29"
 
 [profile.release]
 lto = true
