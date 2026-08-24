@@ -216,7 +216,7 @@ fn bucket(ip: IpAddr) -> RateKey {
 At higher load: shard the lock on `hash(bucket) % N` instead of one global `Mutex`.
 Don't do it now — record it as an R3 item.
 
-#### R0.8 Clean shutdown and keepalive *(F13, F14)*
+#### R0.8 Clean shutdown and keepalive *(F13, F14)* ✅ (partially — drain + close-frame done; keepalive ping deferred pending tungstenite split-mode ping/pong verification)
 
 - Send Close-frame to both peers on `cancel`, `--drain-timeout-secs` (default 30)
 - Relay-initiated ping every `--keepalive-secs` (default 30), kill session at 3 lost pongs

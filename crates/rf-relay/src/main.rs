@@ -51,6 +51,11 @@ struct Args {
     #[arg(long, default_value_t = 60)]
     pairing_timeout_secs: u64,
 
+    /// How long to wait for sessions to drain gracefully on shutdown before
+    /// force-aborting remaining connections.
+    #[arg(long, default_value_t = 30)]
+    drain_timeout_secs: u64,
+
     /// Maximum number of relay hops a cross-region forwarding request may
     /// traverse before being rejected (prevents A→B→A loops). 0 = unlimited.
     #[arg(long, default_value_t = 2)]
@@ -98,6 +103,7 @@ async fn main() -> anyhow::Result<()> {
         max_session_secs: args.max_session_secs,
         idle_timeout_secs: args.idle_timeout_secs,
         pairing_timeout_secs: args.pairing_timeout_secs,
+        drain_timeout_secs: args.drain_timeout_secs,
     };
 
     let metrics_addr = if args.metrics_addr.is_empty() {

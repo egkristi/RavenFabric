@@ -444,6 +444,9 @@ pub struct RelayLimits {
     pub pairing_timeout_secs: u64,
     /// Maximum concurrent connections (hard cap on the task JoinSet).
     pub max_connections: usize,
+    /// How long to wait for sessions to drain gracefully on shutdown before
+    /// force-aborting the remaining connection tasks.
+    pub drain_timeout_secs: u64,
 }
 
 impl Default for RelayLimits {
@@ -455,6 +458,7 @@ impl Default for RelayLimits {
             idle_timeout_secs: 300,
             pairing_timeout_secs: 60,
             max_connections: 5000,
+            drain_timeout_secs: 30,
         }
     }
 }
@@ -615,8 +619,23 @@ pub async fn run_relay_with_limits_and_metrics(
     loop {
         tokio::select! {
             () = cancel.cancelled() => {
-                info!("relay shutting down");
-                connections.abort_all();
+                info!("relay shutting down (draining for {}s)", limits.drain_timeout_secs);
+                // Gracefully drain: the cancellation token propagates into each
+                // connection task, which sends a Close frame to its peer before
+                // returning. Wait up to drain_timeout_secs, then force-abort.
+                let drain = std::time::Duration::from_secs(limits.drain_timeout_secs);
+                let mut drained = false;
+                tokio::select! {
+                    _ = tokio::time::sleep(drain) => {}
+                    () = async {
+                        while connections.join_next().await.is_some() {}
+                        drained = true;
+                    } => {}
+                }
+                if !drained {
+                    connections.abort_all();
+                }
+                info!("relay shutdown complete");
                 break;
             }
             _ = cleanup_interval.tick() => {
@@ -784,6 +803,8 @@ async fn handle_connection_inner(
         tokio::select! {
             () = cancel.cancelled() => {
                 *close_reason.lock().await = CloseReason::Shutdown;
+                // Send a Close frame so the peer sees a clean drain (F14).
+                let _ = ws_sink.send(Message::Close(None)).await;
             }
             _ = async {
                 let meter = Arc::clone(&meter);
@@ -860,7 +881,10 @@ async fn handle_connection_inner(
 
         // Forward without spawning (cancellation-safe)
         tokio::select! {
-            () = cancel.cancelled() => {}
+            () = cancel.cancelled() => {
+                // Send a Close frame so the unpaired peer sees a clean drain (F14).
+                let _ = ws_sink.send(Message::Close(None)).await;
+            }
             _ = tokio::time::sleep(pairing_timeout) => {
                 warn!("pairing timeout for meet token {}", token_id(&meet_token));
             }
