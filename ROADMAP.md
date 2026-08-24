@@ -97,7 +97,7 @@ scheduler-yield per frame to mask a bug you haven't found.
 Everything in R0 must be in place before the first external invitee connects.
 None of the items require architectural changes — this is hardening of existing code.
 
-#### R0.1 Bounded channels + backpressure *(F1)*
+#### R0.1 Bounded channels + backpressure *(F1)* ✅
 
 ```rust
 // before
@@ -112,7 +112,7 @@ Add `--channel-depth` (default 256). Metric on `send` that blocks > 100 ms.
 **Acceptance criterion:** load-test with one peer that does not read and one that floods holds
 RSS flat over 10 minutes.
 
-#### R0.2 Don't log the meet-token *(F2)*
+#### R0.2 Don't log the meet-token *(F2)* ✅
 
 Introduce `TokenId(String)` = first 8 hex of `SHA-256(token)`. Log only that.
 `impl Debug for` the token type must redact. Clippy lint or test that fails on
@@ -135,7 +135,7 @@ in that mode (`--proxy-protocol`, with `--trusted-proxies` CIDR list).
 **New flags:** `--tls-domain`, `--tls-cert`, `--tls-key`, `--acme-cache`, `--acme-contact`,
 `--tls=off|acme|manual`, `--proxy-protocol`, `--trusted-proxies`.
 
-#### R0.4 Session quotas and timeouts *(F4)*
+#### R0.4 Session quotas and timeouts *(F4)* ✅ (partially — `--max-sessions-per-ip` and `--global-bandwidth-mbps` deferred)
 
 | Flag | Fleet default | BYO default |
 |------|---------------|-------------|
@@ -197,7 +197,7 @@ New CLI: `rf relay token issue --kid <kid> --sub <name> --ttl 30d`, `rf relay to
 
 **This is the point that makes "invite only" something other than a shared password.**
 
-#### R0.7 Rate limiter: /64, bounded, less lock contention *(F6, F7)*
+#### R0.7 Rate limiter: /64, bounded, less lock contention *(F6, F7)* ✅ (partially — bounded LRU and sharded lock deferred to R3)
 
 ```rust
 fn bucket(ip: IpAddr) -> RateKey {

@@ -26,6 +26,30 @@ struct Args {
     /// when connecting from macOS through a Linux relay.
     #[arg(long)]
     compat_mode: bool,
+
+    /// Depth of the bounded per-session shuttle channels (backpressure).
+    #[arg(long, default_value_t = 256)]
+    channel_depth: usize,
+
+    /// Maximum concurrent connections (hard cap).
+    #[arg(long, default_value_t = 5000)]
+    max_connections: usize,
+
+    /// Maximum bytes a session may carry before being closed (0 = off).
+    #[arg(long, default_value_t = 0)]
+    max_session_bytes: u64,
+
+    /// Maximum seconds a session may live before being closed (0 = off).
+    #[arg(long, default_value_t = 0)]
+    max_session_secs: u64,
+
+    /// Idle timeout in seconds before a session is closed.
+    #[arg(long, default_value_t = 300)]
+    idle_timeout_secs: u64,
+
+    /// How long an unpaired peer waits for its counterpart before being dropped.
+    #[arg(long, default_value_t = 60)]
+    pairing_timeout_secs: u64,
 }
 
 #[tokio::main]
@@ -56,5 +80,14 @@ async fn main() -> anyhow::Result<()> {
         info!("compatibility mode enabled — adding inter-message delays for cross-platform relay");
     }
 
-    rf_relay::run_relay_full(&args.listen, cancel, args.secret, forward_config).await
+    let limits = rf_relay::RelayLimits {
+        channel_depth: args.channel_depth,
+        max_connections: args.max_connections,
+        max_session_bytes: args.max_session_bytes,
+        max_session_secs: args.max_session_secs,
+        idle_timeout_secs: args.idle_timeout_secs,
+        pairing_timeout_secs: args.pairing_timeout_secs,
+    };
+
+    rf_relay::run_relay_with_limits(&args.listen, cancel, args.secret, forward_config, limits).await
 }
