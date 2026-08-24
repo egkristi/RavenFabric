@@ -15,11 +15,11 @@ minimal = []
 http-sse = ["dep:axum", "dep:tokio-stream", "dep:futures-util"]
 
 [dependencies]
-rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.15" }
-rf-policy = { path = "../rf-policy", version = "1.0.0-rc.15" }
-rf-audit = { path = "../rf-audit", version = "1.0.0-rc.15" }
-rf-executor = { path = "../rf-executor", version = "1.0.0-rc.15" }
-rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.15" }
+rf-crypto = { path = "../rf-crypto", version = "1.0.0-rc.16" }
+rf-policy = { path = "../rf-policy", version = "1.0.0-rc.16" }
+rf-audit = { path = "../rf-audit", version = "1.0.0-rc.16" }
+rf-executor = { path = "../rf-executor", version = "1.0.0-rc.16" }
+rf-rpc = { path = "../rf-rpc", version = "1.0.0-rc.16" }
 
 tokio = { workspace = true }
 serde = { workspace = true }

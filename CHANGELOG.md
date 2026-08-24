@@ -5,6 +5,13 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.16] — 2026-08-24
+
+### Added
+
+- **`rf-relay` `/metrics` + `/healthz` (R0.5)** — a dedicated Prometheus metrics + healthz HTTP listener (`--metrics-addr`) exposing `rf_relay_connections_total`, `rf_relay_sessions_active`, `rf_relay_pending_pairings`, `rf_relay_session_bytes_total`, `rf_relay_session_closed_total`, `rf_relay_channel_send_blocked_total`, and `rf_relay_forward_total`. Counters are wired into the accept loop, HMAC auth, forward policy, and the shuttle loop.
+- **`rf-relay` graceful drain (R0.8/F14)** — on shutdown the relay now sends a WebSocket Close frame to each peer and waits up to `--drain-timeout-secs` (default 30) before force-aborting, instead of hard-disconnecting.
+
 ## [1.0.0-rc.15] — 2026-08-24
 
 ### Security / Fixed
