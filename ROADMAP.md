@@ -48,6 +48,362 @@
 
 ---
 
+## rf-relay — Roadmap for BYO-relay and bootstrap fleet
+
+Status at review: `crates/rf-relay/src/{main.rs,lib.rs}`, ~390 LOC, 7 tests.
+The relay today does one thing well: HMAC-verifies a meet-token, pairs two WebSocket peers
+on that token, and shuttles `Message::Binary` between them. Everything below is built around that.
+
+---
+
+### 0. Findings in the current code
+
+| # | Finding | Consequence | Severity |
+|---|---------|-------------|----------|
+| F1 | `mpsc::unbounded_channel::<Message>()` in both directions | One slow peer + one fast peer = unbounded RAM buffer. A single pair can OOM the relay. | **Critical** |
+| F2 | `info!("peer connected with meet token: {}", meet_token)` | 256-bit one-time rendezvous secret written in cleartext to log | **Critical** |
+| F3 | No TLS. Raw `TcpListener` + `accept_async` | Requires reverse proxy → `addr.ip()` becomes `127.0.0.1` → rate limiter is dead in production | **Critical** |
+| F4 | No session quotas: no `max_bytes`, `max_secs`, idle-timeout, pairing-timeout | No cost control. Unpaired peer holds token-slot until it disconnects itself | **High** |
+| F5 | One global `--secret` for everyone | Cannot revoke one invitee without rotating for all | **High** (blocks the invitation phase) |
+| F6 | `HashMap<IpAddr, Vec<Instant>>`, per /128 for IPv6 | A /64 gives an attacker 2^64 buckets. Rate limiting is effectively off for IPv6 | **High** |
+| F7 | `JoinSet` without upper bound | Unbounded task-spawning under connection flood | **High** |
+| F8 | No `/metrics`, no `/healthz` | Cannot operate, cannot alarm, cannot measure before scaling | **High** |
+| F9 | Meet-token has no `exp`, no `kid`, no enforced single-use in the relay | README promises "one-time use" — the relay does not enforce it | Medium |
+| F10 | `PendingPeer` uses `tokio_tungstenite::…::Message` as internal currency | **Locks the entire pairing core to WebSocket.** Blocks all other ingress | Medium (architecture) |
+| F11 | `parse_forward_token` → `bridge_to_remote_relay_inner` without hop counter | A→B→A gives forwarding-loop / amplification | Medium |
+| F12 | `yield_now().await` per forwarded frame | Scheduler-yield per frame. Incompatible with "line speed" and 10k sessions | Medium (performance) |
+| F13 | No keepalive-ping from the relay | Dead sessions behind NAT/LB are never detected | Low |
+| F14 | No close-frame on `cancel` | Peers see hard disconnect on deploy instead of clean drain | Low |
+
+#### On F2 and F9 — how bad is token leakage?
+
+Pairing is first-come-first-served on token. An attacker who knows the token can connect
+first and occupy the pairing slot. But Noise XX is mutually authenticated, so the attacker
+does not get through the handshake without the correct static key. **This is DoS, not compromise.**
+It lowers the severity, but still justifies role separation (F9) and not logging the token (F2).
+
+#### On F12 — the comment is wrong
+
+The code justifies `yield_now()` by claiming "multiple messages arriving in the same poll batch can be
+delivered out of order through the mpsc channel". A tokio-mpsc is FIFO — it cannot
+reorder. The cause lies elsewhere (likely in how the two `select!` arms
+interleave, or in snow 0.10.0). Worth root-cause analysis: you currently pay full
+scheduler-yield per frame to mask a bug you haven't found.
+
+---
+
+### R0 — Blocking for the invitation phase
+
+Everything in R0 must be in place before the first external invitee connects.
+None of the items require architectural changes — this is hardening of existing code.
+
+#### R0.1 Bounded channels + backpressure *(F1)*
+
+```rust
+// before
+let (inbound_tx, inbound_rx) = mpsc::unbounded_channel::<Message>();
+// after
+let (inbound_tx, inbound_rx) = mpsc::channel::<Frame>(RELAY_CHANNEL_DEPTH); // 256
+```
+
+`send().await` on a full channel gives natural backpressure all the way back to the TCP window.
+Add `--channel-depth` (default 256). Metric on `send` that blocks > 100 ms.
+
+**Acceptance criterion:** load-test with one peer that does not read and one that floods holds
+RSS flat over 10 minutes.
+
+#### R0.2 Don't log the meet-token *(F2)*
+
+Introduce `TokenId(String)` = first 8 hex of `SHA-256(token)`. Log only that.
+`impl Debug for` the token type must redact. Clippy lint or test that fails on
+`meet_token` in format strings.
+
+#### R0.3 Native TLS + ACME *(F3 — biggest single job, highest payoff)*
+
+`rustls` + `rustls-acme` (or `instant-acme`), TLS-ALPN-01 or HTTP-01,
+listen by default on `:443`.
+
+Three wins in one change:
+
+- BYO becomes one binary, zero reverse proxy — in line with design principle 11 (single binary)
+- `addr.ip()` becomes real source IP again → R0.7 actually works
+- Default port becomes 443, where the relay must be to get through corporate proxies
+
+Keep `--tls=off` for those who want Caddy/HAProxy in front, and support **PROXY protocol v2**
+in that mode (`--proxy-protocol`, with `--trusted-proxies` CIDR list).
+
+**New flags:** `--tls-domain`, `--tls-cert`, `--tls-key`, `--acme-cache`, `--acme-contact`,
+`--tls=off|acme|manual`, `--proxy-protocol`, `--trusted-proxies`.
+
+#### R0.4 Session quotas and timeouts *(F4)*
+
+| Flag | Fleet default | BYO default |
+|------|---------------|-------------|
+| `--max-session-bytes` | 5 GiB | 0 (off) |
+| `--max-session-secs` | 43200 (12 h) | 0 (off) |
+| `--idle-timeout-secs` | 300 | 300 |
+| `--pairing-timeout-secs` | 60 | 60 |
+| `--max-sessions-per-ip` | 10 | 100 |
+| `--max-connections` | 5000 | 5000 |
+| `--global-bandwidth-mbps` | 200 | 0 (off) |
+
+Defaults must be safe for BYO too — a home relay should not stop a large file transfer,
+but should also not leak sessions. Pairing-timeout is the most important: today an unpaired
+peer lives in the `HashMap` until it disconnects itself.
+
+Implementation: `Session` struct with `bytes_in`, `bytes_out`, `started_at`, `last_activity`,
+checked in the shuttle loop. Terminate with a defined close reason that is logged and counted.
+
+#### R0.5 `/metrics` + `/healthz` *(F8)*
+
+Dedicated HTTP listener on `--metrics-addr` (default `127.0.0.1:9091`), same pattern as `rf-agent`.
+
+Minimum set:
+
+```text
+rf_relay_connections_total{result="accepted|rate_limited|auth_failed|over_capacity"}
+rf_relay_sessions_active
+rf_relay_pending_pairings
+rf_relay_session_bytes_total{direction="a_to_b|b_to_a"}
+rf_relay_session_duration_seconds       (histogram)
+rf_relay_pairing_wait_seconds           (histogram)
+rf_relay_session_closed_total{reason="peer_closed|quota_bytes|quota_time|idle|shutdown"}
+rf_relay_channel_send_blocked_total
+rf_relay_forward_total{result="allowed|denied|hop_limit"}
+rf_relay_build_info{version,transport_drivers}
+```
+
+Without this you have no data basis for the scaling triggers. Build it early.
+
+#### R0.6 Multi-key invitation tokens *(F5, F9 — critical for the invitation phase)*
+
+Current format `<payload>.<hex_mac>` with one global secret gives no revocation.
+
+New format, backward-compatible (fall back to old parsing if 2 segments):
+
+```text
+<kid>.<b64url(payload)>.<hex_mac>
+
+payload = { sub, exp, quota_class, nonce, forward_hops }
+```
+
+- `kid` → lookup in a keyring loaded from `--secrets-file` (TOML: kid → secret, label, enabled)
+- `exp` enforced in the relay, with `--max-token-age-secs` as a ceiling
+- `quota_class` points to a named quota profile, so one invitee can have other limits
+- SIGHUP reloads the keyring → **revocation without restart** (same pattern as policy hot-reload)
+- `nonce` + LRU set gives real single-use if `--enforce-single-use`
+
+New CLI: `rf relay token issue --kid <kid> --sub <name> --ttl 30d`, `rf relay token revoke <kid>`.
+
+**This is the point that makes "invite only" something other than a shared password.**
+
+#### R0.7 Rate limiter: /64, bounded, less lock contention *(F6, F7)*
+
+```rust
+fn bucket(ip: IpAddr) -> RateKey {
+    match ip {
+        IpAddr::V4(v4) => RateKey::V4(v4),
+        IpAddr::V6(v6) => RateKey::V6(u64::from_be_bytes(v6.octets()[..8].try_into().unwrap())),
+    }
+}
+```
+
+- Replace `HashMap` → bounded LRU (`--rate-limit-table-size`, default 100_000)
+- `Vec<Instant>` → ring buffer or token bucket (`u32` + `Instant`), less allocation
+- Add `--max-connections` as hard limit on `JoinSet` size *(F7)*
+- Separate `--rate-limit-conn-per-min` (default 20) from `--max-sessions-per-ip`
+
+At higher load: shard the lock on `hash(bucket) % N` instead of one global `Mutex`.
+Don't do it now — record it as an R3 item.
+
+#### R0.8 Clean shutdown and keepalive *(F13, F14)*
+
+- Send Close-frame to both peers on `cancel`, `--drain-timeout-secs` (default 30)
+- Relay-initiated ping every `--keepalive-secs` (default 30), kill session at 3 lost pongs
+- Verify that tokio-tungstenite actually auto-responds to inbound Ping in split mode
+
+#### R0.9 Hop limit on cross-region forward *(F11)*
+
+Add `forward_hops` to the HMAC-verified payload. Decrement on each forward,
+reject at 0. `--max-forward-hops` (default 2). Metric `rf_relay_forward_total{result="hop_limit"}`.
+Without this, A→B→A is an amplification loop.
+
+---
+
+### R1 — Transport abstraction *(F10 — unlocks all fallback)*
+
+This is the change that makes the rest of the roadmap possible. It should be done **after** R0
+(so the invitation phase is not blocked) but **before** any new ingress driver is written.
+
+#### The problem
+
+`PendingPeer` holds `mpsc::…<tokio_tungstenite::tungstenite::Message>`. The pairing core,
+the shuttle loop, and the cross-region bridge are all written against the WebSocket type. `rf-transport` has
+30+ drivers, but the relay can only accept on one of them.
+
+#### The change
+
+Mirror the `Driver` trait (client side, outbound) with a server-side counterpart:
+
+```rust
+/// Server-side counterpart to Driver. One implementation per ingress transport.
+#[async_trait]
+pub trait Ingress: Send + Sync {
+    fn name(&self) -> &'static str;
+    async fn accept(&mut self) -> anyhow::Result<(Box<dyn PeerStream>, PeerAddr)>;
+}
+
+/// Transport-neutral bidirectional frame stream.
+#[async_trait]
+pub trait PeerStream: Send {
+    async fn recv(&mut self) -> anyhow::Result<Option<Frame>>;
+    async fn send(&mut self, frame: Frame) -> anyhow::Result<()>;
+    async fn close(&mut self, reason: CloseReason) -> anyhow::Result<()>;
+}
+
+pub type Frame = bytes::Bytes;   // replaces tungstenite::Message internally
+```
+
+Concrete work:
+
+1. Introduce `Frame = Bytes`. Replace `Message::Binary(_)` everywhere in the pairing core.
+2. Extract `handle_connection_inner` into `pair_and_shuttle(a: Box<dyn PeerStream>, …)` —
+   transport-agnostic, no `tokio_tungstenite` import.
+3. `WebSocketIngress` becomes the first implementation of `Ingress` (pure refactoring, same behavior).
+4. `run_relay_full` takes `Vec<Box<dyn Ingress>>`, not one `listen_addr`.
+5. Config: `--listen ws://0.0.0.0:443 --listen quic://0.0.0.0:443` — repeatable flag with scheme.
+
+**Acceptance criterion:** all existing integration tests green without any change to test code,
+and `rf dev` unchanged. This is a pure refactoring — don't mix in new functionality.
+
+**Side benefit:** `Bytes` removes one copy per frame compared to `Message::Binary(Vec<u8>)`.
+Partial counterweight to F12.
+
+---
+
+### R2 — Fallback ladder (ingress drivers)
+
+With R1 in place, each of these is a bounded `impl Ingress`. Prioritized by
+"how many users get through who didn't before", per unit of effort.
+
+| # | Ingress | Why | Reuses from rf-transport | Effort |
+|---|---------|-----|--------------------------|--------|
+| R2.1 | **WSS on 443** | Baseline. Gets through almost all corporate proxies | existing | incl. in R0.3 |
+| R2.2 | **QUIC / HTTP/3** on 443 UDP | Lower latency, connection migration, 0-RTT. Big lift for mobile agents | `quinn` driver exists | S |
+| R2.3 | **HTTP CONNECT upgrade** on the same 443 | Agents behind explicit proxy. ALPN-based port sharing with WSS | proxy driver exists | S |
+| R2.4 | **HTTP/3 MASQUE** | CONNECT-UDP/IP. Hardest to block of all | MASQUE driver exists | M |
+| R2.5 | **Tor onion service** | Censorship resistance, hides the relay's IP. Relay publishes `.onion` in the relay list | tor driver exists | M |
+| R2.6 | **ECH + domain fronting** | Hides SNI against DPI | ECH driver exists | M |
+| R2.7 | **DNS-tunnel endpoint** | Last resort behind totally restrictive firewalls | dns-tunnel codec exists | L |
+| R2.8 | **Reticulum / LoRa** | Not relevant for a public relay — belongs in mesh, not in broker | — | — |
+
+Note R2.3: ALPN-based multiplexing on one port (`h3`, `h2`, `http/1.1` → WS upgrade)
+gives three transports for the price of one open port. It is the best effort/gain entry in the table.
+
+**Publishing:** the relay list (M3 from the previous plan) must state which ingress types each node
+offers, so the client can build its own fallback order:
+
+```json
+{
+  "region": "eu-north",
+  "endpoints": [
+    { "url": "wss://eu1.relay.ravenfabric.io:443",  "transport": "websocket", "priority": 10 },
+    { "url": "quic://eu1.relay.ravenfabric.io:443", "transport": "quic",      "priority": 5  },
+    { "url": "http3://eu1.relay.ravenfabric.io:443","transport": "masque",    "priority": 20 },
+    { "url": "ws://xyz….onion:443",                 "transport": "tor",       "priority": 90 }
+  ]
+}
+```
+
+---
+
+### R3 — Scaling (defer until the triggers fire)
+
+| # | Measure | Trigger |
+|---|---------|---------|
+| R3.1 | Sharded rate-limiter lock (`hash(bucket) % N`) | Lock contention visible in profile at > 1000 concurrent |
+| R3.2 | Root-cause analysis + removal of the `yield_now()` hack *(F12)* | Before you promise more than ~1 Gbps per node |
+| R3.3 | Shared pairing state between relay instances (Redis/NATS) so agent and client can hit different nodes behind the same LB | When one region needs > 1 node |
+| R3.4 | `splice(2)` / zero-copy shuttle on Linux for paired sessions | When CPU per Gbps becomes the cost driver |
+| R3.5 | Per-session bandwidth shaping (token bucket) instead of hard byte quota | When quota breach feels too brutal to real users |
+| R3.6 | GeoIP-based relay hint in `geoip.rs` used to suggest a closer node on connect | > 2 regions |
+| R3.7 | Structured audit log from relay to `rf-audit` destinations | First abuse case |
+
+---
+
+### Order
+
+```text
+R0.1  bounded channels          ─┐
+R0.2  token redaction            │  can be done in parallel, all small
+R0.7  rate limiter /64 + cap    ─┘
+        ↓
+R0.3  native TLS + ACME            ← biggest single job, everything else becomes easier after
+        ↓
+R0.5  /metrics + /healthz          ← needed to measure the rest
+        ↓
+R0.4  session quotas
+R0.6  multi-key invitations        ← the gate to the invitation phase
+R0.8  drain + keepalive
+R0.9  hop limit
+        ↓
+      ▶ FLEET V1 CAN OPEN FOR INVITEES
+        ↓
+R1    Ingress/PeerStream refactoring   ← pure refactoring, no new functionality
+        ↓
+R2.2  QUIC        ─┐
+R2.3  HTTP CONNECT ┤ fallback ladder, one driver at a time
+R2.4  MASQUE      ─┘
+        ↓
+R3.*  after measurement
+```
+
+---
+
+### Test requirements to include at the same time
+
+- **Load:** 1000 concurrent paired sessions, RSS flat over 30 min
+- **Backpressure:** peer that does not read + peer that floods → flat RSS, no OOM
+- **Quotas:** each of `max_bytes`, `max_secs`, `idle`, `pairing_timeout` has its own test with verified close reason
+- **Token:** expired `exp` rejected, unknown `kid` rejected, revoked `kid` rejected after SIGHUP, old 2-segment format still accepted
+- **Rate limit:** two IPv6 addresses in the same /64 share a bucket; in different /64 they don't
+- **Forward:** hop limit stops A→B→A
+- **Fuzz:** meet-token parser into `fuzz/` (it is the first code that meets unknown input)
+- **Ingress parity (after R1):** same test suite run against each `Ingress` implementation
+
+---
+
+### New/changed CLI flags combined
+
+```text
+--listen <url>...                 repeatable: ws://…, quic://…, http3://…
+--tls off|acme|manual             default: acme
+--tls-domain <fqdn>
+--tls-cert / --tls-key            for manual
+--acme-cache <path> / --acme-contact <email>
+--proxy-protocol                  only with --tls=off
+--trusted-proxies <cidr>...
+--secrets-file <path>             keyring: kid → secret (SIGHUP-reload)
+--enforce-single-use
+--max-token-age-secs <n>
+--max-session-bytes <n>
+--max-session-secs <n>
+--idle-timeout-secs <n>
+--pairing-timeout-secs <n>
+--max-sessions-per-ip <n>
+--max-connections <n>
+--global-bandwidth-mbps <n>
+--rate-limit-conn-per-min <n>
+--rate-limit-table-size <n>
+--channel-depth <n>
+--keepalive-secs <n>
+--drain-timeout-secs <n>
+--max-forward-hops <n>
+--metrics-addr <addr>
+```
+
+---
+
 ## Architecture (Dependency Graph)
 
 ```text
