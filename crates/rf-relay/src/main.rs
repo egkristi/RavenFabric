@@ -55,6 +55,11 @@ struct Args {
     /// traverse before being rejected (prevents A→B→A loops). 0 = unlimited.
     #[arg(long, default_value_t = 2)]
     max_forward_hops: u32,
+
+    /// Address for the Prometheus metrics + healthz endpoint (e.g. 127.0.0.1:9091).
+    /// Empty disables the endpoint.
+    #[arg(long, default_value = "")]
+    metrics_addr: String,
 }
 
 #[tokio::main]
@@ -95,5 +100,19 @@ async fn main() -> anyhow::Result<()> {
         pairing_timeout_secs: args.pairing_timeout_secs,
     };
 
-    rf_relay::run_relay_with_limits(&args.listen, cancel, args.secret, forward_config, limits).await
+    let metrics_addr = if args.metrics_addr.is_empty() {
+        None
+    } else {
+        Some(args.metrics_addr.clone())
+    };
+
+    rf_relay::run_relay_with_limits_and_metrics(
+        &args.listen,
+        cancel,
+        args.secret,
+        forward_config,
+        limits,
+        metrics_addr,
+    )
+    .await
 }

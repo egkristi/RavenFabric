@@ -154,7 +154,7 @@ peer lives in the `HashMap` until it disconnects itself.
 Implementation: `Session` struct with `bytes_in`, `bytes_out`, `started_at`, `last_activity`,
 checked in the shuttle loop. Terminate with a defined close reason that is logged and counted.
 
-#### R0.5 `/metrics` + `/healthz` *(F8)*
+#### R0.5 `/metrics` + `/healthz` *(F8)* ✅
 
 Dedicated HTTP listener on `--metrics-addr` (default `127.0.0.1:9091`), same pattern as `rf-agent`.
 

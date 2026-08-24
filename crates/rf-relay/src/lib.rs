@@ -10,6 +10,7 @@ use cross_region::{ForwardConfig, bridge_to_remote_relay_inner, parse_forward_to
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::time::Instant;
 
 use futures_util::{SinkExt, StreamExt};
@@ -19,6 +20,214 @@ use tokio::net::TcpListener;
 use tokio::sync::{Mutex, mpsc};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{info, warn};
+
+/// Relay operational metrics, shared across connection tasks and the metrics
+/// endpoint (ROADMAP R0.5/F8).
+#[derive(Debug, Default)]
+pub struct RelayMetrics {
+    /// Total connections by outcome.
+    pub connections_accepted: AtomicU64,
+    pub connections_rate_limited: AtomicU64,
+    pub connections_auth_failed: AtomicU64,
+    pub connections_over_capacity: AtomicU64,
+    /// Currently active paired sessions (gauge).
+    pub sessions_active: AtomicI64,
+    /// Currently pending (unpaired) peer slots (gauge).
+    pub pending_pairings: AtomicI64,
+    /// Total bytes forwarded in each direction.
+    pub bytes_a_to_b: AtomicU64,
+    pub bytes_b_to_a: AtomicU64,
+    /// Sessions closed by reason (peer_closed / quota_bytes / quota_time / idle / shutdown).
+    pub closed_peer_closed: AtomicU64,
+    pub closed_quota_bytes: AtomicU64,
+    pub closed_quota_time: AtomicU64,
+    pub closed_idle: AtomicU64,
+    pub closed_shutdown: AtomicU64,
+    /// Channel send blocks (>100ms) for backpressure observability.
+    pub channel_send_blocked: AtomicU64,
+    /// Cross-region forward outcomes.
+    pub forward_allowed: AtomicU64,
+    pub forward_denied: AtomicU64,
+    pub forward_hop_limit: AtomicU64,
+}
+
+impl RelayMetrics {
+    /// Record a session close reason into the appropriate counter.
+    fn record_close(&self, reason: CloseReason) {
+        let counter = match reason {
+            CloseReason::PeerClosed => &self.closed_peer_closed,
+            CloseReason::QuotaBytes => &self.closed_quota_bytes,
+            CloseReason::QuotaTime => &self.closed_quota_time,
+            CloseReason::Idle => &self.closed_idle,
+            CloseReason::Shutdown => &self.closed_shutdown,
+        };
+        counter.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Render the metrics in Prometheus text exposition format.
+    fn render(&self) -> String {
+        let mut out = String::with_capacity(1024);
+        out.push_str("# HELP rf_relay_connections_total Total connections by outcome.\n");
+        out.push_str("# TYPE rf_relay_connections_total counter\n");
+        out.push_str(&format!(
+            "rf_relay_connections_total{{result=\"accepted\"}} {}\n",
+            self.connections_accepted.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_connections_total{{result=\"rate_limited\"}} {}\n",
+            self.connections_rate_limited.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_connections_total{{result=\"auth_failed\"}} {}\n",
+            self.connections_auth_failed.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_connections_total{{result=\"over_capacity\"}} {}\n",
+            self.connections_over_capacity.load(Ordering::Relaxed)
+        ));
+
+        out.push_str("# HELP rf_relay_sessions_active Currently active paired sessions.\n");
+        out.push_str("# TYPE rf_relay_sessions_active gauge\n");
+        out.push_str(&format!(
+            "rf_relay_sessions_active {}\n",
+            self.sessions_active.load(Ordering::Relaxed)
+        ));
+
+        out.push_str("# HELP rf_relay_pending_pairings Currently unpaired peer slots.\n");
+        out.push_str("# TYPE rf_relay_pending_pairings gauge\n");
+        out.push_str(&format!(
+            "rf_relay_pending_pairings {}\n",
+            self.pending_pairings.load(Ordering::Relaxed)
+        ));
+
+        out.push_str("# HELP rf_relay_session_bytes_total Total bytes forwarded per direction.\n");
+        out.push_str("# TYPE rf_relay_session_bytes_total counter\n");
+        out.push_str(&format!(
+            "rf_relay_session_bytes_total{{direction=\"a_to_b\"}} {}\n",
+            self.bytes_a_to_b.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_session_bytes_total{{direction=\"b_to_a\"}} {}\n",
+            self.bytes_b_to_a.load(Ordering::Relaxed)
+        ));
+
+        out.push_str("# HELP rf_relay_session_closed_total Sessions closed by reason.\n");
+        out.push_str("# TYPE rf_relay_session_closed_total counter\n");
+        out.push_str(&format!(
+            "rf_relay_session_closed_total{{reason=\"peer_closed\"}} {}\n",
+            self.closed_peer_closed.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_session_closed_total{{reason=\"quota_bytes\"}} {}\n",
+            self.closed_quota_bytes.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_session_closed_total{{reason=\"quota_time\"}} {}\n",
+            self.closed_quota_time.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_session_closed_total{{reason=\"idle\"}} {}\n",
+            self.closed_idle.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_session_closed_total{{reason=\"shutdown\"}} {}\n",
+            self.closed_shutdown.load(Ordering::Relaxed)
+        ));
+
+        out.push_str(
+            "# HELP rf_relay_channel_send_blocked_total Channel sends that blocked >100ms.\n",
+        );
+        out.push_str("# TYPE rf_relay_channel_send_blocked_total counter\n");
+        out.push_str(&format!(
+            "rf_relay_channel_send_blocked_total {}\n",
+            self.channel_send_blocked.load(Ordering::Relaxed)
+        ));
+
+        out.push_str("# HELP rf_relay_forward_total Cross-region forward outcomes.\n");
+        out.push_str("# TYPE rf_relay_forward_total counter\n");
+        out.push_str(&format!(
+            "rf_relay_forward_total{{result=\"allowed\"}} {}\n",
+            self.forward_allowed.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_forward_total{{result=\"denied\"}} {}\n",
+            self.forward_denied.load(Ordering::Relaxed)
+        ));
+        out.push_str(&format!(
+            "rf_relay_forward_total{{result=\"hop_limit\"}} {}\n",
+            self.forward_hop_limit.load(Ordering::Relaxed)
+        ));
+        out
+    }
+}
+
+/// Serve `/metrics` and `/healthz` on a dedicated HTTP listener (no framework).
+///
+/// Uses raw tokio TCP, matching the pattern in `rf-executor`'s metrics server.
+async fn run_metrics_server(
+    bind_addr: &str,
+    metrics: Arc<RelayMetrics>,
+    cancel: tokio_util::sync::CancellationToken,
+) -> std::io::Result<()> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let listener = TcpListener::bind(bind_addr).await?;
+    info!("rf-relay metrics endpoint listening on {}", bind_addr);
+
+    loop {
+        tokio::select! {
+            () = cancel.cancelled() => break,
+            result = listener.accept() => {
+                let (mut stream, _addr) = match result {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                let metrics = Arc::clone(&metrics);
+                tokio::spawn(async move {
+                    let mut buf = vec![0u8; 2048];
+                    let n = match stream.read(&mut buf).await {
+                        Ok(n) => n,
+                        Err(_) => return,
+                    };
+                    let request = String::from_utf8_lossy(&buf[..n]);
+
+                    if request.starts_with("GET /metrics") {
+                        let body = metrics.render();
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\n\
+                             Content-Type: text/plain; version=0.0.4; charset=utf-8\r\n\
+                             Content-Length: {}\r\n\
+                             Connection: close\r\n\
+                             \r\n\
+                             {}",
+                            body.len(),
+                            body
+                        );
+                        let _ = stream.write_all(response.as_bytes()).await;
+                    } else if request.starts_with("GET /healthz") || request.starts_with("GET /health") {
+                        let body = "{\"status\":\"ok\"}\n";
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\n\
+                             Content-Type: application/json\r\n\
+                             Content-Length: {}\r\n\
+                             Connection: close\r\n\
+                             \r\n\
+                             {}",
+                            body.len(),
+                            body
+                        );
+                        let _ = stream.write_all(response.as_bytes()).await;
+                    } else {
+                        let response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+                        let _ = stream.write_all(response.as_bytes()).await;
+                    }
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
 
 /// Per-IP rate limiter using a sliding window counter.
 ///
@@ -334,11 +543,33 @@ pub async fn run_relay_with_limits(
     forward_config: ForwardConfig,
     limits: RelayLimits,
 ) -> anyhow::Result<()> {
+    run_relay_with_limits_and_metrics(
+        listen_addr,
+        cancel,
+        meet_secret,
+        forward_config,
+        limits,
+        None,
+    )
+    .await
+}
+
+/// Run the relay with full configuration, per-session limits, and an optional
+/// `/metrics` + `/healthz` endpoint.
+pub async fn run_relay_with_limits_and_metrics(
+    listen_addr: &str,
+    cancel: tokio_util::sync::CancellationToken,
+    meet_secret: Option<String>,
+    forward_config: ForwardConfig,
+    limits: RelayLimits,
+    metrics_addr: Option<String>,
+) -> anyhow::Result<()> {
     let channel_depth = limits.channel_depth.max(1);
     let max_connections = limits.max_connections.max(1);
     let state: MeetState = Arc::new(Mutex::new(HashMap::new()));
     // Rate limit: 20 connections per IP per 60 seconds
     let rate_limiter: RateLimiterState = Arc::new(Mutex::new(RateLimiter::new(20, 60)));
+    let metrics = Arc::new(RelayMetrics::default());
     let listener = TcpListener::bind(listen_addr).await?;
     info!("rf-relay listening on {}", listen_addr);
     if meet_secret.is_some() {
@@ -364,6 +595,17 @@ pub async fn run_relay_with_limits(
         );
     }
 
+    // Optional metrics / healthz endpoint.
+    if let Some(addr) = metrics_addr {
+        let metrics_clone = Arc::clone(&metrics);
+        let cancel_clone = cancel.clone();
+        tokio::spawn(async move {
+            if let Err(e) = run_metrics_server(&addr, metrics_clone, cancel_clone).await {
+                warn!("metrics server error: {}", e);
+            }
+        });
+    }
+
     let meet_secret = Arc::new(meet_secret);
     let forward_config = Arc::new(forward_config);
     let limits = Arc::new(limits);
@@ -387,6 +629,7 @@ pub async fn run_relay_with_limits(
 
                 // Hard cap on concurrent connections (F7).
                 if connections.len() >= max_connections {
+                    metrics.connections_over_capacity.fetch_add(1, Ordering::Relaxed);
                     warn!("connection limit reached ({max_connections}), dropping connection from {}", ip);
                     drop(tcp_stream);
                     continue;
@@ -396,16 +639,20 @@ pub async fn run_relay_with_limits(
                 {
                     let mut rl = rate_limiter.lock().await;
                     if !rl.check_and_record(ip) {
+                        metrics.connections_rate_limited.fetch_add(1, Ordering::Relaxed);
                         warn!("rate limit exceeded for {}, dropping connection", ip);
                         continue;
                     }
                 }
+
+                metrics.connections_accepted.fetch_add(1, Ordering::Relaxed);
 
                 let state = Arc::clone(&state);
                 let cancel = cancel.clone();
                 let meet_secret = Arc::clone(&meet_secret);
                 let forward_config = Arc::clone(&forward_config);
                 let limits = Arc::clone(&limits);
+                let metrics = Arc::clone(&metrics);
                 connections.spawn(async move {
                     let ws_stream = match tokio_tungstenite::accept_async(tcp_stream).await {
                         Ok(ws) => ws,
@@ -414,7 +661,7 @@ pub async fn run_relay_with_limits(
                             return;
                         }
                     };
-                    if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret, &forward_config, &limits).await {
+                    if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret, &forward_config, &limits, &metrics).await {
                         warn!("Connection from {} ended: {}", addr, e);
                     }
                 });
@@ -434,6 +681,7 @@ async fn handle_connection(
     meet_secret: &Option<String>,
     forward_config: &ForwardConfig,
     limits: &RelayLimits,
+    metrics: &Arc<RelayMetrics>,
 ) -> anyhow::Result<()> {
     handle_connection_inner(
         ws,
@@ -443,6 +691,7 @@ async fn handle_connection(
         forward_config,
         forward_config.compat_mode,
         limits,
+        metrics,
     )
     .await
 }
@@ -459,6 +708,7 @@ async fn handle_connection_inner(
     forward_config: &ForwardConfig,
     compat_mode: bool,
     limits: &RelayLimits,
+    metrics: &Arc<RelayMetrics>,
 ) -> anyhow::Result<()> {
     let (mut ws_sink, mut ws_source) = ws.split();
 
@@ -471,6 +721,9 @@ async fn handle_connection_inner(
 
     // HMAC verification if secret is configured
     if !verify_meet_token(&meet_token, meet_secret.as_deref()) {
+        metrics
+            .connections_auth_failed
+            .fetch_add(1, Ordering::Relaxed);
         warn!("invalid meet token (HMAC verification failed)");
         return Err(anyhow::anyhow!("meet token HMAC verification failed"));
     }
@@ -478,6 +731,7 @@ async fn handle_connection_inner(
     // ── Cross-region forwarding check ────────────────────────────────────────
     if let Some((target_url, hops, inner_token)) = parse_forward_token_with_hops(&meet_token) {
         if !forward_config.is_target_allowed(target_url) {
+            metrics.forward_denied.fetch_add(1, Ordering::Relaxed);
             warn!("cross-region forward to {} denied by policy", target_url);
             return Err(anyhow::anyhow!(
                 "cross-region forwarding denied: target not in allowlist"
@@ -485,6 +739,7 @@ async fn handle_connection_inner(
         }
         // Hop limit — prevents A→B→A amplification loops (ROADMAP F11).
         if forward_config.max_forward_hops > 0 && hops >= forward_config.max_forward_hops {
+            metrics.forward_hop_limit.fetch_add(1, Ordering::Relaxed);
             warn!(
                 "cross-region forward to {} denied: hop limit reached ({}/{})",
                 target_url, hops, forward_config.max_forward_hops
@@ -493,6 +748,7 @@ async fn handle_connection_inner(
                 "cross-region forwarding denied: hop limit reached"
             ));
         }
+        metrics.forward_allowed.fetch_add(1, Ordering::Relaxed);
         // Reassemble the local WebSocket stream and hand off to bridge.
         let reassembled = ws_sink
             .reunite(ws_source)
@@ -515,6 +771,8 @@ async fn handle_connection_inner(
     if let Some(other) = pending.remove(&meet_token) {
         drop(pending);
         info!("paired meet token: {}", token_id(&meet_token));
+        metrics.sessions_active.fetch_add(1, Ordering::Relaxed);
+        metrics.pending_pairings.fetch_sub(1, Ordering::Relaxed);
 
         let to_first = other.to_peer;
         let mut from_first = other.from_peer;
@@ -530,11 +788,13 @@ async fn handle_connection_inner(
             _ = async {
                 let meter = Arc::clone(&meter);
                 let close_reason = Arc::clone(&close_reason);
+                let metrics = Arc::clone(metrics);
                 while let Some(msg) = ws_source.next().await {
                     match msg {
                         Ok(Message::Binary(data)) => {
                             let n = data.len();
                             if to_first.send(Message::Binary(data)).await.is_err() { break; }
+                            metrics.bytes_a_to_b.fetch_add(n as u64, Ordering::Relaxed);
                             if let Some(r) = meter.record_a_to_b(n, limits) {
                                 *close_reason.lock().await = r;
                                 break;
@@ -553,9 +813,11 @@ async fn handle_connection_inner(
             _ = async {
                 let meter = Arc::clone(&meter);
                 let close_reason = Arc::clone(&close_reason);
+                let metrics = Arc::clone(metrics);
                 while let Some(msg) = from_first.recv().await {
                     let n = msg.len();
                     if ws_sink.send(msg).await.is_err() { break; }
+                    metrics.bytes_b_to_a.fetch_add(n as u64, Ordering::Relaxed);
                     if let Some(r) = meter.record_b_to_a(n, limits) {
                         *close_reason.lock().await = r;
                         break;
@@ -575,6 +837,8 @@ async fn handle_connection_inner(
                 reason = r;
             }
         }
+        metrics.sessions_active.fetch_sub(1, Ordering::Relaxed);
+        metrics.record_close(reason);
         info!("session closed (reason={})", reason.as_str());
     } else {
         let (inbound_tx, mut inbound_rx) = mpsc::channel::<Message>(limits.channel_depth.max(1));
@@ -588,6 +852,7 @@ async fn handle_connection_inner(
             },
         );
         drop(pending);
+        metrics.pending_pairings.fetch_add(1, Ordering::Relaxed);
 
         // Wait for the counterpart peer, bounded by `pairing_timeout_secs`.
         // An unpaired peer must not hold the token slot indefinitely (F4).
@@ -625,6 +890,7 @@ async fn handle_connection_inner(
         // Clean up if disconnected before pairing
         let mut pending = state.lock().await;
         pending.remove(&meet_token);
+        metrics.pending_pairings.fetch_sub(1, Ordering::Relaxed);
     }
 
     Ok(())
@@ -807,5 +1073,40 @@ mod tests {
         assert_eq!(CloseReason::QuotaTime.as_str(), "quota_time");
         assert_eq!(CloseReason::Idle.as_str(), "idle");
         assert_eq!(CloseReason::Shutdown.as_str(), "shutdown");
+    }
+
+    #[test]
+    fn test_relay_metrics_render_prometheus() {
+        let m = RelayMetrics::default();
+        m.connections_accepted.fetch_add(3, Ordering::Relaxed);
+        m.sessions_active.fetch_add(2, Ordering::Relaxed);
+        m.bytes_a_to_b.fetch_add(1024, Ordering::Relaxed);
+
+        let text = m.render();
+        assert!(text.contains("rf_relay_connections_total{result=\"accepted\"} 3"));
+        assert!(text.contains("rf_relay_sessions_active 2"));
+        assert!(text.contains("rf_relay_session_bytes_total{direction=\"a_to_b\"} 1024"));
+        // All metric families present.
+        for family in [
+            "rf_relay_connections_total",
+            "rf_relay_sessions_active",
+            "rf_relay_pending_pairings",
+            "rf_relay_session_bytes_total",
+            "rf_relay_session_closed_total",
+            "rf_relay_channel_send_blocked_total",
+            "rf_relay_forward_total",
+        ] {
+            assert!(text.contains(family), "missing family {family}");
+        }
+    }
+
+    #[test]
+    fn test_relay_metrics_record_close() {
+        let m = RelayMetrics::default();
+        m.record_close(CloseReason::QuotaBytes);
+        m.record_close(CloseReason::Idle);
+        assert_eq!(m.closed_quota_bytes.load(Ordering::Relaxed), 1);
+        assert_eq!(m.closed_idle.load(Ordering::Relaxed), 1);
+        assert_eq!(m.closed_peer_closed.load(Ordering::Relaxed), 0);
     }
 }
