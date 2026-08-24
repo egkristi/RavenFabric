@@ -79,6 +79,15 @@ struct Args {
     /// Maximum allowed token lifetime in seconds (ceiling on `exp`). 0 = no ceiling.
     #[arg(long, default_value_t = 0)]
     max_token_age_secs: u64,
+
+    /// Path to a PEM certificate chain for native TLS termination (WSS).
+    /// Requires `--tls-key`. When set, the relay serves TLS directly (R0.3/F3).
+    #[arg(long)]
+    tls_cert: Option<String>,
+
+    /// Path to the PEM private key matching `--tls-cert`.
+    #[arg(long)]
+    tls_key: Option<String>,
 }
 
 #[tokio::main]
@@ -144,6 +153,23 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
+    // Build the native TLS config if both cert and key are provided (R0.3/F3).
+    let tls_config = match (&args.tls_cert, &args.tls_key) {
+        (Some(cert), Some(key)) => {
+            let cfg = rf_relay::tls::RelayTlsConfig::from_files(
+                std::path::Path::new(cert),
+                std::path::Path::new(key),
+            )?;
+            info!(
+                "native TLS termination enabled (WSS) via {} / {}",
+                cert, key
+            );
+            Some(cfg)
+        }
+        (None, None) => None,
+        _ => anyhow::bail!("--tls-cert and --tls-key must be provided together"),
+    };
+
     rf_relay::run_relay_with_verifier(
         &args.listen,
         cancel,
@@ -152,6 +178,7 @@ async fn main() -> anyhow::Result<()> {
         limits,
         metrics_addr,
         verifier,
+        tls_config,
     )
     .await
 }

@@ -1,12 +1,20 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.17 (Release Candidate) — Released 2026-08-24
+> **Version:** 1.0.0-rc.18 (Release Candidate) — Released 2026-08-24
 > **Next:** v1.0.0 (Stable) — **Critical bugs resolved; remaining blockers require rpi5 access or human action**
-> **Stats:** 15 crates, ~77,046 LOC, 1,457 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 15 crates, ~77,351 LOC, 1,461 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. Critical bugs resolved in rc.7–rc.11.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
+
+## Release Checklist: v1.0.0-rc.18 — rf-relay Native TLS ✅
+
+**Released 2026-08-24.** Adds native TLS termination to `rf-relay` so a single binary can serve WSS on 443 directly.
+
+- [x] **Native TLS termination (R0.3/F3)** — `--tls-cert` / `--tls-key` enable manual-mode rustls termination in `rf-relay`, restoring the real client source IP for the per-IP rate limiter (previously lost behind a reverse proxy). The pairing core (`handle_connection`, `handle_connection_inner`, `bridge_to_remote_relay_inner`) is now generic over the stream type so plain TCP and TLS streams share one code path.
+- [x] **TLS e2e test** — self-signed cert roundtrip (TLS handshake + byte echo) plus cert/key load tests.
+- [x] **Crypto-provider conflict fix** — pinned `tokio-rustls` to the `ring` provider (was defaulting to `aws_lc_rs`, which conflicted with the workspace `ring` feature and broke QUIC TLS at runtime).
 
 ## Release Checklist: v1.0.0-rc.17 — rf-relay Metrics + Drain ✅
 
@@ -139,7 +147,7 @@ Introduce `TokenId(String)` = first 8 hex of `SHA-256(token)`. Log only that.
 `impl Debug for` the token type must redact. Clippy lint or test that fails on
 `meet_token` in format strings.
 
-#### R0.3 Native TLS + ACME *(F3 — biggest single job, highest payoff)*
+#### R0.3 Native TLS + ACME *(F3 — biggest single job, highest payoff)* ✅ (partially — manual cert mode done; ACME auto-provisioning and PROXY protocol v2 deferred)
 
 `rustls` + `rustls-acme` (or `instant-acme`), TLS-ALPN-01 or HTTP-01,
 listen by default on `:443`.

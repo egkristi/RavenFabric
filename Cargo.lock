@@ -2371,7 +2371,7 @@ dependencies = [
 
 [[package]]
 name = "rf-agent"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2398,7 +2398,7 @@ dependencies = [
 
 [[package]]
 name = "rf-audit"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "chrono",
  "hex",
@@ -2415,7 +2415,7 @@ dependencies = [
 
 [[package]]
 name = "rf-bootstrap"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "chrono",
  "hex",
@@ -2431,7 +2431,7 @@ dependencies = [
 
 [[package]]
 name = "rf-cli"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "anyhow",
  "clap",
@@ -2459,7 +2459,7 @@ dependencies = [
 
 [[package]]
 name = "rf-controller"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "anyhow",
  "clap",
@@ -2474,7 +2474,7 @@ dependencies = [
 
 [[package]]
 name = "rf-crypto"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "chacha20poly1305",
  "criterion",
@@ -2495,7 +2495,7 @@ dependencies = [
 
 [[package]]
 name = "rf-executor"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2527,7 +2527,7 @@ dependencies = [
 
 [[package]]
 name = "rf-ingress"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "anyhow",
  "axum",
@@ -2575,7 +2575,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-client"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "serde",
  "serde_json",
@@ -2585,7 +2585,7 @@ dependencies = [
 
 [[package]]
 name = "rf-mcp-server"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "anyhow",
  "axum",
@@ -2613,7 +2613,7 @@ dependencies = [
 
 [[package]]
 name = "rf-policy"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "regex",
  "rf-audit",
@@ -2627,7 +2627,7 @@ dependencies = [
 
 [[package]]
 name = "rf-relay"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "anyhow",
  "base64",
@@ -2636,12 +2636,17 @@ dependencies = [
  "hex",
  "hmac",
  "maxminddb",
+ "rcgen",
  "rf-transport",
+ "rustls",
+ "rustls-pemfile",
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-rustls",
  "tokio-tungstenite",
  "tokio-util",
  "toml",
@@ -2651,7 +2656,7 @@ dependencies = [
 
 [[package]]
 name = "rf-rpc"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "criterion",
  "futures-util",
@@ -2674,7 +2679,7 @@ dependencies = [
 
 [[package]]
 name = "rf-transport"
-version = "1.0.0-rc.17"
+version = "1.0.0-rc.18"
 dependencies = [
  "async-trait",
  "chacha20poly1305",
@@ -2794,6 +2799,7 @@ version = "0.23.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b92b125634d9b795e7beca796cc790df15a7fb38323bf3196fda83292d06b1f"
 dependencies = [
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -2812,6 +2818,15 @@ dependencies = [
  "rustls-pki-types",
  "schannel",
  "security-framework",
+]
+
+[[package]]
+name = "rustls-pemfile"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
+dependencies = [
+ "rustls-pki-types",
 ]
 
 [[package]]

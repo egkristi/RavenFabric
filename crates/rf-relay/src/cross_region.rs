@@ -146,13 +146,19 @@ pub async fn bridge_to_remote_relay(
 }
 
 /// Internal bridge with optional compat mode for cross-platform relay issues.
-pub(crate) async fn bridge_to_remote_relay_inner(
-    local_ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+///
+/// Generic over the local stream type so it can bridge both plain TCP and TLS
+/// streams (used by `handle_connection_inner` for the native-TLS path).
+pub(crate) async fn bridge_to_remote_relay_inner<S>(
+    local_ws: tokio_tungstenite::WebSocketStream<S>,
     target_relay_url: &str,
     inner_token: &str,
     cancel: tokio_util::sync::CancellationToken,
     compat_mode: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
     info!(
         "opening cross-region forward to {} (token hash {})",
         target_relay_url,

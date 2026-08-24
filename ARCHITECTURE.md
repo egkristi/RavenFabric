@@ -4,7 +4,7 @@
 
 RavenFabric is built as a Rust Cargo workspace with 15 focused crates. Each crate has a single responsibility and clear dependency boundaries. The architecture follows a strict layered model where higher layers depend on lower layers, never the reverse.
 
-**Current state:** ~77,046 lines of Rust across 15 crates with 1,457 tests.
+**Current state:** ~77,351 lines of Rust across 15 crates with 1,461 tests.
 
 ---
 

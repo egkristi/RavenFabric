@@ -4,8 +4,10 @@
 
 pub mod cross_region;
 pub mod geoip;
+pub mod tls;
 pub mod tokens;
 
+use tls::RelayTlsConfig;
 use tokens::TokenVerifier;
 
 use cross_region::{ForwardConfig, bridge_to_remote_relay_inner, parse_forward_token_with_hops};
@@ -579,6 +581,7 @@ pub async fn run_relay_with_limits_and_metrics(
         limits,
         metrics_addr,
         None,
+        None,
     )
     .await
 }
@@ -586,6 +589,9 @@ pub async fn run_relay_with_limits_and_metrics(
 /// Run the relay with full configuration, per-session limits, metrics, and a
 /// multi-key `TokenVerifier` (R0.6). When `verifier` is `Some`, it supersedes
 /// the legacy single-secret `meet_secret` verification.
+///
+/// `tls_config`, when `Some`, enables native TLS termination (WSS) so the relay
+/// can serve directly on 443 without a reverse proxy (R0.3/F3).
 #[allow(clippy::too_many_arguments)]
 pub async fn run_relay_with_verifier(
     listen_addr: &str,
@@ -595,6 +601,7 @@ pub async fn run_relay_with_verifier(
     limits: RelayLimits,
     metrics_addr: Option<String>,
     verifier: Option<Arc<TokenVerifier>>,
+    tls_config: Option<RelayTlsConfig>,
 ) -> anyhow::Result<()> {
     run_relay_full_impl(
         listen_addr,
@@ -604,6 +611,7 @@ pub async fn run_relay_with_verifier(
         limits,
         metrics_addr,
         verifier,
+        tls_config,
     )
     .await
 }
@@ -617,6 +625,7 @@ async fn run_relay_full_impl(
     limits: RelayLimits,
     metrics_addr: Option<String>,
     verifier: Option<Arc<TokenVerifier>>,
+    tls_config: Option<RelayTlsConfig>,
 ) -> anyhow::Result<()> {
     let channel_depth = limits.channel_depth.max(1);
     let max_connections = limits.max_connections.max(1);
@@ -631,6 +640,9 @@ async fn run_relay_full_impl(
     }
     if verifier.is_some() {
         info!("multi-key invitation token verification enabled");
+    }
+    if tls_config.is_some() {
+        info!("native TLS termination enabled (WSS)");
     }
     info!(
         "relay limits: channel_depth={}, max_connections={}, max_session_bytes={}, max_session_secs={}, idle_timeout_secs={}, pairing_timeout_secs={}",
@@ -726,16 +738,39 @@ async fn run_relay_full_impl(
                 let limits = Arc::clone(&limits);
                 let metrics = Arc::clone(&metrics);
                 let verifier = verifier.clone();
+                let tls_config = tls_config.clone();
                 connections.spawn(async move {
-                    let ws_stream = match tokio_tungstenite::accept_async(tcp_stream).await {
-                        Ok(ws) => ws,
-                        Err(e) => {
-                            warn!("WS accept failed from {}: {}", addr, e);
-                            return;
+                    // Optionally perform a native TLS handshake before the
+                    // WebSocket upgrade (R0.3/F3).
+                    if let Some(tls) = &tls_config {
+                        let tls_stream = match tls.accept(tcp_stream).await {
+                            Ok(s) => s,
+                            Err(e) => {
+                                warn!("TLS handshake failed from {}: {}", addr, e);
+                                return;
+                            }
+                        };
+                        let ws_stream = match tokio_tungstenite::accept_async(tls_stream).await {
+                            Ok(ws) => ws,
+                            Err(e) => {
+                                warn!("WS accept failed from {}: {}", addr, e);
+                                return;
+                            }
+                        };
+                        if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret, &forward_config, &limits, &metrics, verifier.as_deref()).await {
+                            warn!("Connection from {} ended: {}", addr, e);
                         }
-                    };
-                    if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret, &forward_config, &limits, &metrics, verifier.as_deref()).await {
-                        warn!("Connection from {} ended: {}", addr, e);
+                    } else {
+                        let ws_stream = match tokio_tungstenite::accept_async(tcp_stream).await {
+                            Ok(ws) => ws,
+                            Err(e) => {
+                                warn!("WS accept failed from {}: {}", addr, e);
+                                return;
+                            }
+                        };
+                        if let Err(e) = handle_connection(ws_stream, state, cancel, &meet_secret, &forward_config, &limits, &metrics, verifier.as_deref()).await {
+                            warn!("Connection from {} ended: {}", addr, e);
+                        }
                     }
                 });
             }
@@ -747,8 +782,8 @@ async fn run_relay_full_impl(
     Ok(())
 }
 
-async fn handle_connection(
-    ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+async fn handle_connection<S>(
+    ws: tokio_tungstenite::WebSocketStream<S>,
     state: MeetState,
     cancel: tokio_util::sync::CancellationToken,
     meet_secret: &Option<String>,
@@ -756,7 +791,10 @@ async fn handle_connection(
     limits: &RelayLimits,
     metrics: &Arc<RelayMetrics>,
     verifier: Option<&TokenVerifier>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
     handle_connection_inner(
         ws,
         state,
@@ -775,8 +813,8 @@ async fn handle_connection(
 /// When `compat_mode` is true, adds a small yield between forwarded messages
 /// to prevent race conditions on certain platform combinations (macOS→Linux).
 #[allow(clippy::too_many_arguments)]
-async fn handle_connection_inner(
-    ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+async fn handle_connection_inner<S>(
+    ws: tokio_tungstenite::WebSocketStream<S>,
     state: MeetState,
     cancel: tokio_util::sync::CancellationToken,
     meet_secret: &Option<String>,
@@ -785,7 +823,10 @@ async fn handle_connection_inner(
     limits: &RelayLimits,
     metrics: &Arc<RelayMetrics>,
     verifier: Option<&TokenVerifier>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
     let (mut ws_sink, mut ws_source) = ws.split();
 
     // First message must be the meet token

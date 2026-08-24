@@ -5,6 +5,12 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.18] — 2026-08-24
+
+### Added
+
+- **`rf-relay` native TLS termination (R0.3/F3)** — the relay can now serve WSS directly on 443 without a reverse proxy, restoring the real client source IP for the per-IP rate limiter. Adds a new `tls` module with `RelayTlsConfig` (manual cert mode via `--tls-cert` / `--tls-key`), and makes `handle_connection` / `handle_connection_inner` / `bridge_to_remote_relay_inner` generic over the stream type so plain TCP and TLS streams share the same pairing core. ACME auto-provisioning and PROXY protocol v2 remain deferred follow-on work.
+
 ## [1.0.0-rc.17] — 2026-08-24
 
 ### Added
