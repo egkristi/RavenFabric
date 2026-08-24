@@ -50,6 +50,11 @@ struct Args {
     /// How long an unpaired peer waits for its counterpart before being dropped.
     #[arg(long, default_value_t = 60)]
     pairing_timeout_secs: u64,
+
+    /// Maximum number of relay hops a cross-region forwarding request may
+    /// traverse before being rejected (prevents A→B→A loops). 0 = unlimited.
+    #[arg(long, default_value_t = 2)]
+    max_forward_hops: u32,
 }
 
 #[tokio::main]
@@ -73,6 +78,7 @@ async fn main() -> anyhow::Result<()> {
 
     let forward_config = rf_relay::cross_region::ForwardConfig {
         compat_mode: args.compat_mode,
+        max_forward_hops: args.max_forward_hops,
         ..Default::default()
     };
 

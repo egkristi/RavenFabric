@@ -5,7 +5,7 @@
 pub mod cross_region;
 pub mod geoip;
 
-use cross_region::{ForwardConfig, bridge_to_remote_relay_inner, parse_forward_token};
+use cross_region::{ForwardConfig, bridge_to_remote_relay_inner, parse_forward_token_with_hops};
 
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
@@ -476,11 +476,21 @@ async fn handle_connection_inner(
     }
 
     // ── Cross-region forwarding check ────────────────────────────────────────
-    if let Some((target_url, inner_token)) = parse_forward_token(&meet_token) {
+    if let Some((target_url, hops, inner_token)) = parse_forward_token_with_hops(&meet_token) {
         if !forward_config.is_target_allowed(target_url) {
             warn!("cross-region forward to {} denied by policy", target_url);
             return Err(anyhow::anyhow!(
                 "cross-region forwarding denied: target not in allowlist"
+            ));
+        }
+        // Hop limit — prevents A→B→A amplification loops (ROADMAP F11).
+        if forward_config.max_forward_hops > 0 && hops >= forward_config.max_forward_hops {
+            warn!(
+                "cross-region forward to {} denied: hop limit reached ({}/{})",
+                target_url, hops, forward_config.max_forward_hops
+            );
+            return Err(anyhow::anyhow!(
+                "cross-region forwarding denied: hop limit reached"
             ));
         }
         // Reassemble the local WebSocket stream and hand off to bridge.

@@ -222,7 +222,7 @@ Don't do it now — record it as an R3 item.
 - Relay-initiated ping every `--keepalive-secs` (default 30), kill session at 3 lost pongs
 - Verify that tokio-tungstenite actually auto-responds to inbound Ping in split mode
 
-#### R0.9 Hop limit on cross-region forward *(F11)*
+#### R0.9 Hop limit on cross-region forward *(F11)* ✅
 
 Add `forward_hops` to the HMAC-verified payload. Decrement on each forward,
 reject at 0. `--max-forward-hops` (default 2). Metric `rf_relay_forward_total{result="hop_limit"}`.

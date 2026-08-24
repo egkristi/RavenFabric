@@ -39,7 +39,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{info, warn};
 
 /// Configuration governing cross-region relay forwarding.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ForwardConfig {
     /// Whether forwarding is enabled at all.  Default: `false`.
     pub allow_forwarding: bool,
@@ -51,6 +51,21 @@ pub struct ForwardConfig {
     /// Adds a small yield between forwarded messages to prevent race conditions
     /// on certain platform combinations (e.g., macOS→Linux via snow-0.10.0).
     pub compat_mode: bool,
+    /// Maximum number of relay hops a forwarding request may traverse before it
+    /// is rejected. Prevents A→B→A amplification loops (ROADMAP F11).
+    /// `0` disables the hop check (unbounded). Default: `2`.
+    pub max_forward_hops: u32,
+}
+
+impl Default for ForwardConfig {
+    fn default() -> Self {
+        Self {
+            allow_forwarding: false,
+            forward_allowlist: Vec::new(),
+            compat_mode: false,
+            max_forward_hops: 2,
+        }
+    }
 }
 
 impl ForwardConfig {
@@ -79,6 +94,35 @@ pub fn parse_forward_token(token: &str) -> Option<(&str, &str)> {
         return None;
     }
     Some((target_url, inner_token))
+}
+
+/// Parse an optional hop count from a forwarding token.
+///
+/// The token format `FORWARD:<url>|<hops>|<inner>` carries a decimal hop count;
+/// the legacy `FORWARD:<url>|<inner>` form (without hop count) is also accepted
+/// and treated as hop 0 (unlimited at the parser level — the relay enforces a
+/// ceiling via `max_forward_hops`). Returns `Some((url, hops, inner))` for the
+/// three-segment form and `Some((url, 0, inner))` for the legacy two-segment
+/// form, or `None` if the token is not a forwarding token.
+pub fn parse_forward_token_with_hops(token: &str) -> Option<(&str, u32, &str)> {
+    let rest = token.strip_prefix("FORWARD:")?;
+    let parts: Vec<&str> = rest.split('|').collect();
+    match parts.as_slice() {
+        [target_url, hops, inner] => {
+            if target_url.is_empty() || inner.is_empty() {
+                return None;
+            }
+            let hops = hops.parse::<u32>().ok()?;
+            Some((target_url, hops, inner))
+        }
+        [target_url, inner] => {
+            if target_url.is_empty() || inner.is_empty() {
+                return None;
+            }
+            Some((target_url, 0, inner))
+        }
+        _ => None,
+    }
 }
 
 /// Hash a meet token for audit logging (SHA-256, hex-encoded).
@@ -212,6 +256,43 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_forward_token_with_hops_three_segment() {
+        let token = "FORWARD:wss://eu2.relay.example.com:9090|1|my-agent-token";
+        assert_eq!(
+            parse_forward_token_with_hops(token),
+            Some(("wss://eu2.relay.example.com:9090", 1, "my-agent-token"))
+        );
+    }
+
+    #[test]
+    fn test_parse_forward_token_with_hops_legacy_two_segment() {
+        // Legacy FORWARD:<url>|<inner> form is treated as hop 0.
+        let token = "FORWARD:wss://eu2.relay.example.com:9090|my-agent-token";
+        assert_eq!(
+            parse_forward_token_with_hops(token),
+            Some(("wss://eu2.relay.example.com:9090", 0, "my-agent-token"))
+        );
+    }
+
+    #[test]
+    fn test_parse_forward_token_with_hops_invalid_hop() {
+        assert!(
+            parse_forward_token_with_hops("FORWARD:wss://relay.example.com:9090|abc|inner")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_parse_forward_token_with_hops_no_prefix() {
+        assert!(parse_forward_token_with_hops("ordinary-token").is_none());
+    }
+
+    #[test]
+    fn test_max_forward_hops_default_is_two() {
+        assert_eq!(ForwardConfig::default().max_forward_hops, 2);
+    }
+
+    #[test]
     fn test_forward_config_deny_by_default() {
         let cfg = ForwardConfig::default();
         assert!(!cfg.is_target_allowed("wss://relay.example.com:9090"));
@@ -223,6 +304,7 @@ mod tests {
             allow_forwarding: true,
             forward_allowlist: vec![],
             compat_mode: false,
+            max_forward_hops: 2,
         };
         assert!(cfg.is_target_allowed("wss://anything.example.com:9090"));
     }
@@ -233,6 +315,7 @@ mod tests {
             allow_forwarding: true,
             forward_allowlist: vec!["wss://trusted.example.com:9090".into()],
             compat_mode: false,
+            max_forward_hops: 2,
         };
         assert!(cfg.is_target_allowed("wss://trusted.example.com:9090"));
         assert!(!cfg.is_target_allowed("wss://untrusted.example.com:9090"));
