@@ -5,6 +5,12 @@ All notable changes to RavenFabric will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.17] — 2026-08-24
+
+### Added
+
+- **`rf-relay` multi-key invitation tokens (R0.6)** — a keyring-based, per-invitee token format (`<kid>.<b64url(payload)>.<hex_mac>`) so "invite only" is no longer a single shared password. Adds `TokenKeyring` (TOML keyring), `TokenVerifier` (multi-key + legacy fallback), `exp` enforcement with `--max-token-age-secs` ceiling, per-key revocation via `enabled=false`, and single-use via `--enforce-single-use`. New `--secrets-file` flag. Legacy two-segment tokens remain accepted via `--secret`.
+
 ## [1.0.0-rc.16] — 2026-08-24
 
 ### Added

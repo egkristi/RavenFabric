@@ -1,14 +1,14 @@
 # RavenFabric Roadmap
 
-> **Version:** 1.0.0-rc.16 (Release Candidate) — Released 2026-08-24
+> **Version:** 1.0.0-rc.17 (Release Candidate) — Released 2026-08-24
 > **Next:** v1.0.0 (Stable) — **Critical bugs resolved; remaining blockers require rpi5 access or human action**
-> **Stats:** 15 crates, ~76,501 LOC, 1,448 tests, 0 clippy warnings, 0 known vulnerabilities
+> **Stats:** 15 crates, ~77,046 LOC, 1,457 tests, 0 clippy warnings, 0 known vulnerabilities
 > **Latest Feedback:** [RAVENFABRIC-FEEDBACK.md](RAVENFABRIC-FEEDBACK.md) — 56+ tests across 10 categories (Sessions 7-9). 38 passed, 8 denied (expected), 8 failed/hung. Critical bugs resolved in rc.7–rc.11.
 > **For the complete connectivity lifecycle architecture, see [CONNECTIVITY.md](CONNECTIVITY.md)**
 
 ---
 
-## Release Checklist: v1.0.0-rc.16 — rf-relay Metrics + Drain ✅
+## Release Checklist: v1.0.0-rc.17 — rf-relay Metrics + Drain ✅
 
 **Released 2026-08-24.** Adds the `/metrics` + `/healthz` endpoint and graceful drain to `rf-relay`.
 
@@ -1314,8 +1314,8 @@ All packaging handled by GitHub Actions CI/CD. No manual builds.
 
 ### Integration Wishlist (Post-v1.0)
 
-- [x] **Kubernetes operator** — CRD manifests (`RavenAgent`, `RavenPolicy`, `RavenRelay`, `RavenMesh`) added in v1.0.0-rc.16, wired into the Helm chart (`crds/` + `crds.enabled`). OpenAPI v3 schemas enforce required fields; `Reconciler` in `rf-rpc` provides create/update/delete planning. A full watch→reconcile controller loop and mutating webhook remain follow-up enhancements.
-- [x] **Web dashboard** — `rf-controller` binary added in v1.0.0-rc.16: embedded Web UI dashboard + REST API (`/healthz`, `POST /api/v1/agents/heartbeat`, `GET /api/v1/agents`) with agent registry, heartbeat/stale detection, label selection, and bearer-token auth. Live audit feed, policy visualization, and metrics graphs remain follow-up enhancements.
+- [x] **Kubernetes operator** — CRD manifests (`RavenAgent`, `RavenPolicy`, `RavenRelay`, `RavenMesh`) added in v1.0.0-rc.17, wired into the Helm chart (`crds/` + `crds.enabled`). OpenAPI v3 schemas enforce required fields; `Reconciler` in `rf-rpc` provides create/update/delete planning. A full watch→reconcile controller loop and mutating webhook remain follow-up enhancements.
+- [x] **Web dashboard** — `rf-controller` binary added in v1.0.0-rc.17: embedded Web UI dashboard + REST API (`/healthz`, `POST /api/v1/agents/heartbeat`, `GET /api/v1/agents`) with agent registry, heartbeat/stale detection, label selection, and bearer-token auth. Live audit feed, policy visualization, and metrics graphs remain follow-up enhancements.
 - [ ] **Terraform provider** — `ravenfabric_agent`, `ravenfabric_policy`, `ravenfabric_secret`, `ravenfabric_playbook`
 - [ ] **Ansible collection** — Install/configure agents, deploy policies, manage lifecycle, collect audit logs
 - [ ] **Windows agent support** — Windows as a supported agent platform
